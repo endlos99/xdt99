@@ -1,0 +1,3 @@
+*  TEST COPY - INCLUDE FILE 3
+
+        DATA >3333

@@ -1,0 +1,5 @@
+*  TEST COPY - NATIVE INCLUDE FILE 2
+
+	DATA >2222
+	COPY "ascopy3n.asm"
+	DATA >222F

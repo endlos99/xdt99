@@ -1,0 +1,11 @@
+*  TEST COPY - INCLUDE FILE 1
+
+        DEF CD
+
+BD      DATA >1110
+        DATA AE
+BE      EQU BD
+
+*       COPY "DSK2.ASCOPY3"   * NO NESTING
+
+BZ      DATA >111F

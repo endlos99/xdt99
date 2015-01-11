@@ -1,0 +1,58 @@
+*  SYMBOLS PREDEFINED BY LOADER
+
+        IDT  'ASTISYM'
+        
+        DEF  SFIRST,SLOAD,SLAST
+
+        REF  VSBW,VMBW,VSBR,VMBR,VWTR
+        REF  KSCAN,GPLLNK,XMLLNK,DSRLNK,LOADER
+
+        REF  UTLTAB,PAD,GPLWS,SOUND,SCAN
+        REF  VDPRD,VDPSTA,VDPWD,SPCHRD,SPCHWT
+        REF  GRMRD,GRMRA,GRMWD,GRMWA
+
+SFIRST
+SLOAD   NOP
+
+        DATA >FFFF
+
+        DATA VSBW
+        DATA VMBW
+        DATA VSBR
+        DATA VMBR
+        DATA VWTR
+
+        DATA >FFF1
+
+        DATA KSCAN
+        DATA GPLLNK
+        DATA XMLLNK
+        DATA DSRLNK
+        DATA LOADER
+
+        DATA >FFF2
+
+        DATA UTLTAB
+        DATA PAD
+        DATA GPLWS
+        DATA SOUND
+        DATA SCAN
+
+        DATA >FFF3
+
+        DATA VDPRD
+        DATA VDPSTA
+        DATA VDPWD
+        DATA SPCHRD
+        DATA SPCHWT
+
+        DATA >FFF4
+
+        DATA GRMRD
+        DATA GRMRA
+        DATA GRMWD
+        DATA GRMWA
+
+        DATA >FFFF
+
+SLAST   END

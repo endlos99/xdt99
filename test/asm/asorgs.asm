@@ -1,0 +1,204 @@
+*  TEST XORG DIRECTIVES
+
+        IDT 'ASORGS'
+
+        DEF A1X,A4X,A3X,A2X
+        REF Q2,Q1
+        DEF A6X,A7X,A8X,Z
+        REF Q0
+        DEF O2,O4,O10,O31,O43
+
+* NONE
+
+A11     DATA >11
+A12     BSS 5
+A13     BES 5
+A14     DATA Q1
+
+A1X     DATA A11,A12,A13,A14
+        DATA A1X
+
+* AORG
+
+A20     AORG >1000
+A21     DATA >21
+A22     BES 5
+A23     DATA Q1,Q2
+
+A2X     DATA A20,A21,A22,A23
+        DATA A2X
+
+* RORG
+
+A30     RORG
+A31     DATA >31
+A32     BES 5
+A33     DATA Q1
+
+A3X     DATA A30,A31,A32,A33
+        DATA A3X
+
+* RE-RORG
+
+A40     RORG
+A41     DATA >41
+A42     TEXT 'RORG>'
+        DATA Q2
+
+A4X     DATA A40,A41,A42
+        DATA A4X
+
+* DORG
+
+*A50    DORG                  * SYNTAX ERROR
+*A51    DATA >51
+*A52    TEXT 'DORG>'
+*A53    DATA Q1
+*
+*A5X    DATA A50,A51,A52,A53
+*       DATA A5X
+
+* RE-AORG
+
+A60     AORG >2000
+A61     DATA >61
+A62     TEXT '1234567890'
+A63     BSS 4
+A64     BES 6
+A65     DATA Q1
+
+A6X     DATA A60,A61,A62,A63,A64
+        DATA A65,A6X
+        
+* OVERLAPPING AORG
+
+A70     AORG >2008
+A71     DATA >71
+A72     BSS 2
+        DATA Q2
+
+A7X     DATA A70,A71,A72
+        DATA A7X
+
+* RORG W/ADDRESS
+
+A80     RORG
+A81     DATA >81
+A82     RORG $+10
+A83     DATA >82
+A84     RORG A80+>100
+A85     DATA >83
+A86     RORG >2000
+A87     DATA >84
+A88     RORG
+A89     DATA >85
+A8A     DATA Q1
+
+A8X     DATA A80,A81,A82,A83,A84
+        DATA A85,A86,A87,A88,A89
+        DATA A8A,A8X
+
+* ORG W/O ADDRESS
+
+A90     RORG >3000
+A91     BYTE 1
+A92     AORG >3100
+A93     BYTE 2
+A94     RORG
+A95     BYTE 3
+A96     AORG
+A97     BYTE 4
+A98     AORG
+A99     BYTE 5
+A9A     RORG
+A9B     BYTE 6
+A9C     RORG
+A9D     BYTE 7
+A9E     AORG
+A9F     BYTE 8
+
+A9X     DATA A90,A91,A92,A93,A94
+        DATA A95,A96,A97,A98,A99
+        DATA A9A,A9B,A9C,A9D,A9E
+        DATA A9F
+
+* ADDRESS CALCULATIONS
+
+        RORG
+
+C11     DATA A1X-A11
+        DATA A2X-A21
+        DATA A3X-A31
+        DATA A4X-A41
+        DATA A6X-A61
+        DATA A7X-A71
+
+        DATA A61-A21
+        DATA A71-A6X
+        DATA A41-A31
+        DATA A4X-A11
+        DATA C11-A11
+
+        DATA A83-A81
+        DATA A83-A85
+        DATA A81-A87
+        DATA A89-A85
+
+        DATA A11+A61
+        DATA A31-A71
+        DATA C11+A61-A71
+*       DATA C11+A60-A70      * SYNTAX ERROR ???
+
+* ODD BOUNDARIES
+
+O1      RORG
+O2      BYTE 1
+O3      RORG
+O4      BYTE 2
+O5      RORG
+O6      BYTE 3
+O7      RORG
+O8      BSS 1
+O9      RORG
+O10     BSS 3
+O11     RORG
+O12     BES 1
+O13     RORG
+O14     BES 3
+O15     RORG
+
+O20     AORG >0100
+O21     BYTE 1
+O22     AORG >0110
+O23     BSS 3
+O24     AORG >0120
+O25     BSS 1
+O26     BYTE 2
+O27     BES 1
+O28     AORG >0131
+O29     BYTE 3
+O30     AORG >0141
+O31     DATA 4
+
+O40     RORG >0200
+O41     BYTE 1
+O42     RORG >0211
+O43     BYTE 2
+O44     RORG >0221
+O45     DATA 3
+O46     BYTE 4
+O47     RORG
+
+OX      DATA O1,O2,O3,O4,O5
+        DATA O6,O7,O8,O9,O10
+        DATA O11,O12,O13,O14,O15
+        DATA O20,O21,O22,O23,O24
+        DATA O25,O26,O27,O28,O29
+        DATA O30,O31
+        DATA O40,O41,O42,O43,O44
+        DATA O45,O46,O47
+        DATA OX
+
+* END
+
+Z       END

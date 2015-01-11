@@ -1,0 +1,5 @@
+*  TEST COPY - INCLUDE FILE 4
+
+        DATA >4444
+ZZ      END
+        DATA >FFFF

@@ -1,0 +1,9 @@
+*  TEST COPY - INCLUDE FILE 2
+
+CD      DATA >2220
+        DATA BE
+CE      EQU CD
+
+*       COPY "DSK2.ASCOPY3"   * NO NESTING
+
+CZ      DATA >222F
