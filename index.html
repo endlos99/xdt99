@@ -1,0 +1,561 @@
+<!DOCTYPE html>
+<html>
+
+  <head>
+    <meta charset='utf-8'>
+    <meta http-equiv="X-UA-Compatible" content="chrome=1">
+    <meta name="description" content="xdt99 : TI 99 Cross-Development Tools">
+
+    <link rel="stylesheet" type="text/css" media="screen" href="stylesheets/stylesheet.css">
+
+    <title>xdt99</title>
+  </head>
+
+  <body>
+
+    <!-- HEADER -->
+    <div id="header_wrap" class="outer">
+        <header class="inner">
+          <a id="forkme_banner" href="https://github.com/endlos99/xdt99">View on GitHub</a>
+
+          <h1 id="project_title">xdt99</h1>
+          <h2 id="project_tagline">TI 99 Cross-Development Tools</h2>
+
+            <section id="downloads">
+              <a class="zip_download_link" href="https://github.com/endlos99/xdt99/zipball/master">Download this project as a .zip file</a>
+              <a class="tar_download_link" href="https://github.com/endlos99/xdt99/tarball/master">Download this project as a tar.gz file</a>
+            </section>
+        </header>
+    </div>
+
+    <!-- MAIN CONTENT -->
+    <div id="main_content_wrap" class="outer">
+      <section id="main_content" class="inner">
+        <h1>
+<a id="xdt99-ti-99-cross-development-tools" class="anchor" href="#xdt99-ti-99-cross-development-tools" aria-hidden="true"><span class="octicon octicon-link"></span></a>xdt99: TI 99 Cross-Development Tools</h1>
+
+<p>The <strong>TI 99 Cross-Development Tools</strong> (xdt99) are a small suite of programs that
+facilitate the development of programs for the TI 99 family of home computers on
+modern computer systems.</p>
+
+<p>As of this release, the cross-development tools comprise</p>
+
+<ul>
+<li>
+<code>xas99</code>, a TMS9900 cross-assembler, and</li>
+<li>
+<code>xdm99</code>, a command-line disk manager for sector-based TI disk images.</li>
+</ul>
+
+<p>Both programs are written in Python and thus run on any platform
+that Python supports, including Linux, Windows, and Mac OS X.</p>
+
+<p>The <a href="https://endlos99.github.io/xdt99">xdt99 homepage</a> is hosted on GitHub.  You can download the latest
+<a href="https://github.com/endlos99/xdt99/releases">binary release</a> of xdt99 or clone the entire source code <a href="https://github.com/endlos99/xdt99">repository</a>.</p>
+
+<p>The xdt99 tools complement similar projects such as the excellent <a href="http://www.mizapf.de/ti99/tiimagetool.html">TI Image
+Tool</a> or the <a href="http://www.mrousseau.org/programs/ti99sim/">TI 99/Sim emulator</a> by offering slightly different
+approaches or extending their platform availability.</p>
+
+<h2>
+<a id="installation" class="anchor" href="#installation" aria-hidden="true"><span class="octicon octicon-link"></span></a>Installation</h2>
+
+<p>Download the latest <a href="https://github.com/endlos99/xdt99/releases">binary release</a> from GitHub (recommended) or clone the
+<a href="https://github.com/endlos99/xdt99">xdt99 repository</a>.  Please note that the big download buttons on top of the
+xdt99 homepage on GitHub will include the entire repository; this is probably
+<em>not</em> what you want.</p>
+
+<p>You will also need a working copy of <a href="https://www.python.org/downloads/">Python 2.x</a> installed on your computer.
+<code>xdt99</code> has been developed using Python 2.7, but other versions may work as
+well.  Note, however, that compatibility with Python 3 has be postponed to a
+later release for now.</p>
+
+<p>Both the <code>xas99</code> cross-assembler and the <code>xdm99</code> disk manager are self-contained
+Python programs.  Simply place the files <code>xas99.py</code> and <code>xdm99.py</code> somewhere
+into your <code>$PATH</code> or where your command-line interpreter will find them.</p>
+
+<p>The <code>example</code> directory of the binary distribution contains some sample files
+that are referenced throughout this manual.</p>
+
+<h2>
+<a id="xas99-cross-assembler" class="anchor" href="#xas99-cross-assembler" aria-hidden="true"><span class="octicon octicon-link"></span></a>xas99 Cross-Assembler</h2>
+
+<p>The <code>xas99</code> cross-assembler translates TMS9900 assembly code into executable
+programs for the TI 99 home computer equipped with the Editor/Assembler module
+or the Mini Memory module.</p>
+
+<p>Invoking <code>xas99</code> in standard mode will assemble a TMS9900 assembly source code
+file into an object code file that may be loaded using the Editor/Assembler
+module option 3.</p>
+
+<pre><code>$ xas99.py -OR ashello.asm
+</code></pre>
+
+<p><code>xas99</code> can also produce program images files for the Editor/Assembler module
+option 5 or RPK cartridge files for the MESS emulator:</p>
+
+<pre><code>$ xas99.py -OR -i ashello.asm
+$ xas99.py -OR -c ashello.asm
+</code></pre>
+
+<p>All existing assembly code for the TI 99, e.g., the Tombstone City source code
+shipped with the Editor/Assembler module, should cross-assemble using <code>xas99</code>
+without requiring any source code modifications.</p>
+
+<p>The object code generated by <code>xas99</code> is identical to uncompressed object code
+produced by the original TI Editor/Assembler package.  This includes all of its
+quirks, such as shortened object code lines or excessive address specifications,
+but hopefully none of its bugs, such as invalid tags for certain <code>DEF</code>s.</p>
+
+<p>For a detailed step-by-step example on how to cross-assemble and run an assembly
+program using the xdt99 tools and the MESS emulator please refer to the Example
+Usage section below.</p>
+
+<p>Finally, please note that even though the object code format of the TI 99 home
+computer shares many similarities with that of other TMS9900-based systems, most
+notably the TI 990 mini computer, <code>xas99</code> currently targets the TI 99 only.</p>
+
+<h3>
+<a id="assembling-source-code" class="anchor" href="#assembling-source-code" aria-hidden="true"><span class="octicon octicon-link"></span></a>Assembling Source Code</h3>
+
+<p>The <code>xas99</code> cross-assembler reads an assembly source code file and generates an
+uncompressed object code file that is suitable for the original TI 99
+Editor/Assembler loader.</p>
+
+<pre><code>$ xas99.py -OR ashello.asm
+$ xas99.py -OR ashello.asm -o HELLO-O
+</code></pre>
+
+<p>The output parameter <code>-o</code> may be used to override the default output file name.</p>
+
+<p>The assembly options parameter <code>-O</code> tells <code>xas99</code> which Editor/Assembler options
+it should apply during assembly.  Currently, only option <code>R</code> (register symbols)
+is supported; options <code>S</code> (symbol table), <code>L</code> (generate listing), and <code>C</code>
+(compress object code) are ignored.</p>
+
+<p>You will need to add <code>-OR</code> if you prefer to write <code>MOV R0,*R1+</code> etc. instead of
+<code>MOV 0,*1+</code> in your source code.</p>
+
+<p><code>xas99</code> will report any errors to <code>stderr</code> during assembly.  Note that the
+generated object code may differ from the code generated by the Editor/Assembler
+package in the case of errors.  <code>xas99</code> is slightly more permissive than the
+Editor/Assembler, but it should be able to assemble any source that the
+Editor/Assembler package can assemble.</p>
+
+<h3>
+<a id="creating-program-images" class="anchor" href="#creating-program-images" aria-hidden="true"><span class="octicon octicon-link"></span></a>Creating Program Images</h3>
+
+<p>The image parameter <code>-i</code> tells <code>xas99</code> to generate an image file that can be
+loaded using Editor/Assembler option 5.</p>
+
+<pre><code>$ xas99.py -OR -i ashello.asm
+</code></pre>
+
+<p>The <code>-i</code> parameter eliminates the need for the <code>SAVE</code> utility program shipped
+with the Editor/Assembler package.  Just like <code>SAVE</code>, <code>xas99</code> will honor the
+symbols <code>SLOAD</code>, <code>SFIRST</code>, and <code>SLAST</code> to generate the image.  If those symbols
+are missing, <code>xas99</code> will relocate the relocatable program code to memory
+location <code>&gt;A000</code> and include the resulting parts above <code>&gt;A000</code> into the image.</p>
+
+<p>All the usual restrictions for program images apply.  In particular, the first
+word of the image must be an executable instruction.</p>
+
+<h3>
+<a id="creating-mess-cartridges" class="anchor" href="#creating-mess-cartridges" aria-hidden="true"><span class="octicon octicon-link"></span></a>Creating MESS Cartridges</h3>
+
+<p>The cartridge parameter <code>-c</code> tells <code>xas99</code> to create an RPK cartridge file that
+can be used by the MESS emulator.</p>
+
+<pre><code>$ xas99.py -OR -c ascart.asm -n "HELLO WORLD"
+</code></pre>
+
+<p>The optional name parameter <code>-n</code> overrides the default name of the program that
+shows up in the TI 99 menu selection screen.</p>
+
+<p>The resulting RPK archive is a ZIP file containing the actual program code plus
+various information for the MESS emulator on how to execute the program.
+Typically, RPK files are passed as arguments to the MESS executable, or they may
+be mounted while running MESS using the emulator on-screen menu.</p>
+
+<pre><code>$ mess64 ti99_4ae -cart ascart.rpk
+</code></pre>
+
+<p>When the <code>-c</code> option is given, <code>xas99</code> will automatically generate suitable GPL
+header information and relocate the program to address <code>&gt;6030</code>, but it will not
+process the source code any further.  In particular, the usual restrictions on
+using VDP memory access routines apply.</p>
+
+<p>Note that cartridge file generation is still an experimental hack that may not
+work without specific adaptions to your assembly source code.</p>
+
+<h3>
+<a id="tms9900-assembly-support" class="anchor" href="#tms9900-assembly-support" aria-hidden="true"><span class="octicon octicon-link"></span></a>TMS9900 Assembly Support</h3>
+
+<p>The <code>xas99</code> is a complete TMS9900 assembler supporting all documented TMS9900
+opcodes.  TMS9995 opcodes such as <code>MPYS</code> and <code>DIVS</code> are currently not supported
+but may be added in a future release.</p>
+
+<p><code>xas99</code> understands all assembler directives described in the Editor/Assembler
+manual that are supported by both TI 99 assembler and loader, i.e.,</p>
+
+<pre><code>DEF REF EQU DATA BYTE TEXT BSS BES AORG RORG DORG EVEN
+IDT DXOP COPY END
+</code></pre>
+
+<p>Note that the <code>DORG</code> directive <em>is</em> supported, even though the TI assembler does
+not do so.</p>
+
+<p>The following directives are not supported by the TI 99 loader and are thus
+ignored by <code>xas99</code>:</p>
+
+<pre><code>PSEG PEND CSEG CEND DSEG DEND LOAD SREF
+</code></pre>
+
+<p>Listing generation is currently not supported, so directives</p>
+
+<pre><code>LIST UNL PAGE TITL
+</code></pre>
+
+<p>are also ignored.</p>
+
+<h4>
+<a id="source-code-organization" class="anchor" href="#source-code-organization" aria-hidden="true"><span class="octicon octicon-link"></span></a>Source Code Organization</h4>
+
+<p>The <code>COPY</code> directive is used to break large assembly sources into individual
+files.</p>
+
+<p><code>xas99</code> will search the current source directory for appropriately named source
+files.  For example, assembling</p>
+
+<pre><code>$ xas99.py src/file1.asm
+</code></pre>
+
+<p>where <code>file1.asm</code> contains the instruction <code>COPY "DSK1.FILE2"</code> will search for
+include files</p>
+
+<pre><code>src/FILE2
+src/FILE2.ASM
+src/FILE2.S
+</code></pre>
+
+<p>and its corresponding lower-case variants.  <code>COPY</code> also supports native file
+paths, e.g., <code>COPY "/home/ralph/ti/src/file2.asm"</code>.</p>
+
+<h2>
+<a id="xdm99-disk-manager" class="anchor" href="#xdm99-disk-manager" aria-hidden="true"><span class="octicon octicon-link"></span></a>xdm99 Disk Manager</h2>
+
+<p><code>xdm99</code> is a command-line tool for cataloging and manipulating sector-based TI
+disk images used by most emulators, including MESS.  <code>xdm99</code> also supports the
+TIFiles file format that retains TI-specific meta data for files that originate
+from TI disk images.</p>
+
+<h3>
+<a id="cataloging-disks" class="anchor" href="#cataloging-disks" aria-hidden="true"><span class="octicon octicon-link"></span></a>Cataloging Disks</h3>
+
+<p>The default operation of <code>xdm99</code> when invoked without any options is to print
+the file catalog of the disk image to <code>stdout</code>:</p>
+
+<pre><code>$ xdm99.py ed-asm.dsk
+ED-ASSM   :     97 used  263 free   90 KB  1S/1D  40 TpS
+----------------------------------------------------------------------------
+ASSM1         33  PROGRAM       8192 B
+ASSM2         18  PROGRAM       4102 B
+EDIT1         25  PROGRAM       5894 B
+SAVE          13  DIS/FIX 80    3072 B   36 recs
+SFIRST/O       3  DIS/FIX 80     512 B    5 recs
+SLAST/O        3  DIS/FIX 80     512 B    4 recs
+</code></pre>
+
+<p>The top line shows the name of the disk, the number of used and free sectors as
+well as the disk geometry.  For each file, the number of used sectors, the file
+type, the file length, and the actual number of records is shown.  If present,
+the file modification time is also shown.</p>
+
+<p><code>xdm99</code> will warn about any inconsistencies it may find, e.g., blocks claimed by
+files but not allocated in the allocation map.  When assembling programs
+natively these inconsistencies happen more frequently than one would assume.
+Files affected by inconsistencies are flagged with <code>ERR</code> in the catalog.  You
+can try the <code>-R</code> option to automatically repair disks with inconsistencies.</p>
+
+<h3>
+<a id="extracting-files" class="anchor" href="#extracting-files" aria-hidden="true"><span class="octicon octicon-link"></span></a>Extracting Files</h3>
+
+<p>The extract parameter <code>-e</code> extracts one or more files from a disk image to the
+local file system.</p>
+
+<pre><code>$ xdm99.py work.dsk -e HELLO-S CART-S
+</code></pre>
+
+<p>The local output file name is derived automatically from the TI file name but
+may be overridden with the <code>-o</code> parameter.</p>
+
+<pre><code>$ xdm99.py work.dsk -e HELLO-S -o hello.asm
+</code></pre>
+
+<p>To print the contents of a file to <code>stdout</code>, the print parameter <code>-p</code> may also
+be used:</p>
+
+<pre><code>$ xdm99.py work.dsk -p HELLO-S
+</code></pre>
+
+<p>In general, printing files only makes sense for files in DIS/FIX or DIS/VAR
+format.  Following Unix conventions, <code>-p</code> is equivalent to combining parameters
+<code>-e</code> and <code>-o "-"</code>.</p>
+
+<p>Note that extracting files will yield the file contents only.  In order to
+retain file meta data about file type and record length, use the TIFiles format
+described below.</p>
+
+<h3>
+<a id="manipulating-disks" class="anchor" href="#manipulating-disks" aria-hidden="true"><span class="octicon octicon-link"></span></a>Manipulating Disks</h3>
+
+<p>The add parameter <code>-a</code> adds local files to the disk image.  <code>xdm99</code> will infer a
+suitable TI file name from the local file name unless an explicit file name is
+given by the <code>-n</code> parameter.  If the file is not of type <code>PROGRAM</code>, the file
+type must be given using the <code>-f</code> parameter.</p>
+
+<pre><code>$ xdm99.py work.dsk -a ashello.asm -n HELLO-S -f DIS/VAR80
+</code></pre>
+
+<p>The syntax for <code>-f</code> is fairly permissible, e.g., <code>DIS/FIX 80</code>, <code>DISFIX80</code>, or
+<code>DF80</code> all work.</p>
+
+<p>The delete parameter <code>-d</code> deletes one or more files on the disk.</p>
+
+<pre><code>$ xdm99.py work.dsk -d HELLO-I
+</code></pre>
+
+<p>Note that the current implementation of <code>xdm99</code> does not perform a "secure
+erase", i.e., parts of the file contents may remain hidden in the sectors of the
+disk image.</p>
+
+<p>File operations do not retain the overall sector structure of the disk.  In
+particular, all files will be defragmented whenever files are added or deleted
+with <code>-a</code> or <code>-d</code>, respectively, or when the disk is repaired with <code>-R</code>.  Simply
+cataloging the disk, however, will <em>not</em> modify the disk image.</p>
+
+<p>By default, all modifying disk operations will change the disk image directly.
+To create an independent copy of the original disk image with the changes
+applied, the <code>-o</code> parameter may be used.</p>
+
+<h3>
+<a id="tifiles" class="anchor" href="#tifiles" aria-hidden="true"><span class="octicon octicon-link"></span></a>TIFiles</h3>
+
+<p>Extracting files from a TI disk image to the local file system will lose certain
+TI-specific file information, such as the file type or the record length.  In
+order to retain this meta information along with the file contents, the TIFiles
+format was created.</p>
+
+<p><code>xdm99</code> supports the TIFiles format for files by using the <code>-t</code> option.  To
+extract a file in TIFiles format, simply add <code>-t</code> to the extract operation:</p>
+
+<pre><code>$ xdm99.py work.disk -t -e HELLO-S
+</code></pre>
+
+<p>By default, files extracted in TIFiles format will have extension `<code>.tfi</code>.</p>
+
+<p>To add a file in TIFiles format, add <code>-t</code> to the add operation:</p>
+
+<pre><code>$ xdm99.py work.disk -t -a hello-s.tfi
+</code></pre>
+
+<p>As all information about the TI file name and the TI file format is retrieved
+from the TIFiles meta data, parameters <code>-n</code> and <code>-f</code> are ignored when used in
+combination with <code>-t</code>.</p>
+
+<p>The info parameter <code>-I</code> displays the meta file information contained in a
+TIFiles file, while the print parameter <code>-P</code> dumps the file contents to
+<code>stdout</code>:</p>
+
+<pre><code>$ xdm99.py -I hello-s.tfi
+$ xdm99.py -P hello-s.tfi
+</code></pre>
+
+<p><code>xdm99</code> can also convert from TIFiles files to plain files and vice versa
+without relying on disk images:</p>
+
+<pre><code>$ xdm99.py -F hello-s.tfi
+$ xdm99.py -T hello.asm -f DIS/VAR80 -n HELLO-S -o hello-s.tfi
+</code></pre>
+
+<p>Note that creating a TIFiles file using the <code>-T</code> option usually requires
+information about the TI file name and the TI file type, similar to adding files
+to a disk image by using <code>-a</code> without the <code>-t</code> option.</p>
+
+<h3>
+<a id="analyzing-disks" class="anchor" href="#analyzing-disks" aria-hidden="true"><span class="octicon octicon-link"></span></a>Analyzing Disks</h3>
+
+<p>The check parameter <code>-c</code> analyzes a disk image for errors and prints a summary
+to <code>stderr</code>.  While all disk operations, including cataloging, also check and
+report any disk errors found, the <code>-c</code> parameter restricts the output of <code>xdm99</code>
+to those errors only.</p>
+
+<pre><code>$ xdm99.py -c work.dsk
+</code></pre>
+
+<p>The <code>-c</code> parameter also causes <code>xdm99</code> to set its return value to non-zero for
+warnings, making it simple to write shell scripts for batch processing bad disk
+images.</p>
+
+<p>The repair option <code>-R</code> tries to fix any disk errors, mostly by deleting
+erroneous files from it.</p>
+
+<pre><code>$ xdm99.py -R work.dsk
+</code></pre>
+
+<p>The repair operation is likely to cause data loss, so it's best to extract
+erroneous files beforehand or to specify an alternative output file with <code>-o</code>.</p>
+
+<p>The sector dump parameter <code>-s</code> prints the hexadecimal contents of individual
+sectors to <code>stdout</code>.  This can be used to further analyze disk errors or to save
+fragments of corrupted files.</p>
+
+<pre><code>$ xdm99.py work.dsk -s 1
+$ xdm99.py work.dsk -s 0x22 -o first-file-sector
+</code></pre>
+
+<p>For convenience, the sector number may be specified in either decimal or
+hexadecimal notation.</p>
+
+<h2>
+<a id="example-usage" class="anchor" href="#example-usage" aria-hidden="true"><span class="octicon octicon-link"></span></a>Example Usage</h2>
+
+<p>This section gives an example on how to assemble a TI 99 assembly program and
+run it on the MESS emulator.  The commands entered and the responses shown here
+originate from a Linux system, but they should look very similar on Windows and
+Mac OS X machines.</p>
+
+<p>The binary distribution of xdt99 contains an <code>example</code> folder with some sample
+files that we're going to use.  For the source distribution available on Github
+these files are located under the <code>test</code> folder.</p>
+
+<pre><code>$ cd example/
+$ ls -l
+-rw-rw---- 1 ralph ralph  1822 Jan 10 12:51 ascart.asm
+-rw-rw---- 1 ralph ralph   925 Jan 10 12:32 ashello.asm
+-rw-rw---- 1 ralph ralph 92160 Jan 10 12:33 work.dsk
+</code></pre>
+
+<p>The file <code>ashello.asm</code> contains a simple assembly program that we want to
+assemble and run.  Since the program uses register symbols like <code>R0</code> to refer to
+registers, we need to specify the <code>-OR</code> option for assembly.</p>
+
+<pre><code>$ xas99.py -OR ashello.asm
+</code></pre>
+
+<p>This should yield an object code file <code>ashello.obj</code> that looks like
+this:</p>
+
+<pre><code>0007EASHELLO A0000B100DB4845B4C4CB4F20B574FB524CB4420B2020B68697F19FF       0001
+A0012B7420B616EB7920B6B65B7921B0300B0000B02E0B8300B04C0B02017F2F9F          0002
+A0028B2A20B0202B0300B0420B0000B0580B0602B16FBB0200B0043B02017F336F          0003
+A003EC0002B0202B001AB0420B0000B0208BFF00B04C9B0300B0002B10007F31FF          0004
+A0054B0300B0000BD809B837CBD809B8374B0420B0000B9220B8375B13F97F2D4F          0005
+A006ABD020B8375B0980B0240B000FB0260B0700B0420B0000B10E87F410F               0006
+50000SLOAD 50000SFIRST5007ESLAST 5001CSTART 30030VSBW  7F28AF               0007
+30046VMBW  3007AVWTR  30062KSCAN 7F827F                                     0008
+:       99/4 AS                                                             0009
+</code></pre>
+
+<p>This file can be loaded with the Editor/Assembler module using option 3.  But
+before we start MESS, we'll also generate an image file for option 5:</p>
+
+<pre><code>$ xas99.py -OR -i ashello.asm
+</code></pre>
+
+<p>This time we should get a binary file <code>ashello.img</code> of 132 bytes.</p>
+
+<pre><code>$ ls -l ashello.img
+-rw-rw---- 1 ralph ralph   132 Jan 10 13:11 ashello.img
+</code></pre>
+
+<p>We now need to transfer these files to a TI disk image so that the TI 99
+emulated by MESS can load it.  We'll use the SS/SD disk image <code>work.dsk</code> that is
+included in the example folder of xdt99 for convenience:</p>
+
+<pre><code>$ xdm99.py work.dsk -a ashello.obj -n HELLO-O -f DIS/FIX80
+$ xdm99.py work.dsk -a ashello.img -n HELLO-I
+$ xdm99.py work.dsk
+WORK      :     8 used  352 free   90 KB  1S/1D  40 TpS
+----------------------------------------------------------------------------
+HELLO-I        2  PROGRAM        132 B            2015-01-10 13:15:18
+HELLO-O        4  DIS/VAR 80     755 B    9 recs  2015-01-10 13:15:10
+</code></pre>
+
+<p>We start MESS with our work disk inserted in floppy drive 1:</p>
+
+<pre><code>$ mess64 ti99_4ae -peb:slot2 32kmem -peb:slot8 hfdc -cart EA.rpk -flop1 work.dsk
+</code></pre>
+
+<p>You may have to adjust the command for starting MESS based on the location of
+your Editor/Assembler cartridge file.  When using a graphical frontend to launch
+MESS, use your GUI to select the Editor/Assembler module and the disk image
+previously created.</p>
+
+<p>On the TI 99/4A startup screen, we hit any key, then select the Editor/Assembler
+module.  We select option 3, <code>LOAD AND RUN</code>, then enter the name of the object
+code file at the <code>FILE NAME?</code> prompt:</p>
+
+<pre><code>DSK1.HELLO-O
+</code></pre>
+
+<p>Once the loader finishes, we hit <code>ENTER</code> to advance to the <code>PROGRAM NAME?</code>
+prompt, and type <code>START</code> to start the program.  The words "HELLO WORLD" should
+appear on screen, and hitting any key will change the color of the screen
+border.</p>
+
+<p>When done, we quit the program by hitting <code>FCTN =</code>.  Again we select the
+Editor/Assembler module, but now we select option 5, <code>RUN PROGRAM FILE</code>.  We
+enter the name of the image file:</p>
+
+<pre><code>DSK1.HELLO-I
+</code></pre>
+
+<p>The program will start automatically once loading has completed.</p>
+
+<p>To run assembly programs without the Editor/Assembler module, we finally
+generate our own self-contained cartridge.</p>
+
+<p>First we need to assemble our source code using the <code>-c</code> option.</p>
+
+<pre><code>$ xas99.py -OR -c ascart.asm -n "HELLO CART"
+</code></pre>
+
+<p>Note that we cannot run the <code>ashello.asm</code> program as a cartridge, since we call
+<code>VSBW</code> and other VDP subroutines, which are unavailable without Editor/Assembler
+module and memory expansion.  The <code>ascart.asm</code> program thus uses the VDP
+registers directly to write to VDP memory.</p>
+
+<p>We don't have to transfer the resulting RPK file to a disk image but can plug
+the cartridge directly into the MESS emulator:</p>
+
+<pre><code>$ mess64 ti99_4ae -cart ascart.rpk
+</code></pre>
+
+<p>After pressing any key on the TI 99 startup screen you should now see "HELLO
+CART" as the second option on the menu screen.  Pressing 2 will run the sample
+program.</p>
+
+<h2>
+<a id="feedback-and-bug-reports" class="anchor" href="#feedback-and-bug-reports" aria-hidden="true"><span class="octicon octicon-link"></span></a>Feedback and Bug Reports</h2>
+
+<p>The xdt99 tools are released under the GNU GPL, in the hope that TI 99
+enthusiasts may find them useful.</p>
+
+<p>For feedback, bug reports, and feature requests the developer can be reached at
+<a href="mailto:xdt99@endlos.net">xdt99@endlos.net</a>.</p>
+      </section>
+    </div>
+
+    <!-- FOOTER  -->
+    <div id="footer_wrap" class="outer">
+      <footer class="inner">
+        <p class="copyright">xdt99 maintained by <a href="https://github.com/endlos99">endlos99</a></p>
+        <p>Published with <a href="http://pages.github.com">GitHub Pages</a></p>
+      </footer>
+    </div>
+
+    
+
+  </body>
+</html>
