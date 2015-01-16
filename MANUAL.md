@@ -7,11 +7,12 @@ modern computer systems.
 
 As of this release, the cross-development tools comprise
 
- * `xas99`, a TMS9900 cross-assembler, and
- * `xdm99`, a command-line disk manager for sector-based TI disk images.
+ * `xas99`, a TMS9900 cross-assembler,
+ * `xdm99`, a command-line disk manager for sector-based TI disk images, and
+ * `xvm99`, a command-line volume manager for nanoPEB/CF7A Compact Flash cards.
 
-Both programs are written in Python and thus run on any platform
-that Python supports, including Linux, Windows, and Mac OS X.
+All programs are written in Python and thus run on any platform that Python
+supports, including Linux, Windows, and Mac OS X.
 
 The [xdt99 homepage][1] is hosted on GitHub.  You can download the latest
 [binary release][2] of xdt99 or clone the entire source code [repository][3].
@@ -35,8 +36,9 @@ well.  Note, however, that compatibility with Python 3 has be postponed to a
 later release for now.
 
 Both the `xas99` cross-assembler and the `xdm99` disk manager are self-contained
-Python programs.  Simply place the files `xas99.py` and `xdm99.py` somewhere
-into your `$PATH` or where your command-line interpreter will find them.
+Python programs.  The `xvm99` volume manager depends on `xdm99`.  Simply place
+the files `xas99.py`, `xdm99.py` and `xvm99.py` somewhere into your `$PATH` or
+where your command-line interpreter will find them.
 
 The `example` directory of the binary distribution contains some sample files
 that are referenced throughout this manual.
@@ -360,6 +362,73 @@ For convenience, the sector number may be specified in either decimal or
 hexadecimal notation.
 
 
+xvm99 Volume Manager
+--------------------
+
+`xvm99` is an extension to the `xdm99` tool specifically for the
+nanoPEB/CF7A-kind of devices that simulate TI floppy drives using Compact Flash
+cards.  `xvm99` manages and manipulates the disk images stored in the individual
+volumes of CF cards.
+
+
+### Managing Volumes
+
+The default operation of `xvm99` when invoked without any command arguments is
+to print a short summary of the disk images stored in the specified volumes.
+
+	$ xvm99.py /dev/sdc 1-4,8
+	[   1]  EXTBASIC  :     4 used  1596 free
+	[   2]  EMPTY     :     2 used  1598 free
+	[   3]  SSSD      :    39 used  1561 free
+	[   4]  INFOCOM   :   459 used  1141 free
+	[   8]  (not a valid disk image)
+
+The first argument is the name of your Compact Flash card drive, i.e., something
+like `/dev/sdc` on Linux, `/dev/Disk3` on Mac OS X, or `\\.\PHYSICALDRIVE2` on
+Windows.  **Caution:** These are examples only; make sure to identify your CF
+card device correctly, *or you will lose data!* Also note that your user needs
+appropriate read and/or write permissions to access the device.
+
+The second argument may be a single volume number or a combination of value
+ranges, e.g., `1,3-4,6-10`.  In general, if more than one volume is specified,
+then the command is applied to *all* volumes.
+
+The `-w` parameter writes a disk image to one or more volumes.
+
+	$ xvm99.py /dev/sdc 1,3 -w work.dsk
+
+`xvm99` automatically "extends" the disk image to match the 1600 sector format
+used by the CF7A device.
+
+The `-r` argument reads a disk image from a volume and stores it on the local
+file system.
+
+	$ xvm99.py /dev/sdc 2 -r vol2.dsk
+
+When reading from multiple volumes the resulting disk images will be renamed
+automatically.  `xvm99` does not adjust the sector count, so all images
+extracted from CF7A devices will have 1600 sectors.
+
+
+### Manipulating Volumes
+
+Most commands provided by `xdm99` are also available for `xvm99`.
+
+For example, to catalog a volume, you use the same `-i` command as for `xdm99`:
+
+	$ xvm99.py /dev/sdc 8 -i
+
+Other commands supported by `xvm99` are print files `-p`, extract files `-e`,
+add files `-a`, delete files `-d`, check disk `-c`, and repair disk `-R`.
+
+Again, if more than one volume is specified, then the command is applied to all
+volumes.  For example,
+
+	$ xvm99.py /dev/sdc 1-20 -a README -f DV80
+
+adds the local file README to all disk images in volumes 1 through 20.
+
+
 Example Usage
 -------------
 
@@ -467,6 +536,21 @@ the cartridge directly into the MESS emulator:
 After pressing any key on the TI 99 startup screen you should now see "HELLO
 CART" as the second option on the menu screen.  Pressing 2 will run the sample
 program.
+
+If we want to run our sample program on a real TI 99 using the CF7A flash drive,
+we need to transfer our disk image to a flash card first:
+
+	$ xvm99.py /dev/sdc 2 -w work.dsk
+
+This will make our work disk from above available as volume 2 on the CF7A, where
+it can be accessed as `DSK2` by default on the TI 99.  If we don't want to
+replace the entire disk contents of volume 2 we could also just transfer the
+file instead.
+
+	$ xvm99.py /dev/sdc 2 -a ashello.obj -n HELLO-O -f DIS/FIX80
+
+Either way, `ashello.obj` will be available as `HELLO-O` in volume 2 and can
+loaded as `DSK2.HELLO-O` by the Editor/Assembler module.
 
 
 Feedback and Bug Reports

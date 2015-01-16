@@ -61,6 +61,7 @@ class Disk:
     """sector-based TI disk image file"""
 
     bytesPerSector = 256
+    maxSectors = 1600
 
     def __init__(self, image):
         if len(image) < 2 * Disk.bytesPerSector:
@@ -87,7 +88,7 @@ class Disk:
         if (self.totalSectors !=
                 self.sides * self.tracksPerSide * self.sectorsPerTrack) or (
                 self.totalSectors % 8 != 0):
-            self.warn("Invalid total sector count: %d" % self.totalSectors)
+            self.warn("Unusual total sector count: %d" % self.totalSectors)
         self.usedSectors = 0
         try:
             for i in xrange(used(self.totalSectors, 8)):
@@ -192,6 +193,19 @@ class Disk:
         self.allocBitmap = bitmap
         sector0 = self.getSector(0)
         self.setSector(0, sector0[:0x38] + bitmap)
+
+    @staticmethod
+    def extendSectors(image, newsize):
+        """increase total number of sectors and clear allocation map"""
+        current = ordw(image[0x0A:0x0C])
+        if not current <= newsize <= Disk.maxSectors:
+            raise DiskError("Invalid size %d for sector increase" % newsize)
+        if current % 8 != 0:
+            raise DiskError("Unsupported total sector count of %d" % current)
+        bitmap = (image[0x38:0x38 + current / 8] +
+                  "\x00" * (Disk.bytesPerSector - 0x38 - current / 8))
+        return (image[:0x0A] + chrw(newsize) + image[0x0C:0x38] +
+                bitmap + image[0x100:])
 
     def getSector(self, n, context=None):
         """retrieve sector from image"""
@@ -606,10 +620,10 @@ def dump(s):
 
 
 def main():
-    import sys, argparse, os.path
+    import argparse, os.path
 
     args = argparse.ArgumentParser(
-        version="1.0.0",
+        version="1.1.0",
         description="xdm99: Disk image and file manipulation tool")
     args.add_argument(
         "filename", type=str,

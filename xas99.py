@@ -1036,7 +1036,7 @@ def main():
     import argparse, zipfile
 
     args = argparse.ArgumentParser(
-        version="1.0.0",
+        version="1.1.0",
         description="TMS 9900 cross-assembler")
     args.add_argument("source", metavar="<source>",
                       help="assembly source code")

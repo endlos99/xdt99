@@ -22,7 +22,6 @@
 import sys
 import re
 import xdm99
-from os import SEEK_END
 
 
 ### Multi-disk volumes
@@ -36,10 +35,11 @@ class Volumes:
 
     def __init__(self, device):
         self.device = device
-        with open(device, "rb") as d:
-            d.seek(0, SEEK_END)
-            self.size = d.tell()
-        self.volumeCount = xdm99.used(self.size, self.bytesPerVolume)
+        # NOTE: cannot determine device size reliably in Windows
+        #with open(device, "rb") as d:
+        #    d.seek(0, SEEK_END)
+        #    self.size = d.tell()
+        #self.volumeCount = xdm99.used(self.size, self.bytesPerVolume)
         
     def getVolume(self, volno):
         """extract disk image from volume device"""
@@ -54,12 +54,9 @@ class Volumes:
         size = len(image) * 2
         if size > self.bytesPerVolume:
             raise ValueError("Disk image too large")
-        if volno * self.bytesPerVolume > self.size:
-            raise ValueError("Invalid volume number")
-        image = (image[:0x0A] + xdm99.chrw(self.sectorsPerVolume) +
-                 image[0x0C:])  # fix sector count
-        data = "\x00".join(image) + "\x00" * (self.bytesPerVolume - size + 1)
-        assert len(data) == self.bytesPerVolume
+        data = ("\x00".join(xdm99.Disk.extendSectors(image,
+                                                     self.sectorsPerVolume)) +
+                "\x00" * (self.bytesPerVolume - size + 1))
         with open(self.device, "r+b") as d:
             d.seek((volno - 1) * self.bytesPerVolume)
             d.write(data)
@@ -94,10 +91,10 @@ class Volumes:
 ### Command line processing
 
 def main():
-    import sys, argparse, os.path
+    import argparse, os.path
 
     args = argparse.ArgumentParser(
-        version="1.0.0",
+        version="1.1.0",
         description="xvm99: nanoPEB/CF7A disk volume manipulation tool")
     args.add_argument(
         "device", type=str,
