@@ -23,7 +23,7 @@ nanoPEB/CF7A devices.
 
 For additional information, please refer to the [xdt99 homepage][1].
 
-**Latest version: 1.1.1**
+**Latest version: 1.2.0**
 
 The latest binary distribution of xdt99 is available on the project
 [releases page][2] on GitHub.  xdt99 requires [Python 2.7.x][4] and runs on any
@@ -96,6 +96,10 @@ Add local file to disk image:
 
 	$ xdm99.py <disk image> -a <file> ... [-f <format>] [-n <name>]
 
+Rename file on disk image:
+
+	$ xdm99.py <disk image> -r <old name>:<new name> ...
+
 Delete file on disk image:
 
 	$ xdm99.py <disk image> -d <file> ...
@@ -112,13 +116,17 @@ Print contents of TIFiles file:
 
 	$ xdm99.py -P <TIFiles file>
 
+Resize disk image:
+
+	$ xdm99.py <disk image> -Z <sectors>
+
 Repair disk image with corrupt files or other inconsistencies:
 
 	$ xdm99.py -R <disk image>
 
 Print sector dump:
 
-	$ xdm99.py work.dsk -s <number>
+	$ xdm99.py work.dsk -s <sector>
 
 For a complete overview of the available command-line options, see `xdm99.py
 -h`.
@@ -137,11 +145,11 @@ Show information about volumes:
 
 Read disk images from volumes:
 
-	$ xvm99.py <device> <volumes> -r <filename>
+	$ xvm99.py <device> <volumes> -r <filename> [--keep-size]
 
 Write disk image to volumes:
 
-	$ xvm99.py <device> <volumes> -w <disk image>
+	$ xvm99.py <device> <volumes> -w <disk image> [--keep-size]
 
 `<device>` is the platform-specific name of the Compact Flash card drive, e.g.,
 `/dev/sd<X>` on Linux, `/dev/Disk<X>` on Mac OS X, or `\\.\PHYSICALDRIVE<X>` on

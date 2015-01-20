@@ -272,6 +272,13 @@ type must be given using the `-f` parameter.
 The syntax for `-f` is fairly permissible, e.g., `DIS/FIX 80`, `DISFIX80`, or
 `DF80` all work.
 
+The rename parameter `-r` renames one or more files on the disk.
+
+	$ xdm99.py work.dsk -r HELLO-S:HELLO/S
+
+For each file to rename, provide the old file name. followed by a colon `:`,
+followed by the new file name. 
+
 The delete parameter `-d` deletes one or more files on the disk.
 
 	$ xdm99.py work.dsk -d HELLO-I
@@ -351,6 +358,14 @@ erroneous files from it.
 The repair operation is likely to cause data loss, so it's best to extract
 erroneous files beforehand or to specify an alternative output file with `-o`.
 
+The resize parameter `-Z` will change the total number of sector of the disk.
+
+	$ xdm99.py work.dsk -Z 720
+
+Resizing fails if more sectors than the target size are currently in use.
+Note that the disk format used by the TI 99 supports up to 1600 sectors per
+disk.
+
 The sector dump parameter `-s` prints the hexadecimal contents of individual
 sectors to `stdout`.  This can be used to further analyze disk errors or to save
 fragments of corrupted files.
@@ -358,8 +373,8 @@ fragments of corrupted files.
 	$ xdm99.py work.dsk -s 1
 	$ xdm99.py work.dsk -s 0x22 -o first-file-sector
 	
-For convenience, the sector number may be specified in either decimal or
-hexadecimal notation.
+For convenience, the arguments of `-Z` and `-s` may be specified in either
+decimal or hexadecimal notation.
 
 
 xvm99 Volume Manager
@@ -397,8 +412,8 @@ The `-w` parameter writes a disk image to one or more volumes.
 
 	$ xvm99.py /dev/sdc 1,3 -w work.dsk
 
-`xvm99` automatically "extends" the disk image to match the 1600 sector format
-used by the CF7A device.
+`xvm99` automatically extends the disk image to match the 1600 sector format
+used by the CF7A device, unless the `--keep-size` option is given.
 
 The `-r` argument reads a disk image from a volume and stores it on the local
 file system.
@@ -406,8 +421,8 @@ file system.
 	$ xvm99.py /dev/sdc 2 -r vol2.dsk
 
 When reading from multiple volumes the resulting disk images will be renamed
-automatically.  `xvm99` does not adjust the sector count, so all images
-extracted from CF7A devices will have 1600 sectors.
+automatically.  `xvm99` trims disk images to match the sector count stored in
+the image, unless the `--keep-size` option is given.
 
 
 ### Manipulating Volumes

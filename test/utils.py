@@ -2,7 +2,7 @@ import sys
 import re
 
 from subprocess import call
-from config import xdmPy, xasPy
+from config import xdmPy, xvmPy, xasPy
 
 
 ### Utility functions
@@ -21,6 +21,15 @@ def xdm(*args, **kargs):
               stdout=kargs.get("stdout"), stderr=kargs.get("stderr"))
     if rc != kargs.get("rc", 0):
         error("OS", "xdm99 call returned with failure code " + str(rc))
+
+
+def xvm(*args, **kargs):
+    """invoke Volume Manager"""
+    print "VM:", args
+    rc = call(xvmPy + list(args),
+              stdout=kargs.get("stdout"), stderr=kargs.get("stderr"))
+    if rc != kargs.get("rc", 0):
+        error("OS", "xvm99 call returned with failure code " + str(rc))
 
 
 def xas(*args, **kargs):

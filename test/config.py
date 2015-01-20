@@ -9,6 +9,9 @@ xasPy = ["../xas99.py"]
 xdmPy = ["../xdm99.py"]
 #xdmPy = ["c:\\bin\\python2\\python.exe", "..\\xdm99.py"]
 
+xvmPy = ["../xvm99.py"]
+#xvmPy = ["c:\\bin\\python2\\python.exe", "..\\xvm99.py"]
+
 
 ### Paths
 
@@ -44,6 +47,8 @@ class Disks:
     # scratch disks
     work = os.path.join(Dirs.tmp, "work.dsk")
     tifiles = os.path.join(Dirs.tmp, "tifiles.dsk")
+    # simulated CF volume
+    volumes = os.path.join(Dirs.tmp, "volumes.dev")
 
 
 class Files:

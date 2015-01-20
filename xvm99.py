@@ -23,6 +23,8 @@ import sys
 import re
 import xdm99
 
+VERSION = "1.2.0"
+
 
 ### Multi-disk volumes
 
@@ -41,22 +43,22 @@ class Volumes:
         #    self.size = d.tell()
         #self.volumeCount = xdm99.used(self.size, self.bytesPerVolume)
         
-    def getVolume(self, volno):
-        """extract disk image from volume device"""
+    def getVolume(self, volno, trim=False):
+        """get disk image from volume device"""
         with open(self.device, "rb") as f:
             f.seek((volno - 1) * self.bytesPerVolume)
             data = f.read(self.bytesPerVolume)
         image = data[::2]
-        return image
-    
-    def writeVolume(self, volno, image):
+        return xdm99.Disk.trimSectors(image) if trim else image
+
+    def writeVolume(self, volno, image, resize=None):
         """write disk image to volume device"""
         size = len(image) * 2
         if size > self.bytesPerVolume:
             raise ValueError("Disk image too large")
-        data = ("\x00".join(xdm99.Disk.extendSectors(image,
-                                                     self.sectorsPerVolume)) +
-                "\x00" * (self.bytesPerVolume - size + 1))
+        if resize:
+            image = xdm99.Disk.extendSectors(image, resize)
+        data = "\x00".join(image) + "\x00" * (self.bytesPerVolume - size + 1)
         with open(self.device, "r+b") as d:
             d.seek((volno - 1) * self.bytesPerVolume)
             d.write(data)
@@ -94,7 +96,7 @@ def main():
     import argparse, os.path
 
     args = argparse.ArgumentParser(
-        version="1.1.0",
+        version=VERSION,
         description="xvm99: nanoPEB/CF7A disk volume manipulation tool")
     args.add_argument(
         "device", type=str,
@@ -102,15 +104,18 @@ def main():
     args.add_argument(
         "volumes", type=str,
         help="volume number or range")
+    cmd = args.add_mutually_exclusive_group()
     # volume management
-    args.add_argument(
+    cmd.add_argument(
         "-r", "--read-volume", dest="readvol", metavar="<output file>",
         help="read volume")
-    args.add_argument(
+    cmd.add_argument(
         "-w", "--write-volume", dest="writevol", metavar="<disk image>",
         help="write volume")
+    args.add_argument(
+        "--keep-size", action="store_true", dest="keepsize",
+        help="don't resize image when writing to volume")
     # disk image commands for xdm
-    cmd = args.add_mutually_exclusive_group()
     cmd.add_argument(
         "-i", "--info", action="store_true", dest="info",
         help="show image infomation")
@@ -175,11 +180,12 @@ def main():
         if opts.writevol:
             with open(opts.writevol, "rb") as f:
                 data = f.read()
+            resize = None if opts.keepsize else Volumes.sectorsPerVolume
             for v in volumes:
-                device.writeVolume(v, data)
+                device.writeVolume(v, data, resize)
         elif opts.readvol:
             for v in volumes:
-                image = device.getVolume(v)
+                image = device.getVolume(v, not opts.keepsize)
                 suffix = "_" + str(v) if len(volumes) > 1 else ""
                 with open(opts.readvol + suffix, "wb") as f:
                     f.write(image)

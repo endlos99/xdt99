@@ -23,6 +23,8 @@ import sys
 import re
 import datetime
 
+VERSION = "1.2.0"
+
 
 ### Utility functions
 
@@ -196,7 +198,7 @@ class Disk:
 
     @staticmethod
     def extendSectors(image, newsize):
-        """increase total number of sectors and clear allocation map"""
+        """increase total number of sectors and clear alloc map (for xvm99)"""
         current = ordw(image[0x0A:0x0C])
         if not current <= newsize <= Disk.maxSectors:
             raise DiskError("Invalid size %d for sector increase" % newsize)
@@ -206,6 +208,12 @@ class Disk:
                   "\xFF" * (Disk.bytesPerSector - 0x38 - current / 8))
         return (image[:0x0A] + chrw(newsize) + image[0x0C:0x38] +
                 bitmap + image[0x100:])
+
+    @staticmethod
+    def trimSectors(image):
+        """shrink image to actually existing sectors"""
+        totalSectors = ordw(image[0x0A:0x0C])
+        return image[:totalSectors * Disk.bytesPerSector]
 
     def getSector(self, n, context=None):
         """retrieve sector from image"""
@@ -246,9 +254,21 @@ class Disk:
         del self.catalog[name]
         self.rebuildDisk()
 
+    def renameFiles(self, names):
+        """rename files in image"""
+        for (old, new) in names:
+            if old not in self.catalog:
+                raise DiskError("File %s not found" % old)
+            if new in self.catalog:
+                raise DiskError("File %s already exists" % new)
+            self.catalog[old].fd.name = new
+            self.catalog[new] = self.catalog[old]
+            del self.catalog[old]
+        self.rebuildDisk()
+
     def checkAllocation(self):
         """check sector allocation for consistency"""
-        reads = { n: [] for n in xrange(self.totalSectors) }
+        reads = {n: [] for n in xrange(self.totalSectors)}
         allocated = []
         for i in xrange(used(self.totalSectors, 8)):
             byte = ord(self.allocBitmap[i])
@@ -270,6 +290,21 @@ class Disk:
                 f = self.catalog.get(name)
                 if f:
                     f.fd.error = True
+
+    def resizeDisk(self, newsize):
+        """resize image to given sector count"""
+        self.usedSectors = 0
+        if not self.usedSectors <= newsize <= Disk.maxSectors:
+            raise DiskError(
+                "Invalid disk size %d, expected between %d and %d sectors" % (
+                    self.usedSectors, newsize, Disk.maxSectors))
+        if self.totalSectors % 8 != 0 or newsize % 8 != 0:
+            raise DiskError("Disk size must be multiple of 8 sectors")
+        oldsize, self.totalSectors = self.totalSectors, newsize
+        self.rebuildDisk()
+        self.image = (self.image[:0x0A] + chrw(newsize) +
+                      self.image[0x0C:newsize * self.bytesPerSector] +
+                      "\x00" * ((newsize - oldsize) * self.bytesPerSector))
 
     def fixDisk(self):
         """rebuild disk with non-erroneous files"""
@@ -623,7 +658,7 @@ def main():
     import argparse, os.path
 
     args = argparse.ArgumentParser(
-        version="1.1.1",
+        version=VERSION,
         description="xdm99: Disk image and file manipulation tool")
     args.add_argument(
         "filename", type=str,
@@ -653,8 +688,14 @@ def main():
         "-n", "--name", dest="name", metavar="<name>",
         help="set TI file name for data to add")
     cmd.add_argument(
+        "-r", "--rename", dest="rename", nargs="+", metavar="<old>:<new>",
+        help="rename files on image")
+    cmd.add_argument(
         "-d", "--delete", dest="delete", nargs="+", metavar="<name>",
         help="delete files from image")
+    cmd.add_argument(
+        "-Z", "--resize", dest="resize", metavar="<sectors>",
+        help="resize image to given total sector count")
     cmd.add_argument(
         "-c", "--check", action="store_true", dest="checkonly",
         help="check disk image integrity only")
@@ -752,9 +793,21 @@ def main():
                          File(name=tiname(name), fmt=fmt, data=data))
                     disk.addFile(f)
                 result = [(disk.getImage(), opts.filename, "wb")]
+            elif opts.rename:
+                names = [arg.split(":") for arg in opts.rename]
+                disk.renameFiles(names)
+                result = [(disk.getImage(), opts.filename, "wb")]
             elif opts.delete:
                 for name in opts.delete:
                     disk.removeFile(name)
+                result = [(disk.getImage(), opts.filename, "wb")]
+            elif opts.resize:
+                try:
+                    size = int(opts.resize,
+                               16 if opts.resize[:2] == "0x" else 10)
+                except ValueError:
+                    raise DiskError("Invalid disk size %s" % opts.resize)
+                disk.resizeDisk(size)
                 result = [(disk.getImage(), opts.filename, "wb")]
             elif opts.checkonly:
                 rc = 1 if disk.warnings else 0
@@ -763,10 +816,11 @@ def main():
                 result = [(disk.getImage(), opts.filename, "wb")]
             elif opts.sector:
                 opts.quiet = True
-                base = 16 if opts.sector[:2] == "0x" else 10
                 try:
-                    sector = disk.getSector(int(opts.sector, base))
-                except (IndexError, ValueError) as e:
+                    sno = int(opts.sector,
+                              16 if opts.sector[:2] == "0x" else 10)
+                    sector = disk.getSector(sno)
+                except (IndexError, ValueError):
                     raise DiskError("Invalid sector %s" % opts.sector)
                 result = [(dump(sector), "-", "w")]
             else:

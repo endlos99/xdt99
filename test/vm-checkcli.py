@@ -1,0 +1,83 @@
+#!/usr/bin/env python
+
+import os
+import shutil
+
+from config import Dirs, Disks, Files
+from utils import xvm, xdm, error, checkFilesEq
+
+
+### Check functions
+
+def checkFileLen(infile, minlines=-1, maxlines=99999):
+    """check if file has certain length"""
+
+    try:
+        with open(infile, "r") as f:
+            linecnt = len(f.readlines())
+    except IOError:
+        linecnt = 0
+    if not minlines <= linecnt <= maxlines:
+        error("CLI",
+              "%s: Line count mismatch: found %d lines, expected %d to %d" % (
+                  infile, linecnt, minlines, maxlines))
+
+
+### Main test
+
+def runtest():
+    """check command line interface"""
+
+    # setup
+    with open(Disks.volumes, "wb") as v:
+        for i in xrange(4 * 1600):
+            v.write("\x00" * 256)  # Disk.bytesPerSector
+    shutil.copyfile(Disks.recsgen, Disks.work)
+
+    # volume operations
+    xvm(Disks.volumes, "2", "-w", Disks.recsgen, "--keep-size")
+    xvm(Disks.volumes, "1,3-4", "-w", Disks.recsdis, "--keep-size")
+
+    with open(Files.error, "w") as fout:
+        xvm(Disks.volumes, "1-5", stdout=fout)
+        xvm(Disks.volumes, "4", "-i", stdout=fout)
+        xvm(Disks.volumes, "5", "-i", stderr=fout, rc=1)
+
+    xvm(Disks.volumes, "2", "-r", Files.output)
+    checkFilesEq("xvm", Files.output, Disks.recsgen, "P")
+    xvm(Disks.volumes, "1", "-r", Files.output)
+    checkFilesEq("xvm", Files.output, Disks.recsdis, "P")
+    xvm(Disks.volumes, "4", "-r", Files.output)
+    checkFilesEq("xvm", Files.output, Disks.recsdis, "P")
+    xvm(Disks.volumes, "4", "-r", Files.output, "--keep-size")
+    checkFilesEq("xvm", Files.output, Disks.recsdis, "P",
+                 mask=[(360 * 256, 1600 * 256)])
+
+    # file operations
+    xvm(Disks.volumes, "2", "-e", "DF254X015P", "-o", Files.output)
+    xdm(Disks.recsgen, "-e", "DF254X015P", "-o", Files.reference)
+    checkFilesEq("xvm", Files.output, Files.reference, "P")
+
+    xvm(Disks.volumes, "1", "-w", Disks.work, "--keep-size")
+    ref = os.path.join(Dirs.refs, "sector1")
+    xdm(Disks.work, "-a", ref, "-f", "DF80")
+    xvm(Disks.volumes, "1", "-a", ref, "-f", "DF80")
+    xvm(Disks.volumes, "1", "-r", Files.output)
+    checkFilesEq("xvm", Files.output, Disks.work, "P")
+
+    xvm(Disks.volumes, "3", "-w", Disks.work)
+    xvm(Disks.volumes, "3", "-a", ref, "-f", "DF80", "-n", "REFFILE")
+    xvm(Disks.volumes, "3", "-r", Files.output)
+    xdm(Files.output, "-e", "REFFILE", "-q", "-o", Files.reference)
+    checkFilesEq("xvm", Files.reference, ref, "DF80")
+
+    # cleanup
+    os.remove(Files.output)
+    os.remove(Files.reference)
+    os.remove(Files.error)
+    os.remove(Disks.work)
+    os.remove(Disks.volumes)
+
+
+if __name__ == "__main__":
+    runtest()

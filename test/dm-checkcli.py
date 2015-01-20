@@ -53,7 +53,7 @@ def runtest():
     checkFilesEq("CLI", Files.output,
                  os.path.join(Dirs.refs, "sector1"), "DIS/VAR255")
 
-    # add and remove files
+    # add, rename, remove files
     shutil.copyfile(Disks.blank, Disks.work)
     xdm(Disks.work, "-a", "prog00255", "dv064x010", "df002x001")
     xdm(Disks.work, "-e", "PROG00255", "-o", Files.output)
@@ -61,11 +61,31 @@ def runtest():
     xdm(Disks.work, "-e", "DV064X010", "-o", Files.output)
     checkFilesEq("CLI", Files.output, "dv064x010", "PROGRAM")  #!
 
+    shutil.copyfile(Disks.work, Disks.tifiles)
+    xdm(Disks.work, "-e", "PROG00255", "-o", Files.reference)
+    xdm(Disks.work, "-r", "PROG00255:OTHERNAME")
+    xdm(Disks.work, "-e", "OTHERNAME", "-o", Files.output)
+    checkFilesEq("CLI", Files.output, Files.reference, "P")
+    xdm(Disks.work, "-r", "OTHERNAME:PROG00255")
+    checkFilesEq("CLI", Disks.work, Disks.tifiles, "P")
+
     xdm(Disks.work, "-d", "PROG00255", "DV064X010", "DF002X001")
     with open(Files.output, "w") as f1, open(Files.reference, "w") as f2:
         xdm(Disks.work, "-i", stdout=f1)
         xdm(Disks.blank, "-i", stdout=f2)
     checkFilesEq("CLI", Files.output, Files.reference, "DIS/VAR255")
+
+    # resize disk
+    shutil.copyfile(Disks.recsgen, Disks.work)
+    for s in ["800", "248", "1600"]:
+        xdm(Disks.work, "-Z", s, "-q")
+        for f in ["PROG02560", "DF129X010", "DV127X010", "DV255X015P"]:
+            xdm(Disks.work, "-e", f, "-q", "-o", Files.output)
+            xdm(Disks.recsgen, "-e", f, "-o", Files.reference)
+            checkFilesEq("CLI", Files.output, Files.reference, "PROGRAM")
+    with open(Files.error, "w") as ferr:
+        xdm(Disks.work, "-Z", "240", stderr=ferr, rc=1)
+        xdm(Disks.work, "-Z", "1608", stderr=ferr, rc=1)
 
     # repair disks
     shutil.copyfile(Disks.bad, Disks.work)
@@ -111,12 +131,14 @@ def runtest():
     # cleanup
     os.remove(Files.output)
     os.remove(Files.reference)
+    os.remove(Files.error)
     os.remove("prog00255")
     os.remove("prog00255.tfi")
     os.remove("dv064x010")
     os.remove("dv064x010.tfi")
     os.remove("df002x001")
     os.remove(Disks.work)
+    os.remove(Disks.tifiles)
 
 
 if __name__ == "__main__":
