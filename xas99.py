@@ -23,6 +23,8 @@ import sys
 import re
 import os.path
 
+VERSION = "1.2.0"
+
 
 ### Utility functions
 
@@ -69,7 +71,7 @@ class Block:
 class Symbols:
     """symbol table and line counter"""
 
-    def __init__(self, addRegisters=False):
+    def __init__(self, addRegisters=False, addDefs=None):
         self.symbols = {
             "R" + str(i): i for i in xrange(16)
             } if addRegisters else {}
@@ -88,6 +90,10 @@ class Symbols:
             "GRMRD": 0x9800, "GRMRA": 0x9802,
             "GRMWD": 0x9C00, "GRMWA": 0x9C02
             }
+        for d in addDefs or []:
+            parts = d.upper().split("=")
+            val = Parser.symconst(parts[1]) if len(parts) > 1 else 1
+            self.symbols[parts[0]] = val
         self.refdefs = []
         self.xops = {}
         self.idt = "        "
@@ -99,7 +105,7 @@ class Symbols:
 
     def addSymbol(self, name, value):
         if name in self.symbols:
-            raise AsmError("Multiple symbols")
+            raise AsmError("Multiple symbols: " + name)
         self.symbols[name] = value
 
     def addLabel(self, label):
@@ -130,7 +136,7 @@ class Objdummy:
 
     def __init__(self, symbols):
         self.symbols = symbols
-        self.savedLC = { True: 0x0000, False: 0x0000 }
+        self.savedLC = {True: 0x0000, False: 0x0000}
         self.segment(0x0000, relocatable=True, init=True)
 
     def segment(self, base, relocatable=False, dummy=False, init=False):
@@ -285,11 +291,12 @@ class Objcode:
             symbol = self.symbols.getSymbol(s)
             if isinstance(symbol, Reference):
                 prevLC, prevReloc = refs.get(s, (0, False))
-                tags.add("%c%04X%-6s" % ("3" if prevReloc else "4", prevLC, s))
+                tags.add("%c%04X%-6s" % (
+                    "3" if prevReloc else "4", prevLC, s[:6]))
             elif symbol:
                 reloc = isinstance(symbol, Address) and symbol.relocatable
                 addr = symbol.addr if isinstance(symbol, Address) else symbol
-                tags.add("%c%04X%-6s" % ("5" if reloc else "6", addr, s))
+                tags.add("%c%04X%-6s" % ("5" if reloc else "6", addr, s[:6]))
         # closing section
         tags.flush()
         tags.append(":       99/4 AS")
@@ -419,21 +426,26 @@ class Word:
     def abs(self):
         return -self.value % 0x10000 if self.value & 0x8000 else self.value
 
-    def add(self, op):
-        self.value = (self.value + op.value) % 0x10000
+    def add(self, arg):
+        self.value = (self.value + arg.value) % 0x10000
 
-    def sub(self, op):
-        self.value = (self.value - op.value) % 0x10000
+    def sub(self, arg):
+        self.value = (self.value - arg.value) % 0x10000
 
-    def mul(self, op):
-        val, sign = self.abs() * op.abs(), self.sign() * op.sign()
-        self.value = (val if sign > 0 else -val) % 0x10000
-
-    def div(self, op):
-        if op.value == 0:
+    def mul(self, op, arg):
+        if op in "/%" and arg.value == 0:
             raise AsmError("Division by zero")
-        val, sign = self.abs() / op.abs(), self.sign() * op.sign()
+        sign = arg.sign() if op == "%" else self.sign() * arg.sign()
+        val = (self.abs() * arg.abs() if op == "*" else
+               self.abs() / arg.abs() if op == "/" else
+               self.abs() % arg.abs() if op == "%" else None)
         self.value = (val if sign > 0 else -val) % 0x10000
+
+    def bit(self, op, arg):
+        val = (self.value & arg.value if op == "&" else
+               self.value | arg.value if op == "|" else
+               self.value ^ arg.value if op == "^" else None)
+        self.value = val % 0x10000
 
 
 ### Directives
@@ -445,14 +457,14 @@ class Directives:
             return
         code.processLabel(label)
         for op in ops:
-            code.symbols.addDef(op[:6])
+            code.symbols.addDef(op[:6] if parser.strictMode else op)
 
     @staticmethod
     def REF(parser, code, label, ops):
         if parser.passno != 1:
             return
         for op in ops:
-            code.symbols.addRef(op[:6])
+            code.symbols.addRef(op[:6] if parser.strictMode else op)
 
     @staticmethod
     def EQU(parser, code, label, ops):
@@ -529,7 +541,8 @@ class Directives:
     def END(parser, code, label, ops):
         code.processLabel(label)
         if ops:
-            code.entry = code.symbols.getSymbol(ops[0][:6])
+            code.entry = code.symbols.getSymbol(
+                ops[0][:6] if parser.strictMode else ops[0])
         parser.stop()
 
     @staticmethod
@@ -570,6 +583,67 @@ class Directives:
         except (IndexError, ValueError):
             raise AsmError("Syntax error")
         return True
+
+
+class Preprocessor:
+    """xdt99-specific preprocessor extensions"""
+
+    def __init__(self, parser):
+        self.parser = parser
+        self.parse = True
+        self.parseBranches = []
+
+    def args(self, ops):
+        lhs = self.parser.expression(
+            ops[0], wellDefined=True, relaxed=True)
+        rhs = self.parser.expression(
+            ops[1], wellDefined=True, relaxed=True) if len(ops) > 1 else 0
+        return lhs, rhs
+
+    def IFDEF(self, code, label, ops):
+        self.parseBranches.append(self.parse)
+        self.parse = (code.symbols.getSymbol(ops[0]) is not None if self.parse
+                      else None)
+
+    def IFNDEF(self, code, label, ops):
+        self.parseBranches.append(self.parse)
+        self.parse = (code.symbols.getSymbol(ops[0]) is None if self.parse
+                      else None)
+
+    def IFEQ(self, code, label, ops):
+        self.parseBranches.append(self.parse)
+        self.parse = cmp(*self.args(ops)) == 0 if self.parse else None
+
+    def IFNE(self, code, label, ops):
+        self.parseBranches.append(self.parse)
+        self.parse = cmp(*self.args(ops)) != 0 if self.parse else None
+
+    def IFGT(self, code, label, ops):
+        self.parseBranches.append(self.parse)
+        self.parse = cmp(*self.args(ops)) > 0 if self.parse else None
+
+    def IFGE(self, code, label, ops):
+        self.parseBranches.append(self.parse)
+        self.parse = cmp(*self.args(ops)) >= 0 if self.parse else None
+
+    def ELSE(self, code, label, ops):
+        self.parse = not self.parse if self.parse is not None else None
+
+    def ENDIF(self, code, label, ops):
+        self.parse = self.parseBranches.pop()
+
+    def process(self, code, label, mnemonic, operands):
+        if mnemonic[:1] != '.':
+            return self.parse
+        try:
+            fn = getattr(Preprocessor, mnemonic[1:])
+        except AttributeError:
+            raise AsmError("Invalid preprocessor directive")
+        try:
+            fn(self, code, label, operands)
+        except (IndexError, ValueError):
+            raise AsmError("Syntax error")
+        return False
 
 
 ### Opcodes
@@ -753,12 +827,15 @@ class Opcodes:
 class Parser:
     """scanner and parser class"""
 
-    def __init__(self, symbols, includePath=None):
+    def __init__(self, symbols, includePath=None, strictMode=False):
+        self.prep = Preprocessor(self)
         self.symbols = symbols
         self.textlits = []
         self.path, self.file, self.lino = None, None, -1
         self.suspendedFiles = []
         self.includePath = includePath or ["."]
+        self.strictMode = strictMode
+        self.parseBranches = [True]
         self.passno = 0
 
     def open(self, filename):
@@ -832,6 +909,8 @@ class Parser:
             label, mnemonic, operands, comment = self.line(line)
             #print "<1>", lino, "-", label, mnemonic, operands
             try:
+                if not self.prep.process(dummy, label, mnemonic, operands):
+                    continue
                 Directives.process(self, dummy, label, mnemonic, operands) or \
                     Opcodes.process(self, dummy, label, mnemonic, operands)
             except AsmError as e:
@@ -853,13 +932,21 @@ class Parser:
 
     def line(self, line):
         """parse single source line"""
-        text = self.escape(line)
-        fields = re.split("\s+", text, maxsplit=3)
-        label = fields[0][:6] if len(fields) > 0 else ""
-        mnemonic = fields[1] if len(fields) > 1 else ""
-        opfield = fields[2] if len(fields) > 2 else ""
-        comment = fields[3] if len(fields) > 3 else ""
-        operands = re.split(",", opfield) if opfield else []
+        if self.strictMode:
+            # blanks separate fields
+            fields = re.split("\s+", self.escape(line), maxsplit=3)
+            label, mnemonic, optext, comment = fields + [""] * (4 - len(fields))
+            label = label[:6]
+            operands = re.split(",", optext) if optext else []
+        else:
+            # comment field separated by two blanks
+            parts = self.escape(line).split(";")
+            fields = re.split("\s+", parts[0], maxsplit=2)
+            label, mnemonic, optext = fields + [""] * (3 - len(fields))
+            opfields = re.split(" {2,}|\t", optext, maxsplit=1)
+            operands = ([op.strip() for op in opfields[0].split(",")]
+                        if opfields[0] else [])
+            comment = " ".join(opfields[1:]) + ";".join(parts[1:])
         return label, mnemonic, operands, comment
 
     def escape(self, text):
@@ -902,47 +989,59 @@ class Parser:
             raise AsmError("Out of range: " + op + " +/- " + hex(disp))
         return disp
 
-    def expression(self, expr, wellDefined=False, absolute=False):
+    def expression(self, expr,
+                   wellDefined=False, absolute=False, relaxed=False):
         """parse complex arithmetical expression"""
         if self.passno == 1 and not wellDefined:
             return 0
         value, reloccount = Word(0), 0
-        terms = ["+"] + re.split("([-+*/])", expr)
-        i = 0
+        terms = ["+"] + [tok.strip() for tok in
+                         re.split("([-+*/])" if self.strictMode else
+                                  "([-+*/%~&|^()])", expr)]
+        i, stack = 0, []
         while i < len(terms):
-            op, term, negate = terms[i], terms[i + 1], False
+            op, term, negate, corr = terms[i], terms[i + 1], False, 0
             i += 2
-            while not term and terms[i] in "+-":  # unary +/-
-                term = terms[i + 1]
-                if terms[i] == "-":
-                    negate = not negate
-                i += 2
-            termval = self.term(term, wellDefined)
-            if termval is None:
-                raise AsmError("Invalid expression: " + term)
-            elif isinstance(termval, Reference):
-                if len(terms) != 2 or wellDefined:
-                    raise AsmError("Invalid reference: " + expr)
-                return termval
-            elif isinstance(termval, Address):
-                v, reloc = termval.addr, termval.relocatable
+            if op == ")":
+                v, reloc = value.value, reloccount
+                value, reloccount, op, negate, corr = stack.pop()
             else:
-                v, reloc = termval, False
-            w = Word(-v if negate else v)
+                # unary operators
+                while not term and i < len(terms) and terms[i] in "+-~(":
+                    term = terms[i + 1]
+                    if terms[i] == "-":
+                        negate = not negate
+                    elif terms[i] == "~":
+                        negate, corr = not negate, corr + (1 if negate else -1)
+                    elif terms[i] == "(":
+                        stack.append((value, reloccount, op, negate, corr))
+                        op, term, negate, corr = "+", terms[i + 1], False, 0
+                        value, reloccount = Word(0), 0
+                    i += 2
+                termval = self.term(term, wellDefined, relaxed)
+                if termval is None:
+                    raise AsmError("Invalid expression: " + term)
+                elif isinstance(termval, Reference):
+                    if len(terms) != 2 or wellDefined:
+                        raise AsmError("Invalid reference: " + expr)
+                    return termval
+                elif isinstance(termval, Address):
+                    v, reloc = termval.addr, 1 if termval.relocatable else 0
+                else:
+                    v, reloc = termval, 0
+            w = Word((-v if negate else v) + corr)
             if op == "+":
                 value.add(w)
-                if reloc:
-                    reloccount += 1 if not negate else -1
+                reloccount += reloc if not negate else -reloc
             elif op == "-":
                 value.sub(w)
-                if reloc:
-                    reloccount -= 1 if not negate else -1
-            elif op == "*":
-                value.mul(w)
+                reloccount -= reloc if not negate else -reloc
+            elif op in "*/%":
+                value.mul(op, w)
                 if reloccount > 0:
                     raise AsmError("Invalid address: " + expr)
-            elif op == "/":
-                value.div(w)
+            elif op in "&|^":
+                value.bit(op, w)
                 if reloccount > 0:
                     raise AsmError("Invalid address: " + expr)
             else:
@@ -951,10 +1050,10 @@ class Parser:
             raise AsmError("Invalid address: " + expr)
         return Address(value.value, True) if reloccount else value.value
 
-    def term(self, op, wellDefined=False):
+    def term(self, op, wellDefined=False, relaxed=False):
         """parse constant or symbol"""
         if op[0] == ">":
-            return int("0x" + op[1:], 16)
+            return int(op[1:], 16)
         elif op == "$":
             return Address(self.symbols.LC, self.symbols.relocLC)
         elif op.isdigit():
@@ -970,9 +1069,12 @@ class Parser:
             else:
                 raise AsmError("Invalid text literal: " + c)
         else:
-            v = self.symbols.getSymbol(op[:6])
+            v = self.symbols.getSymbol(op[:6] if self.strictMode else op)
             if v is None and (self.passno > 1 or wellDefined):
-                raise AsmError("Unknown symbol: " + op)
+                if relaxed:
+                    return 0
+                else:
+                    raise AsmError("Unknown symbol: " + op)
             return v
 
     def value(self, op):
@@ -984,12 +1086,13 @@ class Parser:
         """parse register"""
         if self.passno == 1:
             return 0
+        op = op.strip()
         if op[0] == ">":
-            r = int("0x" + op[1:], 16)
+            r = int(op[1:], 16)
         elif op.isdigit():
             r = int(op)
         else:
-            r = self.symbols.getSymbol(op[:6])
+            r = self.symbols.getSymbol(op[:6] if self.strictMode else op)
             if r is None:
                 raise AsmError("Unknown symbol: " + op)
         if not 0 <= r <= 15:
@@ -1010,21 +1113,33 @@ class Parser:
             raise AsmError("Invalid filename: " + op)
         return op[1:-1]
 
+    @staticmethod
+    def symconst(op):
+        """parse symbol constant (-D option)"""
+        try:
+            return int(op[1:], 16) if op[0] == ">" else int(op)
+        except ValueError:
+            return op
+
 
 ### Main assembler
 
 class Assembler:
     """main driver class"""
 
-    def __init__(self, addRegisters=False, includePath=None):
+    def __init__(self, addRegisters=False, strictMode=False,
+                 includePath=None, defs=None):
         self.addRegisters = addRegisters
+        self.strictMode = strictMode
         self.includePath = includePath
+        self.defs = defs
 
     def assemble(self, srcname):
-        symbols = Symbols(addRegisters=self.addRegisters)
+        symbols = Symbols(addRegisters=self.addRegisters, addDefs=self.defs)
         dummy = Objdummy(symbols)
         code = Objcode(symbols)
-        parser = Parser(symbols, includePath=self.includePath)
+        parser = Parser(symbols, includePath=self.includePath,
+                        strictMode=self.strictMode)
         parser.open(srcname)
         errors = parser.parse(dummy, code)
         return code, errors
@@ -1036,7 +1151,7 @@ def main():
     import argparse, zipfile
 
     args = argparse.ArgumentParser(
-        version="1.1.0",
+        version=VERSION,
         description="TMS 9900 cross-assembler")
     args.add_argument("source", metavar="<source>",
                       help="assembly source code")
@@ -1047,10 +1162,21 @@ def main():
                      help="create cart image")
     cmd.add_argument("--dump", action="store_true", dest="dump",
                      help=argparse.SUPPRESS)  # debugging
+    args.add_argument("-s", "--strict", action="store_true", dest="strict",
+                      help="disable xas99 extension to TI Assembler")
     args.add_argument("-n", "--name", dest="name", metavar="<name>",
-                      help="set program name")
-    args.add_argument("-O", "--opt", dest="asmopts", metavar="<options>",
-                      help="assembler options (R)")
+                      help="set program name for cartridge")
+    args.add_argument("-R", "--register-symbols", action="store_true", dest="optr",
+                      help="add register symbols (TI Assembler option R)")
+    args.add_argument("-C", "--compress", action="store_true", dest="optc",
+                      help="compress object code (TI Assembler option C) (ignored)")
+    args.add_argument("-L", "--listing", dest="optl", metavar="<file>",
+                      help="generate listing (TI Assembler option L) (ignored)")
+    args.add_argument("-S", "--symbol-table", action="store_true", dest="optl",
+                      help="add symbol table to listing (TI Assembler option S) (ignored)")
+    args.add_argument("-D", "--define-symbol", nargs="+", dest="defs",
+                      metavar="<sym=val>",
+                      help="add symbol to symbol table")
     args.add_argument("-o", "--output", dest="output", metavar="<file>",
                       help="set output file name")
     opts = args.parse_args()
@@ -1067,8 +1193,10 @@ def main():
     name = opts.name or barename[:10].upper()
 
     # assembly
-    asm = Assembler(addRegisters="R" in (opts.asmopts or "").upper(),
-                    includePath=[dirname])
+    asm = Assembler(addRegisters=opts.optr,
+                    strictMode=opts.strict,
+                    includePath=[dirname],
+                    defs=opts.defs or [])
     try:
         code, errors = asm.assemble(basename)
     except IOError as e:

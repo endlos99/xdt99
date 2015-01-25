@@ -74,7 +74,7 @@ def runtest():
         with gzip.open(archive, "rb") as fin, open(Files.input, "w") as fout:
             srccode = processSource(fin.readlines())
             fout.write(srccode)
-        xas(Files.input, "-i", "-OR", "-o", Files.output)
+        xas(Files.input, "-i", "-R", "-o", Files.output)
         checkImageFilesEq(n, os.path.join(Dirs.sources, n + ".img"),
                           Files.output)
 
@@ -85,3 +85,4 @@ def runtest():
 
 if __name__ == "__main__":
     runtest()
+    print "OK"

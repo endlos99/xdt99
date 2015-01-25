@@ -55,15 +55,15 @@ included with xdt99.
 
 Generate object code for the Editor/Assembler module, option 3:
 
-	$ xas99.py <source file>
-
+	$ xas99.py [-R] <source file>
+	
 Generate program image for the Editor/Assembler module, option 5:
 
-	$ xas99.py -i <source file>
+	$ xas99.py -i [-R] <source file>
 
 Generate cartridge file for the MESS emulator (experimental):
 
-	$ xas99.py -c <source file>
+	$ xas99.py -c [-R] <source file>
 
 For a complete overview of the available command-line options, see `xas99.py
 -h`.

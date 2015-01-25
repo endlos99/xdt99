@@ -14,7 +14,7 @@ def runtest():
     aserrors = {}
     source = os.path.join(Dirs.sources, "aserrs.asm")
     with open(Files.error, "w") as ferr:
-        xas(source, "-o", Files.output, stderr=ferr, rc=1)
+        xas(source, "-s", "-o", Files.output, stderr=ferr, rc=1)
     with open(Files.error, "r") as f:
         for line in f:
             err = re.match("<\d>\s+(\d+)", line)
@@ -51,3 +51,4 @@ def runtest():
 
 if __name__ == "__main__":
     runtest()
+    print "OK"

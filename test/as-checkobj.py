@@ -34,8 +34,8 @@ def runtest():
             ("asopcs.asm", [], "ASOPCS-O"),
             ("asexprs.asm", [], "ASEXPRS-O"),
             ("asbss.asm", [], "ASBSS-O"),
-            ("asregs.asm", ["-OR"], "ASREGS-O"),
-            ("ashello.asm", ["-OR"], "ASHELLO-O"),
+            ("asregs.asm", ["-R"], "ASREGS-O"),
+            ("ashello.asm", ["-R"], "ASHELLO-O"),
             ("ascopy.asm", [], "ASCOPY-O"),
             ("ascopyn.asm", [], "ASCOPYN-O"),
             ("assize1.asm", [], "ASSIZE1-O"),
@@ -46,17 +46,30 @@ def runtest():
             ("asimg1.asm", [], "ASIMG1-O"),
             ("asimg2.asm", [], "ASIMG2-O"),
             ("asimg3.asm", [], "ASIMG3-OX"),
-            ("ascart.asm", ["-OR"], "ASCART-O"),
-            ("asxext.asm", ["-OR"], "ASXEXT-O")
+            ("ascart.asm", ["-R"], "ASCART-O")
             ]:
         source = os.path.join(Dirs.sources, infile)
-        xas(*[source] + opts + ["-o", Files.output])
         xdm(Disks.asmsrcs, "-e", reffile, "-o", Files.reference)
+        xas(*[source] + opts + ["-o", Files.output])
         checkFilesEq("Object code", Files.output, Files.reference, fmt="DF80")
+        xas(*[source] + opts + ["--strict", "-o", Files.output])
+        checkFilesEq("Object code", Files.output, Files.reference, fmt="DF80")
+
+    # xdt99 extensions
+    source = os.path.join(Dirs.sources, "asxext.asm")
+    xas(source, "-R", "-o", Files.output)
+    xdm(Disks.asmsrcs, "-e", "ASXEXT0-O", "-o", Files.reference)
+    checkFilesEq("Object code", Files.output, Files.reference, fmt="DF80")
+    xas(source, "-R", "-D", "sym2", "-o", Files.output)
+    xdm(Disks.asmsrcs, "-e", "ASXEXT1-O", "-o", Files.reference)
+    checkFilesEq("Object code", Files.output, Files.reference, fmt="DF80")
+    xas(source, "-R", "-D", "sym2=2", "sym3=2", "-o", Files.output)
+    xdm(Disks.asmsrcs, "-e", "ASXEXT2-O", "-o", Files.reference)
+    checkFilesEq("Object code", Files.output, Files.reference, fmt="DF80")
 
     # image files
     for infile, opts, reffile in [
-            ("ashello.asm", ["-OR"], "ASHELLO-I"),
+            ("ashello.asm", ["-R"], "ASHELLO-I"),
             ("astisym.asm", [], "ASTISYM-I"),
             ("asimg1.asm", [], "ASIMG1-I"),
             ("asimg2.asm", [], "ASIMG2-I"),
@@ -74,3 +87,4 @@ def runtest():
 
 if __name__ == "__main__":
     runtest()
+    print "OK"

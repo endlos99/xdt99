@@ -16,6 +16,8 @@ L3      JMP L3
         BYTE 0
         JMP $
 
+        DATA L1,L2,L3
+
 * ADDRESS MODES
 
         MOVB 1,@2
@@ -26,6 +28,7 @@ L3      JMP L3
         MOVB *1,*2+
         MOVB *0+,*3
         MOVB @L1(1),@L2(2)
+        MOVB @L1+2(3),@L2->4(5)
 
         LI 0,-1
         LI >A,>B
