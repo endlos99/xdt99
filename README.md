@@ -116,6 +116,10 @@ Print contents of TIFiles file:
 
 	$ xdm99.py -P <TIFiles file>
 
+Initialize blank disk:
+
+	$ xdm99.py <file name> --initialize <size> [-n <name>]
+
 Resize disk image:
 
 	$ xdm99.py <disk image> -Z <sectors>

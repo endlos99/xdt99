@@ -1,7 +1,10 @@
 #!/usr/bin/env python
 
+#UPD
+
 import os
 import shutil
+import re
 
 from config import Dirs, Disks, Files, Masks
 from utils import xdm, error, checkFilesEq
@@ -10,7 +13,7 @@ from utils import xdm, error, checkFilesEq
 ### Check functions
 
 def checkFileLen(infile, minlines=-1, maxlines=99999):
-    """check if file has certain length"""
+    """check if text file has certain length"""
 
     try:
         with open(infile, "r") as f:
@@ -21,6 +24,28 @@ def checkFileLen(infile, minlines=-1, maxlines=99999):
         error("CLI",
               "%s: Line count mismatch: found %d lines, expected %d to %d" % (
                   infile, linecnt, minlines, maxlines))
+
+def checkFileSize(infile, size):
+    """check if file has certain size"""
+    statinfo = os.stat(infile)
+    if statinfo.st_size != size:
+        error("CLI",
+              "%s: File size mismatch: found %d bytes, expected %d" % (
+                  infile, statinfo.st_size, size))
+
+def checkFileMatches(infile, matches):
+    """check if text file contents match regular expressions"""
+    try:
+        with open(infile, "r") as f:
+            contents = f.readlines()
+    except IOError:
+        error("CLI", "%s: File not found" % infile)
+    for line, pattern in matches:
+        try:
+            if not re.search(pattern, contents[line]):
+                error("CLI", "%s: Line %d does not match" % (infile, line))
+        except IndexError:
+            error("CLI", "%s: Line %d missing" % (infile, line))
 
 
 ### Main test
@@ -49,6 +74,9 @@ def runtest():
         xdm(Disks.work, "-p", "DV064X010", stdout=f1)
     checkFilesEq("CLI", Files.output, "dv064x010", "DIS/VAR 64")
 
+    with open(Files.error, "w") as ferr:
+        xdm(Disks.work, "-e", "INVALID", stderr=ferr, rc=1)
+
     xdm(Disks.work, "-s", "0x01", "-o", Files.output)
     checkFilesEq("CLI", Files.output,
                  os.path.join(Dirs.refs, "sector1"), "DIS/VAR255")
@@ -74,6 +102,40 @@ def runtest():
         xdm(Disks.work, "-i", stdout=f1)
         xdm(Disks.blank, "-i", stdout=f2)
     checkFilesEq("CLI", Files.output, Files.reference, "DIS/VAR255")
+
+    shutil.copyfile(Disks.recsgen, Disks.work)
+    xdm(Disks.work, "-e", "DF127*")
+    if (not os.path.isfile("df127x001") or not os.path.isfile("df127x010") or
+        not os.path.isfile("df127x020p")):
+        error("CLI", "DF127*: Missing files")
+
+    xdm(Disks.work, "-d", "PROG*", "D?010X060")
+    with open(Files.error, "w") as ferr:
+        xdm(Disks.work, "-e", "PROG00255", stderr=ferr, rc=1)
+        xdm(Disks.work, "-e", "DV010X060", stderr=ferr, rc=1)
+        xdm(Disks.work, "-e", "DF010X060", stderr=ferr, rc=1)
+        
+    # initialize disk
+    xdm(Disks.work, "--initialize", "360", "-n", "SSSD")
+    checkFileSize(Disks.work, 360 * 256)
+    checkFilesEq("CLI", Disks.work, Disks.blank, "P")
+    os.remove(Disks.work)
+    xdm(Disks.work, "--initialize", "SSSD", "-n", "SSSD")
+    checkFileSize(Disks.work, 360 * 256)
+    checkFilesEq("CLI", Disks.work, Disks.blank, "P")
+    xdm(Disks.work, "--initialize", "800", "-n", "INIT")
+    with open(Files.output, "w") as f:
+        xdm(Disks.work, "-i", stdout=f)
+    checkFileMatches(Files.output, [(0, "\s2\s+used\s+798\s+free\s")])
+    os.remove(Disks.work)
+    xdm(Disks.work, "--initialize", "CF", "-n", "INIT")
+    with open(Files.output, "w") as f:
+        xdm(Disks.work, "-i", stdout=f)
+    checkFileMatches(Files.output, [(0, "\s2\s+used\s+1598\s+free\s")])
+    with open(Files.error, "w") as ferr:
+        xdm(Disks.work, "--initialize", "1", stderr=ferr, rc=1)
+        xdm(Disks.work, "--initialize", "1601", stderr=ferr, rc=1)
+        xdm(Disks.work, "--initialize", "FOO", stderr=ferr, rc=1)
 
     # resize disk
     shutil.copyfile(Disks.recsgen, Disks.work)
@@ -137,6 +199,9 @@ def runtest():
     os.remove("dv064x010")
     os.remove("dv064x010.tfi")
     os.remove("df002x001")
+    os.remove("df127x001")
+    os.remove("df127x010")
+    os.remove("df127x020p")
     os.remove(Disks.work)
     os.remove(Disks.tifiles)
 

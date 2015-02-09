@@ -23,7 +23,7 @@ import sys
 import re
 import datetime
 
-VERSION = "1.2.0"
+VERSION = "1.2.1"
 
 
 ### Utility functions
@@ -53,6 +53,11 @@ def used(n, m):
     return (n + m - 1) / m
 
 
+def xint(s):
+    """return hex or decimal value"""
+    return int(s, 16 if s[:2] == "0x" or s[:1] == ">" else 10)
+
+
 ### Sector-based disk image
 
 class DiskError(Exception):
@@ -64,7 +69,8 @@ class Disk:
 
     bytesPerSector = 256
     maxSectors = 1600
-
+    blankByte = "\xe5"
+    
     def __init__(self, image):
         if len(image) < 2 * Disk.bytesPerSector:
             raise DiskError("Invalid disk image")
@@ -90,7 +96,7 @@ class Disk:
         if (self.totalSectors !=
                 self.sides * self.tracksPerSide * self.sectorsPerTrack) or (
                 self.totalSectors % 8 != 0):
-            self.warn("Unusual total sector count: %d" % self.totalSectors)
+            self.warn("Sector count does not match disk geometry")
         self.usedSectors = 0
         try:
             for i in xrange(used(self.totalSectors, 8)):
@@ -150,6 +156,15 @@ class Disk:
                 name, len(data), sectors * Disk.bytesPerSector))
             error = True
         return data, error
+
+    def globFiles(self, patterns):
+        """return list of file names matching glob pattern"""
+        wildcards = [p for p in patterns if re.search("[?*]", p)]
+        globre = "|".join([re.escape(p).replace("\*", ".*").replace("\?", ".")
+                           for p in wildcards]) + "$"
+        matches = [name for name in self.catalog if re.match(globre, name)]
+        plains = [p for p in patterns if p not in wildcards]
+        return matches + plains
 
     def rebuildDisk(self):
         """rebuild disk metadata after changes to file catalog"""
@@ -304,7 +319,8 @@ class Disk:
         self.rebuildDisk()
         self.image = (self.image[:0x0A] + chrw(newsize) +
                       self.image[0x0C:newsize * self.bytesPerSector] +
-                      "\x00" * ((newsize - oldsize) * self.bytesPerSector))
+                      self.blankByte * ((newsize - oldsize) *
+                                        self.bytesPerSector))
 
     def fixDisk(self):
         """rebuild disk with non-erroneous files"""
@@ -317,10 +333,10 @@ class Disk:
         """return disk image"""
         return self.image
 
-    def getTifile(self, name):
-        """get file in TIFile format from disk catalog"""
+    def getTifiles(self, name):
+        """get file in TIFiles format from disk catalog"""
         f = self.getFile(name)
-        return f.getAsTifile()
+        return f.getAsTifiles()
 
     def getInfo(self):
         """return information about disk image"""
@@ -334,6 +350,22 @@ class Disk:
         """return formatted disk catalog"""
         return "".join([self.catalog[n].fd.getInfo()
                         for n in sorted(self.catalog)])
+
+    @staticmethod
+    def blankImage(size, name):
+        """return initialized disk image"""
+        if size is None or not 2 < size <= Disk.maxSectors or size % 8 != 0:
+            raise DiskError("Invalid disk size")
+        tracksPerSide, sectorsPerTrack = 40, 9
+        sides = 2 if 360 <= (size - 1) % 720 else 1
+        density = 2 if 720 < size <= 1440 else 1
+        sector0 = "%-10s%2s%cDSK %c%c%c" % (
+            name, chrw(size), sectorsPerTrack,
+            tracksPerSide, sides, density) + "\x00" * 0x24 + (
+            "\x03" + "\x00" * (size / 8 - 1)) + (
+            "\xff" * (Disk.bytesPerSector - size / 8 - 0x38))
+        return (sector0 + "\x00" * Disk.bytesPerSector +
+                Disk.blankByte * ((size - 2) * Disk.bytesPerSector))
 
     def warn(self, text):
         """issue non-critical warning"""
@@ -364,7 +396,7 @@ class FileDescriptor:
         else:
             raise RuntimeError("Incomplete file descriptor")
         self.format = ["DIS/", "PROGRAM", "INT/", "unknown"][self.flags & 0x03]
-        self.type = self.format[0]
+        self.type = fmt[0] if fmt else self.format[0]
         self.fixed = self.flags & 0x80 == 0
         if self.type == "D" or self.type == "I":
             self.format += (("FIX " if self.fixed else "VAR ") +
@@ -379,7 +411,7 @@ class FileDescriptor:
 
     def init(self, name, fmt):
         """create new empty file"""
-        fmtargs = re.match("([PDI])[ROGRAMISNT]*(?:/?([VF])[ARIX]*\s*(\d+))?",
+        fmtargs = re.match("([PDIB])[ROGRAMISNT]*(?:/?([VF])[ARIX]*\s*(\d+))?",
                            fmt.upper())
         if not fmtargs:
             raise FileError("Unknown file format: " + fmt)
@@ -426,9 +458,9 @@ class FileDescriptor:
         self.clusters = sector[0x1C:]
 
     def initHeader(self, header):
-        """create file based on TIFile header"""
+        """create file based on TIFiles header"""
         if len(header) < 0x26 or header[:0x08] != "\x07TIFILES":
-            raise FileError("Invalid TIFile header")
+            raise FileError("Invalid TIFiles header")
         self.name = header[0x10:0x1A].rstrip()
         self.flags = ord(header[0x0A]) & 0x81
         self.recordsPerSector = ord(header[0x0B])
@@ -465,9 +497,10 @@ class FileDescriptor:
             self.modifiedDate >> 8, self.modifiedDate & 0xFF,
         ) + self.clusters
 
-    def getTifileHeader(self):
-        """return FDR as TIFile header"""
-        return "\x07TIFILES%c%c%c%c%c%c%c%c%-10s\x00\x00\x00\x00%c%c%c%c%c%c%c%c\xFF\xFF" % (
+    def getTifilesHeader(self):
+        """return FDR as TIFiles header"""
+        return ("\x07TIFILES%c%c%c%c%c%c%c%c%-10s\x00\x00\x00\x00" +
+                "%c%c%c%c%c%c%c%c\xFF\xFF") % (
             self.totalSectors >> 8, self.totalSectors & 0xFF,
             self.flags, self.recordsPerSector, self.eofOffset, self.recordLen,
             self.totalLv3Records & 0xFF, self.totalLv3Records >> 8,
@@ -497,8 +530,8 @@ class File:
             self.data = data + "\x00" * pad(len(data), Disk.bytesPerSector)
             self.readRecords()
         elif tifimage:
-            if not File.isTifile(tifimage):
-                raise FileError("Invalid TIFile image")
+            if not File.isTifiles(tifimage):
+                raise FileError("Invalid TIFiles image")
             self.fd = FileDescriptor(header=tifimage[:0x80])
             self.data = (tifimage[0x80:] + "\x00" * pad(len(tifimage) - 0x80,
                                                         Disk.bytesPerSector))
@@ -545,7 +578,7 @@ class File:
                 if p + self.fd.recordLen > Disk.bytesPerSector:
                     data += "\x00" * (Disk.bytesPerSector - p)
                     s, p = s + 1, 0
-                data += record + (" " if self.fd.type == "D" else "\x00") * (
+                data += record + ("\x00" if self.fd.type == "I" else " ") * (
                     self.fd.recordLen - len(record))
                 r, p = r + 1, p + self.fd.recordLen
             self.fd.eofOffset = p % Disk.bytesPerSector
@@ -621,17 +654,17 @@ class File:
         else:
             return "".join(self.records)  # keep length byte
 
-    def getAsTifile(self):
-        """return file contents in TIFile format"""
-        return self.fd.getTifileHeader() + self.getData()
+    def getAsTifiles(self):
+        """return file contents in TIFiles format"""
+        return self.fd.getTifilesHeader() + self.getData()
 
     def getInfo(self):
         """return file meta data"""
         return self.fd.getInfo()
 
     @staticmethod
-    def isTifile(image):
-        """check if file image has valid TIFile header"""
+    def isTifiles(image):
+        """check if file image has valid TIFiles header"""
         return image[:0x08] == "\x07TIFILES"
 
 
@@ -674,12 +707,12 @@ def main():
     cmd.add_argument(
         "-e", "--extract", dest="extract", nargs="+", metavar="<name>",
         help="extract files from image")
-    args.add_argument(
-        "-t", "--tifile", action="store_true", dest="astif",
-        help="use TIFile file format for extracted files")
     cmd.add_argument(
         "-a", "--add", dest="add", nargs="+", metavar="<file>",
         help="add files to image or update existing files")
+    args.add_argument(
+        "-t", "--tifiles", action="store_true", dest="astif",
+        help="use TIFiles file format for added/extracted files")
     args.add_argument(
         "-f", "--format", dest="format", metavar="<format>",
         help="set TI file format (DIS/VARnnn, DIS/FIXnnn, INT/VARnnn, " + \
@@ -694,6 +727,9 @@ def main():
         "-d", "--delete", dest="delete", nargs="+", metavar="<name>",
         help="delete files from image")
     cmd.add_argument(
+        "--initialize", dest="init", metavar="<size>",
+        help="initialize disk image (sector count or sides/density alias)")
+    cmd.add_argument(
         "-Z", "--resize", dest="resize", metavar="<sectors>",
         help="resize image to given total sector count")
     cmd.add_argument(
@@ -705,19 +741,19 @@ def main():
     cmd.add_argument(
         "-s", "--sector", dest="sector", metavar="<sector>",
         help="dump disk sector")
-    # TIFile commands
+    # TIFiles commands
     args.add_argument(
-        "-P", "--print-tifile", action="store_true", dest="printtif",
-        help="print contents of file in TIFile format")
+        "-P", "--print-tifiles", action="store_true", dest="printtif",
+        help="print contents of file in TIFiles format")
     args.add_argument(
-        "-T", "--to-tifile", action="store_true", dest="totif",
-        help="convert plain file to TIFile format")
+        "-T", "--to-tifiles", action="store_true", dest="totif",
+        help="convert plain file to TIFiles format")
     args.add_argument(
-        "-F", "--from-tifile", action="store_true", dest="fromtif",
-        help="convert TIFile format to plain file")
+        "-F", "--from-tifiles", action="store_true", dest="fromtif",
+        help="convert TIFiles format to plain file")
     args.add_argument(
-        "-I", "--info-tifile", action="store_true", dest="infotif",
-        help="show TIFile file information")
+        "-I", "--info-tifiles", action="store_true", dest="infotif",
+        help="show TIFiles file information")
     # general options
     args.add_argument(
         "-o", "--output", dest="output", metavar="<file>",
@@ -726,6 +762,20 @@ def main():
         "-q", "--quiet", action="store_true", dest="quiet",
         help="suppress all warnings")
     opts = args.parse_args()
+
+    # special cases
+    if opts.init:
+        try:
+            size = int(opts.init)
+        except ValueError:
+            size = {"SSSD": 360, "DSSD": 720,
+                    "DSDD": 1440, "CF": 1600}.get(opts.init.upper())
+        try:
+            with open(opts.filename, "wb") as fout:
+                fout.write(Disk.blankImage(size, opts.name or ""))
+        except (IOError, DiskError) as e:
+            sys.exit("Error: " + str(e))
+        return 0
 
     # setup
     try:
@@ -740,40 +790,42 @@ def main():
     # process image
     rc, result = 0, []
     try:
-        # TIFile
+        # TIFiles
         if opts.fromtif:
-            tifile = File(tifimage=image)
-            result = [(tifile.getContents(),
+            tiffile = File(tifimage=image)
+            result = [(tiffile.getContents(),
                        os.path.splitext(opts.filename)[0],
-                       "w" if tifile.fd.type == "D" else "wb")]
+                       "w" if tiffile.fd.type == "D" else "wb")]
         elif opts.totif:
-            tifile = File(name=tiname(opts.filename), fmt=fmt, data=image)
-            result = [(tifile.getAsTifile(), opts.filename + ".tfi", "wb")]
+            tiffile = File(name=tiname(opts.filename), fmt=fmt, data=image)
+            result = [(tiffile.getAsTifiles(), opts.filename + ".tfi", "wb")]
         elif opts.printtif:
-            tifile = File(tifimage=image)
-            result = [(tifile.getContents(), "-", "w")]
-        elif opts.infotif or File.isTifile(image):
-            tifile = File(tifimage=image)
-            sys.stdout.write(tifile.getInfo())
+            tiffile = File(tifimage=image)
+            result = [(tiffile.getContents(), "-", "w")]
+        elif opts.infotif or File.isTifiles(image):
+            tiffile = File(tifimage=image)
+            sys.stdout.write(tiffile.getInfo())
         # disk image
         else:
             disk = Disk(image)
             if opts.print_:
+                files = disk.globFiles(opts.print_)
                 contents = [disk.getFile(name).getContents()
-                            for name in opts.print_]
+                            for name in files]
                 sys.stdout.write("".join(contents))
             elif opts.extract:
-                if opts.output and len(opts.extract) > 1:
+                files = disk.globFiles(opts.extract)
+                if opts.output and len(files) > 1:
                     sys.exit(
                         "Error: Cannot use -o when extracting multiple files")
                 if opts.astif:
-                    result = [(disk.getTifile(name),
+                    result = [(disk.getTifiles(name),
                                name.lower() + ".tfi", "wb")
-                              for name in opts.extract]
+                              for name in files]
                 else:
                     result = [(disk.getFile(name).getContents(),
                                name.lower(), "w" if fmt[0] == "D" else "wb")
-                              for name in opts.extract]
+                              for name in files]
             elif opts.add:
                 if opts.name and len(opts.add) > 1:
                     sys.exit(
@@ -798,13 +850,13 @@ def main():
                 disk.renameFiles(names)
                 result = [(disk.getImage(), opts.filename, "wb")]
             elif opts.delete:
-                for name in opts.delete:
+                files = disk.globFiles(opts.delete)
+                for name in files:
                     disk.removeFile(name)
                 result = [(disk.getImage(), opts.filename, "wb")]
             elif opts.resize:
                 try:
-                    size = int(opts.resize,
-                               16 if opts.resize[:2] == "0x" else 10)
+                    size = xint(opts.resize)
                 except ValueError:
                     raise DiskError("Invalid disk size %s" % opts.resize)
                 disk.resizeDisk(size)
@@ -817,8 +869,7 @@ def main():
             elif opts.sector:
                 opts.quiet = True
                 try:
-                    sno = int(opts.sector,
-                              16 if opts.sector[:2] == "0x" else 10)
+                    sno = xint(opts.sector)
                     sector = disk.getSector(sno)
                 except (IndexError, ValueError):
                     raise DiskError("Invalid sector %s" % opts.sector)

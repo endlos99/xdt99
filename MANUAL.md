@@ -333,9 +333,17 @@ In general, printing files only makes sense for files in DIS/FIX or DIS/VAR
 format.  Following Unix conventions, `-p` is equivalent to combining parameters
 `-e` and `-o "-"`.
 
-Note that extracting files will yield the file contents only.  In order to
-retain file meta data about file type and record length, use the TIFiles format
-described below.
+File names given by `-e` may be glob patterns containing wildcards `*`
+and `?`.  This will extract all files matching the given pattern.
+
+	$ xdm99.py work.dsk -e "HELLO-*"
+
+Note that you may have to quote your glob pattern to prevent your
+shell from expanding the pattern prematurely.
+
+Extracting files will yield the file contents only.  In order to
+retain file meta data about file type and record length, use the
+TIFiles format described below.
 
 
 ### Manipulating Disks
@@ -359,7 +367,8 @@ followed by the new file name.
 
 The delete parameter `-d` deletes one or more files on the disk.
 
-	$ xdm99.py work.dsk -d HELLO-I
+	$ xdm99.py work.dsk -d HELLO-I HELLO-O
+	$ xdm99.py work.dsk -d "*-O"
 
 Note that the current implementation of `xdm99` does not perform a "secure
 erase", i.e., parts of the file contents may remain hidden in the sectors of the
@@ -436,13 +445,22 @@ erroneous files from it.
 The repair operation is likely to cause data loss, so it's best to extract
 erroneous files beforehand or to specify an alternative output file with `-o`.
 
-The resize parameter `-Z` will change the total number of sector of the disk.
+The `--initialize` parameter creates a new, blank disk image, using an
+optional name provided by `-n`.
+
+	$ xdm99.py blank.dsk --initialize 720 -n BLANK
+
+The size of the disk image is given by the number of sectors.  You may
+also use the aliases `SSSD`, `DSSD`, `DSDD`, and `CF` for sector
+counts of 360, 720, 1440, and 1600, respectively.  Note that the disk
+format used by the TI 99 supports up to 1600 sectors per disk.
+
+The resize parameter `-Z` will change the total number of sector of
+the disk without changing the contents of the files currently stored.
 
 	$ xdm99.py work.dsk -Z 720
 
 Resizing fails if more sectors than the target size are currently in use.
-Note that the disk format used by the TI 99 supports up to 1600 sectors per
-disk.
 
 The sector dump parameter `-s` prints the hexadecimal contents of individual
 sectors to `stdout`.  This can be used to further analyze disk errors or to save
