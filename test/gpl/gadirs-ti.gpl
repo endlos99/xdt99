@@ -1,0 +1,45 @@
+* DIRECTIVES
+
+        GROM >6000
+
+E1      EQU  1
+E2      EQU  2
+E3      EQU  E1+E2*>1
+
+DATA    DATA 1,>2,-3,->4,>FFFA,>FFF9
+        DATA 'AB',>AB,'BC'
+        DATA &0110011010011001
+        DATA $
+
+BYTE    BYTE 1,>2,&11,>04,>005,06
+        BYTE 7,'8',-9,>F5,>FC
+        BYTE 1+2,E1,E2*E3
+
+TEXT    TEXT 'A'
+        TEXT 'BC'
+        TEXT 'CDE'
+*       TEXT >1234567890
+        BYTE >12,>34,>56,>78,>90
+*       TEXT >1,>22,>333
+        BYTE >10,>22,>33,>30
+*       TEXT 'X','Y',>40,'PQ''ST',>6061,'Z'
+        TEXT 'X'
+        TEXT 'Y'
+        BYTE >40
+        TEXT 'PQ''ST'
+        BYTE >60,>61
+        TEXT 'Z'
+
+*STRI   STRI 'A','BB',''''
+        STRI 'ABB'''
+*       STRI >ABCDEF
+        BYTE >03,>AB,>CD,>EF
+        STRI ''
+
+*BSS    BSS  5
+BSS     BYTE 0,0,0,0,0
+
+START   ALL  ' '
+        EXIT
+
+        END

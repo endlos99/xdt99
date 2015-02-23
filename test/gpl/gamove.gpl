@@ -1,0 +1,155 @@
+* MOVE
+
+        GROM >0000
+        AORG >0000
+
+E1      EQU  >1
+E2      EQU  >2
+EC      EQU  >8301
+EG      EQU  >6000
+EV      EQU  >0100
+
+L1      DATA 0
+L2      DATA 1
+L3      DATA 2
+
+
+GS      MOVE  1,@>8302,V@3
+        MOVE  2,@>8382,V@3
+        MOVE  3,@>9302,V@3
+        MOVE  4,*>8302,V@3
+        MOVE  5,*>8382,V@3
+        MOVE  6,*>9302,V@3
+        MOVE  E1,@EC,V@EV
+        MOVE  E2,@EC+E2,V@EV
+        MOVE  E2,@L1,V@EV
+
+        MOVE  1,V@>0002,V@3
+        MOVE  1,V@>0EFF,V@3
+        MOVE  1,V@>1002,V@3
+        MOVE  1,V@>F002,V@3
+        MOVE  1,V*EV,V@3
+        MOVE  1,V*>8302,V@3
+        MOVE  1,V*>8382,V@3
+        MOVE  1,V*>A300,V@3
+        MOVE  1,V*EC,V@3
+
+        MOVE  1,G@>0002,V@3
+        MOVE  1,G@>0E00,V@3
+        MOVE  1,G@>1002,V@3
+        MOVE  1,G@>8310,V@3
+        MOVE  1,G@>F002,V@3
+        MOVE  1,G@L1,V@3
+*       MOVE  1,G*>8302,V@3   * RAG: BAD GENERAL ADDR
+
+        MOVE  1,@>8303(@>8384),V@3
+        MOVE  1,@>8383(@>8384),V@3
+        MOVE  1,@>9933(@>8384),V@3
+        MOVE  1,@EC+1(@EC+2),V@3
+        MOVE  1,*>8304(@>8384),V@3
+        MOVE  1,*>8384(@>8384),V@3
+        MOVE  1,*>9904(@>8384),V@3
+        MOVE  1,*EC+E1(@EC+E2),V@3
+
+        MOVE  1,V@>0002(@>8384),V@3
+        MOVE  1,V@>0702(@>8384),V@3
+        MOVE  1,V@>9002(@>8384),V@3
+        MOVE  1,V@EV+E2(@EC+L2-L1),V@3
+        MOVE  1,V*>0002(@>8384),V@3
+        MOVE  1,V*>0702(@>8384),V@3
+        MOVE  1,V*>9002(@>8384),V@3
+        MOVE  1,V*EC+E1(@EC+E2),V@3
+
+        MOVE  1,G@>0002(@>8384),V@3
+        MOVE  1,G@>0702(@>8384),V@3
+        MOVE  1,G@>9002(@>8384),V@3
+        MOVE  1,G@EG+E1(@EC),V@3
+        MOVE  1,G@L1+L3-L2(@EC),V@3
+*       MOVE  1,G*>8382(@>8384),V@3    * FORMAT ERROR
+
+GD      MOVE  1,@>8301,@>8303
+        MOVE  1,@>8301,@>8383
+        MOVE  1,@>8301,@>9303
+        MOVE  1,@>8301,@EC+E2
+        MOVE  1,@>8301,*>8303
+        MOVE  1,@>8301,*>8383
+        MOVE  1,@>8301,*>9303
+        MOVE  1,@>8301,*EV+L2-L1
+
+        MOVE  1,@>8301,@>8303(@>838F)
+        MOVE  1,@>8301,@>8383(@>838F)
+        MOVE  1,@>8301,@>9303(@>838F)
+        MOVE  1,@>8301,@EG(@EC+E2)
+        MOVE  1,@>8301,*>8303(@>838F)
+        MOVE  1,@>8301,*>8383(@>838F)
+        MOVE  1,@>8301,*>9303(@>838F)
+        MOVE  1,@>8301,*L1(@>838F+E1)
+
+        MOVE  1,@>8301,V@>0003
+        MOVE  1,@>8301,V@>0703
+        MOVE  1,@>8301,V@>9303
+        MOVE  1,@>8301,V@EV
+        MOVE  1,@>8301,V*>8303
+        MOVE  1,@>8301,V*>8383
+        MOVE  1,@>8301,V*>9303
+        MOVE  1,@>8301,V*EC+E1
+        
+        MOVE  1,@>8301,V@>0003(@>838F)
+        MOVE  1,@>8301,V@>0703(@>838F)
+        MOVE  1,@>8301,V@>9303(@>838F)
+        MOVE  1,@>8301,V@EC+E1(@EC+E2)
+        MOVE  1,@>8301,V*>8303(@>838F)
+        MOVE  1,@>8301,V*>8383(@>838F)
+        MOVE  1,@>8301,V*>9303(@>838F)
+        MOVE  1,@>8301,V*EC(@EC-E1)
+
+        MOVE  1,@>8301,G@>0003
+        MOVE  1,@>8301,G@>0703
+        MOVE  1,@>8301,G@>9303
+        MOVE  1,@>8301,G@L1
+*       MOVE  1,@>8301,G*>8303    * FORMAT ERROR
+
+        MOVE  1,@>8303,#0
+        DCZ   @>8301
+
+        MOVE  1,@>8301,G@>0003(@>838F)
+        MOVE  1,@>8301,G@>0703(@>838F)
+        MOVE  1,@>8301,G@>9303(@>838F)
+        MOVE  1,@>8301,G@L2(@EC)
+*       MOVE  1,@>8301,G*>8303(@>838F)    * FORMAT ERROR
+
+        MOVE  1,@>8301,#>00
+        MOVE  1,@>8301,#7
+        MOVE  1,@>8301,#E1+E2
+
+LN      MOVE  >0001,V@2,V@3
+        MOVE  >1111,V@2,V@3
+        MOVE  E1*E2,V@2,V@3
+*       MOVE  'A',V@2,V@3     * ADDRESS ERROR
+        MOVE  L3-L1+E2,V@2,V@3
+        MOVE  L1,V@2,V@3
+
+        MOVE  @>8302,V@2,V@3
+        MOVE  @>8382,V@2,V@3
+        MOVE  @>9302,V@2,V@3
+        MOVE  @EC+1,V@2,V@3
+        MOVE  *>8302,V@2,V@3
+        MOVE  *>8382,V@2,V@3
+        MOVE  *>9302,V@2,V@3
+        MOVE  *EC+E2,V@2,V@3
+        
+        MOVE  V@>0001,V@2,V@3
+        MOVE  V@EV+E2,V@2,V@3
+        MOVE  V*>8301,V@2,V@3
+        MOVE  V*EV-E1,V@2,V@3
+*       MOVE  G@>0001,V@2,V@3    * ADDRESS ERROR
+*       MOVE  G*>8301,V@2,V@3    * ADDRESS ERROR
+
+        MOVE  @>8383(@>8304),V@2,V@3
+        MOVE  *>8383(@>8304),V@2,V@3
+        MOVE  @EC+E2(@EC-E1),V@2,V@3
+*       MOVE  *EV-EC(@EC+E1*E2),V@2,V@3    * "GAS" ERROR
+        MOVE  V@>0001(@>8304),V@2,V@3
+        MOVE  V*>8301(@>8304),V@2,V@3
+
+        END

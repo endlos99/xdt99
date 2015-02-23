@@ -996,8 +996,8 @@ class Parser:
             return 0
         value, reloccount = Word(0), 0
         terms = ["+"] + [tok.strip() for tok in
-                         re.split("([-+*/])" if self.strictMode else
-                                  "([-+*/%~&|^()])", expr)]
+                         re.split(r"([-+*/])" if self.strictMode else
+                                  r"([-+/%~&|^()]|\*\*?)", expr)]
         i, stack = 0, []
         while i < len(terms):
             op, term, negate, corr = terms[i], terms[i + 1], False, 0
@@ -1044,6 +1044,11 @@ class Parser:
                 value.bit(op, w)
                 if reloccount > 0:
                     raise AsmError("Invalid address: " + expr)
+            elif op == "**":
+                base, exp = Word(1), w.value
+                for j in xrange(exp):
+                    base.mul("*", value)
+                value = base
             else:
                 raise AsmError("Invalid operator: " + op)
         if not 0 <= reloccount <= (0 if absolute else 1):
@@ -1058,7 +1063,7 @@ class Parser:
             return Address(self.symbols.LC, self.symbols.relocLC)
         elif op.isdigit():
             return int(op)
-        elif op[0] == "'" and op[-1] == "'":
+        elif op[0] == op[-1] == "'":
             c = self.textlits[int(op[1:-1])]
             if len(c) == 1:
                 return ord(c[0])
@@ -1102,14 +1107,14 @@ class Parser:
     def text(self, op):
         """parse single-quoted text literal"""
         s, negate = (op[1:], True) if op[0] == "-" else (op, False)
-        if not (len(s) >= 2 and s[0] == "'" and s[-1] == "'"):
+        if not (len(s) >= 2 and s[0] == s[-1] == "'"):
             raise AsmError("Invalid text literal: " + op)
         s = self.textlits[int(s[1:-1])] or '\x00'  # '' equals '\x00'
         return s[:-1] + chr(-ord(s[-1]) % 0x100) if negate else s
 
     def filename(self, op):
         """parse double-quoted filename"""
-        if not (len(op) >= 3 and op[0] == '"' and op[-1] == '"'):
+        if not (len(op) >= 3 and op[0] == op[-1] == '"'):
             raise AsmError("Invalid filename: " + op)
         return op[1:-1]
 
@@ -1159,7 +1164,7 @@ def main():
     cmd.add_argument("-i", "--image", action="store_true", dest="image",
                      help="create program image")
     cmd.add_argument("-c", "--cart", action="store_true", dest="cart",
-                     help="create cart image")
+                     help="create MESS cart image")
     cmd.add_argument("--dump", action="store_true", dest="dump",
                      help=argparse.SUPPRESS)  # debugging
     args.add_argument("-s", "--strict", action="store_true", dest="strict",
@@ -1203,9 +1208,9 @@ def main():
         sys.exit("File error: %s: %s." % (e.filename, e.strerror))
 
     # output
-    for err in errors:
-        sys.stderr.write(err)
-    if opts.dump:
+    if errors:
+        sys.stderr.write("".join(errors))
+    elif opts.dump:
         sys.stdout.write(code.genDump())
     elif opts.cart:
         data, layout, metainf = code.genCart(name)

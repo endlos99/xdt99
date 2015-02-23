@@ -1,0 +1,18 @@
+* COPY
+
+        GROM >2000
+
+ADDR    EQU 1
+
+START   ALL 33
+        HOME
+        COPY "DSK2.GACOPY1"
+
+        FMT
+        ROW 1
+        COL 1
+        COPY "DSK2.GACOPY2"
+        FEND
+
+        EXIT
+	END

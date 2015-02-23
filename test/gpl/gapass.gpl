@@ -1,0 +1,30 @@
+* MULTI-PASS TEST (9 PASSES)
+ 
+        GROM >6000
+        AORG >0030
+
+L0      ALL  32
+
+S1      ST   1,@CPU1    * 5 -> 4 -> 3 BYTES
+S2      ST   2,@CPU2
+S3      ST   3,@CPU3
+S4      ST   4,@CPU4
+S5      ST   5,@CPU5
+S6      ST   6,@CPU6
+S7      ST   7,@CPU7
+S8      ST   8,@CPU8
+
+        EXIT
+
+CPU1    EQU  >837F
+CPU2    EQU  >837F+S2-S1-3
+CPU3    EQU  >837F+S3-S1-3-3
+CPU4    EQU  >837F+S4-S1-3-3-3
+CPU5    EQU  >837F+S5-S1-3-3-3-3
+CPU6    EQU  >837F+S6-S1-3-3-3-3-3
+CPU7    EQU  >837F+S7-S1-3-3-3-3-3-3
+CPU8    EQU  >837F+S8-S1-3-3-3-3-3-3-3
+
+        DATA S8
+
+        END

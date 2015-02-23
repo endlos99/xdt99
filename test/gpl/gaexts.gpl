@@ -1,0 +1,57 @@
+* xdt99 Extensions
+
+        title 'xdt99 Extensions'
+
+
+    ; new comments
+
+longlabelsupport equ 1
+anotherlabel equ longlabelsupport + 1
+
+e1      equ 1
+e2      equ 2
+expr1   equ 1 + 2 * >10 / :10 % >10 * (1+2) + 3
+expr2   equ 1 - 2 * ~3 - 4 + ( ~+~-+ 5 )  * ignore
+
+empty
+data    data $ , $ + 2 , expr1 + $
+        stri 'A', 'B,B,B', >8, ' C '
+        text 'a', '''', '', >123, 'Z;"'
+        data empty, longlabelsupport, anotherlabel
+
+
+*** Operands
+
+        st v@>100(>8300),v*>200(>8380)
+        st v@>101(0),v*>201(128)
+
+
+*** FMT
+
+        fmt
+        htext 'A''B''''C'
+        hmove 1,@>8308
+        fend
+
+
+*** Pseudos
+
+        rb  0,@>8310
+        rb  7,V@>0010
+        rb  E1,V*>8310
+
+        sb  0,@>8390
+        sb  E2,V@>0900
+        sb  E1+E2,*>8380
+
+        tbr 0,V*>8301
+        tbr 1,@>8380(@>8302)
+        tbr 7,V@>1000(@>8303)
+
+
+*** Special cases
+
+        rand
+
+
+        end

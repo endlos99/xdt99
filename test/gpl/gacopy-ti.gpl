@@ -1,0 +1,30 @@
+* COPY
+
+        GROM >2000
+
+ADDR    EQU 1
+
+START   ALL 33
+        HOME
+*       COPY "DSK2.GACOPY1"
+* COPY1
+
+COPY1   DST 0,@>8380
+*       COPY "DSK2.GACOPY3"
+        MOVE 1,V@ADDR,V@ADDR
+        SCAN
+*       COPY "DSK2.GACOPY3"
+        MOVE 1,V@ADDR,V@ADDR
+
+        FMT
+        ROW 1
+        COL 1
+*       COPY "DSK2.GACOPY2"
+COPY2   FOR 3
+        HTEX 'COPY2'
+        FEND
+
+        FEND
+
+        EXIT
+        END

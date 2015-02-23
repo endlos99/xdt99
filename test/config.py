@@ -6,6 +6,9 @@ import os.path
 xasPy = ["../xas99.py"]
 #xasPy = ["c:\\bin\\python2\\python.exe", "..\\xas99.py"]
 
+xgaPy = ["../xga99.py"]
+#xgaPy = ["c:\\bin\\python2\\python.exe", "..\\xga99.py"]
+
 xdmPy = ["../xdm99.py"]
 #xdmPy = ["c:\\bin\\python2\\python.exe", "..\\xdm99.py"]
 
@@ -22,6 +25,8 @@ class Dirs:
     refs = "ref"
     # assembler sources
     sources = "asm"
+    # GPL sources
+    gplsources = "gpl"
     # scratch directory
     tmp = "tmp"
 
@@ -42,6 +47,8 @@ class Disks:
     asmdump1 = os.path.join(Dirs.disks, "asmdump1.dsk")
     asmdump2 = os.path.join(Dirs.disks, "asmdump2.dsk")
     asmdumpRand = os.path.join(Dirs.disks, "asmdumpr.dsk")
+    # GPL sources
+    gplsrcs = os.path.join(Dirs.disks, "gplsrcs.dsk")
     # disk images with errors
     bad = os.path.join(Dirs.disks, "bad1.dsk")
     # scratch disks

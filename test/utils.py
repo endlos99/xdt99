@@ -2,7 +2,7 @@ import sys
 import re
 
 from subprocess import call
-from config import xdmPy, xvmPy, xasPy
+from config import xdmPy, xvmPy, xasPy, xgaPy
 
 
 ### Utility functions
@@ -39,6 +39,15 @@ def xas(*args, **kargs):
               stdout=kargs.get("stdout"), stderr=kargs.get("stderr"))
     if rc != kargs.get("rc", 0):
         error("OS", "xas99 call returned with failure code " + str(rc))
+
+
+def xga(*args, **kargs):
+    """invoke Assembler"""
+    print "GA:", args
+    rc = call(xgaPy + list(args),
+              stdout=kargs.get("stdout"), stderr=kargs.get("stderr"))
+    if rc != kargs.get("rc", 0):
+        error("OS", "xga99 call returned with failure code " + str(rc))
 
 
 def error(tid, msg):

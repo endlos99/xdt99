@@ -1,0 +1,78 @@
+*  ERROR MESSAGES
+
+* OVERFLOW (TODO)
+
+*OVRFLW DATA >10000
+*       BYTE >100
+*       BYTE :111111111
+
+* BAD LABELS
+
+1       EQU 1            * ERROR
+X'Y     EQU 2            * ERROR
+X*Y     EQU 3            * ERROR
+        EQU 4            * ERROR
+
+* UNKNOWN MNEMONICS
+
+BAD     BAD              * ERROR
+        BAD              * ERROR
+        BAD 1,1          * ERROR
+        *#,#             * ERROR
+
+* BADLY PLACED INSTRUCTIONS
+
+        COL 1            * ERROR
+        FMT
+        ALL 1            * ERROR
+        FEND
+
+* INVALID LITERALS
+
+INVLIT  DATA 1A          * ERROR
+        DATA >1G         * ERROR
+        DATA :2          * ERROR
+        DATA 'A          * ERROR
+        DATA
+        BYTE ,           * ERROR
+        TEXT 1           * ERROR
+        TEXT :1          * ERROR
+        TEXT '           * ERROR
+        TEXT
+        ALL :2           * ERROR
+        BACK >1G         * ERROR
+        FMT
+        ROW :2           * ERROR
+        COL >1G          * ERROR
+        HTEXT 1          * ERROR
+        FEND
+
+* INVALID OPERANDS
+
+INVOP   CLR @1(@>9000)   * ERROR
+        MOVE 1,@0,#8     * ERROR
+        MOVE 1,#1,@0     * ERROR
+
+        ST 1,1           * ERROR
+        ST 1,**1         * ERROR
+        ST 1,X@1         * ERROR
+        ST 1,@1(@>8380   * ERROR
+        ST 1,@1()        * ERROR
+        ST 1,@1(V@>8300) * ERROR
+
+        CLR #8           * ERROR
+        ST G@1,V@1       * ERROR
+        INC G@1          * ERROR
+        CLR G*1          * ERROR
+
+        ST 1!2,@1        * ERROR
+        ST 1+,@1         * ERROR
+        ST 1//2,@1       * ERROR
+        ST 1+@1,@1       * ERROR
+        ST ,@1           * ERROR
+        ST 1,            * ERROR
+
+        ALL              * ERROR
+        ALL 1,2,3
+
+        END

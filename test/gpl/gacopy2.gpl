@@ -1,0 +1,5 @@
+* COPY2
+
+COPY2   FOR 3
+        HTEXT 'COPY2'
+        FEND

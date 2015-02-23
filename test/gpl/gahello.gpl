@@ -1,0 +1,125 @@
+* HELLO GPL WORLD!
+
+*       grom >6000
+*       aorg >0030
+
+speed   equ >80
+
+iterp   equ >8300
+iterc   equ >8302
+sndlist equ >8308
+counter equ >8310
+
+* rainbow data
+
+pattern text >ffffffffffffffff
+        text >0000000000000000
+        text >ffffffffffffffff
+
+colors  text >34466aaddcc55ee3
+        text >34466aaddcc55ee3
+
+* sprites
+
+sprreg  byte >63
+spratt  text >3800800f,>30008401
+        text >8700800f,>82008401
+        text >d0
+sprpat  text >0c12120c02020c00
+        text >0000000000000000
+        text >3048483008083000
+        text >0000000000000000
+        text >8b8a5222528a8b00
+        text >0000000000000000
+        text >9f44444444448400
+        text >0000000000000000
+sprmot  text >0008000000080000
+        text >00f8000000f80000
+
+* tones
+
+tunes   byte >03, >96, >8b, >1a, >20  * 261.626
+        byte >02, >83, >15, >20       * 329.628
+        byte >02, >8d, >11, >20       * 391.995
+        byte >02, >85, >0d, >40       * 523.251
+        byte >01, >9f, >ff
+        byte >00
+        data tunes
+
+* main program
+
+start   all 32
+        back 0
+
+* setup
+
+screen  fmt
+        row 12
+        col 8
+        htext 'HELLO GPL WORLD!'
+        row 5
+        col 0
+        hchar 32,>80
+        hchar 32,>88
+        hchar 32,>90
+        hchar 32,>98
+        hchar 32,>a0
+        row 15
+        hchar 32,>80
+        hchar 32,>88
+        hchar 32,>90
+        hchar 32,>98
+        hchar 32,>a0
+        fend
+
+sprites move 1,g@sprreg,#1
+        move 17,g@spratt,v@>300
+        move 64,g@sprpat,v@>400
+        move 16,g@sprmot,v@>780
+        st 4,@>837A
+
+sound   dst tunes,@sndlist
+        i/o 0,@sndlist
+
+* animation
+
+        dclr @iterc
+        dclr @iterp
+
+anim    dst '00',v@30
+        add @iterc+1,v@30
+        add @iterp+1,v@31
+
+        move 8,g@pattern(@iterp),v@>c00
+        move 8,g@pattern(@iterp),v@>c40
+        move 8,g@pattern(@iterp),v@>c80
+        move 8,g@pattern(@iterp),v@>cc0
+        move 8,g@pattern(@iterp),v@>d00
+
+        move 8,g@colors(@iterc),v@>390
+        call delay
+
+        dinc @iterp
+        dcgt 8,@iterp
+        br anim
+
+        dclr @iterp
+        dinc @iterc
+        dcgt 7,@iterc
+        br anim
+        dclr @iterc
+
+        b anim
+
+* delay
+
+delay   st speed,@counter
+loop    scan
+        bs done
+        dec @counter
+        br loop
+        rtn
+
+done    exit
+
+        end

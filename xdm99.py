@@ -55,7 +55,7 @@ def used(n, m):
 
 def xint(s):
     """return hex or decimal value"""
-    return int(s, 16 if s[:2] == "0x" or s[:1] == ">" else 10)
+    return int(s.lstrip(">"), 16 if s[:2] == "0x" or s[:1] == ">" else 10)
 
 
 ### Sector-based disk image
@@ -783,7 +783,7 @@ def main():
             image = fin.read()
     except IOError as e:
         sys.exit("Error: " + str(e))
-    fmt = opts.format or "PROGRAM"
+    fmt = opts.format.upper() if opts.format else "PROGRAM"
     tiname = lambda x: (opts.name or
                         os.path.splitext(os.path.basename(x))[0][:10].upper())
 

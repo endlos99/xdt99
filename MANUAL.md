@@ -8,6 +8,7 @@ modern computer systems.
 As of this release, the cross-development tools comprise
 
  * `xas99`, a TMS9900 cross-assembler,
+ * `xga99`, a GPL cross-assembler,
  * `xdm99`, a command-line disk manager for sector-based TI disk images, and
  * `xvm99`, a command-line volume manager for nanoPEB/CF7A Compact Flash cards.
 
@@ -31,16 +32,17 @@ xdt99 homepage on GitHub will include the entire repository; this is probably
 *not* what you want.
 
 You will also need a working copy of [Python 2.x][4] installed on your computer.
-`xdt99` has been developed using Python 2.7, but other versions may work as
-well.  Note, however, that compatibility with Python 3 has be postponed to a
+`xdt99` has been developed using Python 2.7, but other versions should work as
+well.  Note, however, that compatibility with Python 3 has been postponed to a
 later release for now.
 
-Both the `xas99` cross-assembler and the `xdm99` disk manager are self-contained
-Python programs.  The `xvm99` volume manager depends on `xdm99`.  Simply place
-the files `xas99.py`, `xdm99.py` and `xvm99.py` somewhere into your `$PATH` or
-where your command-line interpreter will find them.
+Both cross-assemblers and the disk manager are self-contained Python programs
+that may be used independently of each other.  The volume manager depends on the
+disk manager and cannot be used without it.  For installation, simply place the
+files `xas99.py`, `xga99.py`, `xdm99.py` and/or `xvm99.py` somewhere into your
+`$PATH` or where your command-line interpreter will find them.
 
-The `example` directory of the binary distribution contains some sample files
+The `example/` directory of the binary distribution contains some sample files
 that are referenced throughout this manual.
 
 
@@ -57,8 +59,8 @@ module option 3.
 
     $ xas99.py -R ashello.asm
 
-`xas99` can also produce program images files for the Editor/Assembler module
-option 5 or RPK cartridge files for the MESS emulator:
+`xas99` also generates program image files for the Editor/Assembler module
+option 5 or RPK cartridge files suitable for the MESS emulator:
 
 	$ xas99.py -R -i ashello.asm
 	$ xas99.py -R -c ashello.asm
@@ -78,7 +80,8 @@ Usage section below.
 
 Finally, please note that even though the object code format of the TI 99 home
 computer shares many similarities with that of other TMS9900-based systems, most
-notably the TI 990 mini computer, `xas99` currently targets the TI 99 only.
+notably the TI 990 mini computers, `xas99` currently targets the TI 99
+exclusively.
 
 
 ### Assembling Source Code
@@ -127,7 +130,7 @@ word of the image must be an executable instruction.
 ### Creating MESS Cartridges
 
 The cartridge parameter `-c` tells `xas99` to create an RPK cartridge file that
-can be used by the MESS emulator.
+can be used with the MESS emulator.
 
 	$ xas99.py -R -c ascart.asm -n "HELLO WORLD"
 
@@ -146,7 +149,7 @@ header information and relocate the program to address `>6030`, but it will not
 process the source code any further.  In particular, the usual restrictions on
 using VDP memory access routines apply.
 
-Note that cartridge file generation is still an experimental hack that may not
+Note that cartridge file generation is still somewhat experimental and may not
 work without specific adaptions to your assembly source code.
 
 
@@ -166,7 +169,7 @@ Note that the `DORG` directive *is* supported, even though the TI assembler does
 not do so.
 
 The following directives are not supported by the TI 99 loader and are thus
-ignored by `xas99`:
+silently ignored by `xas99`:
 
     PSEG PEND CSEG CEND DSEG DEND LOAD SREF
 
@@ -202,8 +205,8 @@ paths, e.g., `COPY "/home/ralph/ti/src/file2.asm"`.
 
 The `xas99` cross-assembler offers various "modern" extensions to the original
 TI Assembler to improve the developer experience for writing assembly programs.
-All extensions are backwards compatible in virtually all practically relevant
-situations so that any existing source code should compile as-is.
+All extensions are backwards compatible in virtually all situations of practical
+relevance so that any existing source code should compile as-is.
 
 Comments may be included anywhere in the source code by prepending them with a
 semicolon `;`.  A `;` character inside a text literal `'...'` or filename
@@ -274,6 +277,171 @@ backwards compatibility for old sources:
 	$ xas99.py -s ashello.asm
 
 Note, however, that case insensitivity cannot be disabled.
+
+
+xga99 GPL Cross-Assembler
+-------------------------
+
+The `xga99` GPL cross-assembler translates programs written in TI's proprietary
+Graphics Programming Language into byte code that can be interpreted by the TI
+99 home computer.
+
+Invoking `xga99` in standard mode will assemble a GPL source code file into
+plain GPL byte code that may be placed in a physical or emulated GROM or GRAM
+device.
+
+	$ xga99.py gahello.gpl
+	$ xga99.py gahello.gpl -o gahello.bin
+
+The output parameter `-o` may be used to override the default output file name,
+which uses extension `.gbc` (for "GPL byte code").
+
+The image parameter `-i` tells `xga99` to generate suitable GPL header data for
+the program so that the GPL byte code interpreter built into the TI 99 can
+execute the image file.
+
+	$ xga99.py -i gahello.gpl
+
+`xga99` will check if there is enough space at the beginning of the image file
+for inserting GPL header data.  You may have to adjust (or remove) any `AORG`
+directives if there is not enough space available.
+
+Program execution will start at the symbol provided with the `END` directive, or
+the `START` symbol, or the first byte of the byte code, in this order.
+
+The cartridge parameter `-c` relocates the GPL program to the cartridge GROM
+area, generates GPL header data, and packages the byte code image into a
+cartridge file suitable for the MESS emulator.
+
+	$ xga99.py -c gahello.gpl
+
+The resulting `.rpk` file may be executed as-is by the MESS emulator:
+
+	$ mess64 ti99_4ae -cart gahello.rpk
+
+The optional name parameter `-n` overrides the default name of the program that
+shows up in the TI 99 menu selection screen.
+
+	$ xga99.py -c gahello.gpl -n "HELLO GPL WORLD"
+
+As the Graphics Programming Language was never intended for public release,
+existing native tools for assembling GPL source code differ substantially in the
+language syntax they support.  `xga99` adopts a variation of the Ryte Data GPL
+Assembler syntax as its native format, but other syntax styles may be chosen
+with the syntax parameter `-s`.
+
+	$ xga99.py sdemo.gpl -s rag
+
+Currently supported syntax styles are `xdt99` for the `xga99` native format,
+`rag` for the Ryte Data and R.A.G. GPL assemblers, and `mizapf` for the TI Image
+Tool GPL disassembler.  Note that the original GPL syntax described in TI's *GPL
+Programmer's Guide* was considered too arcane for inclusion in `xga99`.
+
+The native `xdt99` syntax style is more "modern" in that it supports lower case
+sources and relaxes the use of whitespace.  For details, please refer to the
+respective section of the `xas99` manual.
+
+
+### GPL Instructions
+
+`xga99` supports all GPL mnemonics described in the *GPL Programmer's Guide*.
+As is common practice, however, the operand order for the shift instructions
+`SLL` etc. has been reversed from `Gd, Gs` to `Gs, Gd`.
+
+Instruction operands use the well-established prefix notation to address CPU
+RAM, VDP RAM, and GROM/GRAM, respectively:
+
+	@<cpuram addr>  ....................  CPU RAM direct
+	*<cpuram addr>  ....................  CPU RAM indirect
+	V@<vdpram addr>  ...................  VDP RAM direct
+	V*<cpuram addr>  ...................  VDP RAM indirect
+	@<cpuram addr>(@<cpuram addr>)  ....  CPU RAM indexed
+	V@<vdpram addr>(@<cpuram addr>)  ...  VDP RAM indexed
+	G@<grom addr>  .....................  GROM/GRAM direct   (MOVE only)
+	G@<grom addr>(@<cpuram addr>)  .....  GROM/GRAM indexed  (MOVE only)
+	#<vdp reg>  ........................  VDP register       (MOVE only)
+
+Note that symbols do not imply a certain memory type, so references to GROM
+addresses in `MOVE` instructions still need to prepend `G@` to the symbol name:
+
+	T1 TEXT 'HELLO'
+	L1 MOVE 5,G@T1,V@100
+
+For branch and call instructions, prefixing addresses by `G@` is optional, as
+branch targets always reside in GROM/GRAM:
+
+	B L1
+	B G@L1
+
+Instruction operands may be complex expressions of symbols and literals.
+Literals may be decimal numbers, hexadecimal numbers prefixed by `>`, binary
+numbers prefixed by `:`, and text literals enclosed in single quotes `'`.
+
+	BYTE 10, >10, :10, '1'
+
+Expressions are built using arithmeical operators `+`, `-`, `*`, `/`, `%`, and
+`**` and bit operators `&`, `|`, `^`, and `~`.  Expressions are evaluated
+left-to-right with equal operator precedence; parentheses may be used to change
+the order of evaluation.  For further details please refer to the `xas99`
+section on expressions.
+
+By default, `xga99` uses the following mnemonics for the `FMT` sub-language, but
+other syntax styles are available with the `-s` option:
+
+	HTEXT/VTEXT <text>
+	HCHAR/VCHAR <len>, <char>
+	HMOVE <len>, <gs>
+	ROW/COL <n>
+	ROW+/COL+ <n>
+	BIAS <n>/<gs>
+	FOR <n> ... FEND [<label>]
+
+Note that unlike the Ryte Data GPL Assembler, `xga99` also supports the optional
+address label for the `FEND` instruction.
+
+
+### GPL Directives
+
+The `xga99` GPL assembler supports the following directives:
+
+	GROM AORG EQU DATA BYTE TEXT STRI BSS TITLE COPY
+
+Directives affecting listing generation are currently ignored:
+
+    PAGE LIST UNL LISTM UNLM
+
+Most `xga99` directives work very similar to their `xas99` counterparts.
+
+The `BYTE` and `DATA` directives insert bytes and words into the program,
+respectively, irrespective of the size of their arguments.
+
+	LABEL BYTE 1,>02,:11011010,'@',>100
+	      DATA 1,>1000,'A'
+
+The `TEXT` directive generates a sequence of bytes from a text literal or an
+extended hexadecimal literal.
+
+	LABEL TEXT 'Groovin'' With GPL'
+          TEXT >183C7EFFE7C381
+
+Note that the second instruction is equivalent to `BYTE >18,>3C,>7E,...`.
+
+The `STRI` directive works similar to the `TEXT` directive but prepends the
+generated byte sequence with a length byte.
+
+The `GROM` directive sets the GROM base address for the code that follows.
+Currently only one `GROM` directive per source file is supported.  Note that the
+`GROM` directive expects the actual GROM address, e.g., `>6000`, instead of an
+integer number such as `3`.
+
+The `AORG` directive is used to place individual code segments at specific
+addresses within the given GROM.  The address argument is thus relative to the
+GROM base address given by `GROM`.
+
+Instead of using the `GROM` and `AORG` directives in the source file the
+location of the final GPL byte code image may also be specified by command-line
+parameters `-G` and `-A`, respectively.  Note that cartridge parameter `-c`
+implies `-G 0x6000` and `-A 0x30`.
 
 
 xdm99 Disk Manager
@@ -648,6 +816,9 @@ After pressing any key on the TI 99 startup screen you should now see "HELLO
 CART" as the second option on the menu screen.  Pressing 2 will run the sample
 program.
 
+Note that the programs runs without the 32K memory expansion, as the
+program code is stored inside a virtual cartridge ROM.
+
 If we want to run our sample program on a real TI 99 using the CF7A flash drive,
 we need to transfer our disk image to a flash card first:
 
@@ -664,6 +835,39 @@ Either way, `ashello.obj` will be available as `HELLO-O` in volume 2 and can
 loaded as `DSK2.HELLO-O` by the Editor/Assembler module.
 
 
+### Building Cartridges With GPL
+
+This subsection shows how we can use the `xga99` GPL cross-assembler to assemble
+GPL programs into virtual cartridges that run in any TI 99 emulator.  (With the
+right device such as a GRAM Kracker this exercise would even work on a physical
+TI computer!)
+
+The `example/` directory included with xdt99 contains a small GPL program
+`gahello.gpl` that sets some sprites in motion, shows a simple animation in
+normal graphics mode, and plays a simple tune.
+
+If you're using the MESS emulator running the sample program is very easy:
+
+	$ xga99.py -c gahello.gpl
+	$ mess64 ti99_4ae -cart gahello.rpk
+
+Inside the TI 99 emulation, you'll find a menu entry for the cartridge program
+on the TI menu selection screen.
+
+For other emulators you'll probably need to work with the plain GPL image file
+instead:
+
+	$ xga99.py -i gahello.gpl -G 0x6000 -A 0x20
+
+This yields the file `gahello.bin` that contains the GPL byte code with suitable
+header data for the GPL interpreter of the TI 99.  The `-G` and `-A` options
+tell `xga99` that we want to place the byte code into a cartridge GROM.
+
+To run the sample program, load `gahello.bin` as a cartridge into your emulator
+and reset the virtual TI 99.  Again, you should find an entry for the program on
+the TI menu selection screen.
+
+
 Feedback and Bug Reports
 ------------------------
 
@@ -671,7 +875,7 @@ The xdt99 tools are released under the GNU GPL, in the hope that TI 99
 enthusiasts may find them useful.
 
 For feedback, bug reports, and feature requests the developer can be reached at
-<xdt99@endlos.net>.
+<xdt99dev@gmail.com>.
 
 
 [1]: https://endlos99.github.io/xdt99

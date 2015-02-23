@@ -1,0 +1,61 @@
+* BRANCHES
+ 
+        GROM >6000
+        AORG >0030
+
+E1      EQU  >1
+E2      EQU  >2
+EC      EQU  >8301
+EG      EQU  >6000
+EV      EQU  >0100
+
+L1      DATA 0
+L2      BYTE 1
+L3      DATA 2
+
+START   B    START
+*       B    G@>1000   * ADDRESS ERROR (SYNTAX)
+        B    >1000
+        B    >6000
+        B    >71FF
+        B    >7FFF
+        B    >FFFF
+        B    $
+        
+        B    L1
+        B    L9
+        B    L1+L3-L2
+        B    L1+>20
+        B    L8+E1
+        B    $-E2
+
+        BS   START
+*       BS   >0010    * OUT OF RANGE
+*       BS   >1FFF    * OUT OF RANGE
+        BS   >6000
+        BS   >77FF
+        BS   >7FFF
+*       BS   >F000    * OUT OF RANGE
+        BS   $+E2
+
+        BR   >6080
+        BR   >7FFF
+        BR   L1
+        BR   L9
+        BR   L1+L3-L2
+        BR   L8+>20
+        BR   L2+E1
+        BR   $+L2-L1
+
+        CALL START
+        CALL >1000
+        CALL >6100
+        CALL >7FFF
+        CALL >FFFF
+        CALL $
+        CALL L8
+        CALL L3-L2+L1
+
+L8      EXIT
+        
+L9      END

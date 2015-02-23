@@ -1,0 +1,83 @@
+* FMT (RYTE DATA SYNTAX)
+ 
+        TITL 'FMT'
+        GROM >0000
+        AORG >0000
+
+E1      EQU  >1
+E2      EQU  >2
+EC      EQU  >8301
+EG      EQU  >6000
+EV      EQU  >0100
+
+L1      DATA 0
+L2      BYTE 1
+L3      DATA 2
+
+START   BACK >1
+
+F1      FMT               COMMENT
+        ROW 1             COMMENT
+        ROW 32
+        ROW E1+E2
+*       COMMENT
+        COL 1
+        COL 32
+        COL E2*E1
+
+        COL+ 1
+        COL+ 32
+        COL+ 1+E2
+        ROW+ 1
+        ROW+ 32
+        ROW+ E1+>2
+
+        SCRO 0
+        SCRO >FF
+        SCRO E1+E2
+        SCRO @>8380(@>8382)
+        SCRO V@>0500(@>8304)
+        FEND
+
+F2      FMT
+        HCHA 1,'A'
+        HCHA 32,32
+        VCHA E1,>40
+        VCHA 32,E2-E1-E1
+*       HTEX 'A'   * BUG IN RYTE DATA GPL ASM
+        HTEX >40
+        HTEX '12345678901234567890123456789012'
+*       VTEX 'z'
+        VTEX '09876543210987654321098765432109'
+        HSTR E1,@>8308
+        HSTR 26,@>8388
+        FEND
+
+F3      FMT
+        FOR 1
+        FOR 2
+        FOR 3
+        FEND
+        FOR 4
+        FEND
+        FEND
+        FOR E1+E2
+        FEND
+        FEND
+        FEND
+
+F4      FMT
+        FOR 32
+        COL+ 1
+F4L     ROW+ 1
+*       FEND F4L    * BUG IN RYTE DATA GPL ASM
+        FEND
+        FEND
+
+        BACK >F
+
+LOOP    SCAN
+        BR   LOOP
+        EXIT
+
+        END
