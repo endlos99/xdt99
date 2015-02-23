@@ -44,6 +44,8 @@ modern computer systems.</p>
 <li>
 <code>xas99</code>, a TMS9900 cross-assembler,</li>
 <li>
+<code>xga99</code>, a GPL cross-assembler,</li>
+<li>
 <code>xdm99</code>, a command-line disk manager for sector-based TI disk images, and</li>
 <li>
 <code>xvm99</code>, a command-line volume manager for nanoPEB/CF7A Compact Flash cards.</li>
@@ -68,16 +70,17 @@ xdt99 homepage on GitHub will include the entire repository; this is probably
 <em>not</em> what you want.</p>
 
 <p>You will also need a working copy of <a href="https://www.python.org/downloads/">Python 2.x</a> installed on your computer.
-<code>xdt99</code> has been developed using Python 2.7, but other versions may work as
-well.  Note, however, that compatibility with Python 3 has be postponed to a
+<code>xdt99</code> has been developed using Python 2.7, but other versions should work as
+well.  Note, however, that compatibility with Python 3 has been postponed to a
 later release for now.</p>
 
-<p>Both the <code>xas99</code> cross-assembler and the <code>xdm99</code> disk manager are self-contained
-Python programs.  The <code>xvm99</code> volume manager depends on <code>xdm99</code>.  Simply place
-the files <code>xas99.py</code>, <code>xdm99.py</code> and <code>xvm99.py</code> somewhere into your <code>$PATH</code> or
-where your command-line interpreter will find them.</p>
+<p>Both cross-assemblers and the disk manager are self-contained Python programs
+that may be used independently of each other.  The volume manager depends on the
+disk manager and cannot be used without it.  For installation, simply place the
+files <code>xas99.py</code>, <code>xga99.py</code>, <code>xdm99.py</code> and/or <code>xvm99.py</code> somewhere into your
+<code>$PATH</code> or where your command-line interpreter will find them.</p>
 
-<p>The <code>example</code> directory of the binary distribution contains some sample files
+<p>The <code>example/</code> directory of the binary distribution contains some sample files
 that are referenced throughout this manual.</p>
 
 <h2>
@@ -91,14 +94,14 @@ or the Mini Memory module.</p>
 file into an object code file that may be loaded using the Editor/Assembler
 module option 3.</p>
 
-<pre><code>$ xas99.py -OR ashello.asm
+<pre><code>$ xas99.py -R ashello.asm
 </code></pre>
 
-<p><code>xas99</code> can also produce program images files for the Editor/Assembler module
-option 5 or RPK cartridge files for the MESS emulator:</p>
+<p><code>xas99</code> also generates program image files for the Editor/Assembler module
+option 5 or RPK cartridge files suitable for the MESS emulator:</p>
 
-<pre><code>$ xas99.py -OR -i ashello.asm
-$ xas99.py -OR -c ashello.asm
+<pre><code>$ xas99.py -R -i ashello.asm
+$ xas99.py -R -c ashello.asm
 </code></pre>
 
 <p>All existing assembly code for the TI 99, e.g., the Tombstone City source code
@@ -116,7 +119,8 @@ Usage section below.</p>
 
 <p>Finally, please note that even though the object code format of the TI 99 home
 computer shares many similarities with that of other TMS9900-based systems, most
-notably the TI 990 mini computer, <code>xas99</code> currently targets the TI 99 only.</p>
+notably the TI 990 mini computers, <code>xas99</code> currently targets the TI 99
+exclusively.</p>
 
 <h3>
 <a id="assembling-source-code" class="anchor" href="#assembling-source-code" aria-hidden="true"><span class="octicon octicon-link"></span></a>Assembling Source Code</h3>
@@ -125,19 +129,19 @@ notably the TI 990 mini computer, <code>xas99</code> currently targets the TI 99
 uncompressed object code file that is suitable for the original TI 99
 Editor/Assembler loader.</p>
 
-<pre><code>$ xas99.py -OR ashello.asm
-$ xas99.py -OR ashello.asm -o HELLO-O
+<pre><code>$ xas99.py -R ashello.asm
+$ xas99.py -R ashello.asm -o HELLO-O
 </code></pre>
 
 <p>The output parameter <code>-o</code> may be used to override the default output file name.</p>
 
-<p>The assembly options parameter <code>-O</code> tells <code>xas99</code> which Editor/Assembler options
-it should apply during assembly.  Currently, only option <code>R</code> (register symbols)
-is supported; options <code>S</code> (symbol table), <code>L</code> (generate listing), and <code>C</code>
-(compress object code) are ignored.</p>
+<p>The assembly options <code>-R</code> (register symbols), <code>-S</code> (symbol table), <code>-L</code>
+(listing), and <code>-C</code> (compressed object code) correspond to the respective
+options of the TI Editor/Assembler module.  You will need to add <code>-R</code> if you
+prefer to write <code>MOV R0,*R1+</code> etc. instead of <code>MOV 0,*1+</code> in your source code.</p>
 
-<p>You will need to add <code>-OR</code> if you prefer to write <code>MOV R0,*R1+</code> etc. instead of
-<code>MOV 0,*1+</code> in your source code.</p>
+<p>Currently, only option <code>-R</code> is supported; the other options are silently
+ignored.</p>
 
 <p><code>xas99</code> will report any errors to <code>stderr</code> during assembly.  Note that the
 generated object code may differ from the code generated by the Editor/Assembler
@@ -151,7 +155,7 @@ Editor/Assembler package can assemble.</p>
 <p>The image parameter <code>-i</code> tells <code>xas99</code> to generate an image file that can be
 loaded using Editor/Assembler option 5.</p>
 
-<pre><code>$ xas99.py -OR -i ashello.asm
+<pre><code>$ xas99.py -R -i ashello.asm
 </code></pre>
 
 <p>The <code>-i</code> parameter eliminates the need for the <code>SAVE</code> utility program shipped
@@ -167,9 +171,9 @@ word of the image must be an executable instruction.</p>
 <a id="creating-mess-cartridges" class="anchor" href="#creating-mess-cartridges" aria-hidden="true"><span class="octicon octicon-link"></span></a>Creating MESS Cartridges</h3>
 
 <p>The cartridge parameter <code>-c</code> tells <code>xas99</code> to create an RPK cartridge file that
-can be used by the MESS emulator.</p>
+can be used with the MESS emulator.</p>
 
-<pre><code>$ xas99.py -OR -c ascart.asm -n "HELLO WORLD"
+<pre><code>$ xas99.py -R -c ascart.asm -n "HELLO WORLD"
 </code></pre>
 
 <p>The optional name parameter <code>-n</code> overrides the default name of the program that
@@ -188,7 +192,7 @@ header information and relocate the program to address <code>&gt;6030</code>, bu
 process the source code any further.  In particular, the usual restrictions on
 using VDP memory access routines apply.</p>
 
-<p>Note that cartridge file generation is still an experimental hack that may not
+<p>Note that cartridge file generation is still somewhat experimental and may not
 work without specific adaptions to your assembly source code.</p>
 
 <h3>
@@ -209,7 +213,7 @@ IDT DXOP COPY END
 not do so.</p>
 
 <p>The following directives are not supported by the TI 99 loader and are thus
-ignored by <code>xas99</code>:</p>
+silently ignored by <code>xas99</code>:</p>
 
 <pre><code>PSEG PEND CSEG CEND DSEG DEND LOAD SREF
 </code></pre>
@@ -243,6 +247,270 @@ src/FILE2.S
 
 <p>and its corresponding lower-case variants.  <code>COPY</code> also supports native file
 paths, e.g., <code>COPY "/home/ralph/ti/src/file2.asm"</code>.</p>
+
+<h3>
+<a id="xdt99-extensions" class="anchor" href="#xdt99-extensions" aria-hidden="true"><span class="octicon octicon-link"></span></a>
+<code>xdt99</code> Extensions</h3>
+
+<p>The <code>xas99</code> cross-assembler offers various "modern" extensions to the original
+TI Assembler to improve the developer experience for writing assembly programs.
+All extensions are backwards compatible in virtually all situations of practical
+relevance so that any existing source code should compile as-is.</p>
+
+<p>Comments may be included anywhere in the source code by prepending them with a
+semicolon <code>;</code>.  A <code>;</code> character inside a text literal <code>'...'</code> or filename
+<code>"..."</code> does <em>not</em> introduce a comment.</p>
+
+<p>Source code is processed case insensitively so that all labels, expressions, and
+instructions may be written in upper case, lower case, or any mixture.  Text
+literals are still case sensitive, though.</p>
+
+<pre><code>label1 byte &gt;A,&gt;b
+LABEL2 TEXT 'Hello World'
+Label3 mov Label1(R1),Label2(r2)
+</code></pre>
+
+<p>Labels may be of arbitrary length and may contain arbitrary characters except
+for whitespace and operators such as <code>;</code>, <code>+</code>, <code>*</code>, <code>(</code>, etc.</p>
+
+<p>The use of whitespace has been relaxed.  Single spaces may be used judiciously
+within the operand field to increase the legibility of expressions.  Two or more
+spaces as well as tabs introduce the comment field.</p>
+
+<pre><code>label  data addr + len - 1  comment
+       movb @addr + 2(r1), *r2+ ; comment
+</code></pre>
+
+<p>(<em>Technical note</em>: It is not possible to detect the beginning of the comment
+field based on the current instruction, as the example <code>LABEL EQU 1 * 2</code> shows.
+The original TI Assembler parses <code>* 2</code> as comment, even though <code>1 * 2</code> is a
+valid <code>EQU</code> expression.)</p>
+
+<p>The extended expression syntax supports parentheses <code>(</code>, <code>)</code>, the modulo
+operator <code>%</code>, and binary operators bit-and <code>&amp;</code>, bit-or <code>|</code>, bit-xor <code>^</code>, and
+bit-not <code>~</code>.</p>
+
+<pre><code>area    equ (xmax + 1) * (ymax + 1) 
+addr2   equ addr1 | &gt;A000 &amp; ~&gt;001F
+padding bss size % 8
+</code></pre>
+
+<p>It is important to note that all operators have the <em>same precedence</em>, i.e., an
+expression such as <code>1 + 2 * 3 - 4 &amp; 5</code> evaluates as <code>(((1 + 2) * 3) - 4) &amp; 5</code>.
+To change the order of evaluation, parentheses can be used: <code>1 + (2 * 3) - (4 &amp;
+5)</code>.  Changing the established order of evaluation would break the compatibility
+of <code>xas99</code> for existing sources.</p>
+
+<p>An additional source preprocessor allows for conditional assembly based on
+well-defined conditional expressions.</p>
+
+<pre><code>       .ifdef lang_de
+msg    text 'Hallo Welt'
+       .else
+msg    text 'Hello World'
+       .endif
+</code></pre>
+
+<p>The preprocessor directives <code>.ifdef</code> and <code>.ifndef</code> check if a given symbol is
+defined or not.  The directives equals <code>.ifeq</code>, not-equals <code>.ifne</code>, greater-than
+<code>.ifgt</code>, and greater-than-or-equals <code>.ifge</code> compare two arguments.  If the
+second argument is missing, the first argument is compared against value <code>0</code>.</p>
+
+<p>Directives may be nested.  Valid conditional expressions and their rules of
+evaluation correspond to those of the <code>EQU</code> directive.  Additional symbols may
+be supplied on the command line.</p>
+
+<pre><code>$ xas99.py ashello.asm -D symbol1 symbol2=2
+</code></pre>
+
+<p>If no value is given, the symbol is set to value <code>1</code>.</p>
+
+<p>The strictness option <code>-s</code> disables all <code>xas99</code>-specific extensions to improve
+backwards compatibility for old sources:</p>
+
+<pre><code>$ xas99.py -s ashello.asm
+</code></pre>
+
+<p>Note, however, that case insensitivity cannot be disabled.</p>
+
+<h2>
+<a id="xga99-gpl-cross-assembler" class="anchor" href="#xga99-gpl-cross-assembler" aria-hidden="true"><span class="octicon octicon-link"></span></a>xga99 GPL Cross-Assembler</h2>
+
+<p>The <code>xga99</code> GPL cross-assembler translates programs written in TI's proprietary
+Graphics Programming Language into byte code that can be interpreted by the TI
+99 home computer.</p>
+
+<p>Invoking <code>xga99</code> in standard mode will assemble a GPL source code file into
+plain GPL byte code that may be placed in a physical or emulated GROM or GRAM
+device.</p>
+
+<pre><code>$ xga99.py gahello.gpl
+$ xga99.py gahello.gpl -o gahello.bin
+</code></pre>
+
+<p>The output parameter <code>-o</code> may be used to override the default output file name,
+which uses extension <code>.gbc</code> (for "GPL byte code").</p>
+
+<p>The image parameter <code>-i</code> tells <code>xga99</code> to generate suitable GPL header data for
+the program so that the GPL byte code interpreter built into the TI 99 can
+execute the image file.</p>
+
+<pre><code>$ xga99.py -i gahello.gpl
+</code></pre>
+
+<p><code>xga99</code> will check if there is enough space at the beginning of the image file
+for inserting GPL header data.  You may have to adjust (or remove) any <code>AORG</code>
+directives if there is not enough space available.</p>
+
+<p>Program execution will start at the symbol provided with the <code>END</code> directive, or
+the <code>START</code> symbol, or the first byte of the byte code, in this order.</p>
+
+<p>The cartridge parameter <code>-c</code> relocates the GPL program to the cartridge GROM
+area, generates GPL header data, and packages the byte code image into a
+cartridge file suitable for the MESS emulator.</p>
+
+<pre><code>$ xga99.py -c gahello.gpl
+</code></pre>
+
+<p>The resulting <code>.rpk</code> file may be executed as-is by the MESS emulator:</p>
+
+<pre><code>$ mess64 ti99_4ae -cart gahello.rpk
+</code></pre>
+
+<p>The optional name parameter <code>-n</code> overrides the default name of the program that
+shows up in the TI 99 menu selection screen.</p>
+
+<pre><code>$ xga99.py -c gahello.gpl -n "HELLO GPL WORLD"
+</code></pre>
+
+<p>As the Graphics Programming Language was never intended for public release,
+existing native tools for assembling GPL source code differ substantially in the
+language syntax they support.  <code>xga99</code> adopts a variation of the Ryte Data GPL
+Assembler syntax as its native format, but other syntax styles may be chosen
+with the syntax parameter <code>-s</code>.</p>
+
+<pre><code>$ xga99.py sdemo.gpl -s rag
+</code></pre>
+
+<p>Currently supported syntax styles are <code>xdt99</code> for the <code>xga99</code> native format,
+<code>rag</code> for the Ryte Data and R.A.G. GPL assemblers, and <code>mizapf</code> for the TI Image
+Tool GPL disassembler.  Note that the original GPL syntax described in TI's <em>GPL
+Programmer's Guide</em> was considered too arcane for inclusion in <code>xga99</code>.</p>
+
+<p>The native <code>xdt99</code> syntax style is more "modern" in that it supports lower case
+sources and relaxes the use of whitespace.  For details, please refer to the
+respective section of the <code>xas99</code> manual.</p>
+
+<h3>
+<a id="gpl-instructions" class="anchor" href="#gpl-instructions" aria-hidden="true"><span class="octicon octicon-link"></span></a>GPL Instructions</h3>
+
+<p><code>xga99</code> supports all GPL mnemonics described in the <em>GPL Programmer's Guide</em>.
+As is common practice, however, the operand order for the shift instructions
+<code>SLL</code> etc. has been reversed from <code>Gd, Gs</code> to <code>Gs, Gd</code>.</p>
+
+<p>Instruction operands use the well-established prefix notation to address CPU
+RAM, VDP RAM, and GROM/GRAM, respectively:</p>
+
+<pre><code>@&lt;cpuram addr&gt;  ....................  CPU RAM direct
+*&lt;cpuram addr&gt;  ....................  CPU RAM indirect
+V@&lt;vdpram addr&gt;  ...................  VDP RAM direct
+V*&lt;cpuram addr&gt;  ...................  VDP RAM indirect
+@&lt;cpuram addr&gt;(@&lt;cpuram addr&gt;)  ....  CPU RAM indexed
+V@&lt;vdpram addr&gt;(@&lt;cpuram addr&gt;)  ...  VDP RAM indexed
+G@&lt;grom addr&gt;  .....................  GROM/GRAM direct   (MOVE only)
+G@&lt;grom addr&gt;(@&lt;cpuram addr&gt;)  .....  GROM/GRAM indexed  (MOVE only)
+#&lt;vdp reg&gt;  ........................  VDP register       (MOVE only)
+</code></pre>
+
+<p>Note that symbols do not imply a certain memory type, so references to GROM
+addresses in <code>MOVE</code> instructions still need to prepend <code>G@</code> to the symbol name:</p>
+
+<pre><code>T1 TEXT 'HELLO'
+L1 MOVE 5,G@T1,V@100
+</code></pre>
+
+<p>For branch and call instructions, prefixing addresses by <code>G@</code> is optional, as
+branch targets always reside in GROM/GRAM:</p>
+
+<pre><code>B L1
+B G@L1
+</code></pre>
+
+<p>Instruction operands may be complex expressions of symbols and literals.
+Literals may be decimal numbers, hexadecimal numbers prefixed by <code>&gt;</code>, binary
+numbers prefixed by <code>:</code>, and text literals enclosed in single quotes <code>'</code>.</p>
+
+<pre><code>BYTE 10, &gt;10, :10, '1'
+</code></pre>
+
+<p>Expressions are built using arithmeical operators <code>+</code>, <code>-</code>, <code>*</code>, <code>/</code>, <code>%</code>, and
+<code>**</code> and bit operators <code>&amp;</code>, <code>|</code>, <code>^</code>, and <code>~</code>.  Expressions are evaluated
+left-to-right with equal operator precedence; parentheses may be used to change
+the order of evaluation.  For further details please refer to the <code>xas99</code>
+section on expressions.</p>
+
+<p>By default, <code>xga99</code> uses the following mnemonics for the <code>FMT</code> sub-language, but
+other syntax styles are available with the <code>-s</code> option:</p>
+
+<pre><code>HTEXT/VTEXT &lt;text&gt;
+HCHAR/VCHAR &lt;len&gt;, &lt;char&gt;
+HMOVE &lt;len&gt;, &lt;gs&gt;
+ROW/COL &lt;n&gt;
+ROW+/COL+ &lt;n&gt;
+BIAS &lt;n&gt;/&lt;gs&gt;
+FOR &lt;n&gt; ... FEND [&lt;label&gt;]
+</code></pre>
+
+<p>Note that unlike the Ryte Data GPL Assembler, <code>xga99</code> also supports the optional
+address label for the <code>FEND</code> instruction.</p>
+
+<h3>
+<a id="gpl-directives" class="anchor" href="#gpl-directives" aria-hidden="true"><span class="octicon octicon-link"></span></a>GPL Directives</h3>
+
+<p>The <code>xga99</code> GPL assembler supports the following directives:</p>
+
+<pre><code>GROM AORG EQU DATA BYTE TEXT STRI BSS TITLE COPY
+</code></pre>
+
+<p>Directives affecting listing generation are currently ignored:</p>
+
+<pre><code>PAGE LIST UNL LISTM UNLM
+</code></pre>
+
+<p>Most <code>xga99</code> directives work very similar to their <code>xas99</code> counterparts.</p>
+
+<p>The <code>BYTE</code> and <code>DATA</code> directives insert bytes and words into the program,
+respectively, irrespective of the size of their arguments.</p>
+
+<pre><code>LABEL BYTE 1,&gt;02,:11011010,'@',&gt;100
+      DATA 1,&gt;1000,'A'
+</code></pre>
+
+<p>The <code>TEXT</code> directive generates a sequence of bytes from a text literal or an
+extended hexadecimal literal.</p>
+
+<pre><code>LABEL TEXT 'Groovin'' With GPL'
+      TEXT &gt;183C7EFFE7C381
+</code></pre>
+
+<p>Note that the second instruction is equivalent to <code>BYTE &gt;18,&gt;3C,&gt;7E,...</code>.</p>
+
+<p>The <code>STRI</code> directive works similar to the <code>TEXT</code> directive but prepends the
+generated byte sequence with a length byte.</p>
+
+<p>The <code>GROM</code> directive sets the GROM base address for the code that follows.
+Currently only one <code>GROM</code> directive per source file is supported.  Note that the
+<code>GROM</code> directive expects the actual GROM address, e.g., <code>&gt;6000</code>, instead of an
+integer number such as <code>3</code>.</p>
+
+<p>The <code>AORG</code> directive is used to place individual code segments at specific
+addresses within the given GROM.  The address argument is thus relative to the
+GROM base address given by <code>GROM</code>.</p>
+
+<p>Instead of using the <code>GROM</code> and <code>AORG</code> directives in the source file the
+location of the final GPL byte code image may also be specified by command-line
+parameters <code>-G</code> and <code>-A</code>, respectively.  Note that cartridge parameter <code>-c</code>
+implies <code>-G 0x6000</code> and <code>-A 0x30</code>.</p>
 
 <h2>
 <a id="xdm99-disk-manager" class="anchor" href="#xdm99-disk-manager" aria-hidden="true"><span class="octicon octicon-link"></span></a>xdm99 Disk Manager</h2>
@@ -305,9 +573,18 @@ be used:</p>
 format.  Following Unix conventions, <code>-p</code> is equivalent to combining parameters
 <code>-e</code> and <code>-o "-"</code>.</p>
 
-<p>Note that extracting files will yield the file contents only.  In order to
-retain file meta data about file type and record length, use the TIFiles format
-described below.</p>
+<p>File names given by <code>-e</code> may be glob patterns containing wildcards <code>*</code>
+and <code>?</code>.  This will extract all files matching the given pattern.</p>
+
+<pre><code>$ xdm99.py work.dsk -e "HELLO-*"
+</code></pre>
+
+<p>Note that you may have to quote your glob pattern to prevent your
+shell from expanding the pattern prematurely.</p>
+
+<p>Extracting files will yield the file contents only.  In order to
+retain file meta data about file type and record length, use the
+TIFiles format described below.</p>
 
 <h3>
 <a id="manipulating-disks" class="anchor" href="#manipulating-disks" aria-hidden="true"><span class="octicon octicon-link"></span></a>Manipulating Disks</h3>
@@ -323,9 +600,18 @@ type must be given using the <code>-f</code> parameter.</p>
 <p>The syntax for <code>-f</code> is fairly permissible, e.g., <code>DIS/FIX 80</code>, <code>DISFIX80</code>, or
 <code>DF80</code> all work.</p>
 
+<p>The rename parameter <code>-r</code> renames one or more files on the disk.</p>
+
+<pre><code>$ xdm99.py work.dsk -r HELLO-S:HELLO/S
+</code></pre>
+
+<p>For each file to rename, provide the old file name. followed by a colon <code>:</code>,
+followed by the new file name. </p>
+
 <p>The delete parameter <code>-d</code> deletes one or more files on the disk.</p>
 
-<pre><code>$ xdm99.py work.dsk -d HELLO-I
+<pre><code>$ xdm99.py work.dsk -d HELLO-I HELLO-O
+$ xdm99.py work.dsk -d "*-O"
 </code></pre>
 
 <p>Note that the current implementation of <code>xdm99</code> does not perform a "secure
@@ -409,6 +695,25 @@ erroneous files from it.</p>
 <p>The repair operation is likely to cause data loss, so it's best to extract
 erroneous files beforehand or to specify an alternative output file with <code>-o</code>.</p>
 
+<p>The <code>--initialize</code> parameter creates a new, blank disk image, using an
+optional name provided by <code>-n</code>.</p>
+
+<pre><code>$ xdm99.py blank.dsk --initialize 720 -n BLANK
+</code></pre>
+
+<p>The size of the disk image is given by the number of sectors.  You may
+also use the aliases <code>SSSD</code>, <code>DSSD</code>, <code>DSDD</code>, and <code>CF</code> for sector
+counts of 360, 720, 1440, and 1600, respectively.  Note that the disk
+format used by the TI 99 supports up to 1600 sectors per disk.</p>
+
+<p>The resize parameter <code>-Z</code> will change the total number of sector of
+the disk without changing the contents of the files currently stored.</p>
+
+<pre><code>$ xdm99.py work.dsk -Z 720
+</code></pre>
+
+<p>Resizing fails if more sectors than the target size are currently in use.</p>
+
 <p>The sector dump parameter <code>-s</code> prints the hexadecimal contents of individual
 sectors to <code>stdout</code>.  This can be used to further analyze disk errors or to save
 fragments of corrupted files.</p>
@@ -417,8 +722,8 @@ fragments of corrupted files.</p>
 $ xdm99.py work.dsk -s 0x22 -o first-file-sector
 </code></pre>
 
-<p>For convenience, the sector number may be specified in either decimal or
-hexadecimal notation.</p>
+<p>For convenience, the arguments of <code>-Z</code> and <code>-s</code> may be specified in either
+decimal or hexadecimal notation.</p>
 
 <h2>
 <a id="xvm99-volume-manager" class="anchor" href="#xvm99-volume-manager" aria-hidden="true"><span class="octicon octicon-link"></span></a>xvm99 Volume Manager</h2>
@@ -457,8 +762,8 @@ then the command is applied to <em>all</em> volumes.</p>
 <pre><code>$ xvm99.py /dev/sdc 1,3 -w work.dsk
 </code></pre>
 
-<p><code>xvm99</code> automatically "extends" the disk image to match the 1600 sector format
-used by the CF7A device.</p>
+<p><code>xvm99</code> automatically extends the disk image to match the 1600 sector format
+used by the CF7A device, unless the <code>--keep-size</code> option is given.</p>
 
 <p>The <code>-r</code> argument reads a disk image from a volume and stores it on the local
 file system.</p>
@@ -467,8 +772,8 @@ file system.</p>
 </code></pre>
 
 <p>When reading from multiple volumes the resulting disk images will be renamed
-automatically.  <code>xvm99</code> does not adjust the sector count, so all images
-extracted from CF7A devices will have 1600 sectors.</p>
+automatically.  <code>xvm99</code> trims disk images to match the sector count stored in
+the image, unless the <code>--keep-size</code> option is given.</p>
 
 <h3>
 <a id="manipulating-volumes" class="anchor" href="#manipulating-volumes" aria-hidden="true"><span class="octicon octicon-link"></span></a>Manipulating Volumes</h3>
@@ -512,9 +817,9 @@ $ ls -l
 
 <p>The file <code>ashello.asm</code> contains a simple assembly program that we want to
 assemble and run.  Since the program uses register symbols like <code>R0</code> to refer to
-registers, we need to specify the <code>-OR</code> option for assembly.</p>
+registers, we need to specify the <code>-R</code> option for assembly.</p>
 
-<pre><code>$ xas99.py -OR ashello.asm
+<pre><code>$ xas99.py -R ashello.asm
 </code></pre>
 
 <p>This should yield an object code file <code>ashello.obj</code> that looks like
@@ -534,7 +839,7 @@ A006ABD020B8375B0980B0240B000FB0260B0700B0420B0000B10E87F410F               0006
 <p>This file can be loaded with the Editor/Assembler module using option 3.  But
 before we start MESS, we'll also generate an image file for option 5:</p>
 
-<pre><code>$ xas99.py -OR -i ashello.asm
+<pre><code>$ xas99.py -R -i ashello.asm
 </code></pre>
 
 <p>This time we should get a binary file <code>ashello.img</code> of 132 bytes.</p>
@@ -592,7 +897,7 @@ generate our own self-contained cartridge.</p>
 
 <p>First we need to assemble our source code using the <code>-c</code> option.</p>
 
-<pre><code>$ xas99.py -OR -c ascart.asm -n "HELLO CART"
+<pre><code>$ xas99.py -R -c ascart.asm -n "HELLO CART"
 </code></pre>
 
 <p>Note that we cannot run the <code>ashello.asm</code> program as a cartridge, since we call
@@ -609,6 +914,9 @@ the cartridge directly into the MESS emulator:</p>
 <p>After pressing any key on the TI 99 startup screen you should now see "HELLO
 CART" as the second option on the menu screen.  Pressing 2 will run the sample
 program.</p>
+
+<p>Note that the programs runs without the 32K memory expansion, as the
+program code is stored inside a virtual cartridge ROM.</p>
 
 <p>If we want to run our sample program on a real TI 99 using the CF7A flash drive,
 we need to transfer our disk image to a flash card first:</p>
@@ -627,6 +935,41 @@ file instead.</p>
 <p>Either way, <code>ashello.obj</code> will be available as <code>HELLO-O</code> in volume 2 and can
 loaded as <code>DSK2.HELLO-O</code> by the Editor/Assembler module.</p>
 
+<h3>
+<a id="building-cartridges-with-gpl" class="anchor" href="#building-cartridges-with-gpl" aria-hidden="true"><span class="octicon octicon-link"></span></a>Building Cartridges With GPL</h3>
+
+<p>This subsection shows how we can use the <code>xga99</code> GPL cross-assembler to assemble
+GPL programs into virtual cartridges that run in any TI 99 emulator.  (With the
+right device such as a GRAM Kracker this exercise would even work on a physical
+TI computer!)</p>
+
+<p>The <code>example/</code> directory included with xdt99 contains a small GPL program
+<code>gahello.gpl</code> that sets some sprites in motion, shows a simple animation in
+normal graphics mode, and plays a simple tune.</p>
+
+<p>If you're using the MESS emulator running the sample program is very easy:</p>
+
+<pre><code>$ xga99.py -c gahello.gpl
+$ mess64 ti99_4ae -cart gahello.rpk
+</code></pre>
+
+<p>Inside the TI 99 emulation, you'll find a menu entry for the cartridge program
+on the TI menu selection screen.</p>
+
+<p>For other emulators you'll probably need to work with the plain GPL image file
+instead:</p>
+
+<pre><code>$ xga99.py -i gahello.gpl -G 0x6000 -A 0x20
+</code></pre>
+
+<p>This yields the file <code>gahello.bin</code> that contains the GPL byte code with suitable
+header data for the GPL interpreter of the TI 99.  The <code>-G</code> and <code>-A</code> options
+tell <code>xga99</code> that we want to place the byte code into a cartridge GROM.</p>
+
+<p>To run the sample program, load <code>gahello.bin</code> as a cartridge into your emulator
+and reset the virtual TI 99.  Again, you should find an entry for the program on
+the TI menu selection screen.</p>
+
 <h2>
 <a id="feedback-and-bug-reports" class="anchor" href="#feedback-and-bug-reports" aria-hidden="true"><span class="octicon octicon-link"></span></a>Feedback and Bug Reports</h2>
 
@@ -634,7 +977,7 @@ loaded as <code>DSK2.HELLO-O</code> by the Editor/Assembler module.</p>
 enthusiasts may find them useful.</p>
 
 <p>For feedback, bug reports, and feature requests the developer can be reached at
-<a href="mailto:xdt99@endlos.net">xdt99@endlos.net</a>.</p>
+<a href="mailto:xdt99dev@gmail.com">xdt99dev@gmail.com</a>.</p>
       </section>
     </div>
 
