@@ -23,7 +23,7 @@ import sys
 import re
 import os.path
 
-VERSION = "1.2.0"
+VERSION = "1.2.2"
 
 
 ### Utility functions
@@ -36,6 +36,11 @@ def ordw(word):
 def chrw(word):
     """word chr"""
     return chr(word >> 8) + chr(word & 0xFF)
+
+
+def sinc(s, i):
+    """string sequence increment"""
+    return s[:-1] + chr(ord(s[-1]) + i)
 
 
 ### Error handling
@@ -302,41 +307,56 @@ class Objcode:
         tags.append(":       99/4 AS")
         return tags.dump()
 
-    def genImage(self, baseAddr=0xA000):
+    def writeMem(self, mem, code, baseAddr):
+        """load object code into memory"""
+        for LC, w in code:
+            addr = LC + baseAddr
+            if isinstance(w, Address):
+                mem[addr] = w.addr + baseAddr if w.relocatable else w.addr
+            elif isinstance(w, Reference):
+                if w.name not in self.symbols.exts:
+                    raise AsmError("Unknown reference: " + w.name)
+                mem[addr] = self.symbols.exts.get(w.name, 0x0000)
+            elif isinstance(w, Block):
+                a, s = (addr, (w.size + 1) / 2) if addr % 2 == 0 else \
+                       (addr + 1, w.size / 2)
+                for i in xrange(s / 2):
+                    mem[a + i] = 0x0000
+            else:
+                mem[addr] = w
+        return mem
+
+    def genImage(self, baseAddr=0xA000, chunkSize=0x2000):
         """generate memory image (E/A option 5)"""
         self.prepare()
-        sload = self.symbols.getSymbol("SLOAD") or Address(baseAddr)
-        loadAddr = sload.addr + baseAddr if sload.relocatable else sload.addr
-        mem = {}
-        for base, finalLC, reloc, dummy, code in self.segments:
-            if dummy:
-                continue
-            for LC, w in code:
-                addr = LC + baseAddr if reloc else LC
-                if isinstance(w, Address):
-                    mem[addr] = w.addr + baseAddr if w.relocatable else w.addr
-                elif isinstance(w, Reference):
-                    if w.name not in self.symbols.exts:
-                        raise AsmError("Unknown reference: " + w.name)
-                    mem[addr] = self.symbols.exts.get(w.name, 0x0000)
-                elif isinstance(w, Block):
-                    a, s = (addr, (w.size + 1) / 2) if addr % 2 == 0 else \
-                           (addr + 1, w.size / 2)
-                    for i in xrange(s / 2):
-                        mem[a + i] = 0x0000
-                else:
-                    mem[addr] = w
-        addrs = mem.keys()
-        sfirst = self.symbols.getSymbol("SFIRST") or Address(min(addrs))
-        minAddr = sfirst.addr + baseAddr if sfirst.relocatable else sfirst.addr
-        slast = self.symbols.getSymbol("SLAST") or Address(max(addrs) + 2)
-        maxAddr = slast.addr + baseAddr if slast.relocatable else slast.addr
-        size = maxAddr - minAddr + 6
-        words = "".join([chrw(mem[addr]) if addr in mem else "\x00\x00"
+        sfirst = self.symbols.getSymbol("SFIRST")
+        slast = self.symbols.getSymbol("SLAST")
+        if sfirst and slast:
+            mem = {}
+            for base, finalLC, reloc, dummy, code in self.segments:
+                if not dummy:
+                    mem = self.writeMem(mem, code, baseAddr if reloc else 0)
+            minAddr = sfirst.addr + baseAddr if sfirst.relocatable else sfirst.addr
+            maxAddr = slast.addr + baseAddr if slast.relocatable else slast.addr
+            words = [(minAddr, maxAddr, mem)]
+        else:
+            words = []
+            for base, finalLC, reloc, dummy, code in self.segments:
+                if not dummy:
+                    mem = self.writeMem({}, code, baseAddr if reloc else 0)
+                    if mem:
+                        addrs = mem.keys()
+                        words.append((min(addrs), max(addrs) + 2, mem))
+        chunks = []
+        for minAddr, maxAddr, mem in words:
+            w = "".join([chrw(mem[addr]) if addr in mem else "\x00\x00"
                          for addr in xrange(minAddr, maxAddr, 2)])
-        if size % 2 == 1:
-            words = words[:-1]
-        return "\x00\x00" + chrw(size) + chrw(loadAddr) + words
+            for i in xrange(0, len(w), chunkSize - 6):
+                chunks.append((minAddr + i, w[i:i + chunkSize - 6]))
+        images = [("\xff\xff" if i + 1 < len(chunks) else "\x00\x00") +
+                  chrw(len(c) + 6) + chrw(a) + c
+                  for i, (a, c) in enumerate(chunks)]
+        return images
 
     def genCart(self, name):
         """generate RPK file for use as MESS rom cartridge"""
@@ -346,7 +366,10 @@ class Objcode:
         gpl = "\xaa\x01\x00\x00\x00\x00\x60\x10" + "\x00" * 8
         proginfo = "\x00\x00%s%c%s" % (chrw(entry), len(name), name)
         pad = "\x00" * (27 - len(name))
-        code = self.genImage(0x6030)[6:]
+        images = self.genImage(0x6030, 0xFFFF)
+        if len(images) > 1:
+            raise AsmError("Cannot create cartridge with multiple segments")
+        code = images[0][6:]
         layout = """<?xml version="1.0" encoding="utf-8"?>
                     <romset version="1.0">
                         <resources>
@@ -1190,11 +1213,6 @@ def main():
     dirname = os.path.dirname(opts.source) or "."
     basename = os.path.basename(opts.source)
     barename = os.path.splitext(basename)[0]
-    output = opts.output or (
-        barename + ".img" if opts.image else
-        barename + ".rpk" if opts.cart else
-        barename + ".obj"
-        )
     name = opts.name or barename[:10].upper()
 
     # assembly
@@ -1213,7 +1231,11 @@ def main():
     elif opts.dump:
         sys.stdout.write(code.genDump())
     elif opts.cart:
-        data, layout, metainf = code.genCart(name)
+        try:
+            data, layout, metainf = code.genCart(name)
+        except AsmError as e:
+            sys.exit("Error: %s." % e)
+        output = opts.output or barename + ".rpk"
         try:
             with zipfile.ZipFile(output, "w") as archive:
                 archive.writestr(name + ".bin", data)
@@ -1221,8 +1243,19 @@ def main():
                 archive.writestr("meta-inf.xml", metainf)
         except IOError as e:
             sys.exit("File error: %s: %s." % (e.filename, e.strerror))
+    elif opts.image:
+        data = code.genImage()
+        for i, image in enumerate(data):
+            output = sinc(opts.output, i) if opts.output else \
+                     sinc(barename, i) + ".img"
+            try:
+                with open(output, "wb") as fout:
+                    fout.write(image)
+            except IOError as e:
+                sys.exit("File error: %s: %s." % (e.filename, e.strerror))
     else:
-        data = code.genImage() if opts.image else code.genObjCode()
+        data = code.genObjCode()
+        output = opts.output or barename + ".obj"
         try:
             with open(output, "wb") as fout:
                 fout.write(data)

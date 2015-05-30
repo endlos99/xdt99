@@ -8,15 +8,24 @@ from utils import xas, xdm, error, checkFilesEq
 
 ### Check function
 
+def ordw(word):
+    return ord(word[0]) << 8 | ord(word[1])
+
+
 def checkImageFilesEq(name, genfile, reffile):
     """check if non-zero bytes in binary files are equal"""
     with open(genfile, "rb") as fg, open(reffile, "rb") as fr:
         genimage = fg.read()
         refimage = fr.read()
-    if len(genimage) != len(refimage):
+    if not 0 <= len(genimage) - len(refimage) <= 1:
+        print len(genimage), len(refimage)
         error("Object code", "Image length mismatch: " + name)
+    if (genimage[:2] != refimage[:2] or
+        not (0 <= ordw(genimage[2:4]) - ordw(refimage[2:4]) <= 1) or
+        genimage[4:6] != refimage[4:6]):
+        error("Object code", "Image header mismatch")
     # TI-generated images may contain arbitrary bytes in BSS segments
-    for i in xrange(len(genimage)):
+    for i in xrange(4, len(refimage)):
         if genimage[i] != "\x00" and genimage[i] != refimage[i]:
             error("Object code", "Image contents mismatch " + name +
                   " @ " + hex(i))
@@ -72,16 +81,28 @@ def runtest():
             ("ashello.asm", ["-R"], "ASHELLO-I"),
             ("astisym.asm", [], "ASTISYM-I"),
             ("asimg1.asm", [], "ASIMG1-I"),
-            ("asimg2.asm", [], "ASIMG2-I"),
-            ("asimg3.asm", [], "ASIMG3-I")
+            ("asimg2.asm", [], "ASIMG2-I")
+            #("asimg3.asm", [], "ASIMG3-I")
             ]:
         source = os.path.join(Dirs.sources, infile)
         xas(*[source] + opts + ["-i", "-o", Files.output])
         xdm(Disks.asmsrcs, "-e", reffile, "-o", Files.reference)
         checkImageFilesEq(infile, Files.output, Files.reference)
 
+    for infile, reffiles in [
+        ("aslimg.asm", ["ASLIMG-I", "ASLIMG-J", "ASLIMG-K"]),
+        ("assimg.asm", ["ASSIMG-I", "ASSIMG-J", "ASSIMG-K", "ASSIMG-L"])
+        ]:
+        source = os.path.join(Dirs.sources, infile)
+        xas(source, "-R", "-i", "-o", Files.output)
+        for i, reffile in enumerate(reffiles):
+            xdm(Disks.asmimgs, "-e", reffile, "-o", Files.reference)
+            checkFilesEq("Image file",
+                         Files.outputff[i], Files.reference, fmt="P")
+
     # cleanup
-    os.remove(Files.output)
+    for i in xrange(4):
+        os.remove(Files.outputff[i])
     os.remove(Files.reference)
 
 

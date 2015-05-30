@@ -44,7 +44,6 @@ def runtest():
                   "Extraneous error: " + str(err) + ": " + aserrors[err])
 
     # cleanup
-    os.remove(Files.output)
     os.remove(Files.error)
     os.remove(Files.reference)
 

@@ -47,6 +47,8 @@ class Disks:
     asmdump1 = os.path.join(Dirs.disks, "asmdump1.dsk")
     asmdump2 = os.path.join(Dirs.disks, "asmdump2.dsk")
     asmdumpRand = os.path.join(Dirs.disks, "asmdumpr.dsk")
+    # reference image files
+    asmimgs = os.path.join(Dirs.disks, "asmimgs.dsk")
     # GPL sources
     gplsrcs = os.path.join(Dirs.disks, "gplsrcs.dsk")
     # disk images with errors
@@ -62,6 +64,13 @@ class Files:
     # various filenames
     input = os.path.join(Dirs.tmp, "input")
     output = os.path.join(Dirs.tmp, "output")
+    outputff = [
+        os.path.join(Dirs.tmp, "output"),
+        os.path.join(Dirs.tmp, "outpuu"),
+        os.path.join(Dirs.tmp, "outpuv"),
+        os.path.join(Dirs.tmp, "outpuw"),
+        os.path.join(Dirs.tmp, "outpux")
+        ]
     error = os.path.join(Dirs.tmp, "error")
     reference = os.path.join(Dirs.tmp, "ref")
     tifile = os.path.join(Dirs.tmp, "tifile")

@@ -38,14 +38,15 @@ def processLine(line):
 
 ### Check function
 
-def checkImageFilesEq(name, origPath, imagePath):
+def checkImageFilesEq(name, origPath, imagePaths):
     with open(origPath, "rb") as f:
-        orig = f.read()
-    with open(imagePath, "rb") as f:
-        image = f.read()
+        orig = f.read()[6:]
+    with open(imagePaths[0], "rb") as f1, open(imagePaths[1], "rb") as f2, \
+         open(imagePaths[2], "rb") as f3:
+        image = f1.read()[6:] + f2.read()[6:] + f3.read()[6:]
     if not len(orig) <= len(image) <= len(orig) + 4:
         error("Image dumps", "Incorrect image length: " + name)
-    if orig[4:] != image[4:len(orig)]:
+    if orig != image[:len(orig)]:
         error("Image dumps", "Image mismatch: " + name)
 
 
@@ -76,7 +77,7 @@ def runtest():
             fout.write(srccode)
         xas(Files.input, "-i", "-R", "-o", Files.output)
         checkImageFilesEq(n, os.path.join(Dirs.sources, n + ".img"),
-                          Files.output)
+                          Files.outputff)
 
     # cleanup
     os.remove(Files.input)

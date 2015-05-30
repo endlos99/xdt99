@@ -57,7 +57,7 @@ Invoking `xas99` in standard mode will assemble a TMS9900 assembly source code
 file into an object code file that may be loaded using the Editor/Assembler
 module option 3.
 
-    $ xas99.py -R ashello.asm
+	$ xas99.py -R ashello.asm
 
 `xas99` also generates program image files for the Editor/Assembler module
 option 5 or RPK cartridge files suitable for the MESS emulator:
@@ -112,19 +112,37 @@ Editor/Assembler package can assemble.
 
 ### Creating Program Images
 
-The image parameter `-i` tells `xas99` to generate an image file that can be
+The image parameter `-i` tells `xas99` to generate image files that can be
 loaded using Editor/Assembler option 5.
 
 	$ xas99.py -R -i ashello.asm
 
-The `-i` parameter eliminates the need for the `SAVE` utility program shipped
-with the Editor/Assembler package.  Just like `SAVE`, `xas99` will honor the
-symbols `SLOAD`, `SFIRST`, and `SLAST` to generate the image.  If those symbols
-are missing, `xas99` will relocate the relocatable program code to memory
-location `>A000` and include the resulting parts above `>A000` into the image.
+Images larger then 8 KB are split automatically into multiple files, using
+the filename convention of the Editor/Assembler module.
+
+The `-i` parameter simulates the `SAVE` utility program shipped with the
+Editor/Assembler package and honors the symbols `SFIRST` and `SLAST` to
+generate a single image for the entire memory area spanned by those two
+addresses.
+
+Alternatively, if either symbol is missing, `xas99` will generate separate
+image files for each program segment defined in the assembly source code.
+For example, the assembly of source file
+
+	     AORG >A000
+	L1   B @L2
+	     AORG >B000
+	L2   B @L1
+
+will yield two images files of 10 bytes each instead of a single file of 4 KB.
+Relocatable segments will be relocated to memory locations `>A000` upwards.
+
+Note that this feature of creating non-contiguous image files for individual
+program segments is supported by the E/A 5 loader, but not by the original
+`SAVE` utility.  
 
 All the usual restrictions for program images apply.  In particular, the first
-word of the image must be an executable instruction.
+word of the first image file must be an executable instruction.
 
 
 ### Creating MESS Cartridges
@@ -142,15 +160,14 @@ various information for the MESS emulator on how to execute the program.
 Typically, RPK files are passed as arguments to the MESS executable, or they may
 be mounted while running MESS using the emulator on-screen menu.
 
-    $ mess64 ti99_4ae -cart ascart.rpk
+	$ mess64 ti99_4ae -cart ascart.rpk
 
 When the `-c` option is given, `xas99` will automatically generate suitable GPL
 header information and relocate the program to address `>6030`, but it will not
 process the source code any further.  In particular, the usual restrictions on
 using VDP memory access routines apply.
 
-Note that cartridge file generation is still somewhat experimental and may not
-work without specific adaptions to your assembly source code.
+Note that cartridge files cannot be generated from split image files.
 
 
 ### TMS9900 Assembly Support
@@ -171,7 +188,7 @@ not do so.
 The following directives are not supported by the TI 99 loader and are thus
 silently ignored by `xas99`:
 
-    PSEG PEND CSEG CEND DSEG DEND LOAD SREF
+	PSEG PEND CSEG CEND DSEG DEND LOAD SREF
 
 Listing generation is currently not supported, so directives
 
@@ -408,7 +425,7 @@ The `xga99` GPL assembler supports the following directives:
 
 Directives affecting listing generation are currently ignored:
 
-    PAGE LIST UNL LISTM UNLM
+	PAGE LIST UNL LISTM UNLM
 
 Most `xga99` directives work very similar to their `xas99` counterparts.
 
@@ -422,7 +439,7 @@ The `TEXT` directive generates a sequence of bytes from a text literal or an
 extended hexadecimal literal.
 
 	LABEL TEXT 'Groovin'' With GPL'
-          TEXT >183C7EFFE7C381
+	      TEXT >183C7EFFE7C381
 
 Note that the second instruction is equivalent to `BYTE >18,>3C,>7E,...`.
 
