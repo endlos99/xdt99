@@ -149,7 +149,7 @@ Print contents of TIFiles file:
 
 Initialize blank disk:
 
-	$ xdm99.py <file name> --initialize <size> [-n <name>]
+	$ xdm99.py <filename> --initialize <size> [-n <name>]
 
 Resize disk image:
 
@@ -161,7 +161,7 @@ Repair disk image with corrupt files or other inconsistencies:
 
 Print sector dump:
 
-	$ xdm99.py work.dsk -s <sector>
+	$ xdm99.py work.dsk -S <sector>
 
 For a complete overview of the available command-line options, see `xdm99.py
 -h`.

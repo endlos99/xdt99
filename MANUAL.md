@@ -93,7 +93,7 @@ Editor/Assembler loader.
 	$ xas99.py -R ashello.asm
 	$ xas99.py -R ashello.asm -o HELLO-O
 
-The output parameter `-o` may be used to override the default output file name.
+The output parameter `-o` may be used to override the default output filename.
 
 The assembly options `-R` (register symbols), `-S` (symbol table), `-L`
 (listing), and `-C` (compressed object code) correspond to the respective
@@ -310,7 +310,7 @@ device.
 	$ xga99.py gahello.gpl
 	$ xga99.py gahello.gpl -o gahello.bin
 
-The output parameter `-o` may be used to override the default output file name,
+The output parameter `-o` may be used to override the default output filename,
 which uses extension `.gbc` (for "GPL byte code").
 
 The image parameter `-i` tells `xga99` to generate suitable GPL header data for
@@ -504,7 +504,7 @@ local file system.
 
 	$ xdm99.py work.dsk -e HELLO-S CART-S
 
-The local output file name is derived automatically from the TI file name but
+The local output filename is derived automatically from the TI filename but
 may be overridden with the `-o` parameter.
 
 	$ xdm99.py work.dsk -e HELLO-S -o hello.asm
@@ -518,7 +518,7 @@ In general, printing files only makes sense for files in DIS/FIX or DIS/VAR
 format.  Following Unix conventions, `-p` is equivalent to combining parameters
 `-e` and `-o "-"`.
 
-File names given by `-e` may be glob patterns containing wildcards `*`
+Filenames given by `-e` may be glob patterns containing wildcards `*`
 and `?`.  This will extract all files matching the given pattern.
 
 	$ xdm99.py work.dsk -e "HELLO-*"
@@ -534,7 +534,7 @@ TIFiles format described below.
 ### Manipulating Disks
 
 The add parameter `-a` adds local files to the disk image.  `xdm99` will infer a
-suitable TI file name from the local file name unless an explicit file name is
+suitable TI filename from the local filename unless an explicit filename is
 given by the `-n` parameter.  If the file is not of type `PROGRAM`, the file
 type must be given using the `-f` parameter.
 
@@ -543,12 +543,19 @@ type must be given using the `-f` parameter.
 The syntax for `-f` is fairly permissible, e.g., `DIS/FIX 80`, `DISFIX80`, or
 `DF80` all work.
 
+When adding multiple files with the `-n` option, the last character of the
+specified filename will be incremented by one for each subsequent file, e.g.,
+ 
+	$ xdm99.py work.dsk -a intro main appendix -n FILE
+
+will add the files as `FILE`, `FILF`, and `FILG` to the disk image.
+
 The rename parameter `-r` renames one or more files on the disk.
 
 	$ xdm99.py work.dsk -r HELLO-S:HELLO/S
 
-For each file to rename, provide the old file name. followed by a colon `:`,
-followed by the new file name. 
+For each file to rename, provide the old filename. followed by a colon `:`,
+followed by the new filename. 
 
 The delete parameter `-d` deletes one or more files on the disk.
 
@@ -587,7 +594,7 @@ To add a file in TIFiles format, add `-t` to the add operation:
 
 	$ xdm99.py work.disk -t -a hello-s.tfi
 
-As all information about the TI file name and the TI file format is retrieved
+As all information about the TI filename and the TI file format is retrieved
 from the TIFiles meta data, parameters `-n` and `-f` are ignored when used in
 combination with `-t`.
 
@@ -605,20 +612,20 @@ without relying on disk images:
 	$ xdm99.py -T hello.asm -f DIS/VAR80 -n HELLO-S -o hello-s.tfi
 
 Note that creating a TIFiles file using the `-T` option usually requires
-information about the TI file name and the TI file type, similar to adding files
+information about the TI filename and the TI file type, similar to adding files
 to a disk image by using `-a` without the `-t` option.
 
 
 ### Analyzing Disks
 
-The check parameter `-c` analyzes a disk image for errors and prints a summary
+The check parameter `-C` analyzes a disk image for errors and prints a summary
 to `stderr`.  While all disk operations, including cataloging, also check and
-report any disk errors found, the `-c` parameter restricts the output of `xdm99`
+report any disk errors found, the `-C` parameter restricts the output of `xdm99`
 to those errors only.
 
-	$ xdm99.py -c work.dsk
+	$ xdm99.py -C work.dsk
 
-The `-c` parameter also causes `xdm99` to set its return value to non-zero for
+The `-C` parameter also causes `xdm99` to set its return value to non-zero for
 warnings, making it simple to write shell scripts for batch processing bad disk
 images.
 
@@ -647,14 +654,14 @@ the disk without changing the contents of the files currently stored.
 
 Resizing fails if more sectors than the target size are currently in use.
 
-The sector dump parameter `-s` prints the hexadecimal contents of individual
+The sector dump parameter `-S` prints the hexadecimal contents of individual
 sectors to `stdout`.  This can be used to further analyze disk errors or to save
 fragments of corrupted files.
 
-	$ xdm99.py work.dsk -s 1
-	$ xdm99.py work.dsk -s 0x22 -o first-file-sector
+	$ xdm99.py work.dsk -S 1
+	$ xdm99.py work.dsk -S 0x22 -o first-file-sector
 	
-For convenience, the arguments of `-Z` and `-s` may be specified in either
+For convenience, the arguments of `-Z` and `-S` may be specified in either
 decimal or hexadecimal notation.
 
 

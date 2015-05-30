@@ -5,7 +5,7 @@ import shutil
 import random
 
 from config import Dirs, Disks, Files
-from utils import xdm, checkFilesEq
+from utils import xdm, error, checkFilesEq
 
 
 ### Utility functions
@@ -48,6 +48,16 @@ def createBinaryFile(size):
     with open(path, "wb") as f:
         f.write(data)
     return name, path, "PROGRAM"
+
+
+### Check functions
+
+def checkTrunc(infile, lines, length):
+    """check prefixes of lines"""
+    with open(infile, "r") as f:
+        for i, inline in enumerate(f):
+            if inline.rstrip() != lines[i].rstrip()[:length]:
+                error("Truncated records", "Record %d mismatch" % i)
 
 
 ### Main test
@@ -98,7 +108,7 @@ def runtest():
     for name, path, fmt in files:
         xdm(Disks.work, "-a", path, "-f", fmt)
 
-    # extract in and convert to/from TIFile format
+    # extract in and convert to/from TIFiles format
     for name, path, fmt in files:
         xdm(Disks.work, "-e", name, "-o", Files.reference)
         xdm(Disks.work, "-e", name, "-t", "-o", Files.tifile)
@@ -108,7 +118,7 @@ def runtest():
         checkFilesEq("Write records", Files.output, Files.tifile,
                      "PROGRAM", [(0x1e, 0x26)])
 
-    # add and remove TIFs
+    # add and remove TIFiles files
     for name, path, fmt in files:
         xdm(Disks.work, "-e", name, "-t", "-o", Files.tifile)
         xdm(Disks.tifiles, "-t", "-a", Files.tifile)
@@ -120,6 +130,16 @@ def runtest():
         xdm(Disks.work, "-e", name, "-o", Files.output)
         checkFilesEq("Write records", Files.output, path, fmt)
         xdm(Disks.work, "-d", name)
+
+    # check truncating of files with long records
+    path = os.path.join(Dirs.refs, "vardis")
+    with open(path, "r") as f:
+        reflines = f.readlines()
+    for f in ["F", "V"]:
+        for l in [8, 7, 4]:
+            xdm(Disks.work, "-a", path, "-f", "D%c%d" % (f, l), "-q")
+            xdm(Disks.work, "-e", "VARDIS", "-o", Files.output)
+            checkTrunc(Files.output, reflines, l)
 
     # create well-defined TI disk
     for name, path, fmt in files:

@@ -1,7 +1,5 @@
 #!/usr/bin/env python
 
-#UPD
-
 import os
 import shutil
 import re
@@ -14,7 +12,6 @@ from utils import xdm, error, checkFilesEq
 
 def checkFileLen(infile, minlines=-1, maxlines=99999):
     """check if text file has certain length"""
-
     try:
         with open(infile, "r") as f:
             linecnt = len(f.readlines())
@@ -77,7 +74,7 @@ def runtest():
     with open(Files.error, "w") as ferr:
         xdm(Disks.work, "-e", "INVALID", stderr=ferr, rc=1)
 
-    xdm(Disks.work, "-s", "0x01", "-o", Files.output)
+    xdm(Disks.work, "-S", "0x01", "-o", Files.output)
     checkFilesEq("CLI", Files.output,
                  os.path.join(Dirs.refs, "sector1"), "DIS/VAR255")
 
@@ -104,7 +101,7 @@ def runtest():
     checkFilesEq("CLI", Files.output, Files.reference, "DIS/VAR255")
 
     shutil.copyfile(Disks.recsgen, Disks.work)
-    xdm(Disks.work, "-e", "DF127*")
+    xdm(Disks.work, "-e", "DF127*", "PROG00001", "PROG00002")
     if (not os.path.isfile("df127x001") or not os.path.isfile("df127x010") or
         not os.path.isfile("df127x020p")):
         error("CLI", "DF127*: Missing files")
@@ -114,7 +111,15 @@ def runtest():
         xdm(Disks.work, "-e", "PROG00255", stderr=ferr, rc=1)
         xdm(Disks.work, "-e", "DV010X060", stderr=ferr, rc=1)
         xdm(Disks.work, "-e", "DF010X060", stderr=ferr, rc=1)
-        
+
+    xdm(Disks.work, "-n", "MULTI", "-a", "prog00001", "prog00255", "prog00002")
+    xdm(Disks.work, "-e", "MULTI", "-o", Files.output)
+    checkFilesEq("CLI", "prog00001", Files.output, "P")
+    xdm(Disks.work, "-e", "MULTJ", "-o", Files.output)
+    checkFilesEq("CLI", "prog00255", Files.output, "P")
+    xdm(Disks.work, "-e", "MULTK", "-o", Files.output)
+    checkFilesEq("CLI", "prog00002", Files.output, "P")
+
     # initialize disk
     xdm(Disks.work, "--initialize", "360", "-n", "SSSD")
     checkFileSize(Disks.work, 360 * 256)
@@ -152,11 +157,11 @@ def runtest():
     # repair disks
     shutil.copyfile(Disks.bad, Disks.work)
     with open(Files.output, "w") as f1, open(Files.reference, "w") as f2:
-        xdm(Disks.work, "-c", stderr=f1, rc=1)
+        xdm(Disks.work, "-C", stderr=f1, rc=1)
         xdm(Disks.work, "-R", stderr=f2)
     checkFileLen(Files.output, minlines=2)
     with open(Files.output, "w") as f1:
-        xdm(Disks.work, "-c", stderr=f1)
+        xdm(Disks.work, "-C", stderr=f1)
     checkFileLen(Files.output, maxlines=0)
 
     # TIFile operations
@@ -194,6 +199,8 @@ def runtest():
     os.remove(Files.output)
     os.remove(Files.reference)
     os.remove(Files.error)
+    os.remove("prog00001")
+    os.remove("prog00002")
     os.remove("prog00255")
     os.remove("prog00255.tfi")
     os.remove("dv064x010")

@@ -22,8 +22,9 @@
 import sys
 import re
 import datetime
+import os.path
 
-VERSION = "1.2.1"
+VERSION = "1.2.2"
 
 
 ### Utility functions
@@ -49,13 +50,23 @@ def pad(n, m):
 
 
 def used(n, m):
-    """integer devision rounding up"""
+    """integer division rounding up"""
     return (n + m - 1) / m
 
 
 def xint(s):
     """return hex or decimal value"""
     return int(s.lstrip(">"), 16 if s[:2] == "0x" or s[:1] == ">" else 10)
+
+
+def tiname(s):
+    """create TI filename from local filename"""
+    return os.path.splitext(os.path.basename(s))[0][:10].upper()
+
+
+def sseq(s, i):
+    """create string sequence"""
+    return s[:-1] + chr(ord(s[-1]) + i)
 
 
 ### Sector-based disk image
@@ -158,7 +169,7 @@ class Disk:
         return data, error
 
     def globFiles(self, patterns):
-        """return list of file names matching glob pattern"""
+        """return list of filenames matching glob pattern"""
         wildcards = [p for p in patterns if re.search("[?*]", p)]
         globre = "|".join([re.escape(p).replace("\*", ".*").replace("\?", ".")
                            for p in wildcards]) + "$"
@@ -411,7 +422,7 @@ class FileDescriptor:
 
     def init(self, name, fmt):
         """create new empty file"""
-        fmtargs = re.match("([PDIB])[ROGRAMISNT]*(?:/?([VF])[ARIX]*\s*(\d+))?",
+        fmtargs = re.match("([PDIB])[ROGAMISNT]*(?:/?([VF])[ARIX]*\s*(\d+))?",
                            fmt.upper())
         if not fmtargs:
             raise FileError("Unknown file format: " + fmt)
@@ -525,6 +536,7 @@ class File:
     """main file object with FDR metadata and sector contents"""
 
     def __init__(self, fd=None, name=None, fmt=None, tifimage=None, data=""):
+        self.warnings = []
         if fd:
             self.fd = fd
             self.data = data + "\x00" * pad(len(data), Disk.bytesPerSector)
@@ -572,9 +584,9 @@ class File:
             r, s, p = 0, 0, 0
             for record in self.records:
                 if len(record) > self.fd.recordLen:
-                    raise FileError(
-                        "Record #%d too long: found %d bytes, exceeds %d" % (
-                            r + 1, len(record), self.fd.recordLen))
+                    self.warn("Record #%d too long, truncating %d bytes" % (
+                        r, len(record) - self.fd.recordLen))
+                    record = record[:self.fd.recordLen]
                 if p + self.fd.recordLen > Disk.bytesPerSector:
                     data += "\x00" * (Disk.bytesPerSector - p)
                     s, p = s + 1, 0
@@ -588,8 +600,9 @@ class File:
             r, s, p = 1, 0, 0
             for record in self.records:
                 if len(record) > self.fd.recordLen:
-                    raise FileError("Record #%d too long: %d" % (
-                        r, len(record)))
+                    self.warn("Record #%d too long, truncating %d bytes" % (
+                        r, len(record) - self.fd.recordLen))
+                    record = record[:self.fd.recordLen]
                 if p + 1 + len(record) + 1 > Disk.bytesPerSector and p > 0:
                     data += "\xFF" + "\x00" * (Disk.bytesPerSector - p - 1)
                     s, p = s + 1, 0
@@ -658,14 +671,23 @@ class File:
         """return file contents in TIFiles format"""
         return self.fd.getTifilesHeader() + self.getData()
 
-    def getInfo(self):
-        """return file meta data"""
-        return self.fd.getInfo()
-
     @staticmethod
     def isTifiles(image):
         """check if file image has valid TIFiles header"""
         return image[:0x08] == "\x07TIFILES"
+
+    def getInfo(self):
+        """return file meta data"""
+        return self.fd.getInfo()
+
+    def warn(self, text):
+        """issue non-critical warning"""
+        if text not in self.warnings:
+            self.warnings.append(text)
+
+    def getWarnings(self):
+        """return warnings issued while processing file"""
+        return "".join(["Warning: %s\n" % w for w in self.warnings])
 
 
 ### Command line processing
@@ -688,14 +710,14 @@ def dump(s):
 
 
 def main():
-    import argparse, os.path
+    import argparse
 
     args = argparse.ArgumentParser(
         version=VERSION,
         description="xdm99: Disk image and file manipulation tool")
     args.add_argument(
         "filename", type=str,
-        help="disk image or file name")
+        help="disk image or filename")
     cmd = args.add_mutually_exclusive_group()
     # disk image commands
     cmd.add_argument(
@@ -719,7 +741,7 @@ def main():
              "INT/FIXnnn, PROGRAM) for data to add")
     args.add_argument(
         "-n", "--name", dest="name", metavar="<name>",
-        help="set TI file name for data to add")
+        help="set TI filename for data to add")
     cmd.add_argument(
         "-r", "--rename", dest="rename", nargs="+", metavar="<old>:<new>",
         help="rename files on image")
@@ -733,13 +755,13 @@ def main():
         "-Z", "--resize", dest="resize", metavar="<sectors>",
         help="resize image to given total sector count")
     cmd.add_argument(
-        "-c", "--check", action="store_true", dest="checkonly",
+        "-C", "--check", action="store_true", dest="checkonly",
         help="check disk image integrity only")
     cmd.add_argument(
         "-R", "--repair", action="store_true", dest="repair",
         help="attempt to repair disk image")
     cmd.add_argument(
-        "-s", "--sector", dest="sector", metavar="<sector>",
+        "-S", "--sector", dest="sector", metavar="<sector>",
         help="dump disk sector")
     # TIFiles commands
     args.add_argument(
@@ -757,7 +779,7 @@ def main():
     # general options
     args.add_argument(
         "-o", "--output", dest="output", metavar="<file>",
-        help="set output file name")
+        help="set output filename")
     args.add_argument(
         "-q", "--quiet", action="store_true", dest="quiet",
         help="suppress all warnings")
@@ -784,8 +806,6 @@ def main():
     except IOError as e:
         sys.exit("Error: " + str(e))
     fmt = opts.format.upper() if opts.format else "PROGRAM"
-    tiname = lambda x: (opts.name or
-                        os.path.splitext(os.path.basename(x))[0][:10].upper())
 
     # process image
     rc, result = 0, []
@@ -797,7 +817,8 @@ def main():
                        os.path.splitext(opts.filename)[0],
                        "w" if tiffile.fd.type == "D" else "wb")]
         elif opts.totif:
-            tiffile = File(name=tiname(opts.filename), fmt=fmt, data=image)
+            tiffile = File(name=opts.name or tiname(opts.filename),
+                           fmt=fmt, data=image)
             result = [(tiffile.getAsTifiles(), opts.filename + ".tfi", "wb")]
         elif opts.printtif:
             tiffile = File(tifimage=image)
@@ -827,9 +848,7 @@ def main():
                                name.lower(), "w" if fmt[0] == "D" else "wb")
                               for name in files]
             elif opts.add:
-                if opts.name and len(opts.add) > 1:
-                    sys.exit(
-                        "Error: Cannot use -n when adding multiple files")
+                n, c = opts.name, 0
                 for name in opts.add:
                     try:
                         if name == "-":
@@ -841,9 +860,14 @@ def main():
                                 data = fin.read()
                     except IOError as e:
                         sys.exit("Error: " + str(e))
-                    f = (File(tifimage=data) if opts.astif else
-                         File(name=tiname(name), fmt=fmt, data=data))
-                    disk.addFile(f)
+                    if opts.astif:
+                        disk.addFile(File(tifimage=data))
+                    else:
+                        n = sseq(opts.name, c) if opts.name else tiname(name)
+                        f, c = File(name=n, fmt=fmt, data=data), c + 1
+                        if f.warnings and not opts.quiet:
+                            sys.stderr.write(f.getWarnings())
+                        disk.addFile(f)
                 result = [(disk.getImage(), opts.filename, "wb")]
             elif opts.rename:
                 names = [arg.split(":") for arg in opts.rename]
