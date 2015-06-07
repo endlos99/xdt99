@@ -213,7 +213,7 @@ def main():
                 disk = xdm99.Disk(image)
                 suffix = "_" + str(v) if len(volumes) > 1 else ""
                 if opts.astif:
-                    result.extend([(disk.getTifiles(name),
+                    result.extend([(disk.getFileAsTifiles(name),
                                     name.lower() + suffix + ".tfi", "wb")
                                    for name in opts.extract])
                 else:

@@ -77,5 +77,6 @@ class Files:
 
 
 class Masks:
-    # mask extended header, dates, and unsed blocks in TIFile files
+    # mask extended header, dates, and unsed blocks in FIAD files
     TIFile = [(0x1b, 0x80)]
+    v9t9 = [(0x14, 0x1000000)]

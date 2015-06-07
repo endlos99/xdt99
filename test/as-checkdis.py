@@ -82,6 +82,11 @@ def runtest():
     # cleanup
     os.remove(Files.input)
     os.remove(Files.output)
+    for fn in Files.outputff:
+        try:
+            os.remove(fn)
+        except:
+            pass
 
 
 if __name__ == "__main__":

@@ -344,10 +344,15 @@ class Disk:
         """return disk image"""
         return self.image
 
-    def getTifiles(self, name):
+    def getTifilesFile(self, name):
         """get file in TIFiles format from disk catalog"""
         f = self.getFile(name)
         return f.getAsTifiles()
+
+    def getV9t9File(self, name):
+        """get file in v9t9 format from disk catalog"""
+        f = self.getFile(name)
+        return f.getAsV9t9()
 
     def getInfo(self):
         """return information about disk image"""
@@ -522,6 +527,19 @@ class FileDescriptor:
             self.modifiedDate >> 8, self.modifiedDate & 0xFF
         ) + " " * 88
 
+    def getV9t9Header(self):
+        """return FDR as v9t9 header"""
+        return ("%-10s\x00\x00" + "%c" * 16) % (
+            self.name[:10], self.flags, self.recordsPerSector,
+            self.totalSectors >> 8, self.totalSectors & 0xFF,
+            self.eofOffset, self.recordLen,
+            self.totalLv3Records & 0xFF, self.totalLv3Records >> 8,
+            self.createdTime >> 8, self.createdTime & 0xFF,
+            self.createdDate >> 8, self.createdDate & 0xFF,
+            self.modifiedTime >> 8, self.modifiedTime & 0xFF,
+            self.modifiedDate >> 8, self.modifiedDate & 0xFF
+        ) + "\x00" * 100
+
     def getInfo(self):
         """return information about file"""
         return "%-10s  %4d  %-11s %6d B  %8s  %19s %c  %s\n" % (
@@ -535,7 +553,8 @@ class FileDescriptor:
 class File:
     """main file object with FDR metadata and sector contents"""
 
-    def __init__(self, fd=None, name=None, fmt=None, tifimage=None, data=""):
+    def __init__(self, fd=None, name=None, fmt=None,
+                 tifimage=None, v9t9image=None, data=""):
         self.warnings = []
         if fd:
             self.fd = fd
@@ -547,6 +566,11 @@ class File:
             self.fd = FileDescriptor(header=tifimage[:0x80])
             self.data = (tifimage[0x80:] + "\x00" * pad(len(tifimage) - 0x80,
                                                         Disk.bytesPerSector))
+            self.readRecords()
+        elif v9t9image:
+            self.fd = FileDescriptor(sector=v9t9image[:0x80])
+            self.data = (v9t9image[0x80:] + "\x00" * pad(len(v9t9image) - 0x80,
+                                                         Disk.bytesPerSector))
             self.readRecords()
         elif name and fmt:
             self.fd = FileDescriptor(name=name, fmt=fmt)
@@ -671,6 +695,10 @@ class File:
         """return file contents in TIFiles format"""
         return self.fd.getTifilesHeader() + self.getData()
 
+    def getAsV9t9(self):
+        """return file contents in v9t9 format"""
+        return self.fd.getV9t9Header() + self.getData()
+
     @staticmethod
     def isTifiles(image):
         """check if file image has valid TIFiles header"""
@@ -709,6 +737,147 @@ def dump(s):
     return result
 
 
+def imageCmds(opts):
+    """disk image manipulation"""
+    rc, result = 0, []
+    fmt = opts.format.upper() if opts.format else "PROGRAM"
+
+    # initialize new image
+    if opts.init:
+        try:
+            size = int(opts.init)
+        except ValueError:
+            size = {"SSSD": 360, "DSSD": 720,
+                    "DSDD": 1440, "CF": 1600}.get(opts.init.upper())
+        try:
+            with open(opts.filename, "wb") as fout:
+                fout.write(Disk.blankImage(size, opts.name or ""))
+        except (IOError, DiskError) as e:
+            sys.exit("Error: " + str(e))
+        return 0, []
+
+    # manipulate existing image
+    with open(opts.filename, "rb") as fin:
+        image = fin.read()
+    disk = Disk(image)
+
+    if opts.print_:
+        files = disk.globFiles(opts.print_)
+        contents = [disk.getFile(name).getContents()
+                    for name in files]
+        sys.stdout.write("".join(contents))
+    elif opts.extract:
+        files = disk.globFiles(opts.extract)
+        if opts.output and len(files) > 1:
+            sys.exit(
+                "Error: Cannot use -o when extracting multiple files")
+        if opts.astifiles:
+            result = [(disk.getTifilesFile(name),
+                       name.lower() + ".tfi", "wb")
+                      for name in files]
+        elif opts.asv9t9:
+            result = [(disk.getV9t9File(name),
+                       name.lower() + ".v9t9", "wb")
+                      for name in files]
+        else:
+            result = [(disk.getFile(name).getContents(),
+                       name.lower(), "w" if fmt[0] == "D" else "wb")
+                      for name in files]
+    elif opts.add:
+        n, c = opts.name, 0
+        for name in opts.add:
+            if name == "-":
+                name = "STDIN"
+                data = sys.stdin.read()
+            else:
+                with open(name, "r" if fmt[0] == "D" and
+                                not opts.astifiles else "rb") as fin:
+                    data = fin.read()
+            if opts.astifiles:
+                disk.addFile(File(tifimage=data))
+            elif opts.asv9t9:
+                disk.addFile(File(v9t9image=data))
+            else:
+                n = sseq(opts.name, c) if opts.name else tiname(name)
+                f, c = File(name=n, fmt=fmt, data=data), c + 1
+                if f.warnings and not opts.quiet:
+                    sys.stderr.write(f.getWarnings())
+                disk.addFile(f)
+        result = [(disk.getImage(), opts.filename, "wb")]
+    elif opts.rename:
+        names = [arg.split(":") for arg in opts.rename]
+        disk.renameFiles(names)
+        result = [(disk.getImage(), opts.filename, "wb")]
+    elif opts.delete:
+        files = disk.globFiles(opts.delete)
+        for name in files:
+            disk.removeFile(name)
+        result = [(disk.getImage(), opts.filename, "wb")]
+    elif opts.resize:
+        try:
+            size = xint(opts.resize)
+        except ValueError:
+            raise DiskError("Invalid disk size %s" % opts.resize)
+        disk.resizeDisk(size)
+        result = [(disk.getImage(), opts.filename, "wb")]
+    elif opts.checkonly:
+        rc = 1 if disk.warnings else 0
+    elif opts.repair:
+        disk.fixDisk()
+        result = [(disk.getImage(), opts.filename, "wb")]
+    elif opts.sector:
+        opts.quiet = True
+        try:
+            sno = xint(opts.sector)
+            sector = disk.getSector(sno)
+        except (IndexError, ValueError):
+            raise DiskError("Invalid sector %s" % opts.sector)
+        result = [(dump(sector), "-", "w")]
+    else:
+        sys.stdout.write(disk.getInfo())
+        sys.stdout.write("-" * 76 + "\n")
+        sys.stdout.write(disk.getCatalog())
+    if not opts.quiet:
+        sys.stderr.write(disk.getWarnings())
+
+    return rc, result
+
+
+def fiadCmds(opts):
+    """FIAD manipulation"""
+    rc, result = 0, []
+
+    # files in a directory
+    files = opts.fromfiad or opts.tofiad or opts.printfiad or opts.infofiad
+    if opts.output and len(files) > 1:
+        sys.exit("Error: Cannot use -o when converting multiple files")
+    fmt = opts.format.upper() if opts.format else "PROGRAM"
+    for fi, fn in enumerate(files):
+        with open(fn, "rb") as fin:
+            image = fin.read()
+        if opts.tofiad:
+            n = sseq(opts.name, fi) if opts.name else tiname(fn)
+            f = File(name=n, fmt=fmt, data=image)
+            if opts.asv9t9:
+                result.append((f.getAsV9t9(), fn + ".v9t9", "wb"))
+            else:
+                result.append((f.getAsTifiles(), fn + ".tfi", "wb"))
+        else:
+            istif = opts.astifiles or (
+                not opts.asv9t9 and File.isTifiles(image))
+            f = File(tifimage=image) if istif else File(v9t9image=image)
+            if opts.fromfiad:
+                result.append((f.getContents(),
+                               os.path.splitext(fn)[0],
+                               "w" if f.fd.type == "D" else "wb"))
+            elif opts.printfiad:
+                result.append((f.getContents(), "-", "w"))
+            else:
+                sys.stdout.write(f.getInfo())
+
+    return rc, result
+
+
 def main():
     import argparse
 
@@ -716,8 +885,8 @@ def main():
         version=VERSION,
         description="xdm99: Disk image and file manipulation tool")
     args.add_argument(
-        "filename", type=str,
-        help="disk image or filename")
+        "filename", nargs="?", type=str,
+        help="disk image filename")
     cmd = args.add_mutually_exclusive_group()
     # disk image commands
     cmd.add_argument(
@@ -732,16 +901,6 @@ def main():
     cmd.add_argument(
         "-a", "--add", dest="add", nargs="+", metavar="<file>",
         help="add files to image or update existing files")
-    args.add_argument(
-        "-t", "--tifiles", action="store_true", dest="astif",
-        help="use TIFiles file format for added/extracted files")
-    args.add_argument(
-        "-f", "--format", dest="format", metavar="<format>",
-        help="set TI file format (DIS/VARnnn, DIS/FIXnnn, INT/VARnnn, " + \
-             "INT/FIXnnn, PROGRAM) for data to add")
-    args.add_argument(
-        "-n", "--name", dest="name", metavar="<name>",
-        help="set TI filename for data to add")
     cmd.add_argument(
         "-r", "--rename", dest="rename", nargs="+", metavar="<old>:<new>",
         help="rename files on image")
@@ -763,20 +922,33 @@ def main():
     cmd.add_argument(
         "-S", "--sector", dest="sector", metavar="<sector>",
         help="dump disk sector")
-    # TIFiles commands
-    args.add_argument(
-        "-P", "--print-tifiles", action="store_true", dest="printtif",
-        help="print contents of file in TIFiles format")
-    args.add_argument(
-        "-T", "--to-tifiles", action="store_true", dest="totif",
-        help="convert plain file to TIFiles format")
-    args.add_argument(
-        "-F", "--from-tifiles", action="store_true", dest="fromtif",
-        help="convert TIFiles format to plain file")
-    args.add_argument(
-        "-I", "--info-tifiles", action="store_true", dest="infotif",
-        help="show TIFiles file information")
+    # FIAD commands
+    cmd.add_argument(
+        "-P", "--print-fiad", dest="printfiad", nargs="+", metavar="<file>",
+        help="print contents of file in FIAD format")
+    cmd.add_argument(
+        "-T", "--to-fiad", dest="tofiad", nargs="+", metavar="<file>",
+        help="convert plain file to FIAD format")
+    cmd.add_argument(
+        "-F", "--from-fiad", dest="fromfiad", nargs="+", metavar="<file>",
+        help="convert FIAD format to plain file")
+    cmd.add_argument(
+        "-I", "--info-fiad", dest="infofiad", nargs="+", metavar="<file>",
+        help="show information about file in FIAD format")
     # general options
+    args.add_argument(
+        "-t", "--tifiles", action="store_true", dest="astifiles",
+        help="use TIFiles file format for added/extracted files")
+    args.add_argument(
+        "-9", "--v9t9", action="store_true", dest="asv9t9",
+        help="use v9t9 file format for added/extracted files")
+    args.add_argument(
+        "-f", "--format", dest="format", metavar="<format>",
+        help="set TI file format (DIS/VARnnn, DIS/FIXnnn, INT/VARnnn, " + \
+             "INT/FIXnnn, PROGRAM) for data to add")
+    args.add_argument(
+        "-n", "--name", dest="name", metavar="<name>",
+        help="set TI filename for data to add")
     args.add_argument(
         "-o", "--output", dest="output", metavar="<file>",
         help="set output filename")
@@ -785,126 +957,16 @@ def main():
         help="suppress all warnings")
     opts = args.parse_args()
 
-    # special cases
-    if opts.init:
-        try:
-            size = int(opts.init)
-        except ValueError:
-            size = {"SSSD": 360, "DSSD": 720,
-                    "DSDD": 1440, "CF": 1600}.get(opts.init.upper())
-        try:
-            with open(opts.filename, "wb") as fout:
-                fout.write(Disk.blankImage(size, opts.name or ""))
-        except (IOError, DiskError) as e:
-            sys.exit("Error: " + str(e))
-        return 0
-
-    # setup
-    try:
-        with open(opts.filename, "rb") as fin:
-            image = fin.read()
-    except IOError as e:
-        sys.exit("Error: " + str(e))
-    fmt = opts.format.upper() if opts.format else "PROGRAM"
-
     # process image
-    rc, result = 0, []
     try:
-        # TIFiles
-        if opts.fromtif:
-            tiffile = File(tifimage=image)
-            result = [(tiffile.getContents(),
-                       os.path.splitext(opts.filename)[0],
-                       "w" if tiffile.fd.type == "D" else "wb")]
-        elif opts.totif:
-            tiffile = File(name=opts.name or tiname(opts.filename),
-                           fmt=fmt, data=image)
-            result = [(tiffile.getAsTifiles(), opts.filename + ".tfi", "wb")]
-        elif opts.printtif:
-            tiffile = File(tifimage=image)
-            result = [(tiffile.getContents(), "-", "w")]
-        elif opts.infotif or File.isTifiles(image):
-            tiffile = File(tifimage=image)
-            sys.stdout.write(tiffile.getInfo())
-        # disk image
+        if opts.fromfiad or opts.tofiad or opts.printfiad or opts.infofiad:
+            rc, result = fiadCmds(opts)
+        elif not opts.filename:
+            args.print_usage(sys.stderr)
+            sys.exit("Error: Missing disk image")
         else:
-            disk = Disk(image)
-            if opts.print_:
-                files = disk.globFiles(opts.print_)
-                contents = [disk.getFile(name).getContents()
-                            for name in files]
-                sys.stdout.write("".join(contents))
-            elif opts.extract:
-                files = disk.globFiles(opts.extract)
-                if opts.output and len(files) > 1:
-                    sys.exit(
-                        "Error: Cannot use -o when extracting multiple files")
-                if opts.astif:
-                    result = [(disk.getTifiles(name),
-                               name.lower() + ".tfi", "wb")
-                              for name in files]
-                else:
-                    result = [(disk.getFile(name).getContents(),
-                               name.lower(), "w" if fmt[0] == "D" else "wb")
-                              for name in files]
-            elif opts.add:
-                n, c = opts.name, 0
-                for name in opts.add:
-                    try:
-                        if name == "-":
-                            name = "STDIN"
-                            data = sys.stdin.read()
-                        else:
-                            with open(name, "r" if fmt[0] == "D" and
-                                            not opts.astif else "rb") as fin:
-                                data = fin.read()
-                    except IOError as e:
-                        sys.exit("Error: " + str(e))
-                    if opts.astif:
-                        disk.addFile(File(tifimage=data))
-                    else:
-                        n = sseq(opts.name, c) if opts.name else tiname(name)
-                        f, c = File(name=n, fmt=fmt, data=data), c + 1
-                        if f.warnings and not opts.quiet:
-                            sys.stderr.write(f.getWarnings())
-                        disk.addFile(f)
-                result = [(disk.getImage(), opts.filename, "wb")]
-            elif opts.rename:
-                names = [arg.split(":") for arg in opts.rename]
-                disk.renameFiles(names)
-                result = [(disk.getImage(), opts.filename, "wb")]
-            elif opts.delete:
-                files = disk.globFiles(opts.delete)
-                for name in files:
-                    disk.removeFile(name)
-                result = [(disk.getImage(), opts.filename, "wb")]
-            elif opts.resize:
-                try:
-                    size = xint(opts.resize)
-                except ValueError:
-                    raise DiskError("Invalid disk size %s" % opts.resize)
-                disk.resizeDisk(size)
-                result = [(disk.getImage(), opts.filename, "wb")]
-            elif opts.checkonly:
-                rc = 1 if disk.warnings else 0
-            elif opts.repair:
-                disk.fixDisk()
-                result = [(disk.getImage(), opts.filename, "wb")]
-            elif opts.sector:
-                opts.quiet = True
-                try:
-                    sno = xint(opts.sector)
-                    sector = disk.getSector(sno)
-                except (IndexError, ValueError):
-                    raise DiskError("Invalid sector %s" % opts.sector)
-                result = [(dump(sector), "-", "w")]
-            else:
-                sys.stdout.write(disk.getInfo())
-                sys.stdout.write("-" * 76 + "\n")
-                sys.stdout.write(disk.getCatalog())
-            if not opts.quiet:
-                sys.stderr.write(disk.getWarnings())
-    except (DiskError, FileError) as e:
+            rc, result = imageCmds(opts)
+    except (IOError, DiskError, FileError) as e:
         sys.exit("Error: " + str(e))
 
     # write result

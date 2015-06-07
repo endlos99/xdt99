@@ -505,7 +505,7 @@ local file system.
 	$ xdm99.py work.dsk -e HELLO-S CART-S
 
 The local output filename is derived automatically from the TI filename but
-may be overridden with the `-o` parameter.
+may be overridden with the `-o` parameter if only one file is extracted.
 
 	$ xdm99.py work.dsk -e HELLO-S -o hello.asm
 
@@ -528,7 +528,7 @@ shell from expanding the pattern prematurely.
 
 Extracting files will yield the file contents only.  In order to
 retain file meta data about file type and record length, use the
-TIFiles format described below.
+TIFiles or v9t9 formats described below.
 
 
 ### Manipulating Disks
@@ -576,44 +576,62 @@ To create an independent copy of the original disk image with the changes
 applied, the `-o` parameter may be used.
 
 
-### TIFiles
+### Files in a Directory (FIAD)
 
 Extracting files from a TI disk image to the local file system will lose certain
 TI-specific file information, such as the file type or the record length.  In
-order to retain this meta information along with the file contents, the TIFiles
-format was created.
+order to retain this meta information along with the file contents, the v9t9 and
+TIFiles formats were created.  The approach of storing TI files directly on the 
+local file system instead of using a disk image is also known as "files in a
+directory" (FIAD).
 
-`xdm99` supports the TIFiles format for files by using the `-t` option.  To
-extract a file in TIFiles format, simply add `-t` to the extract operation:
+`xdm99` supports the TIFiles format and the v9t9 format for FIAD files by using 
+the `-t` and `-9` options, respectively.  To extract a file in either FIAD 
+format, simply add `-t` or `-9` to the extract operation:
 
 	$ xdm99.py work.disk -t -e HELLO-S
+	$ xdm99.py work.disk -9 -e HELLO-S
 
-By default, files extracted in TIFiles format will have extension ``.tfi`.
+By default, files extracted in TIFiles or v9t9 format will have extension `.tfi`
+or `.v9t9`, respectively.
 
-To add a file in TIFiles format, add `-t` to the add operation:
+To add a file in TIFiles format or v9t9 format, add `-t` or `-9` to the add
+operation:
 
 	$ xdm99.py work.disk -t -a hello-s.tfi
+	$ xdm99.py work.disk -9 -a hello-s.v9t9
+
+Note that for safety reasons `xdm99` will not infer the file type automatically,
+so adding a FIAD file without `-t` or `-9` option will incorrectly store the
+file metadata as part of the file contents.
 
 As all information about the TI filename and the TI file format is retrieved
-from the TIFiles meta data, parameters `-n` and `-f` are ignored when used in
-combination with `-t`.
+from the FIAD meta data, parameters `-n` and `-f` are ignored when used in
+combination with `-t` or `-9`.
 
-The info parameter `-I` displays the meta file information contained in a
-TIFiles file, while the print parameter `-P` dumps the file contents to
+The info parameter `-I` displays the meta file information contained in FIAD
+files, while the print parameter `-P` dumps the file contents to
 `stdout`:
 
 	$ xdm99.py -I hello-s.tfi
-	$ xdm99.py -P hello-s.tfi
+	$ xdm99.py -P hello-s.v9t9
 
-`xdm99` can also convert from TIFiles files to plain files and vice versa
-without relying on disk images:
+ 
+`xdm99` can also convert from FIAD files to plain files and vice versa without 
+relying on disk images using the `-T` and `-F` parameters:
 
 	$ xdm99.py -F hello-s.tfi
 	$ xdm99.py -T hello.asm -f DIS/VAR80 -n HELLO-S -o hello-s.tfi
 
-Note that creating a TIFiles file using the `-T` option usually requires
-information about the TI filename and the TI file type, similar to adding files
-to a disk image by using `-a` without the `-t` option.
+Note that creating a FIAD file using the `-T` option usually requires
+information about the TI filename and the TI file type, similar to adding plain
+files to a disk image using `-a`.  When converting multiple files to FIAD
+format, the TI filename supplied by `-n` is incremented automatically for each 
+file.
+
+FIAD file conversion `-T`, `-F` and information `-I` and `-P` infer the FIAD
+format used automatically, but detection may be overridden with the `-t` or
+`-9` options.
 
 
 ### Analyzing Disks

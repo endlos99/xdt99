@@ -68,7 +68,6 @@ def runtest():
     # setup
     shutil.copyfile(Disks.blank, Disks.work)
     shutil.copyfile(Disks.blank, Disks.tifiles)
-    shutil.copyfile(Disks.blank, Disks.recsgen)
 
     # create files
     files = []
@@ -112,9 +111,9 @@ def runtest():
     for name, path, fmt in files:
         xdm(Disks.work, "-e", name, "-o", Files.reference)
         xdm(Disks.work, "-e", name, "-t", "-o", Files.tifile)
-        xdm(Files.tifile, "-F", "-o", Files.output)
+        xdm("-F", Files.tifile, "-o", Files.output)
         checkFilesEq("Write records", Files.output, Files.reference, fmt)
-        xdm(Files.reference, "-T", "-o", Files.output, "-f", fmt, "-n", name)
+        xdm("-T", Files.reference, "-o", Files.output, "-f", fmt, "-n", name)
         checkFilesEq("Write records", Files.output, Files.tifile,
                      "PROGRAM", [(0x1e, 0x26)])
 
@@ -141,9 +140,10 @@ def runtest():
             xdm(Disks.work, "-e", "VARDIS", "-o", Files.output)
             checkTrunc(Files.output, reflines, l)
 
-    # create well-defined TI disk
+    # create well-defined TI disk (checked-in state frozen)
+    shutil.copyfile(Disks.recsgen, Disks.work)
     for name, path, fmt in files:
-        xdm(Disks.recsgen, "-a", path, "-f", fmt)
+        xdm(Disks.work, "-a", path, "-f", fmt)
 
     # remove temporary files
     for name, path, fmt in files + bigFiles:

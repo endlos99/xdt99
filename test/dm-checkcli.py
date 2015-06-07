@@ -112,12 +112,30 @@ def runtest():
         xdm(Disks.work, "-e", "DV010X060", stderr=ferr, rc=1)
         xdm(Disks.work, "-e", "DF010X060", stderr=ferr, rc=1)
 
+    # multi-file naming
     xdm(Disks.work, "-n", "MULTI", "-a", "prog00001", "prog00255", "prog00002")
     xdm(Disks.work, "-e", "MULTI", "-o", Files.output)
     checkFilesEq("CLI", "prog00001", Files.output, "P")
     xdm(Disks.work, "-e", "MULTJ", "-o", Files.output)
     checkFilesEq("CLI", "prog00255", Files.output, "P")
     xdm(Disks.work, "-e", "MULTK", "-o", Files.output)
+    checkFilesEq("CLI", "prog00002", Files.output, "P")
+
+    xdm("-T", "prog00001", "prog00255", "prog00002", "-n", "MULTFI")
+    xdm(Disks.work, "-t", "-a", "prog00001.tfi", "prog00255.tfi",
+        "prog00002.tfi")
+    xdm(Disks.work, "-e", "MULTFI", "-o", Files.output)
+    checkFilesEq("CLI", "prog00001", Files.output, "P")
+    xdm(Disks.work, "-e", "MULTFJ", "-o", Files.output)
+    checkFilesEq("CLI", "prog00255", Files.output, "P")
+    xdm(Disks.work, "-e", "MULTFK", "-o", Files.output)
+    checkFilesEq("CLI", "prog00002", Files.output, "P")
+
+    xdm("-T", "prog00255", "prog00002", "-9", "-n", "MULV9T")
+    xdm(Disks.work, "-9", "-a", "prog00255.v9t9", "prog00002.v9t9")
+    xdm(Disks.work, "-e", "MULV9T", "-o", Files.output)
+    checkFilesEq("CLI", "prog00255", Files.output, "P")
+    xdm(Disks.work, "-e", "MULV9U", "-o", Files.output)
     checkFilesEq("CLI", "prog00002", Files.output, "P")
 
     # initialize disk
@@ -164,7 +182,7 @@ def runtest():
         xdm(Disks.work, "-C", stderr=f1)
     checkFileLen(Files.output, maxlines=0)
 
-    # TIFile operations
+    # FIAD operations
     shutil.copyfile(Disks.recsgen, Disks.work)
     xdm(Disks.work, "-e", "PROG00255", "DV064X010", "-t")
     xdm(Disks.work, "-e", "PROG00255", "-t", "-o", Files.output)
@@ -173,44 +191,70 @@ def runtest():
     checkFilesEq("CLI", Files.output, "dv064x010.tfi", "PROGRAM")
 
     with open(Files.output, "w") as f:
-        xdm("dv064x010.tfi", "-I", stdout=f)
+        xdm("-I", "prog00255.tfi", "dv064x010.tfi", stdout=f)
+
+    xdm(Disks.work, "-e", "PROG00255", "DV064X010", "-9")
+    xdm(Disks.work, "-e", "PROG00255", "-9", "-o", Files.output)
+    checkFilesEq("CLI", Files.output, "prog00255.v9t9", "PROGRAM")
+    xdm(Disks.work, "-e", "DV064X010", "-9", "-o", Files.output)
+    checkFilesEq("CLI", Files.output, "dv064x010.v9t9", "PROGRAM")
+
+    with open(Files.output, "w") as f:
+        xdm("-I", "prog00255.v9t9", "dv064x010.v9t9", stdout=f)
 
     xdm(Disks.work, "-e", "PROG00255")
-    xdm("prog00255", "-T", "-o", Files.output)
-    checkFilesEq("CLI TIFiles", Files.output, "prog00255.tfi",
-                 "PROGRAM", Masks.TIFile)
+    xdm("-T", "prog00255", "-o", Files.output)
+    checkFilesEq("CLI", Files.output, "prog00255.tfi", "PROGRAM", Masks.TIFile)
+    xdm("-T", "prog00255", "-9", "-o", Files.output)
+    checkFilesEq("CLI", Files.output, "prog00255.v9t9", "PROGRAM", Masks.v9t9)
 
-    xdm("dv064x010.tfi", "-F")
-    xdm("dv064x010.tfi", "-F", "-o", Files.output)
-    checkFilesEq("CLI TIFiles", Files.output, "dv064x010", "PROGRAM")
     xdm(Disks.work, "-e", "DV064X010", "-o", Files.reference)
-    checkFilesEq("CLI TIFiles", "dv064x010", Files.reference, "DIS/VAR 64")
+    xdm("-F", "dv064x010.tfi")
+    checkFilesEq("CLI", "dv064x010", Files.reference, "DIS/VAR 64")
+    xdm("-F", "dv064x010.tfi", "-o", Files.output)
+    checkFilesEq("CLI", Files.output, "dv064x010", "PROGRAM")
 
-    xdm("dv064x010", "-T", "-o", Files.output,
+    xdm("-F", "dv064x010.v9t9", "-9")
+    checkFilesEq("CLI", "dv064x010", Files.reference, "DIS/VAR 64")
+    xdm("-F", "dv064x010.v9t9", "-o", Files.output)
+    checkFilesEq("CLI", Files.output, "dv064x010", "PROGRAM")
+
+    xdm("-T", "dv064x010", "-o", Files.output,
         "-n", "DV064X010", "-f", "DIS/VAR 64")
-    checkFilesEq("CLI TIFiles", Files.output, "dv064x010.tfi",
-                 "PROGRAM", Masks.TIFile)
+    checkFilesEq("CLI", Files.output, "dv064x010.tfi", "PROGRAM", Masks.TIFile)
     os.remove("dv064x010.tfi")
-    xdm("dv064x010", "-T", "-n", "DV064X010", "-f", "DIS/VAR 64")
-    checkFilesEq("CLI TIFiles", "dv064x010.tfi", Files.output,
-                 "PROGRAM", Masks.TIFile)
+    xdm("-T", "dv064x010", "-n", "DV064X010", "-f", "DIS/VAR 64")
+    checkFilesEq("CLI", "dv064x010.tfi", Files.output, "PROGRAM", Masks.TIFile)
+
+    xdm("-T", "dv064x010", "-9", "-o", Files.output,
+        "-n", "DV064X010", "-f", "DIS/VAR 64")
+    checkFilesEq("CLI", Files.output, "dv064x010.v9t9", "PROGRAM", Masks.v9t9)
+    os.remove("dv064x010.v9t9")
+    xdm("-T", "dv064x010", "-9", "-n", "DV064X010", "-f", "DIS/VAR 64")
+    checkFilesEq("CLI", "dv064x010.v9t9", Files.output, "PROGRAM", Masks.v9t9)
+
+    # usage errors
+    with open(Files.error, "w") as ferr:
+        xdm("-a", Files.output, stderr=ferr, rc=1)
+        xdm("-T", "prog00001", "prog00002", "-o", Files.output,
+            stderr=ferr, rc=1)
+        xdm("-T", "prog00001", "prog00002", "-9", "-o", Files.output,
+            stderr=ferr, rc=1)
+        xdm("-F", "-o", Files.output, stderr=ferr, rc=2)
 
     # cleanup
     os.remove(Files.output)
     os.remove(Files.reference)
     os.remove(Files.error)
-    os.remove("prog00001")
-    os.remove("prog00002")
-    os.remove("prog00255")
-    os.remove("prog00255.tfi")
-    os.remove("dv064x010")
-    os.remove("dv064x010.tfi")
-    os.remove("df002x001")
-    os.remove("df127x001")
-    os.remove("df127x010")
-    os.remove("df127x020p")
     os.remove(Disks.work)
     os.remove(Disks.tifiles)
+    for fn in [
+        "prog00001", "prog00002", "prog00255", "dv064x010",
+        "df002x001", "df127x001", "df127x010", "df127x020p",
+        "prog00001.tfi", "prog00002.tfi", "prog00255.tfi", "dv064x010.tfi",
+        "prog00002.v9t9", "prog00255.v9t9", "dv064x010.v9t9"
+        ]:
+        os.remove(fn)
 
 
 if __name__ == "__main__":

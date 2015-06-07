@@ -115,15 +115,16 @@ Extract one or more files from disk image to local file system:
 
 	$ xdm99.py <disk image> -e <file> ...
 
-Extract files in TIFiles format:
+Extract files in TIFiles or v9t9 format:
 
 	$ xdm99.py <disk image> -t -e <file> ...
+	$ xdm99.py <disk image> -9 -e <file> ...
 
 Print file contents to screen:
 
 	$ xdm99.py <disk image> -p <file> ...
 
-Add local file to disk image:
+Add local files to disk image:
 
 	$ xdm99.py <disk image> -a <file> ... [-f <format>] [-n <name>]
 
@@ -135,13 +136,15 @@ Delete file on disk image:
 
 	$ xdm99.py <disk image> -d <file> ...
 
-Convert from TIFiles file to plain file:
+Convert TIFiles files or v9t9 files to plain files:
 
-	$ xdm99.py -F <TIFiles file>
+	$ xdm99.py -F <TIFiles file> ...
+	$ xdm99.py -F <TIFiles file> ... -9
 
-Convert to TIFiles file from plain file:
+Convert plain files to TIFiles files or v9t9 files:
 
-	$ xdm99.py -T <plain file> [-f <format>] [-n <name>]
+	$ xdm99.py -T <plain file> ... [-f <format>] [-n <name>]
+	$ xdm99.py -T <plain file> ... -9 [-f <format>] [-n <name>]
 
 Print contents of TIFiles file:
 
@@ -161,7 +164,7 @@ Repair disk image with corrupt files or other inconsistencies:
 
 Print sector dump:
 
-	$ xdm99.py work.dsk -S <sector>
+	$ xdm99.py <disk image> -S <sector>
 
 For a complete overview of the available command-line options, see `xdm99.py
 -h`.
