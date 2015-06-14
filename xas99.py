@@ -23,7 +23,7 @@ import sys
 import re
 import os.path
 
-VERSION = "1.2.2"
+VERSION = "1.2.3"
 
 
 ### Utility functions
@@ -58,6 +58,9 @@ class Address:
         self.addr = addr
         self.relocatable = relocatable
 
+    def hex(self):
+        return "%04X%c" % (self.addr, "r" if self.relocatable else " ")
+
 
 class Reference:
     """external reference"""
@@ -71,6 +74,16 @@ class Block:
 
     def __init__(self, size):
         self.size = size
+
+
+class Line:
+    """source code line"""
+
+    def __init__(self, lino, line, eos=False):
+        self.lino = lino
+        self.line = line
+        self.eos = eos
+        self.text1 = self.text2 = None
 
 
 class Symbols:
@@ -174,6 +187,9 @@ class Objdummy:
         if label:
             self.symbols.addLabel(label)
 
+    def list(self, lino, line=None, eos=False, text1=None, text2=None):
+        pass
+
 
 class Objcode:
     """generate object code"""
@@ -182,7 +198,7 @@ class Objcode:
         self.symbols = symbols
         self.entry = None
         self.segments = []
-        self.savedLC = { True: 0x0000, False: 0x0000 }
+        self.savedLC = {True: 0x0000, False: 0x0000}
         self.segment(0x0000, relocatable=True, init=True)
         self.done = False
 
@@ -210,9 +226,16 @@ class Objcode:
         if self.symbols.LC % 2 == 0:
             self.code.append((self.symbols.LC, byte << 8))
         else:
-            prevLC, prevWord = self.code[-1] if self.code else (0, None)
+            # find previous byte
+            i = -1
+            try:
+                while isinstance(self.code[i][1], Line):
+                    i -= 1
+                prevLC, prevWord = self.code[i]
+            except IndexError:
+                prevLC, prevWord = -1, None
             if self.symbols.LC == prevLC + 1 and isinstance(prevWord, int):
-                self.code[-1] = (self.symbols.LC - 1, prevWord | byte)
+                self.code[i] = (self.symbols.LC - 1, prevWord | byte)
             else:
                 self.code.append((self.symbols.LC - 1, byte))
         self.symbols.LC += 1
@@ -233,6 +256,21 @@ class Objcode:
         if daddr is not None:
             self.word(daddr)
 
+    def list(self, lino, line=None, eos=False, text1=None, text2=None):
+        """create list file entry"""
+        if lino >= 0:
+            self.code.append((self.symbols.LC, Line(lino, line, eos)))
+        else:
+            lastline = self.code[-1][1]
+            assert isinstance(lastline, Line)
+            lastline.text1, lastline.text2 = text1, text2
+
+    def prepare(self):
+        """wrap-up code generation"""
+        if not self.done:
+            self.segment(None, relocatable=False, dummy=False)
+            self.done = True
+
     def genDump(self):
         """generate raw dump of internal data structures (debug)"""
         self.prepare()
@@ -242,11 +280,14 @@ class Objcode:
                 "\n" if dump and dump[-1] != "\n" else "",
                 "R" if reloc else "D" if dummy else "A",
                 base)
-            for i, (LC, w) in enumerate(code):
+            i = 0
+            for LC, w in code:
+                if isinstance(w, Line):
+                    continue
                 if i % 8 == 0:
                     dump += "%04X:  " % LC
                 if isinstance(w, Address):
-                    dump += "%04X%c " % (w.addr, "r" if w.relocatable else "a")
+                    dump += w.hex() + " "
                 elif isinstance(w, Reference):
                     dump += "%-6s" % (w.name[:6])
                 elif isinstance(w, Block):
@@ -255,6 +296,7 @@ class Objcode:
                     dump += "%04X  " % w
                 if i % 8 == 7:
                     dump += "\n"
+                i += 1
         return dump if dump[-1] == "\n" else dump + "\n"
 
     def genObjCode(self):
@@ -283,6 +325,8 @@ class Objcode:
                 elif isinstance(w, Block):
                     tags.add("%c%04X" % ("A" if reloc else "9", LC))
                     tags.addLC()
+                elif isinstance(w, Line):
+                    pass
                 else:
                     tags.add("B%04X" % w, LC, reloc)
         tags.flush()
@@ -322,6 +366,8 @@ class Objcode:
                        (addr + 1, w.size / 2)
                 for i in xrange(s / 2):
                     mem[a + i] = 0x0000
+            elif isinstance(w, Line):
+                pass
             else:
                 mem[addr] = w
         return mem
@@ -358,6 +404,45 @@ class Objcode:
                   for i, (a, c) in enumerate(chunks)]
         return images
 
+    def genList(self):
+        """generate listing"""
+        listing = []
+        for base, finalLC, reloc, dummy, code in self.segments:
+            words, slino, sline, skip = [], None, None, False
+            for LC, w in code:
+                if isinstance(w, Line):
+                    if slino is not None:
+                        a0, w0 = words[0] if words else ("", "")
+                        listing.append("%4s %-4s %-5s %s" % (
+                            slino, a0, w0, sline))
+                        for ai, wi in words[1:]:
+                            listing.append("     %-4s %-5s" % (ai, wi))
+                        if w.eos:
+                            break
+                    slino, sline = "%04d" % w.lino, w.line
+                    if not (w.text1 is None and w.text2 is None):
+                        words = [("%04X" % LC if w.text1 is None else w.text1,
+                                  "" if w.text2 is None else
+                                  w.text2 if isinstance(w.text2, str) else
+                                  w.text2.hex() if isinstance(w.text2, Address)
+                                  else "%04X" % w.text2)]
+                        skip = True
+                    else:
+                        words = []
+                        skip = False
+                elif skip:
+                    pass
+                elif isinstance(w, Address):
+                    words.append(("%04X" % LC, w.hex()))
+                elif isinstance(w, Reference):
+                    words.append(("%04X" % LC, "XXXX"))
+                elif isinstance(w, Block):
+                    words.append(("%04X" % LC, "...."))
+                else:
+                    words.append(("%04X" % LC, "%04X" % w))
+        return ("XAS99 CROSS-ASSEMBLER   VERSION " + VERSION + "\n" +
+                "\n".join(listing) + "\n")
+
     def genCart(self, name):
         """generate RPK file for use as MESS rom cartridge"""
         self.prepare()
@@ -386,12 +471,6 @@ class Objcode:
                          <name>%s</name>
                      </meta-inf>""" % name
         return gpl + proginfo + pad + code, layout, metainf
-
-    def prepare(self):
-        """wrap-up code generation"""
-        if not self.done:
-            self.segment(None, relocatable=False, dummy=False)
-            self.done = True
 
 
 class Records:
@@ -492,6 +571,8 @@ class Directives:
     @staticmethod
     def EQU(parser, code, label, ops):
         if parser.passno != 1:
+            value = code.symbols.getSymbol(label)
+            code.list(-1, text1="", text2=value)
             return
         value = parser.expression(ops[0], wellDefined=True)
         code.symbols.addSymbol(label, value)
@@ -514,6 +595,7 @@ class Directives:
     @staticmethod
     def TEXT(parser, code, label, ops):
         code.processLabel(label)
+        code.list(-1, text2="....")
         for op in ops:
             text = parser.text(op)
             for c in text:
@@ -539,18 +621,21 @@ class Directives:
     @staticmethod
     def AORG(parser, code, label, ops):
         base = parser.value(ops[0]) if ops else None
+        code.list(0, eos=True)
         code.segment(base, relocatable=False)
         code.processLabel(label)
 
     @staticmethod
     def RORG(parser, code, label, ops):
         base = parser.value(ops[0]) if ops else None
+        code.list(0, eos=True)
         code.segment(base, relocatable=True)
         code.processLabel(label)
 
     @staticmethod
     def DORG(parser, code, label, ops):
         base = parser.value(ops[0]) if ops else None
+        code.list(0, eos=True)
         code.segment(base, dummy=True)
         code.processLabel(label)
 
@@ -656,7 +741,7 @@ class Preprocessor:
         self.parse = self.parseBranches.pop()
 
     def process(self, code, label, mnemonic, operands):
-        if mnemonic[:1] != '.':
+        if not mnemonic or mnemonic[:1] != '.':
             return self.parse
         try:
             fn = getattr(Preprocessor, mnemonic[1:])
@@ -911,13 +996,11 @@ class Parser:
         """get next logical line from source files"""
         while self.file:
             line = self.file.readline()
-            if not line:
-                self.resume()
-            else:
+            if line:
                 self.lino += 1
-                if line.strip() and line[0] != "*":
-                    return self.lino, line.rstrip()
-        return -1, None
+                return self.lino, line.rstrip()
+            self.resume()
+        return None, None
 
     def parse(self, dummy, code):
         """parse source code and generate object code"""
@@ -927,34 +1010,38 @@ class Parser:
         self.symbols.resetLC()
         while True:
             lino, line = self.read()
-            if line is None:
+            if lino is None:
                 break
-            label, mnemonic, operands, comment = self.line(line)
-            #print "<1>", lino, "-", label, mnemonic, operands
-            try:
-                if not self.prep.process(dummy, label, mnemonic, operands):
-                    continue
-                Directives.process(self, dummy, label, mnemonic, operands) or \
-                    Opcodes.process(self, dummy, label, mnemonic, operands)
-            except AsmError as e:
-                errors.append("<1> %04d - %s\n***** %s\n" % (
-                    lino, line, e.message))
-            source.append((lino, label, mnemonic, operands, line))
+            label, mnemonic, operands, comment, stmt = self.line(line)
+            if not self.prep.process(dummy, label, mnemonic, operands):
+                continue
+            source.append((lino, label, mnemonic, operands, line, stmt))
+            if stmt:
+                try:
+                    Directives.process(self, dummy, label, mnemonic, operands) or \
+                        Opcodes.process(self, dummy, label, mnemonic, operands)
+                except AsmError as e:
+                    errors.append("<1> %04d - %s\n***** %s\n" % (
+                        lino, line, e.message))
         # second pass: generate code
         self.passno = 2
         self.symbols.resetLC()
-        for lino, label, mnemonic, operands, line in source:
-            #print "<2>", lino, "-", label, mnemonic, operands
-            try:
-                Directives.process(self, code, label, mnemonic, operands) or \
-                    Opcodes.process(self, code, label, mnemonic, operands)
-            except AsmError as e:
-                errors.append("<2> %04d - %s\n***** %s\n" % (
-                    lino, line, e.message))
+        for lino, label, mnemonic, operands, line, stmt in source:
+            code.list(lino, line=line)
+            if stmt:
+                try:
+                    Directives.process(self, code, label, mnemonic, operands) or \
+                        Opcodes.process(self, code, label, mnemonic, operands)
+                except AsmError as e:
+                    errors.append("<2> %04d - %s\n***** %s\n" % (
+                        lino, line, e.message))
+        code.list(0, eos=True)
         return errors
 
     def line(self, line):
         """parse single source line"""
+        if not line.strip() or line[0] == "*":
+            return None, None, None, None, False
         if self.strictMode:
             # blanks separate fields
             fields = re.split("\s+", self.escape(line), maxsplit=3)
@@ -970,7 +1057,7 @@ class Parser:
             operands = ([op.strip() for op in opfields[0].split(",")]
                         if opfields[0] else [])
             comment = " ".join(opfields[1:]) + ";".join(parts[1:])
-        return label, mnemonic, operands, comment
+        return label, mnemonic, operands, comment, True
 
     def escape(self, text):
         """remove and save text literals from line"""
@@ -1198,8 +1285,8 @@ def main():
                       help="add register symbols (TI Assembler option R)")
     args.add_argument("-C", "--compress", action="store_true", dest="optc",
                       help="compress object code (TI Assembler option C) (ignored)")
-    args.add_argument("-L", "--listing", dest="optl", metavar="<file>",
-                      help="generate listing (TI Assembler option L) (ignored)")
+    args.add_argument("-L", "--list-file", dest="optl", metavar="<file>",
+                      help="generate list file (TI Assembler option L)")
     args.add_argument("-S", "--symbol-table", action="store_true", dest="optl",
                       help="add symbol table to listing (TI Assembler option S) (ignored)")
     args.add_argument("-D", "--define-symbol", nargs="+", dest="defs",
@@ -1254,11 +1341,15 @@ def main():
             except IOError as e:
                 sys.exit("File error: %s: %s." % (e.filename, e.strerror))
     else:
-        data = code.genObjCode()
-        output = opts.output or barename + ".obj"
         try:
+            data = code.genObjCode()
+            output = opts.output or barename + ".obj"
             with open(output, "wb") as fout:
                 fout.write(data)
+            if opts.optl:
+                listing = code.genList()
+                with open(opts.optl, "wb") as fout:
+                    fout.write(listing)
         except IOError as e:
             sys.exit("File error: %s: %s." % (e.filename, e.strerror))
 

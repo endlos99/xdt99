@@ -1,6 +1,6 @@
 * EXECUTABLE CART IMAGE
 
-        IDT  'ASCART'
+       IDT  'ASCART'
         
 VDPWD  EQU  >8C00             * VDP write data
 VDPWA  EQU  >8C02             * VDP set read/write address

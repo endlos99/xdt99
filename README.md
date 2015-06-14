@@ -27,7 +27,7 @@ nanoPEB/CF7A devices.
 
 For additional information, please refer to the [xdt99 homepage][1].
 
-**Latest version: 1.3.0**
+**Latest version: 1.2.x**
 
 The latest binary distribution of xdt99 is available on the project
 [releases page][2] on GitHub.  xdt99 requires [Python 2.7.x][4] and runs on any
@@ -68,6 +68,10 @@ Generate program image for the Editor/Assembler module, option 5:
 Generate cartridge file for the MESS emulator:
 
 	$ xas99.py -c [-R] <source file>
+
+Generate list file diagnostic output:
+
+	$ xas99.py [-R] <source file> -L <list file>
 
 For a complete overview of the available command-line options, see `xas99.py
 -h`.

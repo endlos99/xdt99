@@ -1,4 +1,5 @@
 *  TEST XORG DIRECTIVES
+*  AORG RORG (DORG)
 
         IDT 'ASORGS'
 
