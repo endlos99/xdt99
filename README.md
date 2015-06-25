@@ -69,6 +69,10 @@ Generate cartridge file for the MESS emulator:
 
 	$ xas99.py -c [-R] <source file>
 
+Generate Extended BASIC program with embedded image:
+
+	$ xas99.py --embed [-R] <source file>
+
 Generate list file diagnostic output:
 
 	$ xas99.py [-R] <source file> -L <list file>

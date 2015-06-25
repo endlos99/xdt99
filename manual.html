@@ -123,6 +123,18 @@ header information and relocate the program to address <code>&gt;6030</code>, bu
 process the source code any further.  In particular, the usual restrictions on
 using VDP memory access routines apply.</p>
 <p>Note that cartridge files cannot be generated from split image files.</p>
+<h3>Other Formats</h3>
+<p>For relocatable code not larger than around 24 KB, <code>xas99</code> can generate an
+Extended BASIC program that invisibly contains the generated code within:</p>
+<pre><code>$ xas99.py --embed ascart.asm
+</code></pre>
+<p>The resulting program is a regular Extended BASIC program that will execute
+the assembly code when run:</p>
+<pre><code>&gt;OLD DSK1.ASCART
+&gt;RUN
+</code></pre>
+<p>Note that editing the generated Extended BASIC program is likely to corrupt the
+embedded assembly code!</p>
 <h3>Creating List Files</h3>
 <p>The <code>-L</code> option instructs <code>xas99</code> to generate a list file for the assembled
 source code:</p>

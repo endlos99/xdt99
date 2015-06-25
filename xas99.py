@@ -23,7 +23,7 @@ import sys
 import re
 import os.path
 
-VERSION = "1.2.3"
+VERSION = "1.2.4"
 
 
 ### Utility functions
@@ -46,6 +46,10 @@ def sinc(s, i):
 ### Error handling
 
 class AsmError(Exception):
+    pass
+
+
+class BuildError(Exception):
     pass
 
 
@@ -359,7 +363,7 @@ class Objcode:
                 mem[addr] = w.addr + baseAddr if w.relocatable else w.addr
             elif isinstance(w, Reference):
                 if w.name not in self.symbols.exts:
-                    raise AsmError("Unknown reference: " + w.name)
+                    raise BuildError("Unknown reference: " + w.name)
                 mem[addr] = self.symbols.exts.get(w.name, 0x0000)
             elif isinstance(w, Block):
                 a, s = (addr, (w.size + 1) / 2) if addr % 2 == 0 else \
@@ -403,6 +407,46 @@ class Objcode:
                   chrw(len(c) + 6) + chrw(a) + c
                   for i, (a, c) in enumerate(chunks)]
         return images
+
+    def genXbLoader(self):
+        """stash code in Extended BASIC program"""
+        self.prepare()
+        size = 0
+        for base, finalLC, reloc, dummy, code in self.segments:
+            if not reloc:
+                raise BuildError(
+                    "Cannot create BASIC program for non-relocatable code")
+            if finalLC > size:
+                size = finalLC
+        lastAddr = 0xFFE8  # end of token table
+        startAddr = lastAddr - 4 - size
+        loader = (
+            # CALL INIT :: CALL LOAD(>3FF8,"XYZZY ")::
+            # CALL LOAD(>2004,>FF,>E4):: CALL LINK("XYZZY")
+            "\x9d\xc8\x04\x49\x4e\x49\x54\x82\x9d\xc8\x04\x4c\x4f\x41\x44" +
+            "\xb7\xc8\x05\x31\x36\x33\x37\x36\xb3\xc8\x02\x38\x38\xb3\xc8" +
+            "\x02\x38\x39\xb3\xc8\x02\x39\x30\xb3\xc8\x02\x39\x30\xb3\xc8" +
+            "\x02\x38\x39\xb3\xc8\x02\x33\x32\xb3\xc8\x03\x32\x35\x35\xb3" +
+            "\xc8\x03\x32\x32\x38\xb6\x82\x9d\xc8\x04\x4c\x4f\x41\x44\xb7" +
+            "\xc8\x04\x38\x31\x39\x36\xb3\xc8\x02\x36\x33\xb3\xc8\x03\x32" +
+            "\x34\x38\xb6\x82\x9d\xc8\x04\x4c\x49\x4e\x4b\xb7\xc7\x05\x58" +
+            "\x59\x5a\x5a\x59\xb6"
+            )
+        payload = self.genImage(startAddr, 0x6000)[0][6:]
+        tokenTable = (chr(len(loader) + 1) + loader + "\x00" +
+                      "\x00" * (256 - size) +
+                      payload +
+                      "\x04\x60" + chrw(startAddr))
+        tokenTabAddr = lastAddr - len(tokenTable)
+        linoTabAddr = tokenTabAddr - 4
+        linoTable = "\x00\x01" + chrw(tokenTabAddr + 1)
+        checksum = (tokenTabAddr - 1) ^ linoTabAddr
+        header = ("\xab\xcd" + chrw(linoTabAddr) + chrw(tokenTabAddr - 1) +
+                  chrw(checksum) + chrw(lastAddr - 1))
+        chunks = [(linoTable + tokenTable)[i:i + 254]
+                  for i in xrange(0, len(linoTable + tokenTable), 254)]
+        return (chr(len(header)) + header +
+                "".join([chr(len(c)) + c for c in chunks]))
 
     def genList(self):
         """generate listing"""
@@ -453,7 +497,7 @@ class Objcode:
         pad = "\x00" * (27 - len(name))
         images = self.genImage(0x6030, 0xFFFF)
         if len(images) > 1:
-            raise AsmError("Cannot create cartridge with multiple segments")
+            raise BuildError("Cannot create cartridge with multiple segments")
         code = images[0][6:]
         layout = """<?xml version="1.0" encoding="utf-8"?>
                     <romset version="1.0">
@@ -1275,6 +1319,8 @@ def main():
                      help="create program image")
     cmd.add_argument("-c", "--cart", action="store_true", dest="cart",
                      help="create MESS cart image")
+    cmd.add_argument("--embed-xb", action="store_true", dest="embed",
+                     help="create Extended BASIC program with embedded code")
     cmd.add_argument("--dump", action="store_true", dest="dump",
                      help=argparse.SUPPRESS)  # debugging
     args.add_argument("-s", "--strict", action="store_true", dest="strict",
@@ -1313,35 +1359,31 @@ def main():
         sys.exit("File error: %s: %s." % (e.filename, e.strerror))
 
     # output
-    if errors:
-        sys.stderr.write("".join(errors))
-    elif opts.dump:
-        sys.stdout.write(code.genDump())
-    elif opts.cart:
-        try:
+    try:
+        if errors:
+            sys.stderr.write("".join(errors))
+        elif opts.dump:
+            sys.stdout.write(code.genDump())
+        elif opts.cart:
             data, layout, metainf = code.genCart(name)
-        except AsmError as e:
-            sys.exit("Error: %s." % e)
-        output = opts.output or barename + ".rpk"
-        try:
+            output = opts.output or barename + ".rpk"
             with zipfile.ZipFile(output, "w") as archive:
                 archive.writestr(name + ".bin", data)
                 archive.writestr("layout.xml", layout)
                 archive.writestr("meta-inf.xml", metainf)
-        except IOError as e:
-            sys.exit("File error: %s: %s." % (e.filename, e.strerror))
-    elif opts.image:
-        data = code.genImage()
-        for i, image in enumerate(data):
-            output = sinc(opts.output, i) if opts.output else \
-                     sinc(barename, i) + ".img"
-            try:
+        elif opts.image:
+            data = code.genImage()
+            for i, image in enumerate(data):
+                output = sinc(opts.output, i) if opts.output else \
+                         sinc(barename, i) + ".img"
                 with open(output, "wb") as fout:
                     fout.write(image)
-            except IOError as e:
-                sys.exit("File error: %s: %s." % (e.filename, e.strerror))
-    else:
-        try:
+        elif opts.embed:
+            prog = code.genXbLoader()
+            output = opts.output or barename + ".iv254"
+            with open(output, "wb") as fout:
+                fout.write(prog)
+        else:
             data = code.genObjCode()
             output = opts.output or barename + ".obj"
             with open(output, "wb") as fout:
@@ -1350,8 +1392,10 @@ def main():
                 listing = code.genList()
                 with open(opts.optl, "wb") as fout:
                     fout.write(listing)
-        except IOError as e:
-            sys.exit("File error: %s: %s." % (e.filename, e.strerror))
+    except BuildError as e:
+        sys.exit("Error: %s." % e)
+    except IOError as e:
+        sys.exit("File error: %s: %s." % (e.filename, e.strerror))
 
     # return status
     return 1 if errors else 0

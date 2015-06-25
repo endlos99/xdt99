@@ -100,6 +100,10 @@ def runtest():
             checkFilesEq("Image file",
                          Files.outputff[i], Files.reference, fmt="P")
 
+    # some CLI options
+    source = os.path.join(Dirs.sources, "ashello.asm")
+    xas(source, "--embed", "-R", "-o", Files.output)
+
     # cleanup
     for i in xrange(4):
         os.remove(Files.outputff[i])

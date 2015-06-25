@@ -170,6 +170,23 @@ using VDP memory access routines apply.
 Note that cartridge files cannot be generated from split image files.
 
 
+### Other Formats
+
+For relocatable code not larger than around 24 KB, `xas99` can generate an
+Extended BASIC program that invisibly contains the generated code within:
+
+	$ xas99.py --embed ascart.asm 
+
+The resulting program is a regular Extended BASIC program that will execute
+the assembly code when run:
+
+	>OLD DSK1.ASCART
+	>RUN
+
+Note that editing the generated Extended BASIC program is likely to corrupt the
+embedded assembly code!
+
+
 ### Creating List Files
 
 The `-L` option instructs `xas99` to generate a list file for the assembled
