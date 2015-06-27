@@ -24,7 +24,7 @@ import re
 import datetime
 import os.path
 
-VERSION = "1.2.2"
+VERSION = "1.2.3"
 
 
 ### Utility functions
@@ -574,30 +574,30 @@ class File:
             self.readRecords()
         elif name and fmt:
             self.fd = FileDescriptor(name=name, fmt=fmt)
-            self.records = self.splitRecords(data)
+            self.records = self.splitContents(data)
             self.writeRecords()
         else:
             raise RuntimeError("Incomplete file data")
 
-    def splitRecords(self, data):
+    def splitContents(self, data):
         """split blob into records"""
         if self.fd.type == "P":
             return data
         elif self.fd.type == "D":
             return data.splitlines()
         elif self.fd.fixed:
-            l = self.fd.recordLen  # keep length byte
+            l = self.fd.recordLen
             return [data[i:i + l] for i in xrange(0, len(data), l)]
         else:
             records, p = [], 0
             while p < len(data):
                 l = ord(data[p]) + 1
-                records.append(data[p:p + l])
+                records.append(data[p + 1:p + l])  # remove record length
                 p += l
             return records
 
     def writeRecords(self):
-        """create sector image from list of records"""
+        """create sector image from list of records (-a)"""
         if self.fd.type == "P":
             data = self.records
             self.fd.eofOffset = len(data) % Disk.bytesPerSector
@@ -644,7 +644,7 @@ class File:
         self.data = data + "\x00" * pad(len(data), Disk.bytesPerSector)
 
     def readRecords(self):
-        """extract list of records from sector image"""
+        """extract list of records from sector image (-e)"""
         self.records = []
         if self.fd.type == "P":
             self.records = (self.data[:self.fd.eofOffset -
@@ -688,8 +688,11 @@ class File:
             return self.records
         elif self.fd.type == "D":
             return "".join([r + "\n" for r in self.records])
+        elif self.fd.fixed:
+            return "".join(self.records)
         else:
-            return "".join(self.records)  # keep length byte
+            return "".join([chr(len(r)) + r
+                            for r in self.records])  # add length byte
 
     def getAsTifiles(self):
         """return file contents in TIFiles format"""

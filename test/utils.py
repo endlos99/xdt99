@@ -2,7 +2,7 @@ import sys
 import re
 
 from subprocess import call
-from config import xdmPy, xvmPy, xasPy, xgaPy
+from config import xdmPy, xvmPy, xasPy, xgaPy, xbasPy
 
 
 ### Utility functions
@@ -48,6 +48,15 @@ def xga(*args, **kargs):
               stdout=kargs.get("stdout"), stderr=kargs.get("stderr"))
     if rc != kargs.get("rc", 0):
         error("OS", "xga99 call returned with failure code " + str(rc))
+
+
+def xbas(*args, **kargs):
+    """invoke TI BASIC tool"""
+    print "BAS:", args
+    rc = call(xbasPy + list(args),
+              stdout=kargs.get("stdout"), stderr=kargs.get("stderr"))
+    if rc != kargs.get("rc", 0):
+        error("OS", "xbas99 call returned with failure code " + str(rc))
 
 
 def error(tid, msg):

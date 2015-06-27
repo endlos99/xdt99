@@ -15,6 +15,9 @@ xdmPy = ["../xdm99.py"]
 xvmPy = ["../xvm99.py"]
 #xvmPy = ["c:\\bin\\python2\\python.exe", "..\\xvm99.py"]
 
+xbasPy = ["../xbas99.py"]
+#xvmPy = ["c:\\bin\\python2\\python.exe", "..\\xbas99.py"]
+
 
 ### Paths
 
@@ -22,11 +25,13 @@ class Dirs:
     # disk images
     disks = "disk"
     # reference files
-    refs = "ref"
+    refs = "files"
     # assembler sources
     sources = "asm"
     # GPL sources
     gplsources = "gpl"
+    # BASIC sources
+    basic = "basic"
     # scratch directory
     tmp = "tmp"
 
@@ -51,6 +56,9 @@ class Disks:
     asmimgs = os.path.join(Dirs.disks, "asmimgs.dsk")
     # GPL sources
     gplsrcs = os.path.join(Dirs.disks, "gplsrcs.dsk")
+    # BASIC sources
+    basic1 = os.path.join(Dirs.disks, "basic1.dsk")
+    basic2 = os.path.join(Dirs.disks, "basic2.dsk")
     # disk images with errors
     bad = os.path.join(Dirs.disks, "bad1.dsk")
     # scratch disks
