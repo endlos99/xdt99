@@ -69,7 +69,19 @@ def runtest():
     xvm(Disks.volumes, "3", "-a", ref, "-f", "DF80", "-n", "REFFILE")
     xvm(Disks.volumes, "3", "-r", Files.output)
     xdm(Files.output, "-e", "REFFILE", "-q", "-o", Files.reference)
-    checkFilesEq("xvm", Files.reference, ref, "DF80")
+
+    ref = os.path.join(Dirs.refs, "glob")
+    xvm(Disks.volumes, "1", "-a", ref + "?", "-n", "GLOBA1", shell=True)
+    xvm(Disks.volumes, "1", "-e", "GLOBA1", "-o", Files.output)
+    xvm(Disks.volumes, "1", "-e", "GLOBA2", "-o", Files.output)
+    with open(Files.error, "w") as ferr:
+        xvm(Disks.volumes, "1", "-e", "GLOBA3", "-o", Files.output,
+            stderr=ferr, rc=1)
+    xvm(Disks.volumes, "1", "-d", "GLOB*", "-o", Files.output)
+    xvm(Disks.volumes, "1", "-a", ref + "*", "-n", "GLOBB1", shell=True)
+    xvm(Disks.volumes, "1", "-e", "GLOBB1", "-o", Files.output)
+    xvm(Disks.volumes, "1", "-e", "GLOBB2", "-o", Files.output)
+    xvm(Disks.volumes, "1", "-e", "GLOBB3", "-o", Files.output)
 
     # cleanup
     os.remove(Files.output)

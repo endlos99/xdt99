@@ -23,7 +23,7 @@ import sys
 import re
 import xdm99
 
-VERSION = "1.2.0"
+VERSION = "1.2.1"
 
 
 ### Multi-disk volumes
@@ -93,7 +93,19 @@ class Volumes:
 ### Command line processing
 
 def main():
-    import argparse, os.path
+    import argparse
+    import glob
+    import os
+
+    class GlobStore(argparse.Action):
+        """argparse globbing for Windows platforms"""
+
+        def __call__(self, parser, namespace, values, option_string=None):
+            if os.name == "nt":
+                names = [glob.glob(fn) if "*" in fn or "?" in fn else [fn]
+                         for fn in values]
+                values = [f for n in names for f in n]
+            setattr(namespace, self.dest, values)
 
     args = argparse.ArgumentParser(
         version=VERSION,
@@ -129,8 +141,8 @@ def main():
         "-t", "--tifile", action="store_true", dest="astif",
         help="use TIFile file format for extracted files")
     cmd.add_argument(
-        "-a", "--add", dest="add", nargs="+", metavar="<file>",
-        help="add files to image or update existing files")
+        "-a", "--add", action=GlobStore, dest="add", nargs="+",
+        metavar="<file>", help="add files to image or update existing files")
     args.add_argument(
         "-f", "--format", dest="format", metavar="<format>",
         help="set TI file format (DIS/VARnnn, DIS/FIXnnn, INT/VARnnn, " + \
@@ -201,8 +213,9 @@ def main():
             for v in volumes:
                 image = device.getVolume(v)
                 disk = xdm99.Disk(image)
+                files = disk.globFiles(opts.print_)
                 contents = [disk.getFile(name).getContents()
-                            for name in opts.print_]
+                            for name in files]
                 sys.stdout.write("".join(contents))
         elif opts.extract:
             if opts.output and len(opts.extract) > 1:
@@ -211,42 +224,44 @@ def main():
             for v in volumes:
                 image = device.getVolume(v)
                 disk = xdm99.Disk(image)
+                files = disk.globFiles(opts.extract)
                 suffix = "_" + str(v) if len(volumes) > 1 else ""
                 if opts.astif:
-                    result.extend([(disk.getFileAsTifiles(name),
+                    result.extend([(disk.getTifilesFile(name),
                                     name.lower() + suffix + ".tfi", "wb")
-                                   for name in opts.extract])
+                                   for name in files])
                 else:
                     result.extend([(disk.getFile(name).getContents(),
                                     name.lower() + suffix,
                                     "w" if fmt[0] == "D" else "wb")
-                                   for name in opts.extract])
+                                   for name in files])
         elif opts.add:
-            if opts.name and len(opts.add) > 1:
-                sys.exit("Error: Cannot use -n when adding multiple files")
             for v in volumes:
                 image = device.getVolume(v)
                 disk = xdm99.Disk(image)
+                n, c = opts.name, 0
                 for name in opts.add:
-                    try:
-                        if name == "-":
-                            name = "STDIN"
-                            data = sys.stdin.read()
-                        else:
-                            with open(name, "r" if fmt[0] == "D" and
-                                      not opts.astif else "rb") as fin:
-                                data = fin.read()
-                    except IOError as e:
-                        sys.exit("Error: " + str(e))
-                    f = (xdm99.File(tifimage=data) if opts.astif else
-                         xdm99.File(name=tiname(name), fmt=fmt, data=data))
-                    disk.addFile(f)
+                    if name == "-":
+                        name = "STDIN"
+                        data = sys.stdin.read()
+                    else:
+                        with open(name, "r" if fmt[0] == "D" and
+                                        not opts.astif else "rb") as fin:
+                            data = fin.read()
+                    if opts.astif:
+                        disk.addFile(xdm99.File(tifimage=data))
+                    else:
+                        n = (xdm99.sseq(opts.name, c) if opts.name else
+                             tiname(name))
+                        disk.addFile(xdm99.File(name=n, fmt=fmt, data=data))
+                        c += 1
                 device.writeVolume(v, disk.getImage())
         elif opts.delete:
             for v in volumes:
                 image = device.getVolume(v)
                 disk = xdm99.Disk(image)
-                for name in opts.delete:
+                files = disk.globFiles(opts.delete)
+                for name in files:
                     disk.removeFile(name)
                 device.writeVolume(v, disk.getImage())
         elif opts.checkonly:
@@ -265,7 +280,7 @@ def main():
         # default volume info operation
         else:
             sys.stdout.write(device.getInfo(volumes))
-    except (xdm99.DiskError, xdm99.FileError) as e:
+    except (IOError, xdm99.DiskError, xdm99.FileError) as e:
         sys.exit("Error: " + str(e))
 
     # write result

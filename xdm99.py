@@ -882,7 +882,19 @@ def fiadCmds(opts):
 
 
 def main():
+    import os
     import argparse
+    import glob
+
+    class GlobStore(argparse.Action):
+        """argparse globbing for Windows platforms"""
+
+        def __call__(self, parser, namespace, values, option_string=None):
+            if os.name == "nt":
+                names = [glob.glob(fn) if "*" in fn or "?" in fn else [fn]
+                         for fn in values]
+                values = [f for n in names for f in n]
+            setattr(namespace, self.dest, values)
 
     args = argparse.ArgumentParser(
         version=VERSION,
@@ -902,8 +914,8 @@ def main():
         "-e", "--extract", dest="extract", nargs="+", metavar="<name>",
         help="extract files from image")
     cmd.add_argument(
-        "-a", "--add", dest="add", nargs="+", metavar="<file>",
-        help="add files to image or update existing files")
+        "-a", "--add", action=GlobStore, dest="add", nargs="+",
+        metavar="<file>", help="add files to image or update existing files")
     cmd.add_argument(
         "-r", "--rename", dest="rename", nargs="+", metavar="<old>:<new>",
         help="rename files on image")
@@ -927,17 +939,17 @@ def main():
         help="dump disk sector")
     # FIAD commands
     cmd.add_argument(
-        "-P", "--print-fiad", dest="printfiad", nargs="+", metavar="<file>",
-        help="print contents of file in FIAD format")
+        "-P", "--print-fiad", action=GlobStore, dest="printfiad", nargs="+",
+        metavar="<file>", help="print contents of file in FIAD format")
     cmd.add_argument(
-        "-T", "--to-fiad", dest="tofiad", nargs="+", metavar="<file>",
-        help="convert plain file to FIAD format")
+        "-T", "--to-fiad", action=GlobStore, dest="tofiad", nargs="+",
+        metavar="<file>", help="convert plain file to FIAD format")
     cmd.add_argument(
-        "-F", "--from-fiad", dest="fromfiad", nargs="+", metavar="<file>",
-        help="convert FIAD format to plain file")
+        "-F", "--from-fiad", action=GlobStore, dest="fromfiad", nargs="+",
+        metavar="<file>", help="convert FIAD format to plain file")
     cmd.add_argument(
-        "-I", "--info-fiad", dest="infofiad", nargs="+", metavar="<file>",
-        help="show information about file in FIAD format")
+        "-I", "--info-fiad", action=GlobStore, dest="infofiad", nargs="+",
+        metavar="<file>", help="show information about file in FIAD format")
     # general options
     args.add_argument(
         "-t", "--tifiles", action="store_true", dest="astifiles",

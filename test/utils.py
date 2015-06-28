@@ -17,8 +17,11 @@ def chrw(word):
 def xdm(*args, **kargs):
     """invoke Disk Manager"""
     print "DM:", args
-    rc = call(xdmPy + list(args),
-              stdout=kargs.get("stdout"), stderr=kargs.get("stderr"))
+    if kargs.get("shell"):
+        rc = call(" ".join(xdmPy + list(args)), shell=True)
+    else:
+        rc = call(xdmPy + list(args),
+                  stdout=kargs.get("stdout"), stderr=kargs.get("stderr"))
     if rc != kargs.get("rc", 0):
         error("OS", "xdm99 call returned with failure code " + str(rc))
 
@@ -26,8 +29,11 @@ def xdm(*args, **kargs):
 def xvm(*args, **kargs):
     """invoke Volume Manager"""
     print "VM:", args
-    rc = call(xvmPy + list(args),
-              stdout=kargs.get("stdout"), stderr=kargs.get("stderr"))
+    if kargs.get("shell"):
+        rc = call(" ".join(xvmPy + list(args)), shell=True)
+    else:
+        rc = call(xvmPy + list(args),
+                  stdout=kargs.get("stdout"), stderr=kargs.get("stderr"))
     if rc != kargs.get("rc", 0):
         error("OS", "xvm99 call returned with failure code " + str(rc))
 

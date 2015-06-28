@@ -138,6 +138,18 @@ def runtest():
     xdm(Disks.work, "-e", "MULV9U", "-o", Files.output)
     checkFilesEq("CLI", "prog00002", Files.output, "P")
 
+    ref = os.path.join(Dirs.refs, "glob")
+    xdm(Disks.work, "-a", ref + "?", "-n", "GLOBA1", shell=True)
+    xdm(Disks.work, "-e", "GLOBA1", "-o", Files.output)
+    xdm(Disks.work, "-e", "GLOBA2", "-o", Files.output)
+    with open(Files.error, "w") as ferr:
+        xdm(Disks.work, "-e", "GLOBA3", "-o", Files.output, stderr=ferr, rc=1)
+    xdm(Disks.work, "-d", "GLOB*", "-o", Files.output)
+    xdm(Disks.work, "-a", ref + "*", "-n", "GLOBB1", shell=True)
+    xdm(Disks.work, "-e", "GLOBB1", "-o", Files.output)
+    xdm(Disks.work, "-e", "GLOBB2", "-o", Files.output)
+    xdm(Disks.work, "-e", "GLOBB3", "-o", Files.output)
+
     # initialize disk
     xdm(Disks.work, "--initialize", "360", "-n", "SSSD")
     checkFileSize(Disks.work, 360 * 256)
