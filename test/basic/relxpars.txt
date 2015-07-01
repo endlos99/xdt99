@@ -1,0 +1,19 @@
+! RELAXED PARSING
+
+A=1::B=2::C=3
+D=1 ::E=2:: F=3
+
+A = 1  ::  B = 2  ::  C = D < 1 + 2 * E
+E = - 100 :: F = H > = (1 ^ 9)
+
+PRINT A::INPUT B::C=D!E
+PRINT A, B; C: D
+
+INPUT A$ : B$ , C$
+
+CALL SPRITE ( # 1 , 100 , 200 )
+CALL CLEAR::CALL FOO::PRINT A
+
+IF ( A AND B ) THEN 100 :: GO TO 100
+
+OPEN # 1 : A$ , FIXED

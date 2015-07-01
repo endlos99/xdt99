@@ -1,0 +1,24 @@
+! lower case
+
+A=1 :: b=2 :: CdEf=3
+!D=1e1 (parsed as "1 E1")
+
+if a then 100 else 200
+
+print a,B,"Hello"
+goto 100 :: go sub 200
+
+rem hello world if then else
+
+data a,B,Hello,"World"
+
+image Hello World ##
+image "Hello World ##"
+
+call foo(#a,b)
+
+sub foo :: endsub
+
+def foo(x)=x*x
+
+end

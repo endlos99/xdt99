@@ -1,0 +1,28 @@
+! SYNTAX GIBERISH
+
+A,B;C:D+E-F*G/H&I
+A=B<C>D(E)F^G #H
+,;:""+/*-^
+A[]B=[A]=[=B=_=@=]
+
+!A
+!"A"
+
+A,"B",OR,USING ,:,,1,Z;1.1,1E1,1E-1,.1,1.;
+
+"A" :: A :: "B" :: B
+A"B" :: "A" B"C" :: "A""B""C" :: "A"B"C"
+::
+:: :: ::
+A 1 2 3 :: 1 B 2 3 :: 1 :: 2
+
+A"B" OR"C" THEN "D" BEEP"E" :: "F"
+IF THEN ELSE AND OR NOT USING BEEP
+
+A OR B IF A THEN B :: 1 OR 2 THEN 3 BEEP 4 :: 5
+1 OR 2 OR+OR,OR/OR @ OR [
+
+CALL FOO=1 :: CALL FOO OR ELSE :: CALL A 1
+CALL A:B :: CALL A:CALL B:"C"
+CALL A"B"
+CALL PRINT :: SUB PRINT
