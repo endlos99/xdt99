@@ -33,7 +33,7 @@ nanoPEB/CF7A devices.
 
 For additional information, please refer to the [xdt99 homepage][1].
 
-**Latest version: 1.2.x**
+**Latest version: 1.4.x**
 
 The latest binary distribution of xdt99 is available on the project
 [releases page][2] on GitHub.  xdt99 requires [Python 2.7.x][4] and runs on any

@@ -23,7 +23,7 @@ import sys
 import re
 import os.path
 
-VERSION = "1.2.4"
+VERSION = "1.4.0"
 
 
 ### Utility functions

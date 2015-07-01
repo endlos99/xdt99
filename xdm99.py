@@ -24,7 +24,7 @@ import re
 import datetime
 import os.path
 
-VERSION = "1.2.3"
+VERSION = "1.4.0"
 
 
 ### Utility functions

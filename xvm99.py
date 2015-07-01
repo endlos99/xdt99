@@ -23,7 +23,7 @@ import sys
 import re
 import xdm99
 
-VERSION = "1.2.1"
+VERSION = "1.4.0"
 
 
 ### Multi-disk volumes
