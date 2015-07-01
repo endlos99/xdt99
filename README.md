@@ -7,6 +7,7 @@ modern computer systems:
 
  * `xas99`: A TMS9900 cross-assembler
  * `xga99`: A GPL cross-assembler
+ * `xbas99`: A TI BASIC and TI Extended BASIC lister and encoder
  * `xdm99`: A command-line disk manager for sector-based TI disk images
  * `xvm99`: A command-line volume manager for nanoPEB/CF7A Compact Flash cards
 
@@ -19,6 +20,11 @@ The `xga99` GPL cross-assembler generates GROM image files for TI's proprietary
 Graphics Programming Language (GPL).  The GPL assembler is a quick way to
 translate self-written GPL programs into RPK cartridge files that can be run
 with the MESS emulator.
+
+The `xbas99` BASIC tool encodes TI BASIC and TI Extended BASIC programs into
+their internal format that can be loaded by the BASIC interpreter using
+the `OLD` command.  Conversely, the tool also lists BASIC program files
+similarly to the `LIST` command. 
 
 The `xdm99` disk manager works with sector-based TI disk images used by most
 emulators, including MESS.  `xdm99` also supports the TIFiles file format.  The
@@ -43,11 +49,11 @@ Download and Installation
 Download the latest [binary release][2] from GitHub.  Alternatively, clone the
 entire xdt99 GitHub [repository][3].
 
-All tools -- `xas99` cross-assembler, `xga99` GPL cross-assembler, `xdm99`
-disk manager, and `xvm99` volume manager -- are standalone self-contained
-Python programs (but `xvm99` requires `xdm99`).  Simply place the files
-`xas99.py`, `xdm99.py`, and `xvm99.py` somewhere into your `$PATH` or whereever
-your Python installation will find them.
+All tools -- `xas99` cross-assembler, `xga99` GPL cross-assembler, `xbas99`
+BASIC tool, `xdm99` disk manager, and `xvm99` volume manager -- are standalone
+self-contained Python programs (but `xvm99` requires `xdm99`).  Simply place
+the files `xas99.py`, `xdm99.py`, and `xvm99.py` somewhere into your `$PATH` or
+whereever your Python installation will find them.
 
 
 Basic Usage: `xas99`
@@ -105,6 +111,29 @@ Assemble source file using "RAG GPL Assembler" syntax style:
 	$ xga99.py <source file> -s rag
 
 For a complete overview of the available command-line options, see `xga99.py
+-h`.
+
+
+Basic Usage: `xbas99`
+---------------------
+
+This is just a brief overview of the most common usages for `xbas99`.  For
+detailed information, please refer to the [xdt99 homepage][1] or the manual
+included with xdt99.
+
+List TI BASIC or TI Extended BASIC program on screen:
+
+	$ xbas99.py -l <program file>
+
+Decode BASIC program to source format (i.e., list to file):
+
+	$ xbas99.py -d <program file> [-o <output file>]
+
+Create BASIC program in internal format for BASIC interpreter:
+
+	$ xbas99.py [-c] <source file> [-o <output file>]
+
+For a complete overview of the available command-line options, see `xbas99.py
 -h`.
 
 
