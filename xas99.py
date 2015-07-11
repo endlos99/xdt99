@@ -23,7 +23,7 @@ import sys
 import re
 import os.path
 
-VERSION = "1.4.0"
+VERSION = "1.4.1"
 
 
 ### Utility functions
@@ -303,14 +303,13 @@ class Objcode:
                 i += 1
         return dump if dump[-1] == "\n" else dump + "\n"
 
-    def genObjCode(self):
+    def genObjCode(self, compressed=False):
         """generate object code (E/A option 3)"""
         self.prepare()
-        tags = Records()
         relocLCs = [finalLC for base, finalLC, reloc, dummy, code
                     in self.segments if reloc]
         relocSize = relocLCs[-1] if relocLCs else 0
-        tags.add("0%04X%-8s" % (relocSize, self.symbols.idt))
+        tags = Records(relocSize, self.symbols.idt, compressed)
         # add code and data words section
         refs = {}
         for base, finalLC, reloc, dummy, code in self.segments:
@@ -319,37 +318,33 @@ class Objcode:
             tags.addLC()
             for LC, w in code:
                 if isinstance(w, Address):
-                    tags.add("%c%04X" % (
-                        "C" if w.relocatable else "B", w.addr), LC, reloc)
+                    tags.add("C" if w.relocatable else "B", w.addr, LC, reloc)
                 elif isinstance(w, Reference):
                     prevLC, prevReloc = refs.get(w.name, (0, False))
-                    tags.add("%c%04X" % ("C" if prevReloc else "B", prevLC),
-                             LC, reloc)
+                    tags.add("C" if prevReloc else "B", prevLC, LC, reloc)
                     refs[w.name] = (LC, reloc)
                 elif isinstance(w, Block):
-                    tags.add("%c%04X" % ("A" if reloc else "9", LC))
+                    tags.add("A" if reloc else "9", LC)
                     tags.addLC()
                 elif isinstance(w, Line):
                     pass
                 else:
-                    tags.add("B%04X" % w, LC, reloc)
+                    tags.add("B", w, LC, reloc)
         tags.flush()
         # program entry
         if self.entry:
-            tags.add("%c%04X" % ("2" if self.entry.relocatable else "1",
-                                 self.entry.addr))
+            tags.add("2" if self.entry.relocatable else "1", self.entry.addr)
             tags.flush()
         # add def and ref symbols section
         for s in self.symbols.refdefs:
             symbol = self.symbols.getSymbol(s)
             if isinstance(symbol, Reference):
                 prevLC, prevReloc = refs.get(s, (0, False))
-                tags.add("%c%04X%-6s" % (
-                    "3" if prevReloc else "4", prevLC, s[:6]))
+                tags.add("3" if prevReloc else "4", prevLC, sym=s[:6])
             elif symbol:
                 reloc = isinstance(symbol, Address) and symbol.relocatable
                 addr = symbol.addr if isinstance(symbol, Address) else symbol
-                tags.add("%c%04X%-6s" % ("5" if reloc else "6", addr, s[:6]))
+                tags.add("5" if reloc else "6", addr, sym=s[:6])
         # closing section
         tags.flush()
         tags.append(":       99/4 AS")
@@ -520,20 +515,39 @@ class Objcode:
 class Records:
     """object code tag and record handling"""
 
-    def __init__(self):
+    def __init__(self, relocSize, idt, compressed):
         self.records = []
-        self.record = ""
+        if compressed:
+            self.record = "\x01%s%-8s" % (chrw(relocSize), idt)
+            self.linlen = 77
+        else:
+            self.record = "0%04X%-8s" % (relocSize, idt)
+            self.linlen = 64
+        self.compressed = compressed
         self.needsLC = True
 
-    def add(self, tag, LC=None, reloc=False):
+    def add(self, tag, value, LC=None, reloc=False, sym=None):
         """add tag to records"""
         addLC = self.needsLC and LC is not None
-        tagPenalty = (5 if tag[0] in "9A" else 0) + (5 if addLC else 0)
-        if len(self.record) + len(tag) + tagPenalty > 64:
+        tagPenalty = ((5 if tag in "9A" else 0) +
+                      (5 if addLC else 0))
+        if self.compressed:
+            s = tag + chrw(value)
+            if tag in "3456":
+                tagPenalty += 31
+        else:
+            s = tag + ("%04X" % value)
+        if sym:
+            s += "%-6s" % sym
+        if len(self.record) + len(s) + tagPenalty > self.linlen:
             self.flush()
             addLC = LC is not None
-        tagLC = ("%c%04X" % ("A" if reloc else "9", LC)) if addLC else ""
-        self.record += tagLC + tag
+        if addLC:
+            tagLC = (("A" if reloc else "9") +
+                     (chrw(LC) if self.compressed else "%04X" % LC))
+            self.record += tagLC + s
+        else:
+            self.record += s
         self.needsLC = False
 
     def addLC(self):
@@ -546,17 +560,21 @@ class Records:
 
     def flush(self):
         """close current record and add checksum"""
-        checksum = reduce(lambda s, c: s + ord(c), self.record, ord("7"))
-        self.records.append(self.record +
-                            "7%04XF" % (~checksum + 1 & 0xFFFF) +
-                            " " * (69 - len(self.record)))
+        if not self.compressed:
+            checksum = reduce(lambda s, c: s + ord(c), self.record, ord("7"))
+            self.record += "7%04X" % (~checksum + 1 & 0xFFFF)
+        self.records.append(self.record + "F" + " " * (69 - len(self.record)))
         self.record = ""
         self.addLC()
 
     def dump(self):
         """dump records as DIS/FIX80"""
-        lines = ["%-75s %04d\n" % (line, i + 1)
-                 for i, line in enumerate(self.records)]
+        if self.compressed:
+            lines = (["%-80s\n" % line for line in self.records[:-1]] +
+                     ["%-75s %04d\n" % (self.records[-1], len(self.records))])
+        else:
+            lines = ["%-75s %04d\n" % (line, i + 1)
+                     for i, line in enumerate(self.records)]
         return "".join(lines)
 
 
@@ -1215,6 +1233,8 @@ class Parser:
             return int(op[1:], 16)
         elif op == "$":
             return Address(self.symbols.LC, self.symbols.relocLC)
+        elif op[0] == ":":
+            return int(op[1:], 2)
         elif op.isdigit():
             return int(op)
         elif op[0] == op[-1] == "'":
@@ -1248,6 +1268,8 @@ class Parser:
         op = op.strip()
         if op[0] == ">":
             r = int(op[1:], 16)
+        elif op[0] == ":":
+            return int(op[1:], 2)
         elif op.isdigit():
             r = int(op)
         else:
@@ -1330,7 +1352,7 @@ def main():
     args.add_argument("-R", "--register-symbols", action="store_true", dest="optr",
                       help="add register symbols (TI Assembler option R)")
     args.add_argument("-C", "--compress", action="store_true", dest="optc",
-                      help="compress object code (TI Assembler option C) (ignored)")
+                      help="compress object code (TI Assembler option C)")
     args.add_argument("-L", "--list-file", dest="optl", metavar="<file>",
                       help="generate list file (TI Assembler option L)")
     args.add_argument("-S", "--symbol-table", action="store_true", dest="optl",
@@ -1384,7 +1406,7 @@ def main():
             with open(output, "wb") as fout:
                 fout.write(prog)
         else:
-            data = code.genObjCode()
+            data = code.genObjCode(opts.optc)
             output = opts.output or barename + ".obj"
             with open(output, "wb") as fout:
                 fout.write(data)

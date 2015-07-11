@@ -37,25 +37,25 @@ def runtest():
     """check cross-generated output against native reference files"""
 
     # object code
-    for infile, opts, reffile in [
-            ("asdirs.asm", [], "ASDIRS-O"),
-            ("asorgs.asm", [], "ASORGS-O"),
-            ("asopcs.asm", [], "ASOPCS-O"),
-            ("asexprs.asm", [], "ASEXPRS-O"),
-            ("asbss.asm", [], "ASBSS-O"),
-            ("asregs.asm", ["-R"], "ASREGS-O"),
-            ("ashello.asm", ["-R"], "ASHELLO-O"),
-            ("ascopy.asm", [], "ASCOPY-O"),
-            ("ascopyn.asm", [], "ASCOPYN-O"),
-            ("assize1.asm", [], "ASSIZE1-O"),
-            ("assize2.asm", [], "ASSIZE2-O"),
-            ("assize3.asm", [], "ASSIZE3-O"),
-            ("assize4.asm", [], "ASSIZE4-O"),
-            ("astisym.asm", [], "ASTISYM-O"),
-            ("asimg1.asm", [], "ASIMG1-O"),
-            ("asimg2.asm", [], "ASIMG2-O"),
-            ("asimg3.asm", [], "ASIMG3-OX"),
-            ("ascart.asm", ["-R"], "ASCART-O")
+    for infile, opts, reffile, cprfile in [
+            ("asdirs.asm", [], "ASDIRS-O", "ASDIRS-C"),
+            ("asorgs.asm", [], "ASORGS-O", "ASORGS-C"),
+            ("asopcs.asm", [], "ASOPCS-O", "ASOPCS-C"),
+            ("asexprs.asm", [], "ASEXPRS-O", "ASEXPRS-C"),
+            ("asbss.asm", [], "ASBSS-O", "ASBSS-C"),
+            ("asregs.asm", ["-R"], "ASREGS-O", "ASREGS-C"),
+            ("ashello.asm", ["-R"], "ASHELLO-O", "ASHELLO-C"),
+            ("ascopy.asm", [], "ASCOPY-O", None),
+            ("ascopyn.asm", [], "ASCOPYN-O", None),
+            ("assize1.asm", [], "ASSIZE1-O", "ASSIZE1-C"),
+            ("assize2.asm", [], "ASSIZE2-O", None),
+            ("assize3.asm", [], "ASSIZE3-O", None),
+            ("assize4.asm", [], "ASSIZE4-O", None),
+            ("astisym.asm", [], "ASTISYM-O", "ASTISYM-C"),
+            ("asimg1.asm", [], "ASIMG1-O", "ASIMG1-C"),
+            ("asimg2.asm", [], "ASIMG2-O", None),
+            ("asimg3.asm", [], "ASIMG3-OX", None),
+            ("ascart.asm", ["-R"], "ASCART-O", "ASCART-C")
             ]:
         source = os.path.join(Dirs.sources, infile)
         xdm(Disks.asmsrcs, "-e", reffile, "-o", Files.reference)
@@ -63,6 +63,11 @@ def runtest():
         checkFilesEq("Object code", Files.output, Files.reference, fmt="DF80")
         xas(*[source] + opts + ["--strict", "-o", Files.output])
         checkFilesEq("Object code", Files.output, Files.reference, fmt="DF80")
+        if cprfile:
+            # compressed object code
+            xas(*[source] + opts + ["-C", "-o", Files.output])
+            xdm(Disks.asmsrcs, "-e", cprfile, "-o", Files.reference)
+            checkFilesEq("Object code", Files.output, Files.reference, "P")
 
     # xdt99 extensions
     source = os.path.join(Dirs.sources, "asxext.asm")
@@ -103,6 +108,12 @@ def runtest():
     # some CLI options
     source = os.path.join(Dirs.sources, "ashello.asm")
     xas(source, "--embed", "-R", "-o", Files.output)
+
+    # misc new features
+    source = os.path.join(Dirs.sources, "asxnew.asm")
+    xas(source, "-o", Files.output)
+    xdm(Disks.asmsrcs, "-e", "ASXNEW-O", "-o", Files.reference)
+    checkFilesEq("Object code", Files.output, Files.reference, fmt="DF80")
 
     # cleanup
     for i in xrange(4):

@@ -1,0 +1,13 @@
+*  NEW FEATURES
+
+        IDT 'ASXNEW'
+
+START   BLWP @0
+
+* BINARY LITERALS
+
+BINVAL  EQU >0A
+        DATA >5A,>F0
+        BYTE BINVAL
+
+        END
