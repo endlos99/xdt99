@@ -15,7 +15,7 @@ def ordw(word):
 def checkListFilesEq(genfile, reffile, ignoreLino=False):
     """check if list files are equivalent"""
     with open(genfile, "rb") as fg, open(reffile, "rb") as fr:
-        genlist = [l.rstrip() for l in fg.readlines()]
+        genlist = [(l[:16] + l[19:]).rstrip() for l in fg.readlines()]
         reflist = [l[2:].rstrip() for l in fr.readlines() if l[:2] == "  "]
     gi, ri = 1, 0
     mincol, maxcol = 4 if ignoreLino else 0, 74

@@ -23,7 +23,7 @@ import sys
 import re
 import os.path
 
-VERSION = "1.4.1"
+VERSION = "1.4.2"
 
 
 ### Utility functions
@@ -181,7 +181,7 @@ class Objdummy:
     def block(self, size):
         self.symbols.LC += size
 
-    def emit(self, opcode, saddr=None, daddr=None):
+    def emit(self, opcode, saddr=None, daddr=None, cycles=0):
         self.even()
         self.symbols.LC += 2 + (
             2 if saddr is not None else 0) + (
@@ -228,33 +228,33 @@ class Objcode:
     def byte(self, byte):
         byte %= 0x100
         if self.symbols.LC % 2 == 0:
-            self.code.append((self.symbols.LC, byte << 8))
+            self.code.append((self.symbols.LC, byte << 8, 0))
         else:
             # find previous byte
             i = -1
             try:
                 while isinstance(self.code[i][1], Line):
                     i -= 1
-                prevLC, prevWord = self.code[i]
+                prevLC, prevWord, cycles = self.code[i]
             except IndexError:
-                prevLC, prevWord = -1, None
+                prevLC, prevWord, cycles = -1, None, 0
             if self.symbols.LC == prevLC + 1 and isinstance(prevWord, int):
-                self.code[i] = (self.symbols.LC - 1, prevWord | byte)
+                self.code[i] = (self.symbols.LC - 1, prevWord | byte, cycles)
             else:
-                self.code.append((self.symbols.LC - 1, byte))
+                self.code.append((self.symbols.LC - 1, byte, cycles))
         self.symbols.LC += 1
 
-    def word(self, word):
+    def word(self, word, cycles=0):
         self.even()
-        self.code.append((self.symbols.LC, word))
+        self.code.append((self.symbols.LC, word, cycles))
         self.symbols.LC += 2
 
     def block(self, size):
-        self.code.append((self.symbols.LC, Block(size)))
+        self.code.append((self.symbols.LC, Block(size), 0))
         self.symbols.LC += size
 
-    def emit(self, opcode, saddr=None, daddr=None):
-        self.word(opcode)
+    def emit(self, opcode, saddr=None, daddr=None, cycles=0):
+        self.word(opcode, cycles)
         if saddr is not None:
             self.word(saddr)
         if daddr is not None:
@@ -263,7 +263,7 @@ class Objcode:
     def list(self, lino, line=None, eos=False, text1=None, text2=None):
         """create list file entry"""
         if lino >= 0:
-            self.code.append((self.symbols.LC, Line(lino, line, eos)))
+            self.code.append((self.symbols.LC, Line(lino, line, eos), 0))
         else:
             lastline = self.code[-1][1]
             assert isinstance(lastline, Line)
@@ -284,10 +284,11 @@ class Objcode:
                 "\n" if dump and dump[-1] != "\n" else "",
                 "R" if reloc else "D" if dummy else "A",
                 base)
-            i = 0
-            for LC, w in code:
+            i, ttotal = 0, 0
+            for LC, w, t in code:
                 if isinstance(w, Line):
                     continue
+                ttotal += t
                 if i % 8 == 0:
                     dump += "%04X:  " % LC
                 if isinstance(w, Address):
@@ -299,7 +300,8 @@ class Objcode:
                 else:
                     dump += "%04X  " % w
                 if i % 8 == 7:
-                    dump += "\n"
+                    dump += "[%4d]\n" % ttotal
+                    ttotal = 0
                 i += 1
         return dump if dump[-1] == "\n" else dump + "\n"
 
@@ -316,7 +318,7 @@ class Objcode:
             if dummy:
                 continue
             tags.addLC()
-            for LC, w in code:
+            for LC, w, _ in code:
                 if isinstance(w, Address):
                     tags.add("C" if w.relocatable else "B", w.addr, LC, reloc)
                 elif isinstance(w, Reference):
@@ -352,7 +354,7 @@ class Objcode:
 
     def writeMem(self, mem, code, baseAddr):
         """load object code into memory"""
-        for LC, w in code:
+        for LC, w, _ in code:
             addr = LC + baseAddr
             if isinstance(w, Address):
                 mem[addr] = w.addr + baseAddr if w.relocatable else w.addr
@@ -448,13 +450,14 @@ class Objcode:
         listing = []
         for base, finalLC, reloc, dummy, code in self.segments:
             words, slino, sline, skip = [], None, None, False
-            for LC, w in code:
+            for LC, w, t in code:
                 if isinstance(w, Line):
                     if slino is not None:
-                        a0, w0 = words[0] if words else ("", "")
-                        listing.append("%4s %-4s %-5s %s" % (
-                            slino, a0, w0, sline))
-                        for ai, wi in words[1:]:
+                        a0, w0, t0 = words[0] if words else ("", "", 0)
+                        listing.append("%4s %-4s %-5s %-2s %s" % (
+                            slino, a0, w0, t0 or "", sline))
+                        for ai, wi, ti in words[1:]:
+                            assert ti == 0
                             listing.append("     %-4s %-5s" % (ai, wi))
                         if w.eos:
                             break
@@ -464,7 +467,8 @@ class Objcode:
                                   "" if w.text2 is None else
                                   w.text2 if isinstance(w.text2, str) else
                                   w.text2.hex() if isinstance(w.text2, Address)
-                                  else "%04X" % w.text2)]
+                                  else "%04X" % w.text2,
+                                  t or "")]
                         skip = True
                     else:
                         words = []
@@ -472,13 +476,13 @@ class Objcode:
                 elif skip:
                     pass
                 elif isinstance(w, Address):
-                    words.append(("%04X" % LC, w.hex()))
+                    words.append(("%04X" % LC, w.hex(), t))
                 elif isinstance(w, Reference):
-                    words.append(("%04X" % LC, "XXXX"))
+                    words.append(("%04X" % LC, "XXXX", t))
                 elif isinstance(w, Block):
-                    words.append(("%04X" % LC, "...."))
+                    words.append(("%04X" % LC, "....", t))
                 else:
-                    words.append(("%04X" % LC, "%04X" % w))
+                    words.append(("%04X" % LC, "%04X" % w, t))
         return ("XAS99 CROSS-ASSEMBLER   VERSION " + VERSION + "\n" +
                 "\n".join(listing) + "\n")
 
@@ -831,6 +835,36 @@ class Preprocessor:
 
 ### Opcodes
 
+class Timing:
+
+    WAITSTATES = 4
+
+    def __init__(self, cycles, memaccesses, read=False, byte=False, x2=False):
+        self.cycles = cycles
+        self.memaccesses = memaccesses
+        self.addlCycles = [0, 4, 8, 6] if byte else [0, 4, 8, 8]
+        self.addlMem = ([0, 2, 4, 2] if x2 else
+                        [0, 1, 2, 1] if read else [0, 2, 3, 2])
+
+    def time0(self):
+        """compute number of cycles for execution (no args)"""
+        return self.cycles + self.WAITSTATES * self.memaccesses
+
+    def time1(self, tx, xa):
+        """compute number of cycles for execution (one arg)"""
+        # NOTE: represents tables A/B: [0, 1, 1/2, 2], but compensates
+        #       for register read with zero wait state
+        c = self.cycles + self.addlCycles[tx]
+        m = self.memaccesses + self.addlMem[tx]
+        return c + self.WAITSTATES * m
+
+    def time2(self, ts, sa, td, da):
+        """compute number of cycles for execution (one arg)"""
+        c = self.cycles + self.addlCycles[ts] + self.addlCycles[td]
+        m = self.memaccesses + [0, 1, 2, 1][ts] + [0, 2, 3, 2][td]
+        return c + self.WAITSTATES * m
+
+
 class Opcodes:
     opGa = lambda parser, x: parser.address(x)  # [0x0000 .. 0xFFFF]
     opWa = lambda parser, x: parser.register(x)  # [0 .. 15]
@@ -843,81 +877,81 @@ class Opcodes:
 
     opcodes = {
         # 6. arithmetic
-        "A": (0xA000, 1, opGa, opGa),
-        "AB": (0xB000, 1, opGa, opGa),
-        "ABS": (0x0740, 6, opGa, None),  # listed as 4 in E/A Manual
-        "AI": (0x0220, 8, opWa, opIop),
-        "DEC": (0x0600, 6, opGa, None),
-        "DECT": (0x0640, 6, opGa, None),
-        "DIV": (0x3C00, 9, opGa, opWa),
-        "INC": (0x0580, 6, opGa, None),
-        "INCT": (0x05C0, 6, opGa, None),
-        "MPY": (0x3800, 9, opGa, opWa),
-        "NEG": (0x0500, 6, opGa, None),
-        "S": (0x6000, 1, opGa, opGa),
-        "SB": (0x7000, 1, opGa, opGa),
+        "A": (0xA000, 1, opGa, opGa, Timing(14, 1)),
+        "AB": (0xB000, 1, opGa, opGa, Timing(14, 1, byte=True)),
+        "ABS": (0x0740, 6, opGa, None, Timing(14, 1)),  # 4 in E/A Manual
+        "AI": (0x0220, 8, opWa, opIop, Timing(14, 2)),
+        "DEC": (0x0600, 6, opGa, None, Timing(10, 1)),
+        "DECT": (0x0640, 6, opGa, None, Timing(10, 1)),
+        "DIV": (0x3C00, 9, opGa, opWa, Timing(124, 1, read=True)),
+        "INC": (0x0580, 6, opGa, None, Timing(10, 1)),
+        "INCT": (0x05C0, 6, opGa, None, Timing(10, 1)),
+        "MPY": (0x3800, 9, opGa, opWa, Timing(52, 1, read=True)),
+        "NEG": (0x0500, 6, opGa, None, Timing(12, 1)),
+        "S": (0x6000, 1, opGa, opGa, Timing(14, 1)),
+        "SB": (0x7000, 1, opGa, opGa, Timing(14, 1, byte=True)),
         # 7. jump and branch
-        "B": (0x0440, 6, opGa, None),
-        "BL": (0x0680, 6, opGa, None),
-        "BLWP": (0x0400, 6, opGa, None),
-        "JEQ": (0x1300, 2, opDisp, None),
-        "JGT": (0x1500, 2, opDisp, None),
-        "JHE": (0x1400, 2, opDisp, None),
-        "JH": (0x1B00, 2, opDisp, None),
-        "JL": (0x1A00, 2, opDisp, None),
-        "JLE": (0x1200, 2, opDisp, None),
-        "JLT": (0x1100, 2, opDisp, None),
-        "JMP": (0x1000, 2, opDisp, None),
-        "JNC": (0x1700, 2, opDisp, None),
-        "JNE": (0x1600, 2, opDisp, None),
-        "JNO": (0x1900, 2, opDisp, None),
-        "JOP": (0x1C00, 2, opDisp, None),
-        "JOC": (0x1800, 2, opDisp, None),
-        "RTWP": (0x0380, 7, None, None),
-        "X": (0x0480, 6, opGa, None),
-        "XOP": (0x2C00, 9, opGa, opXop),
+        "B": (0x0440, 6, opGa, None, Timing(8, 1, read=True)),
+        "BL": (0x0680, 6, opGa, None, Timing(12, 1, read=True)),
+        "BLWP": (0x0400, 6, opGa, None, Timing(26, 1, read=True, x2=True)),
+        "JEQ": (0x1300, 2, opDisp, None, Timing(10, 1)),
+        "JGT": (0x1500, 2, opDisp, None, Timing(10, 1)),
+        "JHE": (0x1400, 2, opDisp, None, Timing(10, 1)),
+        "JH": (0x1B00, 2, opDisp, None, Timing(10, 1)),
+        "JL": (0x1A00, 2, opDisp, None, Timing(10, 1)),
+        "JLE": (0x1200, 2, opDisp, None, Timing(10, 1)),
+        "JLT": (0x1100, 2, opDisp, None, Timing(10, 1)),
+        "JMP": (0x1000, 2, opDisp, None, Timing(10, 1)),
+        "JNC": (0x1700, 2, opDisp, None, Timing(10, 1)),
+        "JNE": (0x1600, 2, opDisp, None, Timing(10, 1)),
+        "JNO": (0x1900, 2, opDisp, None, Timing(10, 1)),
+        "JOP": (0x1C00, 2, opDisp, None, Timing(10, 1)),
+        "JOC": (0x1800, 2, opDisp, None, Timing(10, 1)),
+        "RTWP": (0x0380, 7, None, None, Timing(14, 1)),
+        "X": (0x0480, 6, opGa, None, Timing(8, 1, read=True)),  # approx.
+        "XOP": (0x2C00, 9, opGa, opXop, Timing(36, 2)),
         # 8. compare instructions
-        "C": (0x8000, 1, opGa, opGa),
-        "CB": (0x9000, 1, opGa, opGa),
-        "CI": (0x0280, 8, opWa, opIop),
-        "COC": (0x2000, 3, opGa, opWa),
-        "CZC": (0x2400, 3, opGa, opWa),
+        "C": (0x8000, 1, opGa, opGa, Timing(14, 1, read=True)),
+        "CB": (0x9000, 1, opGa, opGa, Timing(14, 1, read=True, byte=True)),
+        "CI": (0x0280, 8, opWa, opIop, Timing(14, 2)),
+        "COC": (0x2000, 3, opGa, opWa, Timing(14, 1)),
+        "CZC": (0x2400, 3, opGa, opWa, Timing(14, 1)),
         # 9. control and cru instructions
-        "LDCR": (0x3000, 4, opGa, opCnt),
-        "SBO": (0x1D00, 2, opCru, None),
-        "SBZ": (0x1E00, 2, opCru, None),
-        "STCR": (0x3400, 4, opGa, opCnt),
-        "TB": (0x1F00, 2, opCru, None),
-        "CKOF": (0x03C0, 7, None, None),
-        "CKON": (0x03A0, 7, None, None),
-        "IDLE": (0x0340, 7, None, None),
-        "RSET": (0x0360, 7, None, None),
-        "LREX": (0x03E0, 7, None, None),
+        "LDCR": (0x3000, 4, opGa, opCnt, Timing(52, 1)),
+        "SBO": (0x1D00, 2, opCru, None, Timing(12, 2)),
+        "SBZ": (0x1E00, 2, opCru, None, Timing(12, 2)),
+        "STCR": (0x3400, 4, opGa, opCnt, Timing(60, 1)),
+        "TB": (0x1F00, 2, opCru, None, Timing(12, 2)),
+        "CKOF": (0x03C0, 7, None, None, Timing(12, 1)),
+        "CKON": (0x03A0, 7, None, None, Timing(12, 1)),
+        "IDLE": (0x0340, 7, None, None, Timing(12, 1)),
+        "RSET": (0x0360, 7, None, None, Timing(12, 1)),
+        "LREX": (0x03E0, 7, None, None, Timing(12, 1)),
         # 10. load and move instructions
-        "LI": (0x0200, 8, opWa, opIop),
-        "LIMI": (0x0300, 81, opIop, None),
-        "LWPI": (0x02E0, 81, opIop, None),
-        "MOV": (0xC000, 1, opGa, opGa),
-        "MOVB": (0xD000, 1, opGa, opGa),
-        "STST": (0x02C0, 8, opWa, None),
-        "STWP": (0x02A0, 8, opWa, None),
-        "SWPB": (0x06C0, 6, opGa, None),
+        "LI": (0x0200, 8, opWa, opIop, Timing(12, 2)),
+        "LIMI": (0x0300, 81, opIop, None, Timing(16, 2)),
+        "LWPI": (0x02E0, 81, opIop, None, Timing(10, 2)),
+        "MOV": (0xC000, 1, opGa, opGa, Timing(14, 1)),
+        "MOVB": (0xD000, 1, opGa, opGa, Timing(14, 1, byte=True)),
+        "STST": (0x02C0, 8, opWa, None, Timing(8, 1)),
+        "STWP": (0x02A0, 8, opWa, None, Timing(8, 1)),
+        "SWPB": (0x06C0, 6, opGa, None, Timing(10, 1)),
         # 11. logical instructions
-        "ANDI": (0x0240, 8, opWa, opIop),
-        "ORI": (0x0260, 8, opWa, opIop),
-        "XOR": (0x2800, 3, opGa, opWa),
-        "INV": (0x0540, 6, opGa, None),
-        "CLR": (0x04C0, 6, opGa, None),
-        "SETO": (0x0700, 6, opGa, None),
-        "SOC": (0xE000, 1, opGa, opGa),
-        "SOCB": (0xF000, 1, opGa, opGa),
-        "SZC": (0x4000, 1, opGa, opGa),
-        "SZCB": (0x5000, 1, opGa, opGa),
+        "ANDI": (0x0240, 8, opWa, opIop, Timing(14, 2)),
+        "ORI": (0x0260, 8, opWa, opIop, Timing(14, 2)),
+        "XOR": (0x2800, 3, opGa, opWa, Timing(14, 1, read=True)),
+        "INV": (0x0540, 6, opGa, None, Timing(10, 1)),
+        "CLR": (0x04C0, 6, opGa, None, Timing(10, 1)),
+        "SETO": (0x0700, 6, opGa, None, Timing(10, 1)),
+        "SOC": (0xE000, 1, opGa, opGa, Timing(14, 1)),
+        "SOCB": (0xF000, 1, opGa, opGa, Timing(14, 1, byte=True)),
+        "SZC": (0x4000, 1, opGa, opGa, Timing(14, 1)),
+        "SZCB": (0x5000, 1, opGa, opGa, Timing(14, 1, byte=True)),
         # 12. shift instructions
-        "SRA": (0x0800, 5, opWa, opScnt),
-        "SRL": (0x0900, 5, opWa, opScnt),
-        "SLA": (0x0A00, 5, opWa, opScnt),
-        "SRC": (0x0B00, 5, opWa, opScnt)
+        "SRA": (0x0800, 5, opWa, opScnt, Timing(52, 1)),
+        "SRL": (0x0900, 5, opWa, opScnt, Timing(52, 1)),
+        "SLA": (0x0A00, 5, opWa, opScnt, Timing(52, 1)),
+        "SRC": (0x0B00, 5, opWa, opScnt, Timing(52, 1))
         # end of opcodes
     }
 
@@ -939,68 +973,78 @@ class Opcodes:
             mnemonic, operands = "XOP", [operands[0], mode]
         if mnemonic in Opcodes.opcodes:
             try:
-                opcode, fmt, parse1, parse2 = Opcodes.opcodes[mnemonic]
+                opcode, fmt, parse1, parse2, timing = Opcodes.opcodes[mnemonic]
                 arg1 = parse1(parser, operands[0]) if parse1 else None
                 arg2 = parse2(parser, operands[1]) if parse2 else None
-                Opcodes.generate(code, opcode, fmt, arg1, arg2)
+                Opcodes.generate(code, opcode, fmt, arg1, arg2, timing)
             except (IndexError, ValueError):
                 raise AsmError("Syntax error")
         else:
             raise AsmError("Invalid mnemonic: " + mnemonic)
 
     @staticmethod
-    def generate(code, opcode, fmt, arg1, arg2):
+    def generate(code, opcode, fmt, arg1, arg2, timing):
         """generate byte code"""
         # I. two general address instructions
         if fmt == 1:
             ts, s, sa = arg1
             td, d, da = arg2
             b = opcode | td << 10 | d << 6 | ts << 4 | s
-            code.emit(b, sa, da)
+            t = timing.time2(ts, sa, td, da)
+            code.emit(b, sa, da, cycles=t)
         # II. jump and bit I/O instructions
         elif fmt == 2:
             b = opcode | arg1 & 0xFF
-            code.emit(b)
+            t = timing.time0()
+            code.emit(b, cycles=t)
         # III. logical instructions
         elif fmt == 3:
             ts, s, sa = arg1
             d = arg2
             b = opcode | d << 6 | ts << 4 | s
-            code.emit(b, sa)
+            t = timing.time1(ts, sa)
+            code.emit(b, sa, cycles=t)
         # IV. CRU multi-bit instructions
         elif fmt == 4:
             ts, s, sa = arg1
             c = arg2
             b = opcode | c << 6 | ts << 4 | s
-            code.emit(b, sa)
+            t = timing.time1(ts, sa)
+            code.emit(b, sa, cycles=t)
         # V. register shift instructions
         elif fmt == 5:
             w = arg1
             c = arg2
             b = opcode | c << 4 | w
-            code.emit(b)
+            t = timing.time0()
+            code.emit(b, cycles=t)
         # VI. single address instructions
         elif fmt == 6:
             ts, s, sa = arg1
             b = opcode | ts << 4 | s
-            code.emit(b, sa)
+            t = timing.time1(ts, sa)
+            code.emit(b, sa, cycles=t)
         # VII. control instructions
         elif fmt == 7:
             b = opcode
-            code.emit(b)
+            t = timing.time0()
+            code.emit(b, cycles=t)
         # VIII. immediate instructions
         elif fmt == 8:
             b = opcode | arg1
-            code.emit(b, arg2)
+            t = timing.time0()
+            code.emit(b, arg2, cycles=t)
         elif fmt == 81:
             b = opcode
-            code.emit(b, arg1)
+            t = timing.time0()
+            code.emit(b, arg1, cycles=t)
         # IX. extended operations; multiply and divide
         elif fmt == 9:
             ts, s, sa = arg1
             r = arg2
             b = opcode | r << 6 | ts << 4 | s
-            code.emit(b, sa)
+            t = timing.time1(ts, sa)
+            code.emit(b, sa, cycles=t)
         else:
             raise AsmError("Invalid opcode format " + str(fmt))
 
