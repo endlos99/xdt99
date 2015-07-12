@@ -65,7 +65,7 @@ included with xdt99.
 
 Generate object code for the Editor/Assembler module, option 3:
 
-	$ xas99.py [-R] <source file>
+	$ xas99.py [-R] [-C] <source file>
 	
 Generate program image for the Editor/Assembler module, option 5:
 

@@ -10,4 +10,12 @@ BINVAL  EQU >0A
         DATA >5A,>F0
         BYTE BINVAL
 
+* BINARY INCLUDES
+
+BININC  BYTE >AA
+        BYTE >01,>10,>0F,>F0,>0A,>00,>0D,>FF,>01
+        BYTE >BB
+        BYTE >01,>10,>0F,>F0,>0A,>00,>0D,>FF,>01
+        BYTE >CC
+
         END

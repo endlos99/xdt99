@@ -102,7 +102,7 @@ The assembly options `-R` (register symbols), `-S` (symbol table), `-L`
 options of the TI Editor/Assembler module.  You will need to add `-R` if you
 prefer to write `MOV R0,*R1+` etc. instead of `MOV 0,*1+` in your source code.
 
-Currently, only options `-R` and `-L` are supported; the other options are
+Currently, only options `-R`, `-C`, and `-L` are supported; option `-S` is
 silently ignored.
 
 `xas99` will report any errors to `stderr` during assembly.  Note that the
@@ -261,6 +261,10 @@ include files
 and its corresponding lower-case variants.  `COPY` also supports native file
 paths, e.g., `COPY "/home/ralph/ti/src/file2.asm"`.
 
+`xas99` also provides a new directive `IBYTE` that includes an external binary
+file as a sequence of `BYTE`s.  Please refer to the section about *xdt99
+Extensions* for further information. 
+
 
 ### `xdt99` Extensions
 
@@ -298,11 +302,12 @@ valid `EQU` expression.)
 
 The extended expression syntax supports parentheses `(`, `)`, the modulo
 operator `%`, and binary operators bit-and `&`, bit-or `|`, bit-xor `^`, and
-bit-not `~`.
+bit-not `~` as well as binary literals introduced by `:`.
 
 	area    equ (xmax + 1) * (ymax + 1) 
 	addr2   equ addr1 | >A000 & ~>001F
 	padding bss size % 8
+	binval  equ :01011010
 
 It is important to note that all operators have the *same precedence*, i.e., an
 expression such as `1 + 2 * 3 - 4 & 5` evaluates as `(((1 + 2) * 3) - 4) & 5`.
@@ -332,12 +337,35 @@ be supplied on the command line.
 
 If no value is given, the symbol is set to value `1`.
 
+`xas99` also provides a new directive `IBYTE` that includes an external binary
+file as a sequence of `BYTE`s.  For example, if `sprite.raw` is a raw data file
+containing some sprite pattern
+
+	$ hexdump -C sprite.raw
+	00000000  18 3c 7e ff ff 7e 3c 18                           |.<~..~<.|
+
+then including this file with `IBYTE`
+
+	SPRITE  IBYTE "sprite.raw"
+
+is equivalent to the conventional assembly statement sequence
+
+	SPRITE  BYTE >18,>3C,>7E,>FF,>FF,>7E,>3C,>18
+
 The strictness option `-s` disables all `xas99`-specific extensions to improve
 backwards compatibility for old sources:
 
 	$ xas99.py -s ashello.asm
 
-Note, however, that case insensitivity cannot be disabled.
+Strictness is required, for example, to compile the *Tombstone City* sample
+source code shipped with the original TI Editor/Assembler module.  Some of the
+comments do not adher to the two-space separator rule of the relaxed xdt99
+whitespace mode:
+
+	R5LB   EQU SUBWS+11 * REGISTER 5 LOW BYTE.
+	***** Unknown symbol: REGISTER 5 LOW BYTE.
+
+Finally, note that case insensitivity cannot be disabled at the moment.
 
 
 xga99 GPL Cross-Assembler
@@ -933,8 +961,24 @@ this:
 	30046VMBW  3007AVWTR  30062KSCAN 7F827F                                     0008
 	:       99/4 AS                                                             0009
 
-This file can be loaded with the Editor/Assembler module using option 3.  But
-before we start MESS, we'll also generate an image file for option 5:
+This file can be loaded with the Editor/Assembler module using option 3, or
+alternatively with the TI Extended BASIC module using the `CALL LOAD`
+statement.
+
+Uncompressed object code is not an efficient program format, though.  If
+compatibility with Extended BASIC is not required compressed object code
+reduces both size and loading time:
+
+	$ xas99.py -R -C ashello.asm - ashello-c.obj
+
+Comparing both object files we see that the compressed version is only about
+two thirds of the size of the uncompressed file:
+
+	$ ls -l ashello*.obj
+	-rw-rw---- 1 user user 486 Jul 12 09:58 ashello-c.obj
+	-rw-rw---- 1 user user 729 Jul 12 09:58 ashello.obj
+
+To save even more space, we'll also generate an image file for option 5:
 
 	$ xas99.py -R -i ashello.asm
 

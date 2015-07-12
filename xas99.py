@@ -733,6 +733,19 @@ class Directives:
         mode = parser.expression(ops[1], wellDefined=True)
         code.symbols.addXop(ops[0], str(mode))
 
+    @staticmethod
+    def IBYTE(parser, code, label, ops):
+        """extension: include binary file as BYTE stream"""
+        code.processLabel(label)
+        fn = parser.find(parser.filename(ops[0]))
+        try:
+            with open(fn, "rb") as f:
+                bs = f.read()
+                for b in bs:
+                    code.byte(ord(b))
+        except IOError:
+            raise AsmError("File error while processing IBYTE " + ops[0])
+
     ignores = [
         "",
         "PSEG", "PEND", "CSEG", "CEND", "DSEG", "DEND",
