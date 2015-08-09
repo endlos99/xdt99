@@ -1,0 +1,74 @@
+<idea-plugin version="2">
+  <name>xdt99 IDEA Plugin</name>
+  <id>xdt99.idea</id>
+  <version>1.0.0</version>
+  <vendor email="xdt99dev@gmail.com" url="http://endlos99.github.io/xdt99/"><![CDATA[
+    TI 99 Cross-Development Tools (xdt99)
+    <br>
+    Copyright (c) 2015 Ralph Benzinger
+    <br>
+    This program is free software; you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation; either version 2 of the License, or
+    (at your option) any later version.
+    <br>
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+    <br>
+    You should have received a copy of the GNU General Public License
+    along with this program; if not, see http://www.gnu.org/licenses/.
+  ]]></vendor>
+
+  <description><![CDATA[
+    The xdt99 IDEA Plugin provides code assistance for developing TMS 9900
+    assembly, TI BASIC, and TI Extended BASIC programs.
+  ]]></description>
+
+  <change-notes><![CDATA[
+    Initial release.
+  ]]></change-notes>
+
+  <!-- https://confluence.jetbrains.com/display/IDEADEV/Build+Number+Ranges -->
+  <idea-version since-build="133"/>
+
+  <!-- https://confluence.jetbrains.com/display/IDEADEV/Plugin+Compatibility+with+IntelliJ+Platform+Products -->
+  <depends>com.intellij.modules.lang</depends>
+  <depends>com.intellij.modules.platform</depends>
+
+  <extensions defaultExtensionNs="com.intellij">
+    <!-- TMS 9900 Assembly -->
+    <fileTypeFactory implementation="net.endlos.xdt99.xas99.Xas99FileTypeFactory"/>
+    <lang.parserDefinition language="Xas99" implementationClass="net.endlos.xdt99.xas99.Xas99ParserDefinition"/>
+    <lang.syntaxHighlighterFactory key="Xas99" implementationClass="net.endlos.xdt99.xas99.Xas99SyntaxHighlighterFactory"/>
+    <colorSettingsPage implementation="net.endlos.xdt99.xas99.Xas99ColorSettingsPage"/>
+    <lang.refactoringSupport language="Xas99" implementationClass="net.endlos.xdt99.xas99.Xas99RefactoringSupportProvider"/>
+    <lang.findUsagesProvider language="Xas99" implementationClass="net.endlos.xdt99.xas99.Xas99FindUsagesProvider"/>
+    <lang.foldingBuilder language="Xas99" implementationClass="net.endlos.xdt99.xas99.Xas99FoldingBuilder"/>
+    <gotoSymbolContributor implementation="net.endlos.xdt99.xas99.Xas99ChooseByNameContributor"/>
+    <lang.commenter language="Xas99" implementationClass="net.endlos.xdt99.xas99.Xas99Commenter"/>
+    <codeStyleSettingsProvider implementation="net.endlos.xdt99.xas99.Xas99CodeStyleSettingsProvider"/>
+    <editorActionHandler action="EditorTab" implementationClass="net.endlos.xdt99.xas99.Xas99EditorWriteActionHandler"/>
+    <!-- TI Extended BASIC -->
+    <fileTypeFactory implementation="net.endlos.xdt99.xbas99.Xbas99FileTypeFactory"/>
+    <lang.parserDefinition language="Xbas99" implementationClass="net.endlos.xdt99.xbas99.Xbas99ParserDefinition"/>
+    <lang.syntaxHighlighterFactory key="Xbas99" implementationClass="net.endlos.xdt99.xbas99.Xbas99SyntaxHighlighterFactory"/>
+    <colorSettingsPage implementation="net.endlos.xdt99.xbas99.Xbas99ColorSettingsPage"/>
+    <lang.refactoringSupport language="Xbas99" implementationClass="net.endlos.xdt99.xbas99.Xbas99RefactoringSupportProvider"/>
+    <lang.findUsagesProvider language="Xbas99" implementationClass="net.endlos.xdt99.xbas99.Xbas99FindUsagesProvider"/>
+    <lang.namesValidator language="Xbas99" implementationClass="net.endlos.xdt99.xbas99.Xbas99NamesValidator"/>
+    <!-- gotoSymbolContributor implementation="net.endlos.xdt99.xbas99.Xbas99ChooseByNameContributor"/-->
+    <!-- lang.commenter language="Xbasic99" implementationClass="net.endlos.xdt99.xbas99.Xbas99Commenter"/-->
+  </extensions>
+
+  <application-components>
+  </application-components>
+
+  <project-components>
+  </project-components>
+
+  <actions>
+  </actions>
+
+</idea-plugin>

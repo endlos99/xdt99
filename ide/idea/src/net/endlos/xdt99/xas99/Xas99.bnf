@@ -1,0 +1,95 @@
+{
+    parserClass="net.endlos.xdt99.xas99.parser.Xas99Parser"
+
+    extends="com.intellij.extapi.psi.ASTWrapperPsiElement"
+
+    psiClassPrefix="Xas99"
+    psiImplClassSuffix="Impl"
+    psiPackage="net.endlos.xdt99.xas99.psi"
+    psiImplPackage="net.endlos.xdt99.xas99.psi.impl"
+
+    elementTypeHolderClass="net.endlos.xdt99.xas99.psi.Xas99Types"
+    elementTypeClass="net.endlos.xdt99.xas99.psi.Xas99ElementType"
+    tokenTypeClass="net.endlos.xdt99.xas99.psi.Xas99TokenType"
+
+    psiImplUtilClass="net.endlos.xdt99.xas99.psi.impl.Xas99PsiImplUtil"
+}
+
+xas99File ::= (line CRLF)* line?
+private line ::= comment | label? (FIELD_SEP (statement (FIELD_SEP EOL_COMMENT?)?)?)?
+
+label ::=
+    IDENT
+    {mixin="net.endlos.xdt99.xas99.psi.impl.Xas99NamedElementImpl"
+     implements="net.endlos.xdt99.xas99.psi.Xas99NamedElement"
+     methods=[getName setName getNameIdentifier getPresentation]}
+
+statement ::=
+    directive | instruction | preprocessor
+directive ::=
+    DIR_L FIELD_SEP opLabel (OP_SEP opLabel)* | DIR_E FIELD_SEP expr | DIR_EO (FIELD_SEP expr)? |
+    DIR_ES FIELD_SEP expr (OP_SEP expr)* | DIR_S FIELD_SEP opText | DIR_O | DIR_X
+instruction ::=
+    INSTR_I FIELD_SEP args_I | INSTR_II FIELD_SEP args_II | INSTR_III FIELD_SEP args_III |
+    INSTR_IV FIELD_SEP args_IV | INSTR_V FIELD_SEP args_V | INSTR_VI FIELD_SEP args_VI |
+    INSTR_VII | INSTR_VIII FIELD_SEP args_VIII | INSTR_VIII_I FIELD_SEP args_VIII_I |
+    INSTR_VIII_R FIELD_SEP args_VIII_R | INSTR_IX FIELD_SEP args_IX | INSTR_IX_X FIELD_SEP args_IX_X |
+    INSTR_O
+preprocessor ::=
+    PREP PREP_ARG?
+comment ::=
+    LINE_COMMENT
+
+args_I ::=
+    opGa OP_SEP opGa
+args_II ::=
+    expr
+args_III ::=
+    opGa OP_SEP opReg
+args_IV ::=
+    opGa OP_SEP opValue
+args_V ::=
+    opReg OP_SEP opValue
+args_VI ::=
+    opGa
+args_VIII ::=
+    opReg OP_SEP opValue
+args_VIII_I ::=
+    opValue
+args_VIII_R ::=
+    opReg
+args_IX ::=
+    opGa OP_SEP opReg
+args_IX_X ::=
+    opGa OP_SEP opValue
+
+opGa ::=
+    OP_AT OP_MINUS? sexpr (OP_LPAREN opReg OP_RPAREN)? |
+    opReg |
+    OP_AST opReg OP_PLUS?
+opAddr ::=
+    opLabel | OP_LC
+opValue ::=
+    expr
+opReg ::=
+    REGISTER | INT
+opText ::=
+    OP_MINUS? TEXT
+opLabel ::=
+    IDENT
+    {methods=[getName setName getNameIdentifier getReference]}
+
+expr ::=
+    (OP_PLUS | OP_MINUS | OP_NOT) expr |
+    term (xop expr)*
+term ::=
+    OP_LPAREN expr OP_RPAREN |
+    atom
+xop ::=
+    OP_PLUS | OP_MINUS | OP_AST | OP_MISC
+atom ::=
+    opAddr | INT | TEXT
+
+sexpr ::=
+    (OP_PLUS | OP_MINUS | OP_NOT) expr |
+    atom (xop sexpr)*
