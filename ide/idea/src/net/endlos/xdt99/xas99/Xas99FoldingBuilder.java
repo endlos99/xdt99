@@ -6,7 +6,7 @@ import com.intellij.lang.folding.FoldingDescriptor;
 import com.intellij.openapi.editor.Document;
 import com.intellij.openapi.util.TextRange;
 import com.intellij.psi.PsiElement;
-import net.endlos.xdt99.xas99.psi.Xas99Comment;
+import net.endlos.xdt99.xas99.psi.Xas99Linecomment;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -42,15 +42,15 @@ public class Xas99FoldingBuilder extends FoldingBuilderEx {
     }
 
     protected PsiElement getNextComment(PsiElement element) {
-        while (element != null && !(element instanceof Xas99Comment)) {
+        while (element != null && !(element instanceof Xas99Linecomment)) {
             element = element.getNextSibling();
         }
         return element;
     }
 
     protected PsiElement getNextNonComment(PsiElement element) {
-        assert element instanceof Xas99Comment;
-        while (element != null && element instanceof Xas99Comment) {
+        assert element instanceof Xas99Linecomment;
+        while (element != null && element instanceof Xas99Linecomment) {
             element = element.getNextSibling().getNextSibling();  // COMMENT + CRLF
         }
         return element;

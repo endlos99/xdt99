@@ -3,6 +3,7 @@ package net.endlos.xdt99.xbas99;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.psi.PsiElement;
+import com.intellij.psi.PsiFile;
 import com.intellij.psi.PsiManager;
 import com.intellij.psi.util.PsiTreeUtil;
 import net.endlos.xdt99.xbas99.psi.*;
@@ -16,17 +17,23 @@ public class Xbas99Util {
     public static List<Xbas99Linedef> findLinedefs(PsiElement ref, String ident) {
         List<Xbas99Linedef> result = null;
         Project project = ref.getProject();
-        VirtualFile currentFile = ref.getOriginalElement().getContainingFile().getVirtualFile();
-        Xbas99File Xbas99File = (Xbas99File) PsiManager.getInstance(project).findFile(currentFile);
-        if (Xbas99File != null) {
-            Xbas99Linedef[] elems = PsiTreeUtil.getChildrenOfType(Xbas99File, Xbas99Linedef.class);
-            if (elems != null) {
-                for (Xbas99Linedef elem : elems) {
-                    if (ident.equals(elem.getName())) {
-                        if (result == null) {
-                            result = new ArrayList<Xbas99Linedef>();
+        PsiFile currentFile = ref.getOriginalElement().getContainingFile();
+        if (currentFile != null) {
+            VirtualFile virtualFile = currentFile.getVirtualFile();
+            if (virtualFile != null) {
+                Xbas99File Xbas99File = (Xbas99File) PsiManager.getInstance(project).findFile(virtualFile);
+                if (Xbas99File != null) {
+                    Xbas99Linedef[] linedefs = PsiTreeUtil.getChildrenOfType(Xbas99File, Xbas99Linedef.class);
+                    if (linedefs != null) {
+                        for (Xbas99Linedef linedef : linedefs) {
+                            if (ident.equals(linedef.getName())) {
+                                if (result == null) {
+                                    result = new ArrayList<Xbas99Linedef>();
+                                }
+                                result.add(linedef);
+                                // could break here, since there should be only one!
+                            }
                         }
-                        result.add(elem);
                     }
                 }
             }
@@ -36,13 +43,18 @@ public class Xbas99Util {
 
     public static <T extends Xbas99NamedElement> T findSingleVar(PsiElement ref, String ident, Class<T> clazz) {
         Project project = ref.getProject();
-        VirtualFile currentFile = ref.getOriginalElement().getContainingFile().getVirtualFile();
-        Xbas99File Xbas99File = (Xbas99File) PsiManager.getInstance(project).findFile(currentFile);
-        if (Xbas99File != null) {
-            Collection<T> elems = PsiTreeUtil.findChildrenOfType(Xbas99File, clazz);
-            for (T elem : elems) {
-                if (ident.equals(elem.getName().toUpperCase())) {
-                    return elem;
+        PsiFile currentFile = ref.getOriginalElement().getContainingFile();
+        if (currentFile != null) {
+            VirtualFile virtualFile = currentFile.getVirtualFile();
+            if (virtualFile != null) {
+                Xbas99File Xbas99File = (Xbas99File) PsiManager.getInstance(project).findFile(virtualFile);
+                if (Xbas99File != null) {
+                    Collection<T> elems = PsiTreeUtil.findChildrenOfType(Xbas99File, clazz);
+                    for (T elem : elems) {
+                        if (ident.equals(elem.getName().toUpperCase())) {
+                            return elem;
+                        }
+                    }
                 }
             }
         }
@@ -60,12 +72,18 @@ public class Xbas99Util {
     public static List<Xbas99Linedef> findLinedefs(PsiElement ref) {
         List<Xbas99Linedef> result = new ArrayList<Xbas99Linedef>();
         Project project = ref.getProject();
-        VirtualFile currentFile = ref.getOriginalElement().getContainingFile().getVirtualFile();
-        Xbas99File Xbas99File = (Xbas99File) PsiManager.getInstance(project).findFile(currentFile);
-        if (Xbas99File != null) {
-            Xbas99Linedef[] elems = PsiTreeUtil.getChildrenOfType(Xbas99File, Xbas99Linedef.class);
-            if (elems != null) {
-                Collections.addAll(result, elems);
+        PsiFile currentFile = ref.getOriginalElement().getContainingFile();
+        // TODO: get this more directly?
+        if (currentFile != null) {
+            VirtualFile virtualFile = currentFile.getVirtualFile();
+            if (virtualFile != null) {
+                Xbas99File Xbas99File = (Xbas99File) PsiManager.getInstance(project).findFile(virtualFile);
+                if (Xbas99File != null) {
+                    Xbas99Linedef[] elems = PsiTreeUtil.getChildrenOfType(Xbas99File, Xbas99Linedef.class);
+                    if (elems != null) {
+                        Collections.addAll(result, elems);
+                    }
+                }
             }
         }
         return result;
@@ -74,12 +92,17 @@ public class Xbas99Util {
     public static <T extends Xbas99NamedElement> List<T> findVars(PsiElement ref, Class<T> clazz) {
         List<T> result = new ArrayList<T>();
         Project project = ref.getProject();
-        VirtualFile currentFile = ref.getOriginalElement().getContainingFile().getVirtualFile();
-        Xbas99File Xbas99File = (Xbas99File) PsiManager.getInstance(project).findFile(currentFile);
-        if (Xbas99File != null) {
-            Collection<T> elems = PsiTreeUtil.findChildrenOfType(Xbas99File, clazz);
-            if (elems.size() > 0) {
-                result.addAll(elems);
+        PsiFile currentFile = ref.getOriginalElement().getContainingFile();
+        if (currentFile != null) {
+            VirtualFile virtualFile = currentFile.getVirtualFile();
+            if (virtualFile != null) {
+                Xbas99File Xbas99File = (Xbas99File) PsiManager.getInstance(project).findFile(virtualFile);
+                if (Xbas99File != null) {
+                    Collection<T> elems = PsiTreeUtil.findChildrenOfType(Xbas99File, clazz);
+                    if (elems.size() > 0) {
+                        result.addAll(elems);
+                    }
+                }
             }
         }
         return result;

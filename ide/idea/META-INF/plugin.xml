@@ -1,7 +1,7 @@
 <idea-plugin version="2">
-  <name>xdt99 IDEA Plugin</name>
-  <id>xdt99.idea</id>
-  <version>1.0.0</version>
+  <name>xdt99 IntelliJ Plugin</name>
+  <id>xdt99.intellij</id>
+  <version>1.1.0</version>
   <vendor email="xdt99dev@gmail.com" url="http://endlos99.github.io/xdt99/"><![CDATA[
     TI 99 Cross-Development Tools (xdt99)
     <br>
@@ -27,7 +27,8 @@
   ]]></description>
 
   <change-notes><![CDATA[
-    Initial release.
+    Improved error reporting and handling of assembly sources with unknown
+    constructs.
   ]]></change-notes>
 
   <!-- https://confluence.jetbrains.com/display/IDEADEV/Build+Number+Ranges -->

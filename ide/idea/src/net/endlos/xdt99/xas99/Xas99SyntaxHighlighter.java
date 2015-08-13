@@ -95,9 +95,9 @@ public class Xas99SyntaxHighlighter extends SyntaxHighlighterBase {
             return OPERATOR_KEYS;
         } else if (tokenType.equals(Xas99Types.OP_SEP)) {
             return SEPARATOR_KEYS;
-        } else if (tokenType.equals(Xas99Types.EOL_COMMENT)) {
+        } else if (tokenType.equals(Xas99Types.COMMENT)) {
             return COMMENT_KEYS;
-        } else if (tokenType.equals(Xas99Types.LINE_COMMENT)) {
+        } else if (tokenType.equals(Xas99Types.LCOMMENT)) {
             return LCOMMENT_KEYS;
         } else if (tokenType.equals(TokenType.BAD_CHARACTER)) {
             return BAD_CHAR_KEYS;

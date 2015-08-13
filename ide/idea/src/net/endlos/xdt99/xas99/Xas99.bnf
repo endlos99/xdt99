@@ -15,81 +15,132 @@
     psiImplUtilClass="net.endlos.xdt99.xas99.psi.impl.Xas99PsiImplUtil"
 }
 
-xas99File ::= (line CRLF)* line?
-private line ::= comment | label? (FIELD_SEP (statement (FIELD_SEP EOL_COMMENT?)?)?)?
+xas99File ::=
+    (line CRLF)*
+private line ::=
+    linecomment | label? statement?
 
+linecomment ::=  // used by folding builder
+    LCOMMENT
+    {pin=1}
 label ::=
     IDENT
     {mixin="net.endlos.xdt99.xas99.psi.impl.Xas99NamedElementImpl"
      implements="net.endlos.xdt99.xas99.psi.Xas99NamedElement"
      methods=[getName setName getNameIdentifier getPresentation]}
 
-statement ::=
-    directive | instruction | preprocessor
+// mnemonics
+private statement ::=
+    directive | instruction | preprocessor | unknown_mnem
+    {recoverWhile="statement_recover"}
+private statement_recover ::=
+    !CRLF
 directive ::=
-    DIR_L FIELD_SEP opLabel (OP_SEP opLabel)* | DIR_E FIELD_SEP expr | DIR_EO (FIELD_SEP expr)? |
-    DIR_ES FIELD_SEP expr (OP_SEP expr)* | DIR_S FIELD_SEP opText | DIR_O | DIR_X
+    DIR_L opLabel (OP_SEP opLabel)* |
+    DIR_E expr |
+    DIR_EO expr? |
+    DIR_ES expr (OP_SEP expr)* |
+    DIR_S opText |
+    DIR_O |
+    DIR_X
+    {pin=1}
 instruction ::=
-    INSTR_I FIELD_SEP args_I | INSTR_II FIELD_SEP args_II | INSTR_III FIELD_SEP args_III |
-    INSTR_IV FIELD_SEP args_IV | INSTR_V FIELD_SEP args_V | INSTR_VI FIELD_SEP args_VI |
-    INSTR_VII | INSTR_VIII FIELD_SEP args_VIII | INSTR_VIII_I FIELD_SEP args_VIII_I |
-    INSTR_VIII_R FIELD_SEP args_VIII_R | INSTR_IX FIELD_SEP args_IX | INSTR_IX_X FIELD_SEP args_IX_X |
+    INSTR_I args_I |
+    INSTR_II args_II |
+    INSTR_III args_III |
+    INSTR_IV args_IV |
+    INSTR_V args_V |
+    INSTR_VI args_VI |
+    INSTR_VII |
+    INSTR_VIII args_VIII |
+    INSTR_VIII_I args_VIII_I |
+    INSTR_VIII_R args_VIII_R |
+    INSTR_IX args_IX |
+    INSTR_IX_X args_IX_X |
     INSTR_O
+    {pin=1}
 preprocessor ::=
     PREP PREP_ARG?
-comment ::=
-    LINE_COMMENT
+    {pin=1}
+unknown_mnem ::=
+    UNKNOWN
+    {pin=1}
 
-args_I ::=
-    opGa OP_SEP opGa
-args_II ::=
+// instruction formats
+private args_I ::=
+    opGA OP_SEP opGA
+    {pin="OP_SEP"}
+private args_II ::=
     expr
-args_III ::=
-    opGa OP_SEP opReg
-args_IV ::=
-    opGa OP_SEP opValue
-args_V ::=
-    opReg OP_SEP opValue
-args_VI ::=
-    opGa
-args_VIII ::=
-    opReg OP_SEP opValue
-args_VIII_I ::=
+private args_III ::=
+    opGA OP_SEP opRegister
+    {pin="OP_SEP"}
+private args_IV ::=
+    opGA OP_SEP opValue
+    {pin="OP_SEP"}
+private args_V ::=
+    opRegister OP_SEP opValue
+    {pin="OP_SEP"}
+private args_VI ::=
+    opGA
+private args_VIII ::=
+    opRegister OP_SEP opValue
+    {pin="OP_SEP"}
+private args_VIII_I ::=
     opValue
-args_VIII_R ::=
-    opReg
-args_IX ::=
-    opGa OP_SEP opReg
-args_IX_X ::=
-    opGa OP_SEP opValue
+private args_VIII_R ::=
+    opRegister
+private args_IX ::=
+    opGA OP_SEP opRegister
+    {pin="OP_SEP"}
+private args_IX_X ::=
+    opGA OP_SEP opValue
+    {pin="OP_SEP"}
 
-opGa ::=
-    OP_AT OP_MINUS? sexpr (OP_LPAREN opReg OP_RPAREN)? |
-    opReg |
-    OP_AST opReg OP_PLUS?
-opAddr ::=
+// arguments
+opGA ::=
+    OP_AT OP_MINUS? sexpr (OP_LPAREN opRegister OP_RPAREN)? |
+    opRegister |
+    OP_AST opRegister OP_PLUS?
+    {name="general address"}
+opAddress ::=
     opLabel | OP_LC
+    {name="address value"}
 opValue ::=
     expr
-opReg ::=
+    {name="value"}
+opRegister ::=
     REGISTER | INT
+    {name="register"}
 opText ::=
     OP_MINUS? TEXT
+    {name="text"}
 opLabel ::=
     IDENT
-    {methods=[getName setName getNameIdentifier getReference]}
+    {name="label"
+     methods=[getName setName getNameIdentifier getReference]}
 
+// expressions
 expr ::=
     (OP_PLUS | OP_MINUS | OP_NOT) expr |
     term (xop expr)*
-term ::=
+    {name="expression"}
+private term ::=
     OP_LPAREN expr OP_RPAREN |
     atom
-xop ::=
+    {name="term"}
+private xop ::=
     OP_PLUS | OP_MINUS | OP_AST | OP_MISC
-atom ::=
-    opAddr | INT | TEXT
+    {name="operator"}
+private atom ::=
+    opAddress | INT | TEXT
+    {name="value"}
 
 sexpr ::=
-    (OP_PLUS | OP_MINUS | OP_NOT) expr |
+    (OP_PLUS | OP_MINUS | OP_NOT) sexpr |
     atom (xop sexpr)*
+    {name="simple expressions"}
+
+// keep for syntax highlighter
+dummy ::=
+    COMMENT

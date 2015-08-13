@@ -2,14 +2,10 @@ package net.endlos.xdt99.xbas99;
 
 import com.intellij.codeInsight.lookup.LookupElement;
 import com.intellij.codeInsight.lookup.LookupElementBuilder;
-import com.intellij.openapi.project.Project;
 import com.intellij.openapi.util.TextRange;
 import com.intellij.psi.*;
 import com.intellij.util.IncorrectOperationException;
 import net.endlos.xdt99.xbas99.psi.Xbas99NamedElement;
-import net.endlos.xdt99.xbas99.psi.Xbas99Nvar;
-import net.endlos.xdt99.xbas99.psi.Xbas99Svar;
-import net.endlos.xdt99.xbas99.psi.Xbas99Var;
 import net.endlos.xdt99.xbas99.psi.impl.Xbas99PsiImplUtil;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;

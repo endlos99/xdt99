@@ -28,11 +28,12 @@ public class Xas99EditorWriteActionHandler extends EditorWriteActionHandler {
 
         final String blanks = maxTabs.substring(0, stop - column);
         ApplicationManager.getApplication().runWriteAction(
-            new Runnable() {
-                public void run() {
-                    EditorModificationUtil.insertStringAtCaret(editor, blanks);
+                new Runnable() {
+                    public void run() {
+                        EditorModificationUtil.insertStringAtCaret(editor, blanks);
+                    }
                 }
-            }
         );
     }
+
 }

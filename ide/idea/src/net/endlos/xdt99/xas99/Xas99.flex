@@ -43,21 +43,22 @@ DIR_X = "PSEG" | "PEND" | "CSEG" | "CEND" | "DSEG" | "DEND" | "LOAD" | "SREF"
 PREP = ".IFDEF" | ".IFNDEF" | ".IFEQ" | ".IFNE" | ".IFGT" | ".IFGE" | ".ELSE" | ".ENDIF"
 
 LINE_COMMENT = "*" [^\r\n]*
-EOL_COMMENT = {BLANK}* ";" [^\r\n]*
+EOL_COMMENT = ";" [^\r\n]*
 
-IDENT = {ALPHA}({ALPHA}|{DIGIT})*
-INT = {DIGIT}{DIGIT}* | ">" {HEX}{HEX}* | ":" [01][01]*
+IDENT = [A-Za-z]{ALPHA}*
+INT = {DIGIT}+ | ">" {HEX}+ | ":" [01]+
 TEXT = "'" ([^'\r\n] | "''")* "'" | "\"" [^\"\r\n]* "\""
 REGISTER = [Rr] ([0-9] | 1[0-5])
-OPER = [/%&|\^]
+OPMISC = [/%&|\^]
 
-ALPHA = [A-Za-z_]
+ALPHA = [^@$,;>:+\-*/\^&|~() \t\r\n]
 DIGIT = [0-9]
 HEX = [0-9A-Fa-f]
 
-BLANK = " " | \t
-WS = {BLANK}{BLANK}*
-FSEP = {BLANK}{WS}
+SPACE = " "
+BLANK = {SPACE} | \t
+WS = {BLANK}+
+FIELDSEP = {BLANK}{BLANK}+ | \t
 CRLF = \n | \r | \r\n
 ANY = [^\r\n]
 
@@ -69,13 +70,13 @@ ANY = [^\r\n]
 
 %%
 
-{EOL_COMMENT}                    { return Xas99Types.EOL_COMMENT; }
+{EOL_COMMENT}                    { return Xas99Types.COMMENT; }
 {CRLF}                           { yybegin(YYINITIAL); return Xas99Types.CRLF; }
 
-<YYINITIAL> {LINE_COMMENT}       { return Xas99Types.LINE_COMMENT; }
+<YYINITIAL> {LINE_COMMENT}       { return Xas99Types.LCOMMENT; }
 <YYINITIAL> {IDENT}              { return Xas99Types.IDENT; }
 
-<YYINITIAL> {WS}                 { yybegin(MNEMONIC); return Xas99Types.FIELD_SEP; }
+<YYINITIAL> {WS}                 { yybegin(MNEMONIC); return TokenType.WHITE_SPACE; }
 
 <MNEMONIC> {INSTR_I}             { return Xas99Types.INSTR_I; }
 <MNEMONIC> {INSTR_II}            { return Xas99Types.INSTR_II; }
@@ -101,27 +102,29 @@ ANY = [^\r\n]
 
 <MNEMONIC> {PREP}                { yybegin(PREPROC); return Xas99Types.PREP; }
 
-<MNEMONIC> {WS}                  { yybegin(ARGUMENTS); return Xas99Types.FIELD_SEP; }
-<MNEMONICO> {WS}                 { yybegin(COMMENT); return Xas99Types.FIELD_SEP; }
+<MNEMONIC> {IDENT}               { yybegin(COMMENT); return Xas99Types.UNKNOWN; }
+<MNEMONIC> {WS}                  { yybegin(ARGUMENTS); return TokenType.WHITE_SPACE; }
+<MNEMONICO> {WS}                 { yybegin(COMMENT); return TokenType.WHITE_SPACE; }
 
-<ARGUMENTS> {BLANK}? {REGISTER}  { yybegin(ARGUMENTS); return Xas99Types.REGISTER; }
-<ARGUMENTS> {BLANK}? {IDENT}     { yybegin(ARGUMENTS); return Xas99Types.IDENT; }
-<ARGUMENTS> {BLANK}? {INT}       { yybegin(ARGUMENTS); return Xas99Types.INT; }
-<ARGUMENTS> {BLANK}? {TEXT}      { yybegin(ARGUMENTS); return Xas99Types.TEXT; }
-<ARGUMENTS> {BLANK}? ","         { yybegin(ARGUMENTS); return Xas99Types.OP_SEP; }
-<ARGUMENTS> {BLANK}? "@"         { yybegin(ARGUMENTS); return Xas99Types.OP_AT; }
-<ARGUMENTS> {BLANK}? "*"         { yybegin(ARGUMENTS); return Xas99Types.OP_AST; }
-<ARGUMENTS> {BLANK}? "+"         { yybegin(ARGUMENTS); return Xas99Types.OP_PLUS; }
-<ARGUMENTS> {BLANK}? "-"         { yybegin(ARGUMENTS); return Xas99Types.OP_MINUS; }
-<ARGUMENTS> {BLANK}? "~"         { yybegin(ARGUMENTS); return Xas99Types.OP_NOT; }
-<ARGUMENTS> {BLANK}? "("         { yybegin(ARGUMENTS); return Xas99Types.OP_LPAREN; }
-<ARGUMENTS> {BLANK}? ")"         { yybegin(ARGUMENTS); return Xas99Types.OP_RPAREN; }
-<ARGUMENTS> {BLANK}? "$"         { yybegin(ARGUMENTS); return Xas99Types.OP_LC; }
-<ARGUMENTS> {BLANK}? {OPER}      { yybegin(ARGUMENTS); return Xas99Types.OP_MISC; }
-<ARGUMENTS> {FSEP}               { yybegin(COMMENT); return Xas99Types.FIELD_SEP; }
+<ARGUMENTS> ","                  { return Xas99Types.OP_SEP; }
+<ARGUMENTS> "@"                  { return Xas99Types.OP_AT; }
+<ARGUMENTS> "*"                  { return Xas99Types.OP_AST; }
+<ARGUMENTS> "+"                  { return Xas99Types.OP_PLUS; }
+<ARGUMENTS> "-"                  { return Xas99Types.OP_MINUS; }
+<ARGUMENTS> "~"                  { return Xas99Types.OP_NOT; }
+<ARGUMENTS> "("                  { return Xas99Types.OP_LPAREN; }
+<ARGUMENTS> ")"                  { return Xas99Types.OP_RPAREN; }
+<ARGUMENTS> "$"                  { return Xas99Types.OP_LC; }
+<ARGUMENTS> {OPMISC}             { return Xas99Types.OP_MISC; }
+<ARGUMENTS> {REGISTER}           { return Xas99Types.REGISTER; }
+<ARGUMENTS> {IDENT}              { return Xas99Types.IDENT; }
+<ARGUMENTS> {INT}                { return Xas99Types.INT; }
+<ARGUMENTS> {TEXT}               { return Xas99Types.TEXT; }
+<ARGUMENTS> {FIELDSEP}           { yybegin(COMMENT); return TokenType.WHITE_SPACE; }
+<ARGUMENTS> {SPACE}              { return TokenType.WHITE_SPACE; }
 
 <PREPROC> {ANY}{ANY}*            { return Xas99Types.PREP_ARG; }
 
-<COMMENT> [^\r\n]+               { yybegin(YYINITIAL); return Xas99Types.EOL_COMMENT; }
+<COMMENT> [^\r\n]+               { yybegin(YYINITIAL); return Xas99Types.COMMENT; }
 
 .                                { return TokenType.BAD_CHARACTER; }

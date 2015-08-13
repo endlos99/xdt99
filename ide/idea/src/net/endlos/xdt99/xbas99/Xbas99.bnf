@@ -15,13 +15,21 @@
     psiImplUtilClass="net.endlos.xdt99.xbas99.psi.impl.Xbas99PsiImplUtil"
 }
 
-xbas99File ::= (line? CRLF)* line?
-private line ::= linedef WS slist
-slist ::= (statement (OP_SEP statement)* OP_EXCL?) | OP_EXCL
-eolcomment ::= OP_EXCL A_REM?  // keep (handled by generic comment)
+xbas99File ::=
+    (line? CRLF)*
+private line ::=
+    linedef slist?
+    {pin=1 recoverWhile="line_recover"}
+private line_recover ::=
+    !CRLF
+slist ::=
+    statement (OP_SEP statement)*
+    //{pin="OP_SEP" recoverWhile="slist_recover"}  // couldn't get this to work
+    {name="statement list"}
+private slist_recover ::=
+    !OP_SEP
 
 // statements
-
 statement ::=
     s_accept |
     s_break |
@@ -55,24 +63,24 @@ statement ::=
     s_sub |
     s_subend |
     s_trace |
-    s_let;  // keep this as last rule
+    s_let  // keep this as last rule
 
 s_accept ::=
     W_ACCEPT (a_accept+ OP_COLON)? var
-a_accept ::=
+private a_accept ::=
     W_AT OP_LPAREN nexpr OP_COMMA nexpr OP_RPAREN |
     W_VALIDATE OP_LPAREN a_validate (OP_COMMA a_validate)* OP_RPAREN |
     W_BEEP |
     W_ERASE W_ALL |
     W_SIZE OP_LPAREN nexpr OP_RPAREN
-a_validate ::=
+private a_validate ::=
     W_UALPHA | W_DIGIT | W_NUMERIC | sexpr
 s_break ::=
     W_BREAK (lino (OP_COMMA lino)*)? |
     W_UNBREAK (lino (OP_COMMA lino)*)?
 s_call ::=
     W_CALL subprog (OP_LPAREN (W_ALL | a_call) (OP_COMMA a_call)* OP_RPAREN)?
-a_call ::=
+private a_call ::=
     OP_HASH? expr
 s_close ::=
     W_CLOSE OP_HASH nexpr (OP_COLON W_DELETE)?
@@ -84,19 +92,19 @@ s_delete ::=
     W_DELETE sexpr
 s_dim ::=
     W_DIM a_dim (OP_COMMA a_dim)*
-a_dim ::=
+private a_dim ::=
     var /* OP_LPAREN nvalue (OP_COMMA nvalue)* OP_RPAREN */  // parens handled by var rule
 s_display ::=
     W_DISPLAY
     (a_display+ (OP_COLON a_using)? (OP_COLON a_print)? |
      a_using (OP_COLON a_print)? |
      a_print)?
-a_display ::=
+private a_display ::=
     W_AT OP_LPAREN nexpr OP_COMMA nexpr OP_RPAREN |
     W_BEEP |
     W_ERASE W_ALL |
     W_SIZE OP_LPAREN nexpr OP_RPAREN
-a_using ::=
+private a_using ::=
     W_USING (sexpr | lino)?
 s_end ::=
     W_END
@@ -105,18 +113,22 @@ s_for ::=
 s_go ::=
     (W_GOTO | W_GO W_TO | W_GOSUB | W_GO W_SUB) lino
 s_if ::=
+    // recursion causing issues for slist_recovery
     W_IF nexpr W_THEN (lino | slist) (W_ELSE (lino | slist))?
 s_image ::=
     W_IMAGE A_IMAGE
 s_input ::=
-    W_INPUT (sexpr OP_COLON)? var (OP_COMMA var)* |
-    W_INPUT OP_HASH nvalue (W_REC nexpr)? OP_COLON var (OP_COMMA var)* OP_COMMA?
+    W_INPUT
+    ((sexpr OP_COLON)? var (OP_COMMA var)* |
+      OP_HASH nvalue (W_REC nexpr)? OP_COLON var (OP_COMMA var)* OP_COMMA?)
 s_let ::=
-    W_LET? nvar (OP_COMMA nvar)* (OP_EQ nexpr)? |
-    W_LET? svar (OP_COMMA svar)* (OP_EQ sexpr)?
+    W_LET?
+    (nvar (OP_COMMA nvar)* (OP_EQ nexpr)? |
+     svar (OP_COMMA svar)* (OP_EQ sexpr)?)
 s_linput ::=
-    W_LINPUT (sexpr OP_COLON)? var
-    W_LINPUT OP_HASH nvalue (W_REC nexpr)? OP_COLON var
+    W_LINPUT
+    ((sexpr OP_COLON)? var |
+     OP_HASH nvalue (W_REC nexpr)? OP_COLON var)
 s_next ::=
     W_NEXT nvar
 s_on_cond ::=
@@ -127,11 +139,11 @@ s_on_go ::=
     W_ON nexpr (W_GOTO | W_GO W_TO | W_GOSUB | W_GO W_SUB) lino (OP_COMMA lino)*
 s_open ::=
     W_OPEN OP_HASH nexpr OP_COLON sexpr (OP_COMMA a_open)*
-a_open ::=
+private a_open ::=
     W_RELATIVE | W_SEQUENTIAL |
     W_DISPLAY | W_INTERNAL |
     W_INPUT | W_OUTPUT | W_APPEND | W_UPDATE |
-    W_FIXED | W_VARIABLE |
+    W_FIXED nexpr? | W_VARIABLE nexpr? |
     W_PERMANENT
 s_option ::=
     W_OPTION W_BASE nvalue
@@ -140,7 +152,7 @@ s_print ::=
     ((OP_HASH nexpr (OP_COMMA W_REC nexpr (OP_COMMA a_using))? OP_COLON |
      a_using OP_COLON)?
      a_print)?
-a_print ::=
+private a_print ::=
     (expr | OP_COMMA | OP_SEMI | OP_COLON)+
 s_randomize ::=
     W_RANDOMIZE nexpr?
@@ -168,67 +180,93 @@ s_trace ::=
 // predefined functions
 f_num ::=
     W_FUN_N OP_LPAREN expr (OP_COMMA expr)* OP_RPAREN
+    {name="numerical function"}
 f_str ::=
     W_FUN_S OP_LPAREN expr (OP_COMMA expr)* OP_RPAREN
+    {name="string function"}
 f_const ::=
     W_FUN_C
+    {name="numerical constant"}
 
 // line numbers
 linedef ::= LNUMBER
     {mixin="net.endlos.xdt99.xbas99.psi.impl.Xbas99NamedElementImpl"
      implements="net.endlos.xdt99.xbas99.psi.Xbas99NamedElement"
-     methods=[getName setName getNameIdentifier getPresentation]}
+     methods=[getName setName getNameIdentifier getPresentation]
+     name="line number definition"}
 lino ::= NUMBER
     {mixin="net.endlos.xdt99.xbas99.psi.impl.Xbas99NamedElementImpl"
      implements="net.endlos.xdt99.xbas99.psi.Xbas99NamedElement"
-     methods=[getName setName getNameIdentifier getPresentation getReference]}
+     methods=[getName setName getNameIdentifier getPresentation getReference]
+     name="line number"}
 
 // numerical expression (includes logical and relational expression)
 nexpr ::=
     (W_NOT nexpr) |
-    (OP_NEG nexpr) |
+    (OP_MINUS nexpr) |
     (natom (nop nexpr)*) |
     (satom (rop sexpr)*)
-natom ::=
+    {name="numerical expression"}
+private natom ::=
     (OP_LPAREN nexpr OP_RPAREN) |
     f_num | f_const | nvar | nvalue
-nop ::=
-    OP_ARITH | OP_NEG |
+    {name="numerical term"}
+private nop ::=
+    OP_MUL | OP_DIV | OP_PLUS | OP_MINUS | OP_EXP |
     rop |
     W_AND | W_OR | W_XOR
+    {name="numerical operator"}
 nvar ::=  // includes def'd functions
     IDENT (OP_LPAREN nexpr (OP_COMMA nexpr)* OP_RPAREN)?
     {mixin="net.endlos.xdt99.xbas99.psi.impl.Xbas99NamedElementImpl"
      implements="net.endlos.xdt99.xbas99.psi.Xbas99NamedElement"
-     methods=[getName setName getNameIdentifier getPresentation getReference]}
-nvalue ::=
+     methods=[getName setName getNameIdentifier getPresentation getReference]
+     name="numerical variable"}
+private nvalue ::=
     NUMBER | FLOAT
+    {name="numerical value"}
 
 // string expression
 sexpr ::=
     satom (sop sexpr)*
-satom ::=
+    {name="string expression"}
+private satom ::=
     (OP_LPAREN sexpr OP_RPAREN) |
     f_str | svar | svalue
-sop ::=
+    {name="string term"}
+private sop ::=
     OP_AMP
+    {name="string operator"}
 svar ::=
     SIDENT (OP_LPAREN expr (OP_COMMA expr)* OP_RPAREN)?
     {mixin="net.endlos.xdt99.xbas99.psi.impl.Xbas99NamedElementImpl"
      implements="net.endlos.xdt99.xbas99.psi.Xbas99NamedElement"
-     methods=[getName setName getNameIdentifier getPresentation getReference]}
-svalue ::=
+     methods=[getName setName getNameIdentifier getPresentation getReference]
+     name="string variable"}
+private svalue ::=
     QSTRING
+    {name="string literal"}
 
 // relational expression
 //rexpr ::= ratom (rop rexpr)*  // covered by nexpr
-rop ::=
+private rop ::=
     OP_EQ | OP_LT OP_GT | OP_LT OP_EQ? | OP_GT OP_EQ?
+    {name="relational operator"}
 
 // type-generic expressions
-expr ::= sexpr | nexpr
-var ::= svar | nvar
+private expr ::=
+    sexpr | nexpr
+private var ::=
+    svar | nvar
 
 // special identifier
-param ::= (IDENT | SIDENT) (OP_LPAREN OP_COMMA* OP_RPAREN)?
-subprog ::= IDENT
+param ::=
+    (IDENT | SIDENT) (OP_LPAREN OP_COMMA* OP_RPAREN)?
+    {name="function parameter"}
+subprog ::=
+    IDENT
+    {name="subprogram name"}
+
+// keep for syntax highlighter
+dummy ::=
+    COMMENT

@@ -120,7 +120,11 @@ public class Xbas99SyntaxHighlighter extends SyntaxHighlighterBase {
             Xbas99Types.OP_LPAREN,
             Xbas99Types.OP_RPAREN,
             Xbas99Types.OP_AMP,
-            Xbas99Types.OP_ARITH
+            Xbas99Types.OP_PLUS,
+            Xbas99Types.OP_MINUS,
+            Xbas99Types.OP_MUL,
+            Xbas99Types.OP_DIV,
+            Xbas99Types.OP_EXP
     };
 
     @NotNull
@@ -152,9 +156,8 @@ public class Xbas99SyntaxHighlighter extends SyntaxHighlighterBase {
             return OPERATOR_KEYS;
         } else if (tokenType.equals(Xbas99Types.OP_SEP)) {
             return SEPARATOR_KEYS;
-        } else if (tokenType.equals(Xbas99Types.OP_EXCL) ||
-                tokenType.equals(Xbas99Types.W_REM) ||
-                tokenType.equals(Xbas99Types.A_REM)) {
+        } else if (tokenType.equals(Xbas99Types.COMMENT) ||
+                tokenType.equals(Xbas99Types.W_REM)) {
             return COMMENT_KEYS;
         } else if (tokenType.equals(TokenType.BAD_CHARACTER)) {
             return BAD_CHAR_KEYS;

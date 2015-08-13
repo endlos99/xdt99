@@ -22,7 +22,7 @@ import java.io.Reader;
 
 public class Xas99ParserDefinition implements ParserDefinition{
     public static final TokenSet WHITE_SPACES = TokenSet.create(TokenType.WHITE_SPACE);
-    public static final TokenSet COMMENTS = TokenSet.create(Xas99Types.EOL_COMMENT);
+    public static final TokenSet COMMENTS = TokenSet.create(Xas99Types.COMMENT);
     public static final TokenSet STRINGS = TokenSet.create(Xas99Types.OP_TEXT);
 
     public static final IFileElementType FILE = new IFileElementType(Language.<Xas99Language>findInstance(Xas99Language.class));
