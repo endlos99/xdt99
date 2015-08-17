@@ -1,4 +1,4 @@
-;;; xdt99-mode: xdt99 major modes for Emacs - Version 1.0
+;;; xdt99-mode: xdt99 major modes for Emacs - Version 1.0.1
 
 ;; Copyright (c) 2015 Ralph Benzinger <xdt99dev@gmail.com>
 
@@ -54,13 +54,14 @@
 
 (defvar asm99-font-lock-keywords
   `(
-    ("^\\*.*\|;.*" . font-lock-comment-face)
+    ("^\\*.*\\|;.*" . font-lock-comment-face)
     ("'[^']*'" . font-lock-string-face)
+    ("\"[^\"]*\"" . font-lock-string-face)
     ( ,(regexp-opt asm99-opcodes 'words) . font-lock-keyword-face)
     ( ,(regexp-opt asm99-directives 'words) . font-lock-builtin-face)
     ( ,(regexp-opt asm99-preprocessor 'words) . font-lock-preprocessor-face)
-    (">[0-9A-F]+" . font-lock-constant-face)
-    ("@[A-Za-z0-9]+" . font-lock-variable-name-face)
+    (">[0-9A-F]+\\>\\|\\<[0-9]+\\>" . font-lock-constant-face)
+    ("@[A-Za-z0-9_.]+" . font-lock-variable-name-face)
     ("\\<R[0-9]\\>\\|\\<R1[0-5]\\>" . font-lock-doc-face)
     ))
 

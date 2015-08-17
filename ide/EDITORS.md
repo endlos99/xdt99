@@ -95,8 +95,8 @@ to add its location to your library path in your `.emacs` config file, e.g.,
 
 To activate the xdt99 extension for Emacs, add
 
-    (autoload 'xdt99-mode "asm99-mode" "TMS 9900 Assembly Mode" t)
-    (autoload 'xdt99-mode "basic99-mode" "TI Extended BASIC Mode" t)
+    (autoload 'asm99-mode "xdt99-mode" "TMS 9900 Assembly Mode" t)
+    (autoload 'basic99-mode "xdt99-mode" "TI Extended BASIC Mode" t)
 
 to your `.emacs` file.
 
