@@ -23,7 +23,7 @@ import sys
 import re
 import os.path
 
-VERSION = "1.4.2"
+VERSION = "1.5.x"
 
 
 ### Utility functions
@@ -119,6 +119,8 @@ class Symbols:
         self.refdefs = []
         self.xops = {}
         self.idt = "        "
+        self.locations = []
+        self.anonno = 0
         self.resetLC()
 
     def resetLC(self):
@@ -130,8 +132,13 @@ class Symbols:
             raise AsmError("Multiple symbols: " + name)
         self.symbols[name] = value
 
-    def addLabel(self, label):
+    def addLabel(self, lidx, label):
         self.addSymbol(label, Address(self.LC, self.relocLC))
+        self.locations.append((lidx, label))
+
+    def addAnonLabel(self, lidx):
+        self.anonno += 1
+        self.addLabel(lidx, ":$" + str(self.anonno))
 
     def addDef(self, name):
         if name in self.refdefs:
@@ -150,6 +157,17 @@ class Symbols:
     def getSymbol(self, name):
         return self.symbols.get(name)
 
+    def getLocal(self, lpos, distance):
+        try:
+            i, lidx = next((j, l) for j, (l, n) in enumerate(self.locations)
+                           if l >= lpos)
+            if distance > 0 and lidx > lpos:
+                distance -= 1  # i points to $: unless lidx == lpos
+            _, name = self.locations[i + distance]
+        except (StopIteration, IndexError):
+            return None
+        return self.getSymbol(name)
+        
 
 ### Code generation
 
@@ -187,9 +205,15 @@ class Objdummy:
             2 if saddr is not None else 0) + (
             2 if daddr is not None else 0)
 
-    def processLabel(self, label):
-        if label:
-            self.symbols.addLabel(label)
+    def processLabel(self, lidx, label):
+        if not label:
+            return
+        if label == ":":
+            self.symbols.addAnonLabel(lidx)
+        else:
+            # ignore final ":" character in label name
+            name = label[:-1] if label[-1] == ":" else label
+            self.symbols.addLabel(lidx, name)
 
     def list(self, lino, line=None, eos=False, text1=None, text2=None):
         pass
@@ -206,7 +230,7 @@ class Objcode:
         self.segment(0x0000, relocatable=True, init=True)
         self.done = False
 
-    def processLabel(self, label):
+    def processLabel(self, lidx, label):
         pass
 
     def segment(self, base, relocatable=False, dummy=False, init=False):
@@ -623,7 +647,7 @@ class Directives:
     def DEF(parser, code, label, ops):
         if parser.passno != 1:
             return
-        code.processLabel(label)
+        code.processLabel(parser.lidx, label)
         for op in ops:
             code.symbols.addDef(op[:6] if parser.strictMode else op)
 
@@ -646,21 +670,21 @@ class Directives:
     @staticmethod
     def DATA(parser, code, label, ops):
         code.even()
-        code.processLabel(label)
+        code.processLabel(parser.lidx, label)
         for op in ops:
             w = parser.expression(op)
             code.word(w)
 
     @staticmethod
     def BYTE(parser, code, label, ops):
-        code.processLabel(label)
+        code.processLabel(parser.lidx, label)
         for op in ops:
             b = parser.expression(op)
             code.byte(b)
 
     @staticmethod
     def TEXT(parser, code, label, ops):
-        code.processLabel(label)
+        code.processLabel(parser.lidx, label)
         code.list(-1, text2="....")
         for op in ops:
             text = parser.text(op)
@@ -669,7 +693,7 @@ class Directives:
 
     @staticmethod
     def BSS(parser, code, label, ops):
-        code.processLabel(label)
+        code.processLabel(parser.lidx, label)
         size = parser.value(ops[0])
         code.block(size)
 
@@ -677,43 +701,43 @@ class Directives:
     def BES(parser, code, label, ops):
         size = parser.value(ops[0])
         code.block(size)
-        code.processLabel(label)
+        code.processLabel(parser.lidx, label)
 
     @staticmethod
     def EVEN(parser, code, label, ops):
         code.even()
-        code.processLabel(label)  # differs from E/A manual!
+        code.processLabel(parser.lidx, label)  # differs from E/A manual!
 
     @staticmethod
     def AORG(parser, code, label, ops):
         base = parser.value(ops[0]) if ops else None
         code.list(0, eos=True)
         code.segment(base, relocatable=False)
-        code.processLabel(label)
+        code.processLabel(parser.lidx, label)
 
     @staticmethod
     def RORG(parser, code, label, ops):
         base = parser.value(ops[0]) if ops else None
         code.list(0, eos=True)
         code.segment(base, relocatable=True)
-        code.processLabel(label)
+        code.processLabel(parser.lidx, label)
 
     @staticmethod
     def DORG(parser, code, label, ops):
         base = parser.value(ops[0]) if ops else None
         code.list(0, eos=True)
         code.segment(base, dummy=True)
-        code.processLabel(label)
+        code.processLabel(parser.lidx, label)
 
     @staticmethod
     def COPY(parser, code, label, ops):
-        code.processLabel(label)
+        code.processLabel(parser.lidx, label)
         filename = parser.filename(ops[0])
         parser.open(filename)
 
     @staticmethod
     def END(parser, code, label, ops):
-        code.processLabel(label)
+        code.processLabel(parser.lidx, label)
         if ops:
             code.entry = code.symbols.getSymbol(
                 ops[0][:6] if parser.strictMode else ops[0])
@@ -723,7 +747,7 @@ class Directives:
     def IDT(parser, code, label, ops):
         if parser.passno != 1:
             return
-        code.processLabel(label)
+        code.processLabel(parser.lidx, label)
         text = parser.text(ops[0]) if ops else "        "
         code.symbols.idt = text[:8]
 
@@ -733,14 +757,14 @@ class Directives:
             return
         if len(ops) != 2:
             raise AsmError("Invalid arguments")
-        code.processLabel(label)
+        code.processLabel(parser.lidx, label)
         mode = parser.expression(ops[1], wellDefined=True)
         code.symbols.addXop(ops[0], str(mode))
 
     @staticmethod
     def IBYTE(parser, code, label, ops):
         """extension: include binary file as BYTE stream"""
-        code.processLabel(label)
+        code.processLabel(parser.lidx, label)
         fn = parser.find(parser.filename(ops[0]))
         try:
             with open(fn, "rb") as f:
@@ -759,7 +783,7 @@ class Directives:
     @staticmethod
     def process(parser, code, label, mnemonic, operands):
         if mnemonic in Directives.ignores:
-            code.processLabel(label)
+            code.processLabel(parser.lidx, label)
             return True
         try:
             fn = getattr(Directives, mnemonic)
@@ -787,47 +811,49 @@ class Preprocessor:
             ops[1], wellDefined=True, relaxed=True) if len(ops) > 1 else 0
         return lhs, rhs
 
-    def IFDEF(self, code, label, ops):
+    def IFDEF(self, code, ops):
         self.parseBranches.append(self.parse)
         self.parse = (code.symbols.getSymbol(ops[0]) is not None if self.parse
                       else None)
 
-    def IFNDEF(self, code, label, ops):
+    def IFNDEF(self, code, ops):
         self.parseBranches.append(self.parse)
         self.parse = (code.symbols.getSymbol(ops[0]) is None if self.parse
                       else None)
 
-    def IFEQ(self, code, label, ops):
+    def IFEQ(self, code, ops):
         self.parseBranches.append(self.parse)
         self.parse = cmp(*self.args(ops)) == 0 if self.parse else None
 
-    def IFNE(self, code, label, ops):
+    def IFNE(self, code, ops):
         self.parseBranches.append(self.parse)
         self.parse = cmp(*self.args(ops)) != 0 if self.parse else None
 
-    def IFGT(self, code, label, ops):
+    def IFGT(self, code, ops):
         self.parseBranches.append(self.parse)
         self.parse = cmp(*self.args(ops)) > 0 if self.parse else None
 
-    def IFGE(self, code, label, ops):
+    def IFGE(self, code, ops):
         self.parseBranches.append(self.parse)
         self.parse = cmp(*self.args(ops)) >= 0 if self.parse else None
 
-    def ELSE(self, code, label, ops):
+    def ELSE(self, code, ops):
         self.parse = not self.parse if self.parse is not None else None
 
-    def ENDIF(self, code, label, ops):
+    def ENDIF(self, code, ops):
         self.parse = self.parseBranches.pop()
 
     def process(self, code, label, mnemonic, operands):
         if not mnemonic or mnemonic[:1] != '.':
             return self.parse
+        if label:
+            raise AsmError("Invalid label for preprocessor directive")
         try:
             fn = getattr(Preprocessor, mnemonic[1:])
         except AttributeError:
             raise AsmError("Invalid preprocessor directive")
         try:
-            fn(self, code, label, operands)
+            fn(self, code, operands)
         except (IndexError, ValueError):
             raise AsmError("Syntax error")
         return False
@@ -965,7 +991,7 @@ class Opcodes:
     def process(parser, code, label, mnemonic, operands):
         """get assembly code for mnemonic"""
         code.even()
-        code.processLabel(label)
+        code.processLabel(parser.lidx, label)
         if mnemonic in Opcodes.pseudos:
             mnemonic, operands = Opcodes.pseudos[mnemonic]
         elif mnemonic in parser.symbols.xops:
@@ -1064,6 +1090,7 @@ class Parser:
         self.strictMode = strictMode
         self.parseBranches = [True]
         self.passno = 0
+        self.lidx = 0
 
     def open(self, filename):
         """open new source file"""
@@ -1126,6 +1153,7 @@ class Parser:
         source, errors = [], []
         # first pass: scan symbols
         self.passno = 1
+        self.lidx = 0
         self.symbols.resetLC()
         while True:
             lino, line = self.read()
@@ -1135,25 +1163,30 @@ class Parser:
             if not self.prep.process(dummy, label, mnemonic, operands):
                 continue
             source.append((lino, label, mnemonic, operands, line, stmt))
-            if stmt:
-                try:
-                    Directives.process(self, dummy, label, mnemonic, operands) or \
-                        Opcodes.process(self, dummy, label, mnemonic, operands)
-                except AsmError as e:
-                    errors.append("<1> %04d - %s\n***** %s\n" % (
-                        lino, line, e.message))
+            if not stmt:
+                continue
+            self.lidx += 1
+            try:
+                Directives.process(self, dummy, label, mnemonic, operands) or \
+                    Opcodes.process(self, dummy, label, mnemonic, operands)
+            except AsmError as e:
+                errors.append("<1> %04d - %s\n***** %s\n" % (
+                    lino, line, e.message))
         # second pass: generate code
         self.passno = 2
+        self.lidx = 0
         self.symbols.resetLC()
         for lino, label, mnemonic, operands, line, stmt in source:
             code.list(lino, line=line)
-            if stmt:
-                try:
-                    Directives.process(self, code, label, mnemonic, operands) or \
-                        Opcodes.process(self, code, label, mnemonic, operands)
-                except AsmError as e:
-                    errors.append("<2> %04d - %s\n***** %s\n" % (
-                        lino, line, e.message))
+            if not stmt:
+                continue
+            self.lidx += 1
+            try:
+                Directives.process(self, code, label, mnemonic, operands) or \
+                    Opcodes.process(self, code, label, mnemonic, operands)
+            except AsmError as e:
+                errors.append("<2> %04d - %s\n***** %s\n" % (
+                    lino, line, e.message))
         code.list(0, eos=True)
         return errors
 
@@ -1290,6 +1323,16 @@ class Parser:
             return int(op[1:], 16)
         elif op == "$":
             return Address(self.symbols.LC, self.symbols.relocLC)
+        elif op[0] == "$" and op[1:] == ":" * (len(op) - 1):
+            v = self.symbols.getLocal(self.lidx, len(op) - 1)
+            if v is None and (self.passno > 1 or wellDefined):
+                raise AsmError("Invalid local symbol: " + op)
+            return v
+        elif op[-1] == "$" and op[:-1] == ":" * (len(op) - 1):
+            v = self.symbols.getLocal(self.lidx, -len(op) + 1)
+            if v is None and (self.passno > 1 or wellDefined):
+                raise AsmError("Invalid local symbol: " + op)
+            return v
         elif op[0] == ":":
             return int(op[1:], 2)
         elif op.isdigit():
@@ -1338,12 +1381,22 @@ class Parser:
         return r
 
     def text(self, op):
-        """parse single-quoted text literal"""
-        s, negate = (op[1:], True) if op[0] == "-" else (op, False)
-        if not (len(s) >= 2 and s[0] == s[-1] == "'"):
+        """parse single-quoted text literal or byte string"""
+        s = op[1:].strip() if op[0] == "-" else op
+        v = None
+        try:
+            if s[0] == ">":
+                s0 = s + "0"
+                v = "".join([chr(int(s0[i:i + 2], 16))
+                             for i in xrange(1, len(s), 2)])
+            elif s[0] == s[-1] == "'":
+                v = self.textlits[int(s[1:-1])] or '\x00'  # '' equals '\x00'
+        except (IndexError, ValueError):
+            pass
+        if v is not None:
+            return v[:-1] + chr(-ord(v[-1]) % 0x100) if op[0] == "-" else v
+        else:
             raise AsmError("Invalid text literal: " + op)
-        s = self.textlits[int(s[1:-1])] or '\x00'  # '' equals '\x00'
-        return s[:-1] + chr(-ord(s[-1]) % 0x100) if negate else s
 
     def filename(self, op):
         """parse double-quoted filename"""

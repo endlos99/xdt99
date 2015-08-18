@@ -59,13 +59,13 @@ Invoking `xas99` in standard mode will assemble a TMS9900 assembly source code
 file into an object code file that may be loaded using the Editor/Assembler
 module option 3.
 
-	$ xas99.py -R ashello.asm
+    $ xas99.py -R ashello.asm
 
 `xas99` also generates program image files for the Editor/Assembler module
 option 5 or RPK cartridge files suitable for the MESS emulator:
 
-	$ xas99.py -R -i ashello.asm
-	$ xas99.py -R -c ashello.asm
+    $ xas99.py -R -i ashello.asm
+    $ xas99.py -R -c ashello.asm
 
 All existing assembly code for the TI 99, e.g., the Tombstone City source code
 shipped with the Editor/Assembler module, should cross-assemble using `xas99`
@@ -92,8 +92,8 @@ The `xas99` cross-assembler reads an assembly source code file and generates an
 uncompressed object code file that is suitable for the original TI 99
 Editor/Assembler loader.
 
-	$ xas99.py -R ashello.asm
-	$ xas99.py -R ashello.asm -o HELLO-O
+    $ xas99.py -R ashello.asm
+    $ xas99.py -R ashello.asm -o HELLO-O
 
 The output parameter `-o` may be used to override the default output filename.
 
@@ -117,7 +117,7 @@ Editor/Assembler package can assemble.
 The image parameter `-i` tells `xas99` to generate image files that can be
 loaded using Editor/Assembler option 5.
 
-	$ xas99.py -R -i ashello.asm
+    $ xas99.py -R -i ashello.asm
 
 Images larger then 8 KB are split automatically into multiple files, using
 the filename convention of the Editor/Assembler module.
@@ -131,10 +131,10 @@ Alternatively, if either symbol is missing, `xas99` will generate separate
 image files for each program segment defined in the assembly source code.
 For example, the assembly of source file
 
-	     AORG >A000
-	L1   B @L2
-	     AORG >B000
-	L2   B @L1
+         AORG >A000
+    L1   B @L2
+         AORG >B000
+    L2   B @L1
 
 will yield two images files of 10 bytes each instead of a single file of 4 KB.
 Relocatable segments will be relocated to memory locations `>A000` upwards.
@@ -152,7 +152,7 @@ word of the first image file must be an executable instruction.
 The cartridge parameter `-c` tells `xas99` to create an RPK cartridge file that
 can be used with the MESS emulator.
 
-	$ xas99.py -R -c ascart.asm -n "HELLO WORLD"
+    $ xas99.py -R -c ascart.asm -n "HELLO WORLD"
 
 The optional name parameter `-n` overrides the default name of the program that
 shows up in the TI 99 menu selection screen.
@@ -162,7 +162,7 @@ various information for the MESS emulator on how to execute the program.
 Typically, RPK files are passed as arguments to the MESS executable, or they may
 be mounted while running MESS using the emulator on-screen menu.
 
-	$ mess64 ti99_4ae -cart ascart.rpk
+    $ mess64 ti99_4ae -cart ascart.rpk
 
 When the `-c` option is given, `xas99` will automatically generate suitable GPL
 header information and relocate the program to address `>6030`, but it will not
@@ -177,23 +177,23 @@ Note that cartridge files cannot be generated from split image files.
 For relocatable code not larger than around 24 KB, `xas99` can generate an
 Extended BASIC program that invisibly contains the generated code within:
 
-	$ xas99.py --embed asembed.asm 
+    $ xas99.py --embed asembed.asm 
 
 The resulting program is a regular Extended BASIC program in so-called "long"
 format that will execute the assembly code when run:
 
-	>OLD DSK1.ASEMBED
-	>RUN
+    >OLD DSK1.ASEMBED
+    >RUN
 
 Thus, the `--embed` options allows for the creation of assembly programs that do
 require the Editor/Assembler module for execution.
 
 The generated Extended BASIC program will have only one visible line:
 
-	1 CALL INIT :: CALL LOAD(163
-	76,88,89,90,90,89,32,255,228
-	):: CALL LOAD(8196,63,248)::
-	 CALL LINK("XYZZY")
+    1 CALL INIT :: CALL LOAD(163
+    76,88,89,90,90,89,32,255,228
+    ):: CALL LOAD(8196,63,248)::
+     CALL LINK("XYZZY")
 
 But be careful: editing the generated program is likely to corrupt the embedded
 assembly code!
@@ -204,7 +204,7 @@ assembly code!
 The `-L` option instructs `xas99` to generate a list file for the assembled
 source code:
 
-	$ xas99.py -R ashello.asm -L ashello.lst
+    $ xas99.py -R ashello.asm -L ashello.lst
 
 The list file is useful for inferring the relative or absolute memory addresses
 of source code lines or the effective values of expressions.
@@ -223,8 +223,8 @@ but may be added in a future release.
 `xas99` understands all assembler directives described in the Editor/Assembler
 manual that are supported by both TI 99 assembler and loader, i.e.,
 
-	DEF REF EQU DATA BYTE TEXT BSS BES AORG RORG DORG EVEN
-	IDT DXOP COPY END
+    DEF REF EQU DATA BYTE TEXT BSS BES AORG RORG DORG EVEN
+    IDT DXOP COPY END
 
 Note that the `DORG` directive *is* supported, even though the TI assembler does
 not do so.
@@ -232,11 +232,11 @@ not do so.
 The following directives are not supported by the TI 99 loader and are thus
 silently ignored by `xas99`:
 
-	PSEG PEND CSEG CEND DSEG DEND LOAD SREF
+    PSEG PEND CSEG CEND DSEG DEND LOAD SREF
 
 Listing generation is currently not supported, so directives
 
-	LIST UNL PAGE TITL
+    LIST UNL PAGE TITL
 
 are also ignored.
 
@@ -249,14 +249,14 @@ files.
 `xas99` will search the current source directory for appropriately named source
 files.  For example, assembling
 
-	$ xas99.py src/file1.asm
+    $ xas99.py src/file1.asm
 
 where `file1.asm` contains the instruction `COPY "DSK1.FILE2"` will search for
 include files
 
-	src/FILE2
-	src/FILE2.ASM
-	src/FILE2.S
+    src/FILE2
+    src/FILE2.ASM
+    src/FILE2.S
 
 and its corresponding lower-case variants.  `COPY` also supports native file
 paths, e.g., `COPY "/home/ralph/ti/src/file2.asm"`.
@@ -281,19 +281,42 @@ Source code is processed case insensitively so that all labels, expressions, and
 instructions may be written in upper case, lower case, or any mixture.  Text
 literals are still case sensitive, though.
 
-	label1 byte >A,>b
-	LABEL2 TEXT 'Hello World'
-	Label3 mov Label1(R1),Label2(r2)
-	
+    label1 byte >A,>b
+    LABEL2 TEXT 'Hello World'
+    Label3 mov Label1(R1),Label2(r2)
+    
 Labels may be of arbitrary length and may contain arbitrary characters except
-for whitespace and operators such as `;`, `+`, `*`, `(`, etc.
+for whitespace and operators such as `;`, `+`, `*`, `(`, etc.  For
+compatibility with other assemblers, an optional colon `:` may be appended
+to the label name:
+
+    my_long_label:
+            mov  @my_long_label, r1
+
+Anonymous labels and local references simplify the implementation of small
+loops.  A forward local reference `$:`, `$::`, `$:::`, ... refers to the
+address of the first, second, third ... label in the source code after the
+current position.  Conversely, a local backward reference `:$`, `::$`, `:::$`,
+... refers to the first, second, third, ... label before the current position.   
+
+An anonymous label `:` marks the current line counter in the symbol table
+without assigning a name for it.  Anonymous labels are intended for local
+references.
+
+    clear_data:
+        li   r0, >a000
+        li   r2, >100
+    :   clr  *r0+         ; make jump target without potential name conflicts
+        dec  r2
+        jne  :$
+        rt
 
 The use of whitespace has been relaxed.  Single spaces may be used judiciously
 within the operand field to increase the legibility of expressions.  Two or more
 spaces as well as tabs introduce the comment field.
 
-	label  data addr + len - 1  comment
-	       movb @addr + 2(r1), *r2+ ; comment
+    label  data addr + len - 1  comment
+           movb @addr + 2(r1), *r2+ ; comment
 
 (*Technical note*: It is not possible to detect the beginning of the comment
 field based on the current instruction, as the example `LABEL EQU 1 * 2` shows.
@@ -304,10 +327,10 @@ The extended expression syntax supports parentheses `(`, `)`, the modulo
 operator `%`, and binary operators bit-and `&`, bit-or `|`, bit-xor `^`, and
 bit-not `~` as well as binary literals introduced by `:`.
 
-	area    equ (xmax + 1) * (ymax + 1) 
-	addr2   equ addr1 | >A000 & ~>001F
-	padding bss size % 8
-	binval  equ :01011010
+    area    equ (xmax + 1) * (ymax + 1) 
+    addr2   equ addr1 | >A000 & ~>001F
+    padding bss size % 8
+    binval  equ :01011010
 
 It is important to note that all operators have the *same precedence*, i.e., an
 expression such as `1 + 2 * 3 - 4 & 5` evaluates as `(((1 + 2) * 3) - 4) & 5`.
@@ -318,11 +341,11 @@ of `xas99` for existing sources.
 An additional source preprocessor allows for conditional assembly based on
 well-defined conditional expressions.
 
-	       .ifdef lang_de
-	msg    text 'Hallo Welt'
-	       .else
-	msg    text 'Hello World'
-	       .endif
+           .ifdef lang_de
+    msg    text 'Hallo Welt'
+           .else
+    msg    text 'Hello World'
+           .endif
 
 The preprocessor directives `.ifdef` and `.ifndef` check if a given symbol is
 defined or not.  The directives equals `.ifeq`, not-equals `.ifne`, greater-than
@@ -333,7 +356,7 @@ Directives may be nested.  Valid conditional expressions and their rules of
 evaluation correspond to those of the `EQU` directive.  Additional symbols may
 be supplied on the command line.
 
-	$ xas99.py ashello.asm -D symbol1 symbol2=2
+    $ xas99.py ashello.asm -D symbol1 symbol2=2
 
 If no value is given, the symbol is set to value `1`.
 
@@ -341,29 +364,29 @@ If no value is given, the symbol is set to value `1`.
 file as a sequence of `BYTE`s.  For example, if `sprite.raw` is a raw data file
 containing some sprite pattern
 
-	$ hexdump -C sprite.raw
-	00000000  18 3c 7e ff ff 7e 3c 18                           |.<~..~<.|
+    $ hexdump -C sprite.raw
+    00000000  18 3c 7e ff ff 7e 3c 18                           |.<~..~<.|
 
 then including this file with `IBYTE`
 
-	SPRITE  IBYTE "sprite.raw"
+    SPRITE  IBYTE "sprite.raw"
 
 is equivalent to the conventional assembly statement sequence
 
-	SPRITE  BYTE >18,>3C,>7E,>FF,>FF,>7E,>3C,>18
+    SPRITE  BYTE >18,>3C,>7E,>FF,>FF,>7E,>3C,>18
 
 The strictness option `-s` disables all `xas99`-specific extensions to improve
 backwards compatibility for old sources:
 
-	$ xas99.py -s ashello.asm
+    $ xas99.py -s ashello.asm
 
 Strictness is required, for example, to compile the *Tombstone City* sample
 source code shipped with the original TI Editor/Assembler module.  Some of the
 comments do not adher to the two-space separator rule of the relaxed xdt99
 whitespace mode:
 
-	R5LB   EQU SUBWS+11 * REGISTER 5 LOW BYTE.
-	***** Unknown symbol: REGISTER 5 LOW BYTE.
+    R5LB   EQU SUBWS+11 * REGISTER 5 LOW BYTE.
+    ***** Unknown symbol: REGISTER 5 LOW BYTE.
 
 Finally, note that case insensitivity cannot be disabled at the moment.
 
@@ -379,8 +402,8 @@ Invoking `xga99` in standard mode will assemble a GPL source code file into
 plain GPL byte code that may be placed in a physical or emulated GROM or GRAM
 device.
 
-	$ xga99.py gahello.gpl
-	$ xga99.py gahello.gpl -o gahello.bin
+    $ xga99.py gahello.gpl
+    $ xga99.py gahello.gpl -o gahello.bin
 
 The output parameter `-o` may be used to override the default output filename,
 which uses extension `.gbc` (for "GPL byte code").
@@ -389,7 +412,7 @@ The image parameter `-i` tells `xga99` to generate suitable GPL header data for
 the program so that the GPL byte code interpreter built into the TI 99 can
 execute the image file.
 
-	$ xga99.py -i gahello.gpl
+    $ xga99.py -i gahello.gpl
 
 `xga99` will check if there is enough space at the beginning of the image file
 for inserting GPL header data.  You may have to adjust (or remove) any `AORG`
@@ -402,16 +425,16 @@ The cartridge parameter `-c` relocates the GPL program to the cartridge GROM
 area, generates GPL header data, and packages the byte code image into a
 cartridge file suitable for the MESS emulator.
 
-	$ xga99.py -c gahello.gpl
+    $ xga99.py -c gahello.gpl
 
 The resulting `.rpk` file may be executed as-is by the MESS emulator:
 
-	$ mess64 ti99_4ae -cart gahello.rpk
+    $ mess64 ti99_4ae -cart gahello.rpk
 
 The optional name parameter `-n` overrides the default name of the program that
 shows up in the TI 99 menu selection screen.
 
-	$ xga99.py -c gahello.gpl -n "HELLO GPL WORLD"
+    $ xga99.py -c gahello.gpl -n "HELLO GPL WORLD"
 
 As the Graphics Programming Language was never intended for public release,
 existing native tools for assembling GPL source code differ substantially in the
@@ -419,7 +442,7 @@ language syntax they support.  `xga99` adopts a variation of the Ryte Data GPL
 Assembler syntax as its native format, but other syntax styles may be chosen
 with the syntax parameter `-s`.
 
-	$ xga99.py sdemo.gpl -s rag
+    $ xga99.py sdemo.gpl -s rag
 
 Currently supported syntax styles are `xdt99` for the `xga99` native format,
 `rag` for the Ryte Data and R.A.G. GPL assemblers, and `mizapf` for the TI Image
@@ -440,33 +463,33 @@ As is common practice, however, the operand order for the shift instructions
 Instruction operands use the well-established prefix notation to address CPU
 RAM, VDP RAM, and GROM/GRAM, respectively:
 
-	@<cpuram addr>  ....................  CPU RAM direct
-	*<cpuram addr>  ....................  CPU RAM indirect
-	V@<vdpram addr>  ...................  VDP RAM direct
-	V*<cpuram addr>  ...................  VDP RAM indirect
-	@<cpuram addr>(@<cpuram addr>)  ....  CPU RAM indexed
-	V@<vdpram addr>(@<cpuram addr>)  ...  VDP RAM indexed
-	G@<grom addr>  .....................  GROM/GRAM direct   (MOVE only)
-	G@<grom addr>(@<cpuram addr>)  .....  GROM/GRAM indexed  (MOVE only)
-	#<vdp reg>  ........................  VDP register       (MOVE only)
+    @<cpuram addr>  ....................  CPU RAM direct
+    *<cpuram addr>  ....................  CPU RAM indirect
+    V@<vdpram addr>  ...................  VDP RAM direct
+    V*<cpuram addr>  ...................  VDP RAM indirect
+    @<cpuram addr>(@<cpuram addr>)  ....  CPU RAM indexed
+    V@<vdpram addr>(@<cpuram addr>)  ...  VDP RAM indexed
+    G@<grom addr>  .....................  GROM/GRAM direct   (MOVE only)
+    G@<grom addr>(@<cpuram addr>)  .....  GROM/GRAM indexed  (MOVE only)
+    #<vdp reg>  ........................  VDP register       (MOVE only)
 
 Note that symbols do not imply a certain memory type, so references to GROM
 addresses in `MOVE` instructions still need to prepend `G@` to the symbol name:
 
-	T1 TEXT 'HELLO'
-	L1 MOVE 5,G@T1,V@100
+    T1 TEXT 'HELLO'
+    L1 MOVE 5,G@T1,V@100
 
 For branch and call instructions, prefixing addresses by `G@` is optional, as
 branch targets always reside in GROM/GRAM:
 
-	B L1
-	B G@L1
+    B L1
+    B G@L1
 
 Instruction operands may be complex expressions of symbols and literals.
 Literals may be decimal numbers, hexadecimal numbers prefixed by `>`, binary
 numbers prefixed by `:`, and text literals enclosed in single quotes `'`.
 
-	BYTE 10, >10, :10, '1'
+    BYTE 10, >10, :10, '1'
 
 Expressions are built using arithmeical operators `+`, `-`, `*`, `/`, `%`, and
 `**` and bit operators `&`, `|`, `^`, and `~`.  Expressions are evaluated
@@ -477,13 +500,13 @@ section on expressions.
 By default, `xga99` uses the following mnemonics for the `FMT` sub-language, but
 other syntax styles are available with the `-s` option:
 
-	HTEXT/VTEXT <text>
-	HCHAR/VCHAR <len>, <char>
-	HMOVE <len>, <gs>
-	ROW/COL <n>
-	ROW+/COL+ <n>
-	BIAS <n>/<gs>
-	FOR <n> ... FEND [<label>]
+    HTEXT/VTEXT <text>
+    HCHAR/VCHAR <len>, <char>
+    HMOVE <len>, <gs>
+    ROW/COL <n>
+    ROW+/COL+ <n>
+    BIAS <n>/<gs>
+    FOR <n> ... FEND [<label>]
 
 Note that unlike the Ryte Data GPL Assembler, `xga99` also supports the optional
 address label for the `FEND` instruction.
@@ -493,25 +516,25 @@ address label for the `FEND` instruction.
 
 The `xga99` GPL assembler supports the following directives:
 
-	GROM AORG EQU DATA BYTE TEXT STRI BSS TITLE COPY
+    GROM AORG EQU DATA BYTE TEXT STRI BSS TITLE COPY
 
 Directives affecting listing generation are currently ignored:
 
-	PAGE LIST UNL LISTM UNLM
+    PAGE LIST UNL LISTM UNLM
 
 Most `xga99` directives work very similar to their `xas99` counterparts.
 
 The `BYTE` and `DATA` directives insert bytes and words into the program,
 respectively, irrespective of the size of their arguments.
 
-	LABEL BYTE 1,>02,:11011010,'@',>100
-	      DATA 1,>1000,'A'
+    LABEL BYTE 1,>02,:11011010,'@',>100
+          DATA 1,>1000,'A'
 
 The `TEXT` directive generates a sequence of bytes from a text literal or an
 extended hexadecimal literal.
 
-	LABEL TEXT 'Groovin'' With GPL'
-	      TEXT >183C7EFFE7C381
+    LABEL TEXT 'Groovin'' With GPL'
+          TEXT >183C7EFFE7C381
 
 Note that the second instruction is equivalent to `BYTE >18,>3C,>7E,...`.
 
@@ -558,21 +581,21 @@ The list command `-l` lists the statements of a BASIC program in internal format
 the screen.  Formatting is identical to the built-in BASIC `LIST` command modulo
 the line wrapping.
 
-	$ xbas99.py -l bashello.bin
-	10 REM HELLO
-	20 INPUT "YOUR NAME? ":NAME$
-	30 PRINT "HELLO ";NAME$
-	40 END 
+    $ xbas99.py -l bashello.bin
+    10 REM HELLO
+    20 INPUT "YOUR NAME? ":NAME$
+    30 PRINT "HELLO ";NAME$
+    40 END 
 
 The similar decode command `-d` saves the program listing to a file instead:
 
-	$ xbas99.py -d bashello.bin
+    $ xbas99.py -d bashello.bin
 
 `xbas99` uses extensions `.bas` for BASIC programs in source format and `.bin`
 for programs in internal format.  To override the default naming convention, the
 `-o` argument may be used:
 
-	$ xbas99.py -d bashello.bin -o sample_program.txt
+    $ xbas99.py -d bashello.bin -o sample_program.txt
 
 BASIC programs in long format are detected automatically.  To list programs in
 merge format, simply add the merge option `--merge`.
@@ -581,14 +604,14 @@ The create command `-c` encodes a list of BASIC statements into internal format
 so that the resulting file can be loaded and run by the BASIC interpreter on a
 TI 99:
 
-	$ xbas99.py -c bashello.bas
+    $ xbas99.py -c bashello.bas
 
 `xbas99` assumes that the text file is stored in the native file format of the
 host computer.  Each program line should be stored on a separate line, but the
 join option `-j` may be used to automatically join split, i.e., word-wrapped,
 lines.
 
-	$ xbas99.py -c bashello.txt -j <line-delta>
+    $ xbas99.py -c bashello.txt -j <line-delta>
 
 Any line that does not begin with a number or whose supposed line number is not
 between the previous line number and the previous line number plus `line-delta`
@@ -609,19 +632,19 @@ transferred to a disk image or converted to TIFILES format before they can be
 used by an emulator or transferred to a real TI 99.  The `xdm99` tool covers
 both of these operations:
 
-	$ xdm99.py basic.dsk -a bashello.bin
-	$ xdm99.py -T bashello.bin
+    $ xdm99.py basic.dsk -a bashello.bin
+    $ xdm99.py -T bashello.bin
 
 Advanced users of xdt99 may also combine the creation of the BASIC program file
 and the transfer to a disk image in one single step:
 
-	$ xbas99.py -c bashello.bas -o - | xdm99.py basic.dsk -a - -n HELLO
+    $ xbas99.py -c bashello.bas -o - | xdm99.py basic.dsk -a - -n HELLO
 
 All tools in xdt99 follow the convention that the special filename `-` denotes
 `stdin` or `stdout`, respectively.  You can also pipe from `xdm99` into `xbas99`
 to list BASIC programs quickly that are stored on a disk image:
 
-	$ xdm99.py basic.dsk -p HELLO | xbas99.py -l - 
+    $ xdm99.py basic.dsk -p HELLO | xbas99.py -l - 
 
 Finally, `xbas99` does not distinguish between TI BASIC and TI Extended BASIC
 programs.  To create a TI BASIC program that does not rely on the TI Extended
@@ -649,15 +672,15 @@ from TI disk images.
 The default operation of `xdm99` when invoked without any options is to print
 the file catalog of the disk image to `stdout`:
 
-	$ xdm99.py ed-asm.dsk
-	ED-ASSM   :     97 used  263 free   90 KB  1S/1D  40 TpS
-	----------------------------------------------------------------------------
-	ASSM1         33  PROGRAM       8192 B
-	ASSM2         18  PROGRAM       4102 B
-	EDIT1         25  PROGRAM       5894 B
-	SAVE          13  DIS/FIX 80    3072 B   36 recs
-	SFIRST/O       3  DIS/FIX 80     512 B    5 recs
-	SLAST/O        3  DIS/FIX 80     512 B    4 recs
+    $ xdm99.py ed-asm.dsk
+    ED-ASSM   :     97 used  263 free   90 KB  1S/1D  40 TpS
+    ----------------------------------------------------------------------------
+    ASSM1         33  PROGRAM       8192 B
+    ASSM2         18  PROGRAM       4102 B
+    EDIT1         25  PROGRAM       5894 B
+    SAVE          13  DIS/FIX 80    3072 B   36 recs
+    SFIRST/O       3  DIS/FIX 80     512 B    5 recs
+    SLAST/O        3  DIS/FIX 80     512 B    4 recs
 
 The top line shows the name of the disk, the number of used and free sectors as
 well as the disk geometry.  For each file, the number of used sectors, the file
@@ -676,17 +699,17 @@ can try the `-R` option to automatically repair disks with inconsistencies.
 The extract parameter `-e` extracts one or more files from a disk image to the
 local file system.
 
-	$ xdm99.py work.dsk -e HELLO-S CART-S
+    $ xdm99.py work.dsk -e HELLO-S CART-S
 
 The local output filename is derived automatically from the TI filename but
 may be overridden with the `-o` parameter if only one file is extracted.
 
-	$ xdm99.py work.dsk -e HELLO-S -o hello.asm
+    $ xdm99.py work.dsk -e HELLO-S -o hello.asm
 
 To print the contents of a file to `stdout`, the print parameter `-p` may also
 be used:
 
-	$ xdm99.py work.dsk -p HELLO-S
+    $ xdm99.py work.dsk -p HELLO-S
 
 In general, printing files only makes sense for files in DIS/FIX or DIS/VAR
 format.  Following Unix conventions, `-p` is equivalent to combining parameters
@@ -695,7 +718,7 @@ format.  Following Unix conventions, `-p` is equivalent to combining parameters
 Filenames given by `-e` may be glob patterns containing wildcards `*`
 and `?`.  This will extract all files matching the given pattern.
 
-	$ xdm99.py work.dsk -e "HELLO-*"
+    $ xdm99.py work.dsk -e "HELLO-*"
 
 Note that you may have to quote your glob pattern to prevent your
 shell from expanding the pattern prematurely.
@@ -712,7 +735,7 @@ suitable TI filename from the local filename unless an explicit filename is
 given by the `-n` parameter.  If the file is not of type `PROGRAM`, the file
 type must be given using the `-f` parameter.
 
-	$ xdm99.py work.dsk -a ashello.asm -n HELLO-S -f DIS/VAR80
+    $ xdm99.py work.dsk -a ashello.asm -n HELLO-S -f DIS/VAR80
 
 The syntax for `-f` is fairly permissible, e.g., `DIS/FIX 80`, `DISFIX80`, or
 `DF80` all work.
@@ -720,21 +743,21 @@ The syntax for `-f` is fairly permissible, e.g., `DIS/FIX 80`, `DISFIX80`, or
 When adding multiple files with the `-n` option, the last character of the
 specified filename will be incremented by one for each subsequent file, e.g.,
  
-	$ xdm99.py work.dsk -a intro main appendix -n FILE
+    $ xdm99.py work.dsk -a intro main appendix -n FILE
 
 will add the files as `FILE`, `FILF`, and `FILG` to the disk image.
 
 The rename parameter `-r` renames one or more files on the disk.
 
-	$ xdm99.py work.dsk -r HELLO-S:HELLO/S
+    $ xdm99.py work.dsk -r HELLO-S:HELLO/S
 
 For each file to rename, provide the old filename. followed by a colon `:`,
 followed by the new filename. 
 
 The delete parameter `-d` deletes one or more files on the disk.
 
-	$ xdm99.py work.dsk -d HELLO-I HELLO-O
-	$ xdm99.py work.dsk -d "*-O"
+    $ xdm99.py work.dsk -d HELLO-I HELLO-O
+    $ xdm99.py work.dsk -d "*-O"
 
 Note that the current implementation of `xdm99` does not perform a "secure
 erase", i.e., parts of the file contents may remain hidden in the sectors of the
@@ -763,8 +786,8 @@ directory" (FIAD).
 the `-t` and `-9` options, respectively.  To extract a file in either FIAD 
 format, simply add `-t` or `-9` to the extract operation:
 
-	$ xdm99.py work.disk -t -e HELLO-S
-	$ xdm99.py work.disk -9 -e HELLO-S
+    $ xdm99.py work.disk -t -e HELLO-S
+    $ xdm99.py work.disk -9 -e HELLO-S
 
 By default, files extracted in TIFiles or v9t9 format will have extension `.tfi`
 or `.v9t9`, respectively.
@@ -772,8 +795,8 @@ or `.v9t9`, respectively.
 To add a file in TIFiles format or v9t9 format, add `-t` or `-9` to the add
 operation:
 
-	$ xdm99.py work.disk -t -a hello-s.tfi
-	$ xdm99.py work.disk -9 -a hello-s.v9t9
+    $ xdm99.py work.disk -t -a hello-s.tfi
+    $ xdm99.py work.disk -9 -a hello-s.v9t9
 
 Note that for safety reasons `xdm99` will not infer the file type automatically,
 so adding a FIAD file without `-t` or `-9` option will incorrectly store the
@@ -787,15 +810,15 @@ The info parameter `-I` displays the meta file information contained in FIAD
 files, while the print parameter `-P` dumps the file contents to
 `stdout`:
 
-	$ xdm99.py -I hello-s.tfi
-	$ xdm99.py -P hello-s.v9t9
+    $ xdm99.py -I hello-s.tfi
+    $ xdm99.py -P hello-s.v9t9
 
  
 `xdm99` can also convert from FIAD files to plain files and vice versa without 
 relying on disk images using the `-T` and `-F` parameters:
 
-	$ xdm99.py -F hello-s.tfi
-	$ xdm99.py -T hello.asm -f DIS/VAR80 -n HELLO-S -o hello-s.tfi
+    $ xdm99.py -F hello-s.tfi
+    $ xdm99.py -T hello.asm -f DIS/VAR80 -n HELLO-S -o hello-s.tfi
 
 Note that creating a FIAD file using the `-T` option usually requires
 information about the TI filename and the TI file type, similar to adding plain
@@ -815,7 +838,7 @@ to `stderr`.  While all disk operations, including cataloging, also check and
 report any disk errors found, the `-C` parameter restricts the output of `xdm99`
 to those errors only.
 
-	$ xdm99.py -C work.dsk
+    $ xdm99.py -C work.dsk
 
 The `-C` parameter also causes `xdm99` to set its return value to non-zero for
 warnings, making it simple to write shell scripts for batch processing bad disk
@@ -824,7 +847,7 @@ images.
 The repair option `-R` tries to fix any disk errors, mostly by deleting
 erroneous files from it.
 
-	$ xdm99.py -R work.dsk
+    $ xdm99.py -R work.dsk
 
 The repair operation is likely to cause data loss, so it's best to extract
 erroneous files beforehand or to specify an alternative output file with `-o`.
@@ -832,7 +855,7 @@ erroneous files beforehand or to specify an alternative output file with `-o`.
 The `--initialize` parameter creates a new, blank disk image, using an
 optional name provided by `-n`.
 
-	$ xdm99.py blank.dsk --initialize 720 -n BLANK
+    $ xdm99.py blank.dsk --initialize 720 -n BLANK
 
 The size of the disk image is given by the number of sectors.  You may
 also use the aliases `SSSD`, `DSSD`, `DSDD`, and `CF` for sector
@@ -842,7 +865,7 @@ format used by the TI 99 supports up to 1600 sectors per disk.
 The resize parameter `-Z` will change the total number of sector of
 the disk without changing the contents of the files currently stored.
 
-	$ xdm99.py work.dsk -Z 720
+    $ xdm99.py work.dsk -Z 720
 
 Resizing fails if more sectors than the target size are currently in use.
 
@@ -850,9 +873,9 @@ The sector dump parameter `-S` prints the hexadecimal contents of individual
 sectors to `stdout`.  This can be used to further analyze disk errors or to save
 fragments of corrupted files.
 
-	$ xdm99.py work.dsk -S 1
-	$ xdm99.py work.dsk -S 0x22 -o first-file-sector
-	
+    $ xdm99.py work.dsk -S 1
+    $ xdm99.py work.dsk -S 0x22 -o first-file-sector
+    
 For convenience, the arguments of `-Z` and `-S` may be specified in either
 decimal or hexadecimal notation.
 
@@ -871,12 +894,12 @@ volumes of CF cards.
 The default operation of `xvm99` when invoked without any command arguments is
 to print a short summary of the disk images stored in the specified volumes.
 
-	$ xvm99.py /dev/sdc 1-4,8
-	[   1]  EXTBASIC  :     4 used  1596 free
-	[   2]  EMPTY     :     2 used  1598 free
-	[   3]  SSSD      :    39 used  1561 free
-	[   4]  INFOCOM   :   459 used  1141 free
-	[   8]  (not a valid disk image)
+    $ xvm99.py /dev/sdc 1-4,8
+    [   1]  EXTBASIC  :     4 used  1596 free
+    [   2]  EMPTY     :     2 used  1598 free
+    [   3]  SSSD      :    39 used  1561 free
+    [   4]  INFOCOM   :   459 used  1141 free
+    [   8]  (not a valid disk image)
 
 The first argument is the name of your Compact Flash card drive, i.e., something
 like `/dev/sdc` on Linux, `/dev/Disk3` on Mac OS X, or `\\.\PHYSICALDRIVE2` on
@@ -890,7 +913,7 @@ then the command is applied to *all* volumes.
 
 The `-w` parameter writes a disk image to one or more volumes.
 
-	$ xvm99.py /dev/sdc 1,3 -w work.dsk
+    $ xvm99.py /dev/sdc 1,3 -w work.dsk
 
 `xvm99` automatically extends the disk image to match the 1600 sector format
 used by the CF7A device, unless the `--keep-size` option is given.
@@ -898,7 +921,7 @@ used by the CF7A device, unless the `--keep-size` option is given.
 The `-r` argument reads a disk image from a volume and stores it on the local
 file system.
 
-	$ xvm99.py /dev/sdc 2 -r vol2.dsk
+    $ xvm99.py /dev/sdc 2 -r vol2.dsk
 
 When reading from multiple volumes the resulting disk images will be renamed
 automatically.  `xvm99` trims disk images to match the sector count stored in
@@ -911,7 +934,7 @@ Most commands provided by `xdm99` are also available for `xvm99`.
 
 For example, to catalog a volume, you use the same `-i` command as for `xdm99`:
 
-	$ xvm99.py /dev/sdc 8 -i
+    $ xvm99.py /dev/sdc 8 -i
 
 Other commands supported by `xvm99` are print files `-p`, extract files `-e`,
 add files `-a`, delete files `-d`, check disk `-c`, and repair disk `-R`.
@@ -919,7 +942,7 @@ add files `-a`, delete files `-d`, check disk `-c`, and repair disk `-R`.
 Again, if more than one volume is specified, then the command is applied to all
 volumes.  For example,
 
-	$ xvm99.py /dev/sdc 1-20 -a README -f DV80
+    $ xvm99.py /dev/sdc 1-20 -a README -f DV80
 
 adds the local file README to all disk images in volumes 1 through 20.
 
@@ -936,30 +959,30 @@ The binary distribution of xdt99 contains an `example` folder with some sample
 files that we're going to use.  For the source distribution available on Github
 these files are located under the `test` folder.
 
-	$ cd example/
-	$ ls -l
-	-rw-rw---- 1 ralph ralph  1822 Jan 10 12:51 ascart.asm
-	-rw-rw---- 1 ralph ralph   925 Jan 10 12:32 ashello.asm
-	-rw-rw---- 1 ralph ralph 92160 Jan 10 12:33 work.dsk
-	
+    $ cd example/
+    $ ls -l
+    -rw-rw---- 1 ralph ralph  1822 Jan 10 12:51 ascart.asm
+    -rw-rw---- 1 ralph ralph   925 Jan 10 12:32 ashello.asm
+    -rw-rw---- 1 ralph ralph 92160 Jan 10 12:33 work.dsk
+    
 The file `ashello.asm` contains a simple assembly program that we want to
 assemble and run.  Since the program uses register symbols like `R0` to refer to
 registers, we need to specify the `-R` option for assembly.
 
-	$ xas99.py -R ashello.asm
+    $ xas99.py -R ashello.asm
 
 This should yield an object code file `ashello.obj` that looks like
 this:
 
-	0007EASHELLO A0000B100DB4845B4C4CB4F20B574FB524CB4420B2020B68697F19FF       0001
-	A0012B7420B616EB7920B6B65B7921B0300B0000B02E0B8300B04C0B02017F2F9F          0002
-	A0028B2A20B0202B0300B0420B0000B0580B0602B16FBB0200B0043B02017F336F          0003
-	A003EC0002B0202B001AB0420B0000B0208BFF00B04C9B0300B0002B10007F31FF          0004
-	A0054B0300B0000BD809B837CBD809B8374B0420B0000B9220B8375B13F97F2D4F          0005
-	A006ABD020B8375B0980B0240B000FB0260B0700B0420B0000B10E87F410F               0006
-	50000SLOAD 50000SFIRST5007ESLAST 5001CSTART 30030VSBW  7F28AF               0007
-	30046VMBW  3007AVWTR  30062KSCAN 7F827F                                     0008
-	:       99/4 AS                                                             0009
+    0007EASHELLO A0000B100DB4845B4C4CB4F20B574FB524CB4420B2020B68697F19FF       0001
+    A0012B7420B616EB7920B6B65B7921B0300B0000B02E0B8300B04C0B02017F2F9F          0002
+    A0028B2A20B0202B0300B0420B0000B0580B0602B16FBB0200B0043B02017F336F          0003
+    A003EC0002B0202B001AB0420B0000B0208BFF00B04C9B0300B0002B10007F31FF          0004
+    A0054B0300B0000BD809B837CBD809B8374B0420B0000B9220B8375B13F97F2D4F          0005
+    A006ABD020B8375B0980B0240B000FB0260B0700B0420B0000B10E87F410F               0006
+    50000SLOAD 50000SFIRST5007ESLAST 5001CSTART 30030VSBW  7F28AF               0007
+    30046VMBW  3007AVWTR  30062KSCAN 7F827F                                     0008
+    :       99/4 AS                                                             0009
 
 This file can be loaded with the Editor/Assembler module using option 3, or
 alternatively with the TI Extended BASIC module using the `CALL LOAD`
@@ -969,39 +992,39 @@ Uncompressed object code is not an efficient program format, though.  If
 compatibility with Extended BASIC is not required compressed object code
 reduces both size and loading time:
 
-	$ xas99.py -R -C ashello.asm - ashello-c.obj
+    $ xas99.py -R -C ashello.asm - ashello-c.obj
 
 Comparing both object files we see that the compressed version is only about
 two thirds of the size of the uncompressed file:
 
-	$ ls -l ashello*.obj
-	-rw-rw---- 1 user user 486 Jul 12 09:58 ashello-c.obj
-	-rw-rw---- 1 user user 729 Jul 12 09:58 ashello.obj
+    $ ls -l ashello*.obj
+    -rw-rw---- 1 user user 486 Jul 12 09:58 ashello-c.obj
+    -rw-rw---- 1 user user 729 Jul 12 09:58 ashello.obj
 
 To save even more space, we'll also generate an image file for option 5:
 
-	$ xas99.py -R -i ashello.asm
+    $ xas99.py -R -i ashello.asm
 
 This time we should get a binary file `ashello.img` of 132 bytes.
 
-	$ ls -l ashello.img
-	-rw-rw---- 1 ralph ralph   132 Jan 10 13:11 ashello.img
+    $ ls -l ashello.img
+    -rw-rw---- 1 ralph ralph   132 Jan 10 13:11 ashello.img
 
 We now need to transfer these files to a TI disk image so that the TI 99
 emulated by MESS can load it.  We'll use the SS/SD disk image `work.dsk` that is
 included in the example folder of xdt99 for convenience:
 
-	$ xdm99.py work.dsk -a ashello.obj -n HELLO-O -f DIS/FIX80
-	$ xdm99.py work.dsk -a ashello.img -n HELLO-I
-	$ xdm99.py work.dsk
-	WORK      :     8 used  352 free   90 KB  1S/1D  40 TpS
-	----------------------------------------------------------------------------
-	HELLO-I        2  PROGRAM        132 B            2015-01-10 13:15:18
-	HELLO-O        4  DIS/VAR 80     755 B    9 recs  2015-01-10 13:15:10
+    $ xdm99.py work.dsk -a ashello.obj -n HELLO-O -f DIS/FIX80
+    $ xdm99.py work.dsk -a ashello.img -n HELLO-I
+    $ xdm99.py work.dsk
+    WORK      :     8 used  352 free   90 KB  1S/1D  40 TpS
+    ----------------------------------------------------------------------------
+    HELLO-I        2  PROGRAM        132 B            2015-01-10 13:15:18
+    HELLO-O        4  DIS/VAR 80     755 B    9 recs  2015-01-10 13:15:10
 
 We start MESS with our work disk inserted in floppy drive 1:
 
-	$ mess64 ti99_4ae -peb:slot2 32kmem -peb:slot8 hfdc -cart EA.rpk -flop1 work.dsk
+    $ mess64 ti99_4ae -peb:slot2 32kmem -peb:slot8 hfdc -cart EA.rpk -flop1 work.dsk
 
 You may have to adjust the command for starting MESS based on the location of
 your Editor/Assembler cartridge file.  When using a graphical frontend to launch
@@ -1012,7 +1035,7 @@ On the TI 99/4A startup screen, we hit any key, then select the Editor/Assembler
 module.  We select option 3, `LOAD AND RUN`, then enter the name of the object
 code file at the `FILE NAME?` prompt:
 
-	DSK1.HELLO-O
+    DSK1.HELLO-O
 
 Once the loader finishes, we hit `ENTER` to advance to the `PROGRAM NAME?`
 prompt, and type `START` to start the program.  The words "HELLO WORLD" should
@@ -1023,43 +1046,43 @@ When done, we quit the program by hitting `FCTN =`.  Again we select the
 Editor/Assembler module, but now we select option 5, `RUN PROGRAM FILE`.  We
 enter the name of the image file:
 
-	DSK1.HELLO-I
+    DSK1.HELLO-I
 
 The program will start automatically once loading has completed.
 
 If we want to learn more about the internals of our assembled program we can
 take a look at its list file: 
 
-	$ xas99.py -R ashello.asm -L ashello.lst
+    $ xas99.py -R ashello.asm -L ashello.lst
 
 This yields a text file `ashello.lst` that begins like this:
 
-	XAS99 CROSS-ASSEMBLER   VERSION 1.2.3
-	0001            *  HELLO WORLD
-	0002            
-	0003                   IDT 'ASHELLO'
-	0004            
-	0005                   DEF SLOAD,SFIRST,SLAST,START
-	0006                   REF VSBW,VMBW,VWTR
-	0007                   REF KSCAN
-	0008            
-	0009            SLOAD
-	0010 0000 100D  SFIRST JMP  START
-	0011            
-	0012      8300  WRKSP  EQU  >8300
-	0013      8374  KMODE  EQU  >8374
-	0014      8375  KCODE  EQU  >8375
-	0015      837C  GPLST  EQU  >837C
-	0016            
-	0017 0002 ....  MESSG  TEXT 'HELLO WORLD'
-	0018 000D ....         TEXT '   hit any key!'
-	0019      001A  MESSGL EQU  $-MESSG
-	0020            
-	0021 001C 0300  START  LIMI 0
-	     001E 0000 
-	0022 0020 02E0         LWPI WRKSP
-	     0022 8300
-	...
+    XAS99 CROSS-ASSEMBLER   VERSION 1.2.3
+    0001            *  HELLO WORLD
+    0002            
+    0003                   IDT 'ASHELLO'
+    0004            
+    0005                   DEF SLOAD,SFIRST,SLAST,START
+    0006                   REF VSBW,VMBW,VWTR
+    0007                   REF KSCAN
+    0008            
+    0009            SLOAD
+    0010 0000 100D  SFIRST JMP  START
+    0011            
+    0012      8300  WRKSP  EQU  >8300
+    0013      8374  KMODE  EQU  >8374
+    0014      8375  KCODE  EQU  >8375
+    0015      837C  GPLST  EQU  >837C
+    0016            
+    0017 0002 ....  MESSG  TEXT 'HELLO WORLD'
+    0018 000D ....         TEXT '   hit any key!'
+    0019      001A  MESSGL EQU  $-MESSG
+    0020            
+    0021 001C 0300  START  LIMI 0
+         001E 0000 
+    0022 0020 02E0         LWPI WRKSP
+         0022 8300
+    ...
 
 The first column shows the line number of our source file.  As we can see, some
 source file lines may produce more than one list file lines.  The second and
@@ -1072,7 +1095,7 @@ generate our own self-contained cartridge.
 
 First we need to assemble our source code using the `-c` option.
 
-	$ xas99.py -R -c ascart.asm -n "HELLO CART"
+    $ xas99.py -R -c ascart.asm -n "HELLO CART"
 
 Note that we cannot run the `ashello.asm` program as a cartridge, since we call
 `VSBW` and other VDP subroutines, which are unavailable without Editor/Assembler
@@ -1082,7 +1105,7 @@ registers directly to write to VDP memory.
 We don't have to transfer the resulting RPK file to a disk image but can plug
 the cartridge directly into the MESS emulator:
 
-	$ mess64 ti99_4ae -cart ascart.rpk
+    $ mess64 ti99_4ae -cart ascart.rpk
 
 After pressing any key on the TI 99 startup screen you should now see "HELLO
 CART" as the second option on the menu screen.  Pressing 2 will run the sample
@@ -1094,14 +1117,14 @@ program code is stored inside a virtual cartridge ROM.
 If we want to run our sample program on a real TI 99 using the CF7A flash drive,
 we need to transfer our disk image to a flash card first:
 
-	$ xvm99.py /dev/sdc 2 -w work.dsk
+    $ xvm99.py /dev/sdc 2 -w work.dsk
 
 This will make our work disk from above available as volume 2 on the CF7A, where
 it can be accessed as `DSK2` by default on the TI 99.  If we don't want to
 replace the entire disk contents of volume 2 we could also just transfer the
 file instead.
 
-	$ xvm99.py /dev/sdc 2 -a ashello.obj -n HELLO-O -f DIS/FIX80
+    $ xvm99.py /dev/sdc 2 -a ashello.obj -n HELLO-O -f DIS/FIX80
 
 Either way, `ashello.obj` will be available as `HELLO-O` in volume 2 and can
 loaded as `DSK2.HELLO-O` by the Editor/Assembler module.
@@ -1120,8 +1143,8 @@ normal graphics mode, and plays a simple tune.
 
 If you're using the MESS emulator running the sample program is very easy:
 
-	$ xga99.py -c gahello.gpl
-	$ mess64 ti99_4ae -cart gahello.rpk
+    $ xga99.py -c gahello.gpl
+    $ mess64 ti99_4ae -cart gahello.rpk
 
 Inside the TI 99 emulation, you'll find a menu entry for the cartridge program
 on the TI menu selection screen.
@@ -1129,7 +1152,7 @@ on the TI menu selection screen.
 For other emulators you'll probably need to work with the plain GPL image file
 instead:
 
-	$ xga99.py -i gahello.gpl -G 0x6000 -A 0x20
+    $ xga99.py -i gahello.gpl -G 0x6000 -A 0x20
 
 This yields the file `gahello.bin` that contains the GPL byte code with suitable
 header data for the GPL interpreter of the TI 99.  The `-G` and `-A` options

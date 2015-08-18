@@ -18,4 +18,44 @@ BININC  BYTE >AA
         BYTE >01,>10,>0F,>F0,>0A,>00,>0D,>FF,>01
         BYTE >CC
 
+* TEXT BYTES
+
+TXTBYT  BYTE >12,>34,>56,>78,>90,>AB,>CD,>EF
+        BYTE >12,>30
+        BYTE >12,>34,->56
+
+* OPTIONAL LABEL COLONS
+
+COLON1  DATA 1
+COLON2  DATA 2
+COLON3
+COLON4
+        DATA 3
+        DATA COLON1,COLON2,COLON3,COLON4
+
+* LOCAL LABELS
+
+GLOB1   DATA 1
+        JMP  GLOB2
+        JMP  GLOB1
+GLOB2   DATA 2
+        DATA 0
+LLL1    DATA 3
+        JMP  LLL2
+        JMP  LLL3
+        JMP  LLL4
+        JMP  LLL1
+        JMP  GLOB2
+        JMP  GLOB1
+        DATA 0
+LLL2    DATA 4
+        JMP  LLL2
+        JMP  LLL3
+LLL3    JMP  LLL2
+LLL4    JMP  GLOB3
+        B    @LLL4-2
+        B    @GLOB3+2
+        MOV  @LLL4(1),@GLOB3(2)
+GLOB3   DATA 5
+
         END

@@ -33,7 +33,7 @@ nanoPEB/CF7A devices.
 
 For additional information, please refer to the [xdt99 homepage][1].
 
-**Latest version: 1.4.x**
+**Latest version: 1.5.x**
 
 The latest binary distribution of xdt99 is available on the project
 [releases page][2] on GitHub.  xdt99 requires [Python 2.7.x][4] and runs on any
@@ -65,23 +65,23 @@ included with xdt99.
 
 Generate object code for the Editor/Assembler module, option 3:
 
-	$ xas99.py [-R] [-C] <source file>
-	
+    $ xas99.py [-R] [-C] <source file>
+    
 Generate program image for the Editor/Assembler module, option 5:
 
-	$ xas99.py -i [-R] <source file>
+    $ xas99.py -i [-R] <source file>
 
 Generate cartridge file for the MESS emulator:
 
-	$ xas99.py -c [-R] <source file>
+    $ xas99.py -c [-R] <source file>
 
 Generate Extended BASIC program with embedded image:
 
-	$ xas99.py --embed [-R] <source file>
+    $ xas99.py --embed [-R] <source file>
 
 Generate list file diagnostic output:
 
-	$ xas99.py [-R] <source file> -L <list file>
+    $ xas99.py [-R] <source file> -L <list file>
 
 For a complete overview of the available command-line options, see `xas99.py
 -h`.
@@ -96,19 +96,19 @@ included with xdt99.
 
 Assemble GPL source file into GPL byte code:
 
-	$ xga99.py <source file>
+    $ xga99.py <source file>
 
 Generate image file for GROM/GRAM device:
 
-	$ xga99.py -i <source file>
+    $ xga99.py -i <source file>
 
 Generate cartridge file for the MESS emulator:
 
-	$ xga99.py -c <source file>
+    $ xga99.py -c <source file>
 
 Assemble source file using "RAG GPL Assembler" syntax style:
 
-	$ xga99.py <source file> -s rag
+    $ xga99.py <source file> -s rag
 
 For a complete overview of the available command-line options, see `xga99.py
 -h`.
@@ -123,15 +123,15 @@ included with xdt99.
 
 List TI BASIC or TI Extended BASIC program on screen:
 
-	$ xbas99.py -l <program file>
+    $ xbas99.py -l <program file>
 
 Decode BASIC program to source format (i.e., list to file):
 
-	$ xbas99.py -d <program file> [-o <output file>]
+    $ xbas99.py -d <program file> [-o <output file>]
 
 Create BASIC program in internal format for BASIC interpreter:
 
-	$ xbas99.py [-c] <source file> [-o <output file>]
+    $ xbas99.py [-c] <source file> [-o <output file>]
 
 For a complete overview of the available command-line options, see `xbas99.py
 -h`.
@@ -146,62 +146,62 @@ included with xdt99.
 
 Print disk catalog on screen:
 
-	$ xdm99.py <disk image>
+    $ xdm99.py <disk image>
 
 Extract one or more files from disk image to local file system:
 
-	$ xdm99.py <disk image> -e <file> ...
+    $ xdm99.py <disk image> -e <file> ...
 
 Extract files in TIFiles or v9t9 format:
 
-	$ xdm99.py <disk image> -t -e <file> ...
-	$ xdm99.py <disk image> -9 -e <file> ...
+    $ xdm99.py <disk image> -t -e <file> ...
+    $ xdm99.py <disk image> -9 -e <file> ...
 
 Print file contents to screen:
 
-	$ xdm99.py <disk image> -p <file> ...
+    $ xdm99.py <disk image> -p <file> ...
 
 Add local files to disk image:
 
-	$ xdm99.py <disk image> -a <file> ... [-f <format>] [-n <name>]
+    $ xdm99.py <disk image> -a <file> ... [-f <format>] [-n <name>]
 
 Rename file on disk image:
 
-	$ xdm99.py <disk image> -r <old name>:<new name> ...
+    $ xdm99.py <disk image> -r <old name>:<new name> ...
 
 Delete file on disk image:
 
-	$ xdm99.py <disk image> -d <file> ...
+    $ xdm99.py <disk image> -d <file> ...
 
 Convert TIFiles files or v9t9 files to plain files:
 
-	$ xdm99.py -F <TIFiles file> ...
-	$ xdm99.py -F <TIFiles file> ... -9
+    $ xdm99.py -F <TIFiles file> ...
+    $ xdm99.py -F <TIFiles file> ... -9
 
 Convert plain files to TIFiles files or v9t9 files:
 
-	$ xdm99.py -T <plain file> ... [-f <format>] [-n <name>]
-	$ xdm99.py -T <plain file> ... -9 [-f <format>] [-n <name>]
+    $ xdm99.py -T <plain file> ... [-f <format>] [-n <name>]
+    $ xdm99.py -T <plain file> ... -9 [-f <format>] [-n <name>]
 
 Print contents of TIFiles file:
 
-	$ xdm99.py -P <TIFiles file>
+    $ xdm99.py -P <TIFiles file>
 
 Initialize blank disk:
 
-	$ xdm99.py <filename> --initialize <size> [-n <name>]
+    $ xdm99.py <filename> --initialize <size> [-n <name>]
 
 Resize disk image:
 
-	$ xdm99.py <disk image> -Z <sectors>
+    $ xdm99.py <disk image> -Z <sectors>
 
 Repair disk image with corrupt files or other inconsistencies:
 
-	$ xdm99.py -R <disk image>
+    $ xdm99.py -R <disk image>
 
 Print sector dump:
 
-	$ xdm99.py <disk image> -S <sector>
+    $ xdm99.py <disk image> -S <sector>
 
 For a complete overview of the available command-line options, see `xdm99.py
 -h`.
@@ -216,15 +216,15 @@ included with xdt99.
 
 Show information about volumes:
 
-	$ xvm99.py <device> <volumes>
+    $ xvm99.py <device> <volumes>
 
 Read disk images from volumes:
 
-	$ xvm99.py <device> <volumes> -r <filename> [--keep-size]
+    $ xvm99.py <device> <volumes> -r <filename> [--keep-size]
 
 Write disk image to volumes:
 
-	$ xvm99.py <device> <volumes> -w <disk image> [--keep-size]
+    $ xvm99.py <device> <volumes> -w <disk image> [--keep-size]
 
 `<device>` is the platform-specific name of the Compact Flash card drive, e.g.,
 `/dev/sd<X>` on Linux, `/dev/Disk<X>` on Mac OS X, or `\\.\PHYSICALDRIVE<X>` on
@@ -239,11 +239,11 @@ volumes.
 
 Print disk catalog of one or more volumes:
 
-	$ xvm99.py <device> <volumes> -i
+    $ xvm99.py <device> <volumes> -i
 
 Add file to one or more volumes:
 
-	$ xvm99.py <device> <volumes> -a <file> [-n <name>] [-f <format>]
+    $ xvm99.py <device> <volumes> -a <file> [-n <name>] [-f <format>]
 
 For a complete overview of the available command-line options, see `xvm99.py
 -h`.

@@ -208,7 +208,28 @@ LABEL2 TEXT 'Hello World'
 Label3 mov Label1(R1),Label2(r2)
 </code></pre>
 <p>Labels may be of arbitrary length and may contain arbitrary characters except
-for whitespace and operators such as <code>;</code>, <code>+</code>, <code>*</code>, <code>(</code>, etc.</p>
+for whitespace and operators such as <code>;</code>, <code>+</code>, <code>*</code>, <code>(</code>, etc.  For
+compatibility with other assemblers, an optional colon <code>:</code> may be appended
+to the label name:</p>
+<pre><code>my_long_label:
+        mov  @my_long_label, r1
+</code></pre>
+<p>Anonymous labels and local references simplify the implementation of small
+loops.  A forward local reference <code>$:</code>, <code>$::</code>, <code>$:::</code>, ... refers to the
+address of the first, second, third ... label in the source code after the
+current position.  Conversely, a local backward reference <code>:$</code>, <code>::$</code>, <code>:::$</code>,
+... refers to the first, second, third, ... label before the current position.   </p>
+<p>An anonymous label <code>:</code> marks the current line counter in the symbol table
+without assigning a name for it.  Anonymous labels are intended for local
+references.</p>
+<pre><code>clear_data:
+    li   r0, &gt;a000
+    li   r2, &gt;100
+:   clr  *r0+         ; make jump target without potential name conflicts
+    dec  r2
+    jne  :$
+    rt
+</code></pre>
 <p>The use of whitespace has been relaxed.  Single spaces may be used judiciously
 within the operand field to increase the legibility of expressions.  Two or more
 spaces as well as tabs introduce the comment field.</p>

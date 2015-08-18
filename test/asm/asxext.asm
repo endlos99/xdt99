@@ -107,8 +107,8 @@ cond1   data >1111
 	data >2003
 	.endif
 
-cond2	.ifdef sym3
-        data >3001
+	.ifdef sym3
+cond2   data >3001
         .ifdef sym2
         data >300f
         .endif
@@ -134,8 +134,8 @@ cond3   data >1111
 	data >4444
 	.endif
 
-cond4   .ifeq sym1 + sym2 + sym3, 3
-        data >2222
+        .ifeq sym1 + sym2 + sym3, 3
+cond4   data >2222
         .endif
         .ifne sym2 * sym3, 4
         data >3333
@@ -147,8 +147,8 @@ cond4   .ifeq sym1 + sym2 + sym3, 3
 	data >5555
 	.endif
 
-cond5   .ifndef _version_
-        data >fefe
+        .ifndef _version_
+cond5   data >fefe
         .endif
 
 	end longlabel1
