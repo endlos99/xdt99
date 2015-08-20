@@ -57,7 +57,9 @@ Two minor modes provide support for smart keyboard navigation.  The
    argument, or comment field,
 
 whenever the user hits the `Tab` key.  You may edit the Emacs variable
-`tab-stop-list` to adjust the tab stop positions to your liking.
+`tab-stop-list` to adjust the tab stop positions to your liking.  If
+`electric-indent-mode` mode is active, pressing `Return` will also indent the
+line just entered.
 
 The `asm99-smart-backspace-mode` minor mode will move the cursor back to the
 previous tab stop if there is only whitespace between the cursor and the tab
@@ -119,6 +121,11 @@ xdt99:
 Alternatively you can use `M-x asm99-mode` and `M-x basic99-mode` to activate or
 deactivate each mode for the active buffer.
 
+It is recommended to use `electric-indent-mode` with smart tabs, but it may not
+be enabled by default.  To use `electric-indent-mode`, add
+
+	(electric-indent-mode 1)
+
 To permanently disable the smart tab and/or smart backspace minor modes, add one
 or both of these lines to your `.emacs` file:
 
@@ -149,8 +156,8 @@ navigation, usage lists, and semantic renaming for them.
 
 If the cursor is positioned on any label, pressing `Ctrl+B` or selecting
 Navigate > Declaration from the menu will move the cursor to the definition of
-the label.  Conversely, pressing `Ctrl+Alt+B` or selecting Navigate >
-Implementations will show all usages of the label.
+the label.  Conversely, pressing `Ctrl+Alt+B` or selecting Edit > Find > Find
+Usages will show all usages of the label.
 
 Pressing `Shift+F6` or selecting Refactor > Rename from the menu will
 consistently rename all occurrences of the label that the cursor is positioned

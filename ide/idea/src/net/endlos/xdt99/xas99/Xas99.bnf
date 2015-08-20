@@ -23,11 +23,17 @@ private line ::=
 linecomment ::=  // used by folding builder
     LCOMMENT
     {pin=1}
-label ::=
+
+// label
+private label ::=
+    labeldef OP_COLON? | anon_label
+labeldef ::=
     IDENT
     {mixin="net.endlos.xdt99.xas99.psi.impl.Xas99NamedElementImpl"
      implements="net.endlos.xdt99.xas99.psi.Xas99NamedElement"
      methods=[getName setName getNameIdentifier getPresentation]}
+anon_label ::=
+    LOCAL
 
 // mnemonics
 private statement ::=
@@ -104,7 +110,7 @@ opGA ::=
     OP_AST opRegister OP_PLUS?
     {name="general address"}
 opAddress ::=
-    opLabel | OP_LC
+    opLabel | OP_LC | LOCAL
     {name="address value"}
 opValue ::=
     expr
@@ -117,8 +123,8 @@ opText ::=
     {name="text"}
 opLabel ::=
     IDENT
-    {name="label"
-     methods=[getName setName getNameIdentifier getReference]}
+    {methods=[getName setName getNameIdentifier getReference]
+     name="label"}
 
 // expressions
 expr ::=

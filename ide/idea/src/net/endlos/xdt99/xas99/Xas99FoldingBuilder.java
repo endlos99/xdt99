@@ -22,9 +22,11 @@ public class Xas99FoldingBuilder extends FoldingBuilderEx {
         while (element != null) {
             PsiElement start = getNextNonComment(element);
             PsiElement end = getNextComment(start);
-            TextRange range = getBlockRange(start, end);
-            if (range != null)
-                descriptors.add(new FoldingDescriptor(start.getNode(), range));
+            if (start != null && end != null) {
+                TextRange range = getBlockRange(start, end);
+                if (range != null)
+                    descriptors.add(new FoldingDescriptor(start.getNode(), range));
+            }
             element = end;
         }
         return descriptors.toArray(new FoldingDescriptor[descriptors.size()]);

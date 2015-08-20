@@ -45,13 +45,13 @@ PREP = ".IFDEF" | ".IFNDEF" | ".IFEQ" | ".IFNE" | ".IFGT" | ".IFGE" | ".ELSE" | 
 LINE_COMMENT = "*" [^\r\n]*
 EOL_COMMENT = ";" [^\r\n]*
 
-IDENT = [A-Za-z]{ALPHA}*
+IDENT = [A-Za-z_]{ALPHA}*
 INT = {DIGIT}+ | ">" {HEX}+ | ":" [01]+
 TEXT = "'" ([^'\r\n] | "''")* "'" | "\"" [^\"\r\n]* "\""
 REGISTER = [Rr] ([0-9] | 1[0-5])
 OPMISC = [/%&|\^]
 
-ALPHA = [^@$,;>:+\-*/\^&|~() \t\r\n]
+ALPHA = [^@$!,;>:+\-*/\^&|~() \t\r\n]
 DIGIT = [0-9]
 HEX = [0-9A-Fa-f]
 
@@ -74,6 +74,8 @@ ANY = [^\r\n]
 {CRLF}                           { yybegin(YYINITIAL); return Xas99Types.CRLF; }
 
 <YYINITIAL> {LINE_COMMENT}       { return Xas99Types.LCOMMENT; }
+<YYINITIAL> ":"                  { return Xas99Types.OP_COLON; }
+<YYINITIAL> "!"                  { return Xas99Types.LOCAL; }
 <YYINITIAL> {IDENT}              { return Xas99Types.IDENT; }
 
 <YYINITIAL> {WS}                 { yybegin(MNEMONIC); return TokenType.WHITE_SPACE; }
@@ -115,6 +117,7 @@ ANY = [^\r\n]
 <ARGUMENTS> "("                  { return Xas99Types.OP_LPAREN; }
 <ARGUMENTS> ")"                  { return Xas99Types.OP_RPAREN; }
 <ARGUMENTS> "$"                  { return Xas99Types.OP_LC; }
+<ARGUMENTS> "!"+                 { return Xas99Types.LOCAL; }
 <ARGUMENTS> {OPMISC}             { return Xas99Types.OP_MISC; }
 <ARGUMENTS> {REGISTER}           { return Xas99Types.REGISTER; }
 <ARGUMENTS> {IDENT}              { return Xas99Types.IDENT; }

@@ -1,4 +1,4 @@
-;;; xdt99-mode: xdt99 major modes for Emacs - Version 1.0.1
+;;; xdt99-mode: xdt99 major modes for Emacs - Version 1.0.2
 
 ;; Copyright (c) 2015 Ralph Benzinger <xdt99dev@gmail.com>
 
@@ -92,12 +92,12 @@
 
 (defun asm99-calculate-indentation ()
   (or
-   ; flush non-instructions to left margin
-   (and (looking-at "\\w") (not (looking-at asm99-keywords-regex)) 0)
    ; flush * comments to left margin
    (and (looking-at "\\*") 0)
+   ; flush non-instructions to left margin
+   (and (looking-at "\\w") (not (looking-at asm99-keywords-regex)) 0)
    ; flush everything else to first tab stop
-   (or (indent-next-tab-stop 0))))
+   (or (car tab-stop-list) 0)))
 
 ; default tab stops, customize using "M-x edit-tabs-stops"
 (defvar asm99-field-positions

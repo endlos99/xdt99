@@ -8,7 +8,7 @@ import com.intellij.psi.PsiReference;
 import net.endlos.xdt99.xas99.Xas99Icons;
 import net.endlos.xdt99.xas99.Xas99Reference;
 import net.endlos.xdt99.xas99.psi.Xas99ElementFactory;
-import net.endlos.xdt99.xas99.psi.Xas99Label;
+import net.endlos.xdt99.xas99.psi.Xas99Labeldef;
 import net.endlos.xdt99.xas99.psi.Xas99OpLabel;
 import net.endlos.xdt99.xas99.psi.Xas99Types;
 import org.jetbrains.annotations.NotNull;
@@ -18,7 +18,7 @@ import javax.swing.*;
 
 public class Xas99PsiImplUtil {
 
-    public static String getName(Xas99Label element) {
+    public static String getName(Xas99Labeldef element) {
         ASTNode keyNode = element.getNode().findChildByType(Xas99Types.IDENT);
         if (keyNode != null) {
             return keyNode.getText();
@@ -36,10 +36,10 @@ public class Xas99PsiImplUtil {
         }
     }
 
-    public static PsiElement setName(Xas99Label element, String newName) {
+    public static PsiElement setName(Xas99Labeldef element, String newName) {
         ASTNode keyNode = element.getNode().findChildByType(Xas99Types.IDENT);
         if (keyNode != null) {
-            Xas99Label label = Xas99ElementFactory.createLabel(element.getProject(), newName);
+            Xas99Labeldef label = Xas99ElementFactory.createLabel(element.getProject(), newName);
             ASTNode newKeyNode = label.getFirstChild().getNode();
             element.getNode().replaceChild(keyNode, newKeyNode);
         }
@@ -49,14 +49,14 @@ public class Xas99PsiImplUtil {
     public static PsiElement setName(Xas99OpLabel element, String newName) {
         ASTNode keyNode = element.getNode().findChildByType(Xas99Types.IDENT);
         if (keyNode != null) {
-            Xas99Label label = Xas99ElementFactory.createLabel(element.getProject(), newName);
+            Xas99Labeldef label = Xas99ElementFactory.createLabel(element.getProject(), newName);
             ASTNode newKeyNode = label.getFirstChild().getNode();
             element.getNode().replaceChild(keyNode, newKeyNode);
         }
         return element;
     }
 
-    public static PsiElement getNameIdentifier(Xas99Label element) {
+    public static PsiElement getNameIdentifier(Xas99Labeldef element) {
         ASTNode keyNode = element.getNode().findChildByType(Xas99Types.IDENT);
         if (keyNode != null) {
             return keyNode.getPsi();
@@ -79,7 +79,7 @@ public class Xas99PsiImplUtil {
         return new Xas99Reference(element, TextRange.from(0, element.getTextLength()));
     }
 
-    public static ItemPresentation getPresentation(final Xas99Label element) {
+    public static ItemPresentation getPresentation(final Xas99Labeldef element) {
         return new ItemPresentation() {
             @Nullable
             @Override
@@ -102,8 +102,8 @@ public class Xas99PsiImplUtil {
     }
 
     public static void rename(PsiElement myElement, String newElementName) {
-        if (myElement instanceof Xas99Label) {
-            Xas99Label label = (Xas99Label) myElement;
+        if (myElement instanceof Xas99Labeldef) {
+            Xas99Labeldef label = (Xas99Labeldef) myElement;
             label.setName(newElementName);
         } else if (myElement instanceof Xas99OpLabel) {
             Xas99OpLabel label = (Xas99OpLabel) myElement;
