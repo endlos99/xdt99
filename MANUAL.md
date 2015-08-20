@@ -286,29 +286,33 @@ literals are still case sensitive, though.
     Label3 mov Label1(R1),Label2(r2)
     
 Labels may be of arbitrary length and may contain arbitrary characters except
-for whitespace and operators such as `;`, `+`, `*`, `(`, etc.  For
-compatibility with other assemblers, an optional colon `:` may be appended
-to the label name:
+for whitespace and operators such as `;`, `+`, `*`, `(`, etc.  An optional
+colon `:` may be appended to the label name.  The colon is not part of the
+name, but logically continues the current line to the next:  
 
-    my_long_label:
-            mov  @my_long_label, r1
+    my_label_1:
+        equ 1         ; assigns 1 to my_label_1
+    my_label_2:
+        aorg >a000    ; assigns >a000 to my_label_2
+    my_label_3        ; assigns >a000 to my_label_3  \  standard E/A
+        aorg >b000    ; no label to assign >b000 to  /  behavior
 
 Anonymous labels and local references simplify the implementation of small
-loops.  A forward local reference `$:`, `$::`, `$:::`, ... refers to the
+loops.  A forward local reference `!`, `!!`, `!!!`, ... refers to the
 address of the first, second, third ... label in the source code after the
-current position.  Conversely, a local backward reference `:$`, `::$`, `:::$`,
+current position.  Conversely, a local backward reference `-!`, `-!!`, `-!!!`,
 ... refers to the first, second, third, ... label before the current position.   
 
-An anonymous label `:` marks the current line counter in the symbol table
+An anonymous label `!` marks the current line counter in the symbol table
 without assigning a name for it.  Anonymous labels are intended for local
 references.
 
     clear_data:
         li   r0, >a000
         li   r2, >100
-    :   clr  *r0+         ; make jump target without potential name conflicts
+    !   clr  *r0+         ; make jump target without potential name conflicts
         dec  r2
-        jne  :$
+        jne  -!
         rt
 
 The use of whitespace has been relaxed.  Single spaces may be used judiciously

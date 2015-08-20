@@ -73,6 +73,13 @@ class Reference:
         self.name = name
 
 
+class Local:
+    """local label reference"""
+
+    def __init__(self, distance):
+        self.distance = distance
+
+
 class Block:
     """reserved block of bytes"""
 
@@ -128,6 +135,8 @@ class Symbols:
         self.relocLC = True
 
     def addSymbol(self, name, value):
+        if name[-1] == ":":  # ignore final ":" char
+            name = name[:-1]
         if name in self.symbols:
             raise AsmError("Multiple symbols: " + name)
         self.symbols[name] = value
@@ -138,7 +147,7 @@ class Symbols:
 
     def addAnonLabel(self, lidx):
         self.anonno += 1
-        self.addLabel(lidx, ":$" + str(self.anonno))
+        self.addLabel(lidx, ":$!" + str(self.anonno))
 
     def addDef(self, name):
         if name in self.refdefs:
@@ -162,7 +171,7 @@ class Symbols:
             i, lidx = next((j, l) for j, (l, n) in enumerate(self.locations)
                            if l >= lpos)
             if distance > 0 and lidx > lpos:
-                distance -= 1  # i points to $: unless lidx == lpos
+                distance -= 1  # i points to +! unless lidx == lpos
             _, name = self.locations[i + distance]
         except (StopIteration, IndexError):
             return None
@@ -208,12 +217,10 @@ class Objdummy:
     def processLabel(self, lidx, label):
         if not label:
             return
-        if label == ":":
+        if label == "!":
             self.symbols.addAnonLabel(lidx)
         else:
-            # ignore final ":" character in label name
-            name = label[:-1] if label[-1] == ":" else label
-            self.symbols.addLabel(lidx, name)
+            self.symbols.addLabel(lidx, label)
 
     def list(self, lino, line=None, eos=False, text1=None, text2=None):
         pass
@@ -1155,7 +1162,9 @@ class Parser:
         self.passno = 1
         self.lidx = 0
         self.symbols.resetLC()
+        prevlabel = None
         while True:
+            # get next source line
             lino, line = self.read()
             if lino is None:
                 break
@@ -1166,6 +1175,16 @@ class Parser:
             if not stmt:
                 continue
             self.lidx += 1
+            # process continuation label
+            if prevlabel:
+                if label or not mnemonic:
+                    errors.append("<1> %04d - %s\n***** %s\n" % (
+                        lino, line, "Invalid continuation for label"))
+                label, prevlabel = prevlabel, None
+            elif label and label[-1] == ":" and not mnemonic:
+                prevlabel = label
+                continue
+            # process mnemonic
             try:
                 Directives.process(self, dummy, label, mnemonic, operands) or \
                     Opcodes.process(self, dummy, label, mnemonic, operands)
@@ -1181,6 +1200,8 @@ class Parser:
             if not stmt:
                 continue
             self.lidx += 1
+            if label and label[-1] == ":" and not mnemonic:
+                continue
             try:
                 Directives.process(self, code, label, mnemonic, operands) or \
                     Opcodes.process(self, code, label, mnemonic, operands)
@@ -1281,6 +1302,10 @@ class Parser:
                         value, reloccount = Word(0), 0
                     i += 2
                 termval = self.term(term, wellDefined, relaxed)
+                if isinstance(termval, Local):
+                    dist = -termval.distance if negate else termval.distance
+                    termval = self.symbols.getLocal(self.lidx, dist)
+                    negate = False
                 if termval is None:
                     raise AsmError("Invalid expression: " + term)
                 elif isinstance(termval, Reference):
@@ -1323,16 +1348,6 @@ class Parser:
             return int(op[1:], 16)
         elif op == "$":
             return Address(self.symbols.LC, self.symbols.relocLC)
-        elif op[0] == "$" and op[1:] == ":" * (len(op) - 1):
-            v = self.symbols.getLocal(self.lidx, len(op) - 1)
-            if v is None and (self.passno > 1 or wellDefined):
-                raise AsmError("Invalid local symbol: " + op)
-            return v
-        elif op[-1] == "$" and op[:-1] == ":" * (len(op) - 1):
-            v = self.symbols.getLocal(self.lidx, -len(op) + 1)
-            if v is None and (self.passno > 1 or wellDefined):
-                raise AsmError("Invalid local symbol: " + op)
-            return v
         elif op[0] == ":":
             return int(op[1:], 2)
         elif op.isdigit():
@@ -1347,6 +1362,8 @@ class Parser:
                 return 0
             else:
                 raise AsmError("Invalid text literal: " + c)
+        elif op[0] == "!" and op == "!" * len(op):
+            return Local(len(op))
         else:
             v = self.symbols.getSymbol(op[:6] if self.strictMode else op)
             if v is None and (self.passno > 1 or wellDefined):
