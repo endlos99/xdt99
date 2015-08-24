@@ -23,7 +23,7 @@ import sys
 import re
 import os.path
 
-VERSION = "1.4.0"
+VERSION = "1.5.x"
 
 
 ### Utility functions
@@ -784,9 +784,9 @@ class Preprocessor:
         """define new macro (TODO)"""
         pass
 
-    def getmacro(self, mnemonic, ops):
+    def getmacro(self, lino, label, mnemonic, ops, line):
         """instantiate macro"""
-        instructions = []
+        instructions = [(lino, label, "", [], line)] if label else []  # save label
         for ml, mm, mos in self.macros[mnemonic]:
             mrs = [re.sub(r"\$(\d+)", lambda m: ops[int(m.group(1)) - 1], o)
                    for o in mos]
@@ -804,9 +804,9 @@ class Preprocessor:
         self.parser.open(filename)
         return []
 
-    def process(self, label, mnemonic, operands):
+    def process(self, lino, label, mnemonic, operands, line):
         if mnemonic in self.macros:
-            return self.getmacro(mnemonic, operands)
+            return self.getmacro(lino, label, mnemonic, operands, line)
         elif mnemonic == "COPY":
             return self.includefile(operands)
         return None
@@ -899,7 +899,7 @@ class Parser:
             if line is None:
                 break
             label, mnemonic, operands, comment = self.line(line)
-            reps = self.prep.process(label, mnemonic, operands)
+            reps = self.prep.process(self.lino, label, mnemonic, operands, line)
             if reps:
                 source.extend(reps)
             elif reps is None:
@@ -922,7 +922,7 @@ class Parser:
                 #        self.symbols.LC), label, mnemonic, operands
                 try:
                     Directives.process(self, code, label, mnemonic, operands) or \
-                    Opcodes.process(self, code, label, mnemonic, operands)
+                        Opcodes.process(self, code, label, mnemonic, operands)
                 except AsmError as e:
                     errors.append("%04d: %s\n***** <%d> %s\n" % (
                         lino, line, self.passno, e.message))
