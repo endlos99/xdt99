@@ -866,7 +866,7 @@ class Parser:
         tiname = re.match(r"DSK\d?\.(.*)", filename)
         if tiname:
             nativeName = tiname.group(1)
-            extensions = ["", ".gpl", ".GPL", ".g", ".G"]
+            extensions = ["", ".g99", ".G99", ".gpl", ".GPL", ".g", ".G"]
         else:
             nativeName = filename
             extensions = [""]

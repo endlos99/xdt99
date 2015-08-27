@@ -38,6 +38,11 @@ def chrw(word):
     return chr(word >> 8) + chr(word & 0xFF)
 
 
+def used(n, m):
+    """integer division rounding up"""
+    return (n + m - 1) / m
+
+
 def sinc(s, i):
     """string sequence increment"""
     return s[:-1] + chr(ord(s[-1]) + i)
@@ -476,6 +481,22 @@ class Objcode:
         return (chr(len(header)) + header +
                 "".join([chr(len(c)) + c for c in chunks]))
 
+    def genJumpstart(self):
+        """generate disk image for Jumpstart cartridge"""
+        image = self.genImage(0xa000, 0x6000)
+        send = self.entry or Address(0xa000)
+        entry = send.addr + 0xa000 if send.relocatable else send.addr
+        if len(image) != 1:
+            raise BuildError(
+                "Cannot create jumpstart image with multiple segments")
+        header, data = image[0][:6], image[0][6:]
+        disk = (
+            header[4:6] + chrw(entry) + chrw(used(len(data), 256) + 1) +
+            "\x00" * 252 + data + "\x00" * (91902 - len(data))
+            )
+        assert len(disk) == 90 * 1024
+        return disk
+
     def genList(self):
         """generate listing"""
         listing = []
@@ -773,13 +794,15 @@ class Directives:
         """extension: include binary file as BYTE stream"""
         code.processLabel(parser.lidx, label)
         fn = parser.find(parser.filename(ops[0]))
+        if fn is None:
+            raise AsmError("IBYTE file not found: " + ops[0])
         try:
             with open(fn, "rb") as f:
                 bs = f.read()
                 for b in bs:
                     code.byte(ord(b))
         except IOError:
-            raise AsmError("File error while processing IBYTE " + ops[0])
+            raise IOError(1, "Error while processing IBYTE", ops[0])
 
     ignores = [
         "",
@@ -1102,7 +1125,7 @@ class Parser:
     def open(self, filename):
         """open new source file"""
         newfile = self.find(filename)
-        if not newfile:
+        if newfile is None:
             raise IOError(1, "File not found", filename)
         if self.file:
             self.suspendedFiles.append((self.path, self.file, self.lino))
@@ -1131,7 +1154,7 @@ class Parser:
         tiname = re.match("DSK\d?\.(.*)", filename)
         if tiname:
             nativeName = tiname.group(1)
-            extensions = ["", ".asm", ".ASM", ".s", ".S"]
+            extensions = ["", ".a99", ".A99", ".asm", ".ASM", ".s", ".S"]
         else:
             nativeName = filename
             extensions = [""]
@@ -1177,7 +1200,7 @@ class Parser:
             self.lidx += 1
             # process continuation label
             if prevlabel:
-                if label or not mnemonic:
+                if label:
                     errors.append("<1> %04d - %s\n***** %s\n" % (
                         lino, line, "Invalid continuation for label"))
                 label, prevlabel = prevlabel, None
@@ -1470,6 +1493,8 @@ def main():
                      help="create MESS cart image")
     cmd.add_argument("--embed-xb", action="store_true", dest="embed",
                      help="create Extended BASIC program with embedded code")
+    #cmd.add_argument("--jumpstart", action="store_true", dest="jstart",
+    #                 help="create disk image for xdt99 Jumpstart cartridge")
     cmd.add_argument("--dump", action="store_true", dest="dump",
                      help=argparse.SUPPRESS)  # debugging
     args.add_argument("-s", "--strict", action="store_true", dest="strict",
@@ -1532,6 +1557,11 @@ def main():
             output = opts.output or barename + ".iv254"
             with open(output, "wb") as fout:
                 fout.write(prog)
+        #elif opts.jstart:
+        #    disk = code.genJumpstart()
+        #    output = opts.output or barename + ".dsk"
+        #    with open(output, "wb") as fout:
+        #        fout.write(disk)
         else:
             data = code.genObjCode(opts.optc)
             output = opts.output or barename + ".obj"

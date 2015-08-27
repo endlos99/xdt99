@@ -24,7 +24,7 @@ import re
 import os.path
 
 
-VERSION = "1.4.0"
+VERSION = "1.5.x"
 
 
 ### Utility functions
@@ -513,7 +513,7 @@ def main():
             else:
                 program = BasicProgram(data=image, long_=opts.long_)
             data = program.getSource()
-            output = "-" if opts.list_ else opts.output or barename + ".bas"
+            output = "-" if opts.list_ else opts.output or barename + ".b99"
         elif opts.dump:
             with open(opts.source, "rb") as fin:
                 image = fin.read()
@@ -535,7 +535,7 @@ def main():
                     raise BasicError("Invalid line delta for join")
             program = BasicProgram(source=lines)
             data = program.getImage(long_=opts.long_, protected=opts.protect)
-            output = opts.output or barename + ".bin"
+            output = opts.output or barename + ".prg"
 
         if program and program.warnings:
             sys.stderr.write("".join([

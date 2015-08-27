@@ -59,13 +59,13 @@ Invoking `xas99` in standard mode will assemble a TMS9900 assembly source code
 file into an object code file that may be loaded using the Editor/Assembler
 module option 3.
 
-    $ xas99.py -R ashello.asm
+    $ xas99.py -R ashello.a99
 
 `xas99` also generates program image files for the Editor/Assembler module
 option 5 or RPK cartridge files suitable for the MESS emulator:
 
-    $ xas99.py -R -i ashello.asm
-    $ xas99.py -R -c ashello.asm
+    $ xas99.py -R -i ashello.a99
+    $ xas99.py -R -c ashello.a99
 
 All existing assembly code for the TI 99, e.g., the Tombstone City source code
 shipped with the Editor/Assembler module, should cross-assemble using `xas99`
@@ -92,8 +92,8 @@ The `xas99` cross-assembler reads an assembly source code file and generates an
 uncompressed object code file that is suitable for the original TI 99
 Editor/Assembler loader.
 
-    $ xas99.py -R ashello.asm
-    $ xas99.py -R ashello.asm -o HELLO-O
+    $ xas99.py -R ashello.a99
+    $ xas99.py -R ashello.a99 -o HELLO-O
 
 The output parameter `-o` may be used to override the default output filename.
 
@@ -117,7 +117,7 @@ Editor/Assembler package can assemble.
 The image parameter `-i` tells `xas99` to generate image files that can be
 loaded using Editor/Assembler option 5.
 
-    $ xas99.py -R -i ashello.asm
+    $ xas99.py -R -i ashello.a99
 
 Images larger then 8 KB are split automatically into multiple files, using
 the filename convention of the Editor/Assembler module.
@@ -152,7 +152,7 @@ word of the first image file must be an executable instruction.
 The cartridge parameter `-c` tells `xas99` to create an RPK cartridge file that
 can be used with the MESS emulator.
 
-    $ xas99.py -R -c ascart.asm -n "HELLO WORLD"
+    $ xas99.py -R -c ascart.a99 -n "HELLO WORLD"
 
 The optional name parameter `-n` overrides the default name of the program that
 shows up in the TI 99 menu selection screen.
@@ -177,7 +177,7 @@ Note that cartridge files cannot be generated from split image files.
 For relocatable code not larger than around 24 KB, `xas99` can generate an
 Extended BASIC program that invisibly contains the generated code within:
 
-    $ xas99.py --embed asembed.asm 
+    $ xas99.py --embed asembed.a99 
 
 The resulting program is a regular Extended BASIC program in so-called "long"
 format that will execute the assembly code when run:
@@ -204,7 +204,7 @@ assembly code!
 The `-L` option instructs `xas99` to generate a list file for the assembled
 source code:
 
-    $ xas99.py -R ashello.asm -L ashello.lst
+    $ xas99.py -R ashello.a99 -L ashello.lst
 
 The list file is useful for inferring the relative or absolute memory addresses
 of source code lines or the effective values of expressions.
@@ -249,17 +249,18 @@ files.
 `xas99` will search the current source directory for appropriately named source
 files.  For example, assembling
 
-    $ xas99.py src/file1.asm
+    $ xas99.py src/file1.a99
 
-where `file1.asm` contains the instruction `COPY "DSK1.FILE2"` will search for
+where `file1.a99` contains the instruction `COPY "DSK1.FILE2"` will search for
 include files
 
     src/FILE2
+    src/FILE2.A99
     src/FILE2.ASM
     src/FILE2.S
 
 and its corresponding lower-case variants.  `COPY` also supports native file
-paths, e.g., `COPY "/home/ralph/ti/src/file2.asm"`.
+paths, e.g., `COPY "/home/ralph/ti/src/file2.a99"`.
 
 `xas99` also provides a new directive `IBYTE` that includes an external binary
 file as a sequence of `BYTE`s.  Please refer to the section about *xdt99
@@ -360,7 +361,7 @@ Directives may be nested.  Valid conditional expressions and their rules of
 evaluation correspond to those of the `EQU` directive.  Additional symbols may
 be supplied on the command line.
 
-    $ xas99.py ashello.asm -D symbol1 symbol2=2
+    $ xas99.py ashello.a99 -D symbol1 symbol2=2
 
 If no value is given, the symbol is set to value `1`.
 
@@ -382,7 +383,7 @@ is equivalent to the conventional assembly statement sequence
 The strictness option `-s` disables all `xas99`-specific extensions to improve
 backwards compatibility for old sources:
 
-    $ xas99.py -s ashello.asm
+    $ xas99.py -s ashello.a99
 
 Strictness is required, for example, to compile the *Tombstone City* sample
 source code shipped with the original TI Editor/Assembler module.  Some of the
@@ -708,7 +709,7 @@ local file system.
 The local output filename is derived automatically from the TI filename but
 may be overridden with the `-o` parameter if only one file is extracted.
 
-    $ xdm99.py work.dsk -e HELLO-S -o hello.asm
+    $ xdm99.py work.dsk -e HELLO-S -o hello.a99
 
 To print the contents of a file to `stdout`, the print parameter `-p` may also
 be used:
@@ -739,7 +740,7 @@ suitable TI filename from the local filename unless an explicit filename is
 given by the `-n` parameter.  If the file is not of type `PROGRAM`, the file
 type must be given using the `-f` parameter.
 
-    $ xdm99.py work.dsk -a ashello.asm -n HELLO-S -f DIS/VAR80
+    $ xdm99.py work.dsk -a ashello.a99 -n HELLO-S -f DIS/VAR80
 
 The syntax for `-f` is fairly permissible, e.g., `DIS/FIX 80`, `DISFIX80`, or
 `DF80` all work.
@@ -822,7 +823,7 @@ files, while the print parameter `-P` dumps the file contents to
 relying on disk images using the `-T` and `-F` parameters:
 
     $ xdm99.py -F hello-s.tfi
-    $ xdm99.py -T hello.asm -f DIS/VAR80 -n HELLO-S -o hello-s.tfi
+    $ xdm99.py -T hello.a99 -f DIS/VAR80 -n HELLO-S -o hello-s.tfi
 
 Note that creating a FIAD file using the `-T` option usually requires
 information about the TI filename and the TI file type, similar to adding plain
@@ -965,15 +966,15 @@ these files are located under the `test` folder.
 
     $ cd example/
     $ ls -l
-    -rw-rw---- 1 ralph ralph  1822 Jan 10 12:51 ascart.asm
-    -rw-rw---- 1 ralph ralph   925 Jan 10 12:32 ashello.asm
+    -rw-rw---- 1 ralph ralph  1822 Jan 10 12:51 ascart.a99
+    -rw-rw---- 1 ralph ralph   925 Jan 10 12:32 ashello.a99
     -rw-rw---- 1 ralph ralph 92160 Jan 10 12:33 work.dsk
     
-The file `ashello.asm` contains a simple assembly program that we want to
+The file `ashello.a99` contains a simple assembly program that we want to
 assemble and run.  Since the program uses register symbols like `R0` to refer to
 registers, we need to specify the `-R` option for assembly.
 
-    $ xas99.py -R ashello.asm
+    $ xas99.py -R ashello.a99
 
 This should yield an object code file `ashello.obj` that looks like
 this:
@@ -996,7 +997,7 @@ Uncompressed object code is not an efficient program format, though.  If
 compatibility with Extended BASIC is not required compressed object code
 reduces both size and loading time:
 
-    $ xas99.py -R -C ashello.asm - ashello-c.obj
+    $ xas99.py -R -C ashello.a99 - ashello-c.obj
 
 Comparing both object files we see that the compressed version is only about
 two thirds of the size of the uncompressed file:
@@ -1007,7 +1008,7 @@ two thirds of the size of the uncompressed file:
 
 To save even more space, we'll also generate an image file for option 5:
 
-    $ xas99.py -R -i ashello.asm
+    $ xas99.py -R -i ashello.a99
 
 This time we should get a binary file `ashello.img` of 132 bytes.
 
@@ -1057,7 +1058,7 @@ The program will start automatically once loading has completed.
 If we want to learn more about the internals of our assembled program we can
 take a look at its list file: 
 
-    $ xas99.py -R ashello.asm -L ashello.lst
+    $ xas99.py -R ashello.a99 -L ashello.lst
 
 This yields a text file `ashello.lst` that begins like this:
 
@@ -1099,11 +1100,11 @@ generate our own self-contained cartridge.
 
 First we need to assemble our source code using the `-c` option.
 
-    $ xas99.py -R -c ascart.asm -n "HELLO CART"
+    $ xas99.py -R -c ascart.a99 -n "HELLO CART"
 
-Note that we cannot run the `ashello.asm` program as a cartridge, since we call
+Note that we cannot run the `ashello.a99` program as a cartridge, since we call
 `VSBW` and other VDP subroutines, which are unavailable without Editor/Assembler
-module and memory expansion.  The `ascart.asm` program thus uses the VDP
+module and memory expansion.  The `ascart.a99` program thus uses the VDP
 registers directly to write to VDP memory.
 
 We don't have to transfer the resulting RPK file to a disk image but can plug

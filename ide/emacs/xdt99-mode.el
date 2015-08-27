@@ -1,4 +1,4 @@
-;;; xdt99-mode: xdt99 major modes for Emacs - Version 1.0.2
+;;; xdt99-mode: xdt99 major modes for Emacs - Version 1.0.3
 
 ;; Copyright (c) 2015 Ralph Benzinger <xdt99dev@gmail.com>
 
@@ -110,11 +110,11 @@
   (interactive)
   (let ((field (asm99-current-field-to-point)))
     (let ((count (length field)))
-      (let ((force-del t))
-	(while (and (> count 0) (or (= (preceding-char) ?\s) force-del))
+      (if (/= (preceding-char) ?\s)
 	  (backward-delete-char-untabify 1)
-	  (setq count (1- count))
-	  (setq force-del nil))))))
+	(while (and (> count 0) (= (preceding-char) ?\s))
+	  (backward-delete-char-untabify 1)
+	  (setq count (1- count)))))))
 
 (defun asm99-current-field-to-point ()
   (let ((bol (line-beginning-position)))
@@ -138,6 +138,18 @@
   "Keymap for asm99-mode.")
 
 
+;; compilation
+
+(defcustom asm99-compile-options
+  "-R -C"
+  "options passed to xas99")
+
+(defun asm99-compile-command ()
+    (set (make-local-variable 'compile-command)
+       (concat "xas99.py " asm99-compile-options " "
+               buffer-file-name)))
+
+
 ;; major and minor mode definitions
 
 (define-minor-mode asm99-smart-tab-mode
@@ -149,6 +161,10 @@
   nil " SmartBack" '(([backspace] . asm99-backspace)))
 
 (defvar asm99-mode-hook nil)
+(add-hook 'asm99-mode-hook
+          (lambda ()
+            (set (make-local-variable 'compile-command)
+                 (asm99-compile-command))))
 
 (define-derived-mode asm99-mode prog-mode "asm99"
   "Major mode for editing TMS 9900 assembly source files"
