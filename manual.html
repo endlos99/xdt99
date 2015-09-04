@@ -125,6 +125,22 @@ header information and relocate the program to address <code>&gt;6030</code>, bu
 process the source code any further.  In particular, the usual restrictions on
 using VDP memory access routines apply.</p>
 <p>Note that cartridge files cannot be generated from split image files.</p>
+<h3>Jumpstarting</h3>
+<p>To make the code, assemble, run cycle as fast as possible, <code>xas99</code> can
+generate so-called "jumpstart disks" that may be loaded and executed by the
+Jumpstart cartridge included with xdt99.</p>
+<pre><code>$ xas99.py --jumpstart -R ascart.asm
+$ mess64 ti99_4ae -cart lib/jumpstart.rpk -flop1 ascart.dsk
+</code></pre>
+<p>The example above shows the invocation for MESS, but any emulator should
+work.  Obviously, the emulator must be setup with 32K memory expansion and
+at least one floppy disk drive.</p>
+<p>Selecting the Jumpstart option in the TI 99 main menu will load the jumpstarted
+program from any inserted disk and run it.  Thus, selecting either option 3
+or 5 in the Editor/Assembler module and manually entering the program filename
+is no longer required.</p>
+<p>Currently, the jumpstarted programs cannot consist of more than one segment and
+must fit entirely into memory area <code>&gt;2000</code> and <code>&gt;3EFF</code> or <code>&gt;A000</code> and <code>&gt;FFFF</code>.</p>
 <h3>Other Formats</h3>
 <p>For relocatable code not larger than around 24 KB, <code>xas99</code> can generate an
 Extended BASIC program that invisibly contains the generated code within:</p>

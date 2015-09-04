@@ -1,0 +1,15 @@
+* VDP MULTI-BYTE READ
+
+       ref  vdpwa, vdprd
+
+       even
+
+vmbr:
+       movb @ws_r0lb, @vdpwa
+       andi r0, >3fff
+       movb r0, @vdpwa
+!      movb @vdprd, *r1+
+       dec  r2
+       jne  -!
+
+       rt

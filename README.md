@@ -83,6 +83,11 @@ Generate list file diagnostic output:
 
     $ xas99.py [-R] <source file> -L <list file>
 
+Generate jumpstart image for fast code, assemble, run cycles:
+
+    $ xas99.py --jumpstart [-R] <source file>
+    $ mess64 ti99_4ae -cart lib/jumpstart.rpk -flop1 <js disk> <MESS options>
+ 
 For a complete overview of the available command-line options, see `xas99.py
 -h`.
 

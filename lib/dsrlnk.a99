@@ -1,0 +1,69 @@
+* DSRLNK
+* Based on code published in The Smart Programmer, issue 07/1986
+* Copyright (c) 1985, 1986 by Miller Graphics
+* NOTE: Code is self-modifying and cannot run in cartridge space.
+
+       ref  vdpwa, vdprd
+
+dsrlnk_type:
+       equ  >836d
+dsrlnk_namelen:
+       equ  >8356
+dsrlnk_gstat:
+       equ  >837c
+dsrlnk_putstk:
+       equ  >50
+gplws_4lb:
+       equ  >83e9
+
+dsrlnk:
+       data dsrlnk_ws, dsrlnk_main
+
+dsrlnk_ws:
+       equ  $
+dsrlnk_ws_3lb:
+       equ  dsrlnk_ws + 7
+
+dsrlnk_main:
+       mov  r12, r12
+       jne  dsrlnk_redux
+
+       lwpi gplws
+       mov  @dsrlnk_putstk, r4
+       bl   *r4
+       li   r4, >11
+       movb r4, @>402(r13)
+       jmp  !
+       data 0, 0, 0, 0
+!      movb @gplws_4lb, @>402(r13)
+       mov  @gpllnk_getstk, r5
+       movb *r13, @dsrlnk_alb
+       inct @dsrlnk_ahb
+       bl   *r5
+       lwpi dsrlnk_ws
+       li   r12, >2000
+
+dsrlnk_redux:
+       inc  r14
+       movb *r14+, @dsrlnk_type
+       mov  @dsrlnk_namelen, r3
+       ai   r3, -8
+       blwp @gpllnk
+dsrlnk_ahb:
+       byte >03
+dsrlnk_alb:
+       byte >00
+
+       movb @dsrlnk_ws_3lb, @vdpwa
+       movb r3, @vdpwa
+       szcb r12, r15
+       movb @vdpwd, r3
+       srl  r3, 5
+       movb r3, *r13
+       jne  !
+       coc  @dsrlnk_gstat, r12
+       jne  dsrlnk_done
+!      socb r12, r15
+
+dsrlnk_done:
+       rtwp

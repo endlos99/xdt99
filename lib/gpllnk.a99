@@ -1,0 +1,52 @@
+* GPLLNK
+* Based on code published in The Smart Programmer, issue 07/1986
+* Copyright (c) 1985, 1986 by Miller Graphics
+
+gplws:
+       equ  >83e0
+
+gpllnk_ws_r4:
+       equ  gplws + 8
+gpllnk_ws_r6:
+       equ  gplws + 12
+
+gpllnk_stkpnt:
+       equ  >8373
+
+gpllnk_ldgadd:
+       equ  >60
+gpllnk_xtab27:
+       equ  >200e
+gpllnk_getstk:
+       equ  >166c
+
+gpllnk:
+       data gpllnk_ws, gpllnk_main
+gpllnk_rtnad:
+       data gpllnk_xmlrtn
+gpllnk_gxmlad:
+       data >176c
+       data >50
+
+gpllnk_ws:
+       equ  $->18
+       bss  >08
+
+gpllnk_main:
+       mov  *r11, @gpllnk_ws_r4
+       mov  *r14+, @gpllnk_ws_r6
+       mov  @gpllnk_xtab27, r12
+       mov  r9, @gpllnk_xtab27
+       lwpi gplws
+       bl   *r4
+       mov  @gpllnk_gxmlad, @>8302(r4)
+       inct @gpllnk_stkpnt
+       b    @gpllnk_ldgadd
+
+gpllnk_xmlrtn:
+       mov  @gpllnk_getstk, r4
+       bl   *r4
+       lwpi gpllnk_ws
+       mov  r12, @gpllnk_xtab27
+
+       rtwp

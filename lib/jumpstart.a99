@@ -1,0 +1,131 @@
+* jumpstart.a99
+* Load and run assembly program as quickly as possible
+
+       def  start
+
+first  jmp  start
+       
+ws:
+       equ  >3f00
+vdp_pab:
+       equ  >1000
+vdp_buf:
+       equ  >1100
+       
+reg_drive:
+       equ  >834c
+reg_mode:
+       equ  >834d
+reg_buffer:
+       equ  >834e
+reg_sector:
+       equ  >8350
+reg_pab:
+       equ  >8356
+       
+lv1_read:
+       data >0110
+mode_read:
+       byte >ff
+
+msg_loading:
+       text 'LOADING ...'
+msg_loading_len:
+       equ  $ - msg_loading
+msg_error:
+       text 'NO JUMPSTART DISK FOUND'
+msg_error_len:
+       equ  $ - msg_error
+
+****************************************
+* main program
+
+       even
+start:
+       lwpi ws
+       limi 0
+
+       ; find drive
+       clr  r3
+       li   r4, >0100
+!      bl   @read_sector
+
+       ; r5 = load addr
+       ; r6 = start addr
+       ; r7 = sector count
+       ; r8 = jumpstart marker
+       li   r0, vdp_buf + 2
+       li   r1, ws + 10
+       li   r2, 8
+       bl   @vmbr
+       ci   r8, >abcd
+       jeq  load
+
+       ai   r4, >0100
+       ci   r4, >0400
+       jlt  -!
+
+       clr  r0
+       li   r1, msg_error
+       li   r2, msg_error_len
+       bl   @vmbw
+
+       limi 2
+       jmp  $
+
+       ; load sectors
+load:
+       clr  r0
+       li   r1, msg_loading
+       li   r2, msg_loading_len
+       bl   @vmbw
+
+!      inc  r3
+       bl   @read_sector
+       li   r0, vdp_buf
+       mov  r5, r1
+       li   r2, 256
+       a    r2, r5
+       bl   @vmbr
+
+       dec  r7
+       jne  -!
+       
+       b    *r6
+       
+****************************************
+* read sector
+* r3 = sector number, r4 = drive number
+       
+read_sector:
+       mov  r11, r9
+       movb @mode_read, @reg_mode
+       mov  r3, @reg_sector
+       movb r4, @reg_drive
+
+       li   r0, vdp_buf
+       mov  r0, @reg_buffer
+
+       li   r0, vdp_pab
+       mov  r0, @reg_pab
+       li   r1, lv1_read
+       li   r2, 2
+       bl   @vmbw
+
+       blwp @dsrlnk
+       data >a
+
+       b    *r9
+
+
+****************************************
+* E/A service routines
+
+ws_r0lb:
+       equ  ws + 1
+
+       copy "vmbw.a99"
+       copy "vmbr.a99"
+       copy "dsrlnks.a99"
+
+       end  start

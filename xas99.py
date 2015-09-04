@@ -119,7 +119,7 @@ class Symbols:
             "PAD": 0x8300, "GPLWS": 0x83E0,
             "SOUND": 0x8400,
             "VDPRD": 0x8800, "VDPSTA": 0x8802,
-            "VDPWD": 0x8C00,
+            "VDPWD": 0x8C00, "VDPWA": 0x8C02,
             "SPCHRD": 0x9000, "SPCHWT": 0x9400,
             "GRMRD": 0x9800, "GRMRA": 0x9802,
             "GRMWD": 0x9C00, "GRMWA": 0x9C02
@@ -140,15 +140,16 @@ class Symbols:
         self.relocLC = True
 
     def addSymbol(self, name, value):
-        if name[-1] == ":":  # ignore final ":" char
-            name = name[:-1]
+        if name[-1] == ":":
+            name = name[:-1]  # ignore closing ":" char
         if name in self.symbols:
             raise AsmError("Multiple symbols: " + name)
         self.symbols[name] = value
+        return name
 
     def addLabel(self, lidx, label):
-        self.addSymbol(label, Address(self.LC, self.relocLC))
-        self.locations.append((lidx, label))
+        name = self.addSymbol(label, Address(self.LC, self.relocLC))
+        self.locations.append((lidx, name))
 
     def addAnonLabel(self, lidx):
         self.anonno += 1
@@ -177,8 +178,11 @@ class Symbols:
                            if l >= lpos)
             if distance > 0 and lidx > lpos:
                 distance -= 1  # i points to +! unless lidx == lpos
+        except StopIteration:
+            i = len(self.locations)  # beyond last label
+        try:
             _, name = self.locations[i + distance]
-        except (StopIteration, IndexError):
+        except IndexError:
             return None
         return self.getSymbol(name)
         
@@ -491,8 +495,13 @@ class Objcode:
                 "Cannot create jumpstart image with multiple segments")
         header, data = image[0][:6], image[0][6:]
         disk = (
-            header[4:6] + chrw(entry) + chrw(used(len(data), 256) + 1) +
-            "\x00" * 252 + data + "\x00" * (91902 - len(data))
+            # first sector
+            "JS" +
+            header[4:6] + chrw(entry) + chrw(used(len(data), 256)) +
+            chrw(0xabcd) + chrw(360) + "\x09DSK \x28\x01\x01" +
+            "\x00" * 36 + "\xff" * 200 +
+            # data sectors
+            data + "\x00" * (359 * 256 - len(data))
             )
         assert len(disk) == 90 * 1024
         return disk
@@ -1493,14 +1502,14 @@ def main():
                      help="create MESS cart image")
     cmd.add_argument("--embed-xb", action="store_true", dest="embed",
                      help="create Extended BASIC program with embedded code")
-    #cmd.add_argument("--jumpstart", action="store_true", dest="jstart",
-    #                 help="create disk image for xdt99 Jumpstart cartridge")
+    cmd.add_argument("--jumpstart", action="store_true", dest="jstart",
+                     help="create disk image for xdt99 Jumpstart cartridge")
     cmd.add_argument("--dump", action="store_true", dest="dump",
                      help=argparse.SUPPRESS)  # debugging
     args.add_argument("-s", "--strict", action="store_true", dest="strict",
-                      help="disable xas99 extension to TI Assembler")
+                      help="strict TI mode; disable xas99 extensions")
     args.add_argument("-n", "--name", dest="name", metavar="<name>",
-                      help="set program name for cartridge")
+                      help="set program name, e.g., for cartridge")
     args.add_argument("-R", "--register-symbols", action="store_true", dest="optr",
                       help="add register symbols (TI Assembler option R)")
     args.add_argument("-C", "--compress", action="store_true", dest="optc",
@@ -1557,11 +1566,11 @@ def main():
             output = opts.output or barename + ".iv254"
             with open(output, "wb") as fout:
                 fout.write(prog)
-        #elif opts.jstart:
-        #    disk = code.genJumpstart()
-        #    output = opts.output or barename + ".dsk"
-        #    with open(output, "wb") as fout:
-        #        fout.write(disk)
+        elif opts.jstart:
+            disk = code.genJumpstart()
+            output = opts.output or barename + ".dsk"
+            with open(output, "wb") as fout:
+                fout.write(disk)
         else:
             data = code.genObjCode(opts.optc)
             output = opts.output or barename + ".obj"

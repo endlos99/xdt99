@@ -84,4 +84,12 @@ lcont7:
         data lcont4, lcont5, lcont6
         data lcont7
 
+; label continuations (edge case, keep at end)
+
+lcontA:
+        jmp !
+!       nop
+        jmp -!
+        jmp -!!
+
         end

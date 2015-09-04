@@ -1,0 +1,15 @@
+* VDP MULTI-BYTE WRITE
+
+       ref  vdpwa, vdpwd
+
+       even
+
+vmbw:
+       movb @ws_r0lb, @vdpwa
+       ori  r0, >4000
+       movb r0, @vdpwa
+!      movb *r1+, @vdpwd
+       dec  r2
+       jne  -!
+
+       rt

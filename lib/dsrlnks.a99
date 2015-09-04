@@ -1,0 +1,140 @@
+* DSRLNK - static version
+* Based on code by Insane Multitasker at AtariAge.com
+* Reference:
+* <http://atariage.com/forums/topic/163692-ea-file-access/?p=2071618>
+
+       even
+
+dsrlnk:
+       data dsrlnks_ws, dsrlnks_main
+
+dsrlnks_ws:
+       equ  >3f80            ; 32 bytes
+dsrlnks_ws_r0lb:
+       equ dsrlnks_ws + 1
+dsrlnks_save:
+       equ  >3fa0            ; 10 bytes
+dsrlnks_namebuf:
+       equ  >3faa            ; 6 bytes
+dsrlnks_cyc1:
+       equ  >3fb0            ; 2 bytes
+
+dsrlnks_h20:
+       byte >20
+dsrlnks_cperiod:
+       byte '.'
+dsrlnks_h1300:
+       data >1300
+dsrlnks_h2000:
+       data >2000
+dsrlnks_haaaa:
+       data >aaaa
+
+dsrlnks_main:
+       mov  *r14+, r5
+       szcb @dsrlnks_h20, r15
+       mov  @>8356, r0
+       mov  r0, r9
+       ai   r9, >fff8
+       bl   @dsrlnks_vsbr
+       movb r1, r3
+       srl  r3, 8
+       seto r4
+       li   r2, dsrlnks_namebuf
+!      inc  r0
+       inc  r4
+       c    r4, r3
+       jeq  !
+       bl   @dsrlnks_vsbr
+       movb r1, *r2+
+       cb   r1, @dsrlnks_cperiod
+       jne  -!
+
+!      mov  r4, r4
+       jeq  dsrlnks_j6
+       ci   r4, >0007
+       jgt  dsrlnks_j6
+       clr  @>83d0
+       mov  r4, @>8354
+       mov  r4, @dsrlnks_save + 4
+       inc  r4
+       a    r4, @>8356
+       mov  @>8356, @dsrlnks_save + 6
+
+       lwpi >83e0
+       clr  r1
+       mov  @dsrlnks_h2000, @dsrlnks_cyc1
+       li   r12, >1100
+       jmp  dsrlnks_loop1
+dsrlnks_srom:
+       li   r12, >0f00
+       mov  @dsrlnks_h1300, @dsrlnks_cyc1
+
+dsrlnks_loop1:
+       mov  r12, r12
+       jeq  !
+       sbz  >00
+!      ai   r12, >0100
+       clr  @>83d0
+       ci   r12, >2000
+       jeq  dsrlnks_srom
+       c    r12, @dsrlnks_cyc1
+       jeq  dsrlnks_j5
+       mov  r12, @>83d0
+       sbo  >00
+       li   r2, >4000
+       cb   *r2, @dsrlnks_haaaa
+       jne  dsrlnks_loop1
+       a    @dsrlnks_ws + 10, r2
+       jmp  !!
+
+dsrlnks_loop2:
+       mov  @>83d2, r2
+       sbo  >00
+!      mov  *r2, r2
+       jeq  dsrlnks_loop1
+       mov  r2, @>83d2
+       inct r2
+       mov  *r2+, r9
+       movb @>8355, r5
+       jeq  !!
+       cb   r5, *r2+
+       jne  dsrlnks_loop2
+       srl  r5, >8
+       li   r6, dsrlnks_namebuf
+!      cb   *r6+, *r2+
+       jne  dsrlnks_loop2
+       dec  r5
+       jne  -!
+!      inc  r1
+       mov  r1, @dsrlnks_save + 8
+       mov  r9, @dsrlnks_save + 2
+       mov  r12, @dsrlnks_save
+       BL   *r9
+       jmp  dsrlnks_loop2
+       sbz  >00
+
+       lwpi dsrlnks_ws
+       mov  r9, r0
+       bl   @dsrlnks_vsbr
+       srl  r1, >d
+       jne  dsrlnks_j7
+       rtwp
+
+dsrlnks_j5:
+       lwpi dsrlnks_ws
+dsrlnks_j6:
+       clr  r1
+dsrlnks_j7:
+       swpb r1
+       movb r1, *r13
+       socb @dsrlnks_h20, r15
+
+       rtwp
+
+dsrlnks_vsbr:
+       movb @dsrlnks_ws_r0lb, @vdpwa
+       andi r0, >3fff
+       movb r0, @vdpwa
+       movb @vdprd, r1
+       rt

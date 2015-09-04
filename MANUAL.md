@@ -172,6 +172,28 @@ using VDP memory access routines apply.
 Note that cartridge files cannot be generated from split image files.
 
 
+### Jumpstarting
+
+To make the code, assemble, run cycle as fast as possible, `xas99` can
+generate so-called "jumpstart disks" that may be loaded and executed by the
+Jumpstart cartridge included with xdt99.
+
+    $ xas99.py --jumpstart -R ascart.asm
+    $ mess64 ti99_4ae -cart lib/jumpstart.rpk -flop1 ascart.dsk
+
+The example above shows the invocation for MESS, but any emulator should
+work.  Obviously, the emulator must be setup with 32K memory expansion and
+at least one floppy disk drive.
+
+Selecting the Jumpstart option in the TI 99 main menu will load the jumpstarted
+program from any inserted disk and run it.  Thus, selecting either option 3
+or 5 in the Editor/Assembler module and manually entering the program filename
+is no longer required.
+
+Currently, the jumpstarted programs cannot consist of more than one segment and
+must fit entirely into memory area `>2000` and `>3EFF` or `>A000` and `>FFFF`.
+
+
 ### Other Formats
 
 For relocatable code not larger than around 24 KB, `xas99` can generate an

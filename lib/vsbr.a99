@@ -1,0 +1,13 @@
+* VDP SINGLE-BYTE WRITE
+
+       ref  vdpwa, vdprd
+
+       even
+
+vsbr:
+       movb @ws_r0lb, @vdpwa
+       andi r0, >3fff
+       movb r0, @vdpwa
+       movb @vdprd, r1
+
+       rt
