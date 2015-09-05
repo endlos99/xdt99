@@ -33,8 +33,12 @@ def createTextFile(count, length, fixed, partial):
         createTextline(random.randint(0, length) if partial else length)
         for _ in xrange(count)
         ]
-    data = "\n".join(lines) + "\n"
-    fmt = ("DIS/FIX" if fixed else "DIS/VAR") + str(length)
+    if fixed:
+        data = "".join([l + " " * (length - len(l)) for l in lines])
+        fmt = "DIS/FIX" + str(length)
+    else:
+        data = "\n".join(lines) + "\n"
+        fmt = "DIS/VAR" + str(length)
     with open(path, "w") as f:  # "w" mangles \n into \r\n
         f.write(data)
     return name, path, fmt
@@ -130,15 +134,14 @@ def runtest():
         checkFilesEq("Write records", Files.output, path, fmt)
         xdm(Disks.work, "-d", name)
 
-    # check truncating of files with long records
+    # check truncating of DIS/VAR files with long records
     path = os.path.join(Dirs.refs, "vardis")
     with open(path, "r") as f:
         reflines = f.readlines()
-    for f in ["F", "V"]:
-        for l in [8, 7, 4]:
-            xdm(Disks.work, "-a", path, "-f", "D%c%d" % (f, l), "-q")
-            xdm(Disks.work, "-e", "VARDIS", "-o", Files.output)
-            checkTrunc(Files.output, reflines, l)
+    for l in [8, 7, 4]:
+        xdm(Disks.work, "-a", path, "-f", "DV%d" % l, "-q")
+        xdm(Disks.work, "-e", "VARDIS", "-o", Files.output)
+        checkTrunc(Files.output, reflines, l)
 
     # create well-defined TI disk (checked-in state frozen)
     shutil.copyfile(Disks.recsgen, Disks.work)

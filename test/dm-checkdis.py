@@ -28,19 +28,28 @@ def checkRecordsByLen(infile, fixed=None):
     """check records by encoded length"""
     refline = "*".join(["".join([chr(c) for c in xrange(64, 127)])
                         for _ in xrange(4)])
-    with open(infile, "r") as f:
-        for i, line in enumerate(f):
-            l = line[:-1] if line[-1] == "\n" else line
-            if fixed:
-                if len(l) != fixed:
-                    error("VAR Records",
-                          "%s: Record %d length mismatch: %d != %d" % (
-                              infile, i, len(l), fixed))
-            l = l.rstrip()
-            s = "!" + refline[:len(l) - 2] + chr(i + 49) if len(l) > 1 else ""
-            if l != s:
+    if fixed is None:
+        with open(infile, "r") as f:
+            records = f.readlines()
+    else:
+        with open(infile, "rb") as f:
+            data = f.read()
+            records = [data[i:i + fixed]
+                       for i in xrange(0, len(data), fixed)]
+    for i, line in enumerate(records):
+        if fixed:
+            l = line
+            if len(l) != fixed:
                 error("VAR Records",
-                      "%s: Record %i content mismatch" % (infile, i))
+                      "%s: Record %d length mismatch: %d != %d" % (
+                          infile, i, len(l), fixed))
+        else:
+            l = line[:-1] if line[-1] == "\n" else line
+        l = l.rstrip()
+        s = "!" + refline[:len(l) - 2] + chr(i + 49) if len(l) > 1 else ""
+        if l != s:
+            error("VAR Records",
+                  "%s: Record %i content mismatch" % (infile, i))
 
 
 ### Main test

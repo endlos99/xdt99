@@ -583,11 +583,11 @@ class File:
         """split blob into records"""
         if self.fd.type == "P":
             return data
-        elif self.fd.type == "D":
-            return data.splitlines()
         elif self.fd.fixed:
             l = self.fd.recordLen
             return [data[i:i + l] for i in xrange(0, len(data), l)]
+        elif self.fd.type == "D":
+            return data.splitlines()
         else:
             records, p = [], 0
             while p < len(data):
@@ -686,10 +686,10 @@ class File:
         """return file contents as serialized records"""
         if self.fd.type == "P":
             return self.records
-        elif self.fd.type == "D":
-            return "".join([r + "\n" for r in self.records])
         elif self.fd.fixed:
             return "".join(self.records)
+        elif self.fd.type == "D":
+            return "".join([r + "\n" for r in self.records])
         else:
             return "".join([chr(len(r)) + r
                             for r in self.records])  # add length byte
@@ -744,6 +744,7 @@ def imageCmds(opts):
     """disk image manipulation"""
     rc, result = 0, []
     fmt = opts.format.upper() if opts.format else "PROGRAM"
+    fmtDV = fmt[0] == "D" and "F" not in fmt  # DIS/VAR?
 
     # initialize new image
     if opts.init:
@@ -784,7 +785,7 @@ def imageCmds(opts):
                       for name in files]
         else:
             result = [(disk.getFile(name).getContents(),
-                       name.lower(), "w" if fmt[0] == "D" else "wb")
+                       name.lower(), "w" if fmtDV else "wb")
                       for name in files]
     elif opts.add:
         n, c = opts.name, 0
@@ -793,8 +794,8 @@ def imageCmds(opts):
                 name = "STDIN"
                 data = sys.stdin.read()
             else:
-                with open(name, "r" if fmt[0] == "D" and
-                                not opts.astifiles else "rb") as fin:
+                with open(name, "r" if fmtDV and not opts.astifiles else
+                                "rb") as fin:
                     data = fin.read()
             if opts.astifiles:
                 disk.addFile(File(tifimage=data))

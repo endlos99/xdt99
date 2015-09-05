@@ -12,6 +12,17 @@ def ordw(word):
     return ord(word[0]) << 8 | ord(word[1])
 
 
+def checkObjCodeEq(infile, reffile):
+    """check if object code files are equal modulo id tag"""
+    with open(infile, "rb") as fin, open(reffile, "rb") as fref:
+        indata = fin.read()
+        inlines = [indata[i:i + 80] for i in xrange(0, len(indata), 80)]
+        refdata = fref.read()
+        reflines = [refdata[i:i + 80] for i in xrange(0, len(refdata), 80)]
+        if inlines[:-1] != reflines[:-1]:
+            error("Object code", "File contents mismatch")
+
+
 def checkImageFilesEq(name, genfile, reffile):
     """check if non-zero bytes in binary files are equal"""
     with open(genfile, "rb") as fg, open(reffile, "rb") as fr:
@@ -27,7 +38,7 @@ def checkImageFilesEq(name, genfile, reffile):
     # TI-generated images may contain arbitrary bytes in BSS segments
     for i in xrange(4, len(refimage)):
         if genimage[i] != "\x00" and genimage[i] != refimage[i]:
-            error("Object code", "Image contents mismatch " + name +
+            error("Image file", "Image contents mismatch " + name +
                   " @ " + hex(i))
 
 
@@ -60,26 +71,26 @@ def runtest():
         source = os.path.join(Dirs.sources, infile)
         xdm(Disks.asmsrcs, "-e", reffile, "-o", Files.reference)
         xas(*[source] + opts + ["-o", Files.output])
-        checkFilesEq("Object code", Files.output, Files.reference, fmt="DF80")
+        checkObjCodeEq(Files.output, Files.reference)
         xas(*[source] + opts + ["--strict", "-o", Files.output])
-        checkFilesEq("Object code", Files.output, Files.reference, fmt="DF80")
+        checkObjCodeEq(Files.output, Files.reference)
         if cprfile:
             # compressed object code
             xas(*[source] + opts + ["-C", "-o", Files.output])
             xdm(Disks.asmsrcs, "-e", cprfile, "-o", Files.reference)
-            checkFilesEq("Object code", Files.output, Files.reference, "P")
+            checkObjCodeEq(Files.output, Files.reference)
 
     # xdt99 extensions
     source = os.path.join(Dirs.sources, "asxext.asm")
     xas(source, "-R", "-o", Files.output)
     xdm(Disks.asmsrcs, "-e", "ASXEXT0-O", "-o", Files.reference)
-    checkFilesEq("Object code", Files.output, Files.reference, fmt="DF80")
+    checkObjCodeEq(Files.output, Files.reference)
     xas(source, "-R", "-D", "sym2", "-o", Files.output)
     xdm(Disks.asmsrcs, "-e", "ASXEXT1-O", "-o", Files.reference)
-    checkFilesEq("Object code", Files.output, Files.reference, fmt="DF80")
+    checkObjCodeEq(Files.output, Files.reference)
     xas(source, "-R", "-D", "sym2=2", "sym3=2", "-o", Files.output)
     xdm(Disks.asmsrcs, "-e", "ASXEXT2-O", "-o", Files.reference)
-    checkFilesEq("Object code", Files.output, Files.reference, fmt="DF80")
+    checkObjCodeEq(Files.output, Files.reference)
 
     # image files
     for infile, opts, reffile in [
@@ -113,7 +124,7 @@ def runtest():
     source = os.path.join(Dirs.sources, "asxnew.asm")
     xas(source, "-o", Files.output)
     xdm(Disks.asmsrcs, "-e", "ASXNEW-O", "-o", Files.reference)
-    checkFilesEq("Object code", Files.output, Files.reference, fmt="DF80")
+    checkObjCodeEq(Files.output, Files.reference)
 
     # cleanup
     for i in xrange(4):

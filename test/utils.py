@@ -77,7 +77,8 @@ def checkFilesEq(tid, infile, reffile, fmt, mask=None):
         if "V" in fmt:
             checkTextFilesEq(tid, infile, reffile)
         else:
-            checkTextLinesEq(tid, infile, reffile, fmt)
+            #checkTextLinesEq(tid, infile, reffile, fmt)
+            checkBinaryFilesEq(tid, infile, reffile, [])
     else:
         checkBinaryFilesEq(tid, infile, reffile, mask or [])
 

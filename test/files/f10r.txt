@@ -1,10 +1,1 @@
-1START    
-2         
-3234567890
-4A,4B;4C  
-5SPC      
-6CHR$€ ÿ  
-7234567890
-ABC       
-          
-9STOP     
+1START    2         32345678904A,4B;4C  5SPC      6CHR$€ ÿ  7234567890ABC                 9STOP     

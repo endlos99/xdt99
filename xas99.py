@@ -389,7 +389,7 @@ class Objcode:
                 tags.add("5" if reloc else "6", addr, sym=s[:6])
         # closing section
         tags.flush()
-        tags.append(":       99/4 AS")
+        tags.append(":       xdt99 xas")
         return tags.dump()
 
     def writeMem(self, mem, code, baseAddr):
@@ -635,10 +635,10 @@ class Records:
     def dump(self):
         """dump records as DIS/FIX80"""
         if self.compressed:
-            lines = (["%-80s\n" % line for line in self.records[:-1]] +
-                     ["%-75s %04d\n" % (self.records[-1], len(self.records))])
+            lines = (["%-80s" % line for line in self.records[:-1]] +
+                     ["%-75s %04d" % (self.records[-1], len(self.records))])
         else:
-            lines = ["%-75s %04d\n" % (line, i + 1)
+            lines = ["%-75s %04d" % (line, i + 1)
                      for i, line in enumerate(self.records)]
         return "".join(lines)
 
