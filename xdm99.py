@@ -333,6 +333,18 @@ class Disk:
                       self.blankByte * ((newsize - oldsize) *
                                         self.bytesPerSector))
 
+    def setGeometry(self, sides, density, tracks):
+        """override geometry of disk image"""
+        self.sides = sides or self.sides
+        self.density = density or self.density
+        self.tracksPerSide = tracks or self.tracksPerSide
+        self.image = (
+            self.image[:0x11] +
+            "%c%c%c" % (chr(self.tracksPerSide), chr(self.sides),
+                        chr(self.density)) +
+            self.image[0x14:]
+            )
+
     def fixDisk(self):
         """rebuild disk with non-erroneous files"""
         badFiles = [n for n in self.catalog if self.catalog[n].fd.error]
@@ -746,25 +758,23 @@ def imageCmds(opts):
     fmt = opts.format.upper() if opts.format else "PROGRAM"
     fmtDV = fmt[0] == "D" and "F" not in fmt  # DIS/VAR?
 
-    # initialize new image
+    # get disk image
     if opts.init:
         try:
             size = int(opts.init)
         except ValueError:
             size = {"SSSD": 360, "DSSD": 720,
                     "DSDD": 1440, "CF": 1600}.get(opts.init.upper())
-        try:
-            with open(opts.filename, "wb") as fout:
-                fout.write(Disk.blankImage(size, opts.name or ""))
-        except (IOError, DiskError) as e:
-            sys.exit("Error: " + str(e))
-        return 0, []
-
-    # manipulate existing image
-    with open(opts.filename, "rb") as fin:
-        image = fin.read()
+        if size is None:
+            raise DiskError("Invalid disk size %s" % opts.init)
+        image = Disk.blankImage(size, opts.name or "")
+        result = [(image, opts.filename, "wb")]
+    else:
+        with open(opts.filename, "rb") as fin:
+            image = fin.read()
     disk = Disk(image)
 
+    # apply command to image
     if opts.print_:
         files = disk.globFiles(opts.print_)
         contents = [disk.getFile(name).getContents()
@@ -824,6 +834,22 @@ def imageCmds(opts):
             raise DiskError("Invalid disk size %s" % opts.resize)
         disk.resizeDisk(size)
         result = [(disk.getImage(), opts.filename, "wb")]
+    elif opts.geometry:
+        sides, density, tracks = None, None, None
+        gs = re.split("(\d+|[SD])([SDT])", opts.geometry.upper())
+        stoi = lambda s: 1 if s == "S" else 2 if s == "D" else int(s)
+        for v, g in zip(gs[1::3], gs[2::3]):
+            try:
+                if g == "S":
+                    sides = stoi(v)
+                elif g == "D":
+                    density = stoi(v)
+                else:
+                    tracks = stoi(v)
+            except (IndexError, ValueError):
+                raise DiskError("Invalid geometry %s" % opts.geometry)
+        disk.setGeometry(sides, density, tracks)
+        result = [(disk.getImage(), opts.filename, "wb")]
     elif opts.checkonly:
         rc = 1 if disk.warnings else 0
     elif opts.repair:
@@ -837,7 +863,7 @@ def imageCmds(opts):
         except (IndexError, ValueError):
             raise DiskError("Invalid sector %s" % opts.sector)
         result = [(dump(sector), "-", "w")]
-    else:
+    elif opts.info or not opts.init:
         sys.stdout.write(disk.getInfo())
         sys.stdout.write("-" * 76 + "\n")
         sys.stdout.write(disk.getCatalog())
@@ -924,11 +950,11 @@ def main():
         "-d", "--delete", dest="delete", nargs="+", metavar="<name>",
         help="delete files from image")
     cmd.add_argument(
-        "--initialize", dest="init", metavar="<size>",
-        help="initialize disk image (sector count or sides/density alias)")
-    cmd.add_argument(
         "-Z", "--resize", dest="resize", metavar="<sectors>",
         help="resize image to given total sector count")
+    cmd.add_argument(
+        "--set-geometry", dest="geometry", metavar="<geometry>",
+        help="set disk geometry (S<size> D<density> T<track count>)")
     cmd.add_argument(
         "-C", "--check", action="store_true", dest="checkonly",
         help="check disk image integrity only")
@@ -965,6 +991,9 @@ def main():
     args.add_argument(
         "-n", "--name", dest="name", metavar="<name>",
         help="set TI filename for data to add")
+    args.add_argument(
+        "--initialize", dest="init", metavar="<size>",
+        help="initialize disk image (sector count or sides/density alias)")
     args.add_argument(
         "-o", "--output", dest="output", metavar="<file>",
         help="set output filename")

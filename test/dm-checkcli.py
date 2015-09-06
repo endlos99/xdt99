@@ -22,6 +22,7 @@ def checkFileLen(infile, minlines=-1, maxlines=99999):
               "%s: Line count mismatch: found %d lines, expected %d to %d" % (
                   infile, linecnt, minlines, maxlines))
 
+
 def checkFileSize(infile, size):
     """check if file has certain size"""
     statinfo = os.stat(infile)
@@ -29,6 +30,7 @@ def checkFileSize(infile, size):
         error("CLI",
               "%s: File size mismatch: found %d bytes, expected %d" % (
                   infile, statinfo.st_size, size))
+
 
 def checkFileMatches(infile, matches):
     """check if text file contents match regular expressions"""
@@ -171,6 +173,23 @@ def runtest():
         xdm(Disks.work, "--initialize", "1", stderr=ferr, rc=1)
         xdm(Disks.work, "--initialize", "1601", stderr=ferr, rc=1)
         xdm(Disks.work, "--initialize", "FOO", stderr=ferr, rc=1)
+    f = os.path.join(Dirs.refs, "vardis")
+    for n in ["AA", "BB"]:
+        xdm(Disks.work, "--initialize", "SSSD", "-a", f, "-n", n)
+        with open(Files.output, "w") as fout:
+            xdm(Disks.work, "-i", stdout=fout)
+        checkFileMatches(Files.output, [(0, n + "\s+"), (2, n + "\s+")])
+
+    # set geometry
+    xdm(Disks.work, "--initialize", "1600", "-n", "GEO")
+    for g, p in [("1S1D", "1S/1D\s+40 TpS"), ("99T8D7S", "7S/8D\s+99 TpS"),
+                 ("22TDD", "7S/2D\s+22 TpS"), ("DSSD", "2S/1D\s+22 TpS"),
+                 ("1T", "2S/1D\s+1 TpS"), ("3D 10T 9S", "9S/3D\s+10 TpS"),
+                 ("SD DS", "2S/1D\s+10 TpS"), ("SS", "1S/1D\s+10 TpS")]:
+        xdm(Disks.work, "--set-geometry", g)
+        with open(Files.output, "w") as fout:
+            xdm(Disks.work, "-i", "-q", stdout=fout)
+        checkFileMatches(Files.output, [(0, p)])
 
     # resize disk
     shutil.copyfile(Disks.recsgen, Disks.work)

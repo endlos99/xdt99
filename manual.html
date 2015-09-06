@@ -671,7 +671,7 @@ erroneous files from it.</p>
 </code></pre>
 <p>The repair operation is likely to cause data loss, so it's best to extract
 erroneous files beforehand or to specify an alternative output file with <code>-o</code>.</p>
-<p>The <code>--initialize</code> parameter creates a new, blank disk image, using an
+<p>The <code>--initialize</code> option creates a new, blank disk image, using an
 optional name provided by <code>-n</code>.</p>
 <pre><code>$ xdm99.py blank.dsk --initialize 720 -n BLANK
 </code></pre>
@@ -679,6 +679,10 @@ optional name provided by <code>-n</code>.</p>
 also use the aliases <code>SSSD</code>, <code>DSSD</code>, <code>DSDD</code>, and <code>CF</code> for sector
 counts of 360, 720, 1440, and 1600, respectively.  Note that the disk
 format used by the TI 99 supports up to 1600 sectors per disk.</p>
+<p>You can combine <code>--initialize</code> with other parameters such <code>-a</code> to work with
+the newly created image immediately:</p>
+<pre><code>$ xdm99.py work.dsk --initialize SSSD -a file -f DV80
+</code></pre>
 <p>The resize parameter <code>-Z</code> will change the total number of sector of
 the disk without changing the contents of the files currently stored.</p>
 <pre><code>$ xdm99.py work.dsk -Z 720
@@ -692,6 +696,15 @@ $ xdm99.py work.dsk -S 0x22 -o first-file-sector
 </code></pre>
 <p>For convenience, the arguments of <code>-Z</code> and <code>-S</code> may be specified in either
 decimal or hexadecimal notation.</p>
+<p>The <code>--set-geometry</code> parameter explicitly sets the number of sides, the
+density, and the track information of the disk image.</p>
+<pre><code>$ xdm99.py work.dsk --set-geometry 2S1D80T
+</code></pre>
+<p>The geometry format is any combination of the number of sides <code>&lt;n&gt;S</code>, the
+density <code>&lt;n&gt;D</code>, and the number of tracks <code>&lt;n&gt;T</code>.  The commonly used aliases
+<code>SS</code>, <code>DS</code>, <code>SD</code>, and <code>DD</code> are also supported.</p>
+<p>Note that the <code>--set-geometry</code> command is rarely required for regular images
+but may be helpful for experimenting with non-standard disk image formats.</p>
 <h2>xvm99 Volume Manager</h2>
 <p><code>xvm99</code> is an extension to the <code>xdm99</code> tool specifically for the
 nanoPEB/CF7A-kind of devices that simulate TI floppy drives using Compact Flash

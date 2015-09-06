@@ -879,7 +879,7 @@ erroneous files from it.
 The repair operation is likely to cause data loss, so it's best to extract
 erroneous files beforehand or to specify an alternative output file with `-o`.
 
-The `--initialize` parameter creates a new, blank disk image, using an
+The `--initialize` option creates a new, blank disk image, using an
 optional name provided by `-n`.
 
     $ xdm99.py blank.dsk --initialize 720 -n BLANK
@@ -888,6 +888,11 @@ The size of the disk image is given by the number of sectors.  You may
 also use the aliases `SSSD`, `DSSD`, `DSDD`, and `CF` for sector
 counts of 360, 720, 1440, and 1600, respectively.  Note that the disk
 format used by the TI 99 supports up to 1600 sectors per disk.
+
+You can combine `--initialize` with other parameters such `-a` to work with
+the newly created image immediately:
+
+    $ xdm99.py work.dsk --initialize SSSD -a file -f DV80
 
 The resize parameter `-Z` will change the total number of sector of
 the disk without changing the contents of the files currently stored.
@@ -905,6 +910,18 @@ fragments of corrupted files.
     
 For convenience, the arguments of `-Z` and `-S` may be specified in either
 decimal or hexadecimal notation.
+
+The `--set-geometry` parameter explicitly sets the number of sides, the
+density, and the track information of the disk image.
+
+    $ xdm99.py work.dsk --set-geometry 2S1D80T
+
+The geometry format is any combination of the number of sides `<n>S`, the
+density `<n>D`, and the number of tracks `<n>T`.  The commonly used aliases
+`SS`, `DS`, `SD`, and `DD` are also supported.
+
+Note that the `--set-geometry` command is rarely required for regular images
+but may be helpful for experimenting with non-standard disk image formats.
 
 
 xvm99 Volume Manager

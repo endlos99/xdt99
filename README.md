@@ -204,6 +204,10 @@ Repair disk image with corrupt files or other inconsistencies:
 
     $ xdm99.py -R <disk image>
 
+Override disk geometry:
+
+    $ xdm99.py <filename> --set-geometry <geometry>
+
 Print sector dump:
 
     $ xdm99.py <disk image> -S <sector>
