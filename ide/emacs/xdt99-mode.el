@@ -1,4 +1,4 @@
-;;; xdt99-mode: xdt99 major modes for Emacs - Version 1.0.3
+;;; xdt99-mode: xdt99 major modes for Emacs - Version 1.1.0
 
 ;; Copyright (c) 2015 Ralph Benzinger <xdt99dev@gmail.com>
 
@@ -68,7 +68,7 @@
 (setq asm99-keywords-regex
       (regexp-opt (append asm99-opcodes asm99-directives asm99-preprocessor) 'words))
 
-;; intendation and tab key navigation
+;; intendation and smart edit modes
 
 (defun asm99-indent-line ()
   "Indent left of point, but move right of point to next tab stop."
@@ -103,8 +103,6 @@
 (defvar asm99-field-positions
   '(7 12 30 60 61))
 
-;; backspace key navigation
-
 (defun asm99-backspace ()
   "Backspace moves cursor to end of previous field or beginning of current field if blank."
   (interactive)
@@ -128,6 +126,34 @@
 	(asm99-find-largest-below threshold (cdr values) head)
       result)))
 
+;; simple navigation
+
+(defun asm99-goto-def ()
+  "jump to label definition"
+  (interactive)
+  (let ((symbol-re (concat "^" (current-word t t) ":?\\>"))
+	(symbol-pos nil))
+    (save-excursion
+      (goto-char 1)
+      (if (search-forward-regexp symbol-re nil t 1)
+	  (setq symbol-pos (match-beginning 0))))
+    (if symbol-pos
+	(goto-char symbol-pos))))
+
+(defun asm99-show-def ()
+  "show label definition"
+  (interactive)
+  (let ((symbol-re (concat "^" (current-word t t) "\\(?:\\(:\\)\s*$\\|\\>\\)")))
+    (save-excursion
+      (goto-char 1)
+      (if (search-forward-regexp symbol-re nil t 1)
+	  (progn
+	    (goto-char (match-beginning 0))
+	    (let ((eot (if (match-string 1)
+			   (line-end-position 2)
+			 (line-end-position))))
+	      (message (buffer-substring (line-beginning-position) eot))))
+	(message "symbol definition not found")))))
 
 ;; commenter
 

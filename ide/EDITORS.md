@@ -44,6 +44,11 @@ automate this step.
 such as registers and strings.  The look and feel of the highlighting can be
 customized using the Emacs `font-lock` faces.
 
+The `asm99-goto-def` command will jump to the location of the label that the
+cursor is currently positioned on.  The `asm99-show-def` command will show the
+label definition in the mini buffer.  For easy navigation you may assign one
+or both commands to your preferred keys (see below).
+
 The `comment-region` command (typically bound to `C-c ;`) adds the xdt99 comment
 character `;` to a range of lines.  Conversely, the `uncomment-region` command
 removes a single `;` character from each line.
@@ -124,7 +129,7 @@ deactivate each mode for the active buffer.
 It is recommended to use `electric-indent-mode` with smart tabs, but it may not
 be enabled by default.  To use `electric-indent-mode`, add
 
-	(electric-indent-mode 1)
+    (electric-indent-mode 1)
 
 To permanently disable the smart tab and/or smart backspace minor modes, add one
 or both of these lines to your `.emacs` file:
@@ -135,6 +140,15 @@ or both of these lines to your `.emacs` file:
 You can always use `M-x asm99-smart-tab-mode` and `M-x
 asm99-smart-backspace-mode` to activate or deactivate each minor mode for the
 active buffer.
+
+For easy navigation you may assign label navigation to some convenient key
+shortcut:
+
+    (global-set-key [f3] 'asm99-goto-def)
+    (global-set-key [S-f3] 'asm99-show-def)
+
+These lines assign function `asm99-goto-def` to the `F3` key and function
+`asm-show-def` to `Shift-F3`. 
 
 
 IDEA IntelliJ
