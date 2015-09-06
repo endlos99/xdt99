@@ -19,13 +19,14 @@ import java.io.Reader;
 public class Xbas99FindUsagesProvider implements FindUsagesProvider {
     private static final DefaultWordsScanner WORDS_SCANNER =
             new DefaultWordsScanner(new FlexAdapter(new Xbas99Lexer((Reader) null)),
-                    TokenSet.create(Xbas99Types.LINEDEF, Xbas99Types.NVAR, Xbas99Types.SVAR),
-                    TokenSet.create(Xbas99Types.S_REM), TokenSet.EMPTY);
+                    TokenSet.create(Xbas99Types.IDENT, Xbas99Types.SIDENT),
+                    TokenSet.create(Xbas99Types.COMMENT),
+                    TokenSet.EMPTY);
 
     @Nullable
     @Override
     public WordsScanner getWordsScanner() {
-        return WORDS_SCANNER;
+        return null; // disabled WORDS_SCANNER;
     }
 
     @Override

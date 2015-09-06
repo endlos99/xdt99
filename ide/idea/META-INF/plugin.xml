@@ -1,7 +1,7 @@
 <idea-plugin version="2">
   <name>xdt99 IntelliJ Plugin</name>
   <id>xdt99.intellij</id>
-  <version>1.1.1</version>
+  <version>1.1.3</version>
   <vendor email="xdt99dev@gmail.com" url="http://endlos99.github.io/xdt99/"><![CDATA[
     TI 99 Cross-Development Tools (xdt99)
     <br>

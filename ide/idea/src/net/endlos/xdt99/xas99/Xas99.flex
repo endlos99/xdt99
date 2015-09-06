@@ -32,12 +32,12 @@ INSTR_IX = "MPY" | "DIV"
 INSTR_IX_X = "XOP"
 INSTR_O = "NOP" | "RT"
 
-DIR_L = "DEF" | "REF"
+DIR_L = "DEF" | "REF" | "END"
 DIR_E = "EQU" | "BSS" | "BES" | "AORG" | "DORG"
 DIR_EO = "RORG"
 DIR_ES = "DATA" | "BYTE"
 DIR_S = "TITL" | "IDT" | "COPY" | "TEXT" | "IBYTE"
-DIR_O = "EVEN" | "END" | "UNL" | "LIST" | "PAGE" | "DXOP"
+DIR_O = "EVEN" | "UNL" | "LIST" | "PAGE" | "DXOP"
 DIR_X = "PSEG" | "PEND" | "CSEG" | "CEND" | "DSEG" | "DEND" | "LOAD" | "SREF"
 
 PREP = ".IFDEF" | ".IFNDEF" | ".IFEQ" | ".IFNE" | ".IFGT" | ".IFGE" | ".ELSE" | ".ENDIF"
@@ -130,4 +130,4 @@ ANY = [^\r\n]
 
 <COMMENT> [^\r\n]+               { yybegin(YYINITIAL); return Xas99Types.COMMENT; }
 
-.                                { return TokenType.BAD_CHARACTER; }
+[^]                              { return TokenType.BAD_CHARACTER; }

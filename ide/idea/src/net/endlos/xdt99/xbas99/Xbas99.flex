@@ -150,4 +150,4 @@ PART = [^,\r\n]
 
 <REM> {ANY}*          { return Xbas99Types.COMMENT; }
 
-.                     { return TokenType.BAD_CHARACTER; }
+[^]                   { return TokenType.BAD_CHARACTER; }

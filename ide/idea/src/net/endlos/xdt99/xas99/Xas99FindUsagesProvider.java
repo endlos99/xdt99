@@ -8,6 +8,7 @@ import com.intellij.psi.PsiElement;
 import com.intellij.psi.PsiNamedElement;
 import com.intellij.psi.tree.TokenSet;
 import net.endlos.xdt99.xas99.psi.Xas99Labeldef;
+import net.endlos.xdt99.xas99.psi.Xas99TokenType;
 import net.endlos.xdt99.xas99.psi.Xas99Types;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -17,12 +18,14 @@ import java.io.Reader;
 public class Xas99FindUsagesProvider implements FindUsagesProvider {
     private static final DefaultWordsScanner WORDS_SCANNER =
             new DefaultWordsScanner(new FlexAdapter(new Xas99Lexer((Reader) null)),
-                    TokenSet.create(Xas99Types.LABELDEF), TokenSet.create(Xas99Types.COMMENT), TokenSet.EMPTY); //TODO
+                    TokenSet.create(Xas99Types.IDENT),
+                    TokenSet.create(Xas99Types.COMMENT, Xas99Types.LCOMMENT),
+                    TokenSet.create(Xas99Types.TEXT));
 
     @Nullable
     @Override
     public WordsScanner getWordsScanner() {
-        return WORDS_SCANNER;
+        return null; //disabled WORDS_SCANNER;
     }
 
     @Override

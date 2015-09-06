@@ -42,7 +42,7 @@ private statement ::=
 private statement_recover ::=
     !CRLF
 directive ::=
-    DIR_L opLabel (OP_SEP opLabel)* |
+    DIR_L (opLabel (OP_SEP opLabel)*)? |
     DIR_E expr |
     DIR_EO expr? |
     DIR_ES expr (OP_SEP expr)* |

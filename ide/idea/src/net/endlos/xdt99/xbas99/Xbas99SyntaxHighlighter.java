@@ -8,7 +8,6 @@ import com.intellij.openapi.editor.markup.TextAttributes;
 import com.intellij.openapi.fileTypes.SyntaxHighlighterBase;
 import com.intellij.psi.TokenType;
 import com.intellij.psi.tree.IElementType;
-import net.endlos.xdt99.xbas99.Xbas99Lexer;
 import net.endlos.xdt99.xbas99.psi.Xbas99Types;
 import org.jetbrains.annotations.NotNull;
 
