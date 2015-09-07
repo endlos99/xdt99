@@ -86,7 +86,7 @@ dsrlnks_loop1:
        cb   *r2, @dsrlnks_haaaa
        jne  dsrlnks_loop1
        a    @dsrlnks_ws + 10, r2
-       jmp  !!
+       jmp  !
 
 dsrlnks_loop2:
        mov  @>83d2, r2

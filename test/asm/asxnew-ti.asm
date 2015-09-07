@@ -26,30 +26,43 @@ TXTBYT  BYTE >12,>34,>56,>78,>90,>AB,>CD,>EF
 
 * LOCAL LABELS
 
-GLOB1   DATA 1
-        JMP  GLOB2
-        JMP  GLOB2
-        JMP  GLOB1
-        JMP  GLOB2
-GLOB2   DATA 2
-        DATA 0
-LLL1    DATA 3
+GLOB1   DATA 0
+LLL1    DATA 1
         JMP  LLL2
+        JMP  LLL2
+        JMP  LLL1
+        JMP  LLL2
+        JMP  LLL1
+        JMP  LLL1
+GLOB2   DATA 0
+LLL2    DATA 2
         JMP  LLL3
         JMP  LLL4
-        JMP  LLL1
-        JMP  GLOB2
-        JMP  GLOB1
-        DATA 0
-LLL2    DATA 4
+        JMP  LLL5
         JMP  LLL2
+        JMP  LLL1
+        DATA 0
+LLL3    DATA 3
         JMP  LLL3
-LLL3    JMP  LLL2
-LLL4    JMP  GLOB3
-        B    @LLL4-2
-        B    @GLOB3+2
-        MOV  @LLL4(1),@GLOB3(2)
-GLOB3   DATA 5
+        JMP  LLL4
+LLL4    JMP  LLL3
+LLL5    JMP  LLL6
+LLL6    B    @LLL5-2
+        B    @LLL7+2
+        MOV  @LLL5(1),@LLL7(2)
+AMBI    DATA 0
+        JMP  AMBI
+        JMP  LAMBI
+LAMBI   DATA 4
+LLOC1   DATA 5
+LLL7    DATA 6
+LLOC11  DATA 7
+        JEQ  LLL7
+        JEQ  LLOC1
+        JEQ  LLOC11
+        MOV  @LLOC1B,@LLOC1
+LLOC1B  DATA 8
+        JEQ  LLOC1
 
 * LABEL CONTINUATIONS
 
@@ -80,9 +93,9 @@ LCONT7  BES  10
 
 * LABEL CONTINUATIONS (EDGE CASE)
 
-LCONTA  JMP LLLA
-LLLA    NOP
-        JMP LLLA
-        JMP LCONTA
+LLLA    JMP  LLLB
+LLLB    NOP
+        JMP  LLLB
+        JMP  LLLA
 
         END

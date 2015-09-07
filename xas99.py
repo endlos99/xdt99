@@ -81,7 +81,8 @@ class Reference:
 class Local:
     """local label reference"""
 
-    def __init__(self, distance):
+    def __init__(self, name, distance):
+        self.name = name
         self.distance = distance
 
 
@@ -140,8 +141,6 @@ class Symbols:
         self.relocLC = True
 
     def addSymbol(self, name, value):
-        if name[-1] == ":":
-            name = name[:-1]  # ignore closing ":" char
         if name in self.symbols:
             raise AsmError("Multiple symbols: " + name)
         self.symbols[name] = value
@@ -151,9 +150,9 @@ class Symbols:
         name = self.addSymbol(label, Address(self.LC, self.relocLC))
         self.locations.append((lidx, name))
 
-    def addAnonLabel(self, lidx):
+    def addLocalLabel(self, lidx, label):
         self.anonno += 1
-        self.addLabel(lidx, ":$!" + str(self.anonno))
+        self.addLabel(lidx, label + "$" + str(self.anonno))
 
     def addDef(self, name):
         if name in self.refdefs:
@@ -172,19 +171,21 @@ class Symbols:
     def getSymbol(self, name):
         return self.symbols.get(name)
 
-    def getLocal(self, lpos, distance):
+    def getLocal(self, name, lpos, distance):
+        targets = [(l, n) for (l, n) in self.locations
+                   if n[:len(name) + 1] == name + "$"]
         try:
-            i, lidx = next((j, l) for j, (l, n) in enumerate(self.locations)
+            i, lidx = next((j, l) for j, (l, n) in enumerate(targets)
                            if l >= lpos)
             if distance > 0 and lidx > lpos:
                 distance -= 1  # i points to +! unless lidx == lpos
         except StopIteration:
-            i = len(self.locations)  # beyond last label
+            i = len(targets)  # beyond last label
         try:
-            _, name = self.locations[i + distance]
+            _, fullname = targets[i + distance]
         except IndexError:
             return None
-        return self.getSymbol(name)
+        return self.getSymbol(fullname)
         
 
 ### Code generation
@@ -226,8 +227,8 @@ class Objdummy:
     def processLabel(self, lidx, label):
         if not label:
             return
-        if label == "!":
-            self.symbols.addAnonLabel(lidx)
+        if label[0] == "!":
+            self.symbols.addLocalLabel(lidx, label[1:])
         else:
             self.symbols.addLabel(lidx, label)
 
@@ -1213,9 +1214,11 @@ class Parser:
                     errors.append("<1> %04d - %s\n***** %s\n" % (
                         lino, line, "Invalid continuation for label"))
                 label, prevlabel = prevlabel, None
-            elif label and label[-1] == ":" and not mnemonic:
+            elif label[-1:] == ":" and not mnemonic:
                 prevlabel = label
                 continue
+            if label[-1:] == ":":
+                label = label[:-1]
             # process mnemonic
             try:
                 Directives.process(self, dummy, label, mnemonic, operands) or \
@@ -1336,7 +1339,8 @@ class Parser:
                 termval = self.term(term, wellDefined, relaxed)
                 if isinstance(termval, Local):
                     dist = -termval.distance if negate else termval.distance
-                    termval = self.symbols.getLocal(self.lidx, dist)
+                    termval = self.symbols.getLocal(termval.name,
+                                                    self.lidx, dist)
                     negate = False
                 if termval is None:
                     raise AsmError("Invalid expression: " + term)
@@ -1394,8 +1398,9 @@ class Parser:
                 return 0
             else:
                 raise AsmError("Invalid text literal: " + c)
-        elif op[0] == "!" and op == "!" * len(op):
-            return Local(len(op))
+        elif op[0] == "!":
+            m = re.match("(!+)(.*)", op)
+            return Local(m.group(2), len(m.group(1)))
         else:
             v = self.symbols.getSymbol(op[:6] if self.strictMode else op)
             if v is None and (self.passno > 1 or wellDefined):

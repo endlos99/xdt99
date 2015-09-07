@@ -225,7 +225,7 @@ LABEL2 TEXT 'Hello World'
 Label3 mov Label1(R1),Label2(r2)
 </code></pre>
 <p>Labels may be of arbitrary length and may contain arbitrary characters except
-for whitespace and operators such as <code>;</code>, <code>+</code>, <code>*</code>, <code>(</code>, etc.  An optional
+for whitespace and operators such as <code>+</code>, <code>*</code>, <code>(</code>, <code>$</code>, etc.  An optional
 colon <code>:</code> may be appended to the label name.  The colon is not part of the
 name, but logically continues the current line to the next:  </p>
 <pre><code>my_label_1:
@@ -235,22 +235,36 @@ my_label_2:
 my_label_3        ; assigns &gt;a000 to my_label_3  \  standard E/A
     aorg &gt;b000    ; no label to assign &gt;b000 to  /  behavior
 </code></pre>
-<p>Anonymous labels and local references simplify the implementation of small
-loops.  A forward local reference <code>!</code>, <code>!!</code>, <code>!!!</code>, ... refers to the
-address of the first, second, third ... label in the source code after the
-current position.  Conversely, a local backward reference <code>-!</code>, <code>-!!</code>, <code>-!!!</code>,
-... refers to the first, second, third, ... label before the current position.   </p>
-<p>An anonymous label <code>!</code> marks the current line counter in the symbol table
-without assigning a name for it.  Anonymous labels are intended for local
-references.</p>
+<p>Local labels simplify the implementation of small loops.  A local label is
+introduced by an exclamation mark <code>!</code> and an optional name.  Thus, the simplest
+local label is just a single <code>!</code>.  Local labels need not be unique within the
+program.</p>
+<p>References to local labels are resolved relative to the current position.  By
+default, matching labels are searched after the current position.  References
+prefixed with a unary minus sign <code>-</code> are searched before the current position.</p>
 <pre><code>clear_data:
     li   r0, &gt;a000
     li   r2, &gt;100
 !   clr  *r0+         ; make jump target without potential name conflicts
     dec  r2
-    jne  -!
+    jne  -!           ; jump to target two lines above
     rt
 </code></pre>
+<p>Doubling, tripling, ... the number of <code>!</code>s before a reference refers to the
+second, third, ... match of the local label relative to the current position: </p>
+<pre><code>!   dec  r1              &lt;-+
+    jeq  !     --+         |
+    inc  r2      |         |
+    jne  !!      |  --+    |
+    jmp  -!      |    |  --|
+!   dec  r2    &lt;-+    |    |
+    jmp  -!!          |  --|
+!   inc  r1         &lt;-+    |
+    jmp  -!!!            --+
+!   rt
+</code></pre>
+<p>Note that labels <code>label</code> and <code>!label</code> are entirely different and can be used
+without conflict in the same program.</p>
 <p>The use of whitespace has been relaxed.  Single spaces may be used judiciously
 within the operand field to increase the legibility of expressions.  Two or more
 spaces as well as tabs introduce the comment field.</p>

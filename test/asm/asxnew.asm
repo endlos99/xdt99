@@ -26,30 +26,43 @@ txtbyt  text >1234567890abcdef
 
 ; local labels
 
-glob1   data 1
+glob1   data 0
+!       data 1
         jmp  !
         jmp  +!
         jmp  -!
         jmp  --!
-glob2   data 2
-        data 0
-!       data 3
+        jmp  -+!
+        jmp  +-+!
+glob2   data 0
+!       data 2
         jmp  !
         jmp  !!
         jmp  !!!
         jmp  -!
         jmp  -!!
-        jmp  -!!!
         data 0
-!       data 4
+!       data 3
         jmp  -!
         jmp  !
 !       jmp  -!
 !       jmp  !
-        b    @-!-2
+!       b    @-!-2
         b    @!+2
-        mov  @-!(1),@!(2)
-glob3   data 5
+        mov  @-!!(1), @!(2)
+ambi    data 0
+        jmp  ambi
+        jmp  !ambi
+!ambi   data 4
+!loc1   data 5
+!       data 6
+!loc11  data 7
+        jeq  -!
+        jeq  -!loc1
+        jeq  -!loc11
+        mov  @!loc1, @-!loc1
+!loc1   data 8
+        jeq  -!!loc1
 
 ; label continuations
 
@@ -86,7 +99,7 @@ lcont7:
 
 ; label continuations (edge case, keep at end)
 
-lcontA:
+!:
         jmp !
 !       nop
         jmp -!
