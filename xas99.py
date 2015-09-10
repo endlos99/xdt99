@@ -38,6 +38,11 @@ def chrw(word):
     return chr(word >> 8) + chr(word & 0xFF)
 
 
+def pad(n, m):
+    """return increment to next multiple of m"""
+    return -n % m
+
+
 def used(n, m):
     """integer division rounding up"""
     return (n + m - 1) / m
@@ -488,24 +493,33 @@ class Objcode:
 
     def genJumpstart(self):
         """generate disk image for Jumpstart cartridge"""
-        image = self.genImage(0xa000, 0x6000)
-        send = self.entry or Address(0xa000)
-        entry = send.addr + 0xa000 if send.relocatable else send.addr
-        if len(image) != 1:
+        segments = self.genImage(0xa000, 0x6000)
+        if len(segments) > 32 / 4:
             raise BuildError(
-                "Cannot create jumpstart image with multiple segments")
-        header, data = image[0][:6], image[0][6:]
+                "Cannot create jumpstart disk with more than 8 segments")
+        e = self.entry or Address(0xa000)
+        start = e.addr + 0xa000 if e.relocatable else e.addr
+        chunks, sectors = [], []
+        for image in segments:
+            addr, data = image[4:6], image[6:]
+            if ordw(addr) % 256 != 0:
+                raise BuildError("Segments must start at multiples of >100")
+            size = used(len(data), 256)
+            chunks.append(addr + chrw(size))
+            sectors.append(data + "\x00" * pad(len(data), 256))
         disk = (
-            # first sector
-            "JS" +
-            header[4:6] + chrw(entry) + chrw(used(len(data), 256)) +
-            chrw(0xabcd) + chrw(360) + "\x09DSK \x28\x01\x01" +
-            "\x00" * 36 + "\xff" * 200 +
+            # sector 0
+            "xas99-JS" + chrw(0xc2b9) +           # 10 bytes
+            chrw(360) + "\x09DSK \x28\x01\x01" +  # 10 bytes
+            chrw(start) +                         #  2 bytes
+            "".join(chunks) + "\x00\x00" + "\xff" * (232 - 4 * len(chunks)) +
+            # sector 1
+            "\x00" * 256 +
             # data sectors
-            data + "\x00" * (359 * 256 - len(data))
+            "".join(sectors)
             )
-        assert len(disk) == 90 * 1024
-        return disk
+        assert len(disk) % 256 == 0
+        return disk + "\x00" * (360 * 256 - len(disk))
 
     def genList(self):
         """generate listing"""
@@ -1269,7 +1283,7 @@ class Parser:
 
     def escape(self, text):
         """remove and save text literals from line"""
-        parts = re.split("('(?:[^']|'')*')", text)
+        parts = re.split(r"('(?:[^']|'')*'|\"[^\"]*\")", text)
         lits = [s[1:-1].replace("''", "'") for s in parts[1::2]]
         parts[1::2] = ["'%s'" % (len(self.textlits) + i)
                        for i in xrange(len(lits))]
@@ -1454,9 +1468,9 @@ class Parser:
 
     def filename(self, op):
         """parse double-quoted filename"""
-        if not (len(op) >= 3 and op[0] == op[-1] == '"'):
+        if not (len(op) >= 3 and op[0] == op[-1] == "'"):
             raise AsmError("Invalid filename: " + op)
-        return op[1:-1]
+        return self.textlits[int(op[1:-1])]
 
     @staticmethod
     def symconst(op):
@@ -1596,3 +1610,4 @@ def main():
 if __name__ == "__main__":
     status = main()
     sys.exit(status)
+    

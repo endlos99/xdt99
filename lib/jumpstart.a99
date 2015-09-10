@@ -6,12 +6,17 @@
 first  jmp  start
        
 ws:
-       equ  >3f00
+       equ  >3fb0            ; 32 bytes
+sector_map:
+       equ  >3fd0            ; 34 bytes
 vdp_pab:
        equ  >1000
 vdp_buf:
        equ  >1100
-       
+
+js_version:
+       equ  >c2b9            ; version 1
+
 reg_drive:
        equ  >834c
 reg_mode:
@@ -46,19 +51,16 @@ start:
        limi 0
 
        ; find drive
+       li   r9, js_version
        clr  r3
        li   r4, >0100
 !      bl   @read_sector
 
-       ; r5 = load addr
-       ; r6 = start addr
-       ; r7 = sector count
-       ; r8 = jumpstart marker
-       li   r0, vdp_buf + 2
+       li   r0, vdp_buf + 8
        li   r1, ws + 10
-       li   r2, 8
+       li   r2, 2
        bl   @vmbr
-       ci   r8, >abcd
+       c    r5, r9
        jeq  load
 
        ai   r4, >0100
@@ -74,34 +76,59 @@ start:
        jmp  $
 
        ; load sectors
+       ; r3 = current sector
+       ; r4 = drive
+       ; r5 = sector map pointer
+       ; r6 = start addr
+       ; r7 = load addr
+       ; r8 = sector count
 load:
        clr  r0
        li   r1, msg_loading
        li   r2, msg_loading_len
        bl   @vmbw
 
+       li   r0, vdp_buf + >14  ; read sector map from reserved area
+       li   r1, sector_map
+       li   r2, 36             ; start addr + upto 8 chunks + >0000
+       bl   @vmbr
+
+       inc  r3
+       li   r5, sector_map
+       mov  *r5+, r6
+       
+read_chunk:
+       mov  *r5+, r7
+       jeq  done
+       mov  *r5+, r8
+       
 !      inc  r3
        bl   @read_sector
        li   r0, vdp_buf
-       mov  r5, r1
+       mov  r7, r1
        li   r2, 256
-       a    r2, r5
+       a    r2, r7
        bl   @vmbr
 
-       dec  r7
+       dec  r8
        jne  -!
+
+       jmp  read_chunk
        
+done:
+       ; message?
        b    *r6
+
        
 ****************************************
 * read sector
 * r3 = sector number, r4 = drive number
        
 read_sector:
-       mov  r11, r9
+       mov  r11, r12
        movb @mode_read, @reg_mode
        mov  r3, @reg_sector
-       movb r4, @reg_drive
+       movb r4, @reg_drive   ; do we need to reset this every time?
 
        li   r0, vdp_buf
        mov  r0, @reg_buffer
@@ -115,7 +142,7 @@ read_sector:
        blwp @dsrlnk
        data >a
 
-       b    *r9
+       b    *r12
 
 
 ****************************************

@@ -26,11 +26,10 @@ def runtest():
         prog = fref.read()
     if len(disk) != 360 * 256:
         error("Jumpstart", "Incorrect disk size: %d" % len(disk))
-    if (disk[0:10] != "JS\xa0\x00\xa0\x00\x00\x01\xab\xcd" or
-            disk[56:256] != "\xff" * 200):
+    if disk[0:10] != "xas99-JS\xc2\xb9" or disk[56:256] != "\xff" * 200:
         error("Jumpstart", "Invalid sector 0 data")
     plen = ordw(prog[2:4]) - 6
-    if disk[256:256 + plen] != prog[6:6 + plen]:
+    if disk[512:512 + plen] != prog[6:6 + plen]:
         error("Jumpstart", "Invalid program data")
 
     # cleanup

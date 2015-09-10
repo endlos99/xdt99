@@ -190,8 +190,8 @@ program from any inserted disk and run it.  Thus, selecting either option 3
 or 5 in the Editor/Assembler module and manually entering the program filename
 is no longer required.
 
-Currently, the jumpstarted programs cannot consist of more than one segment and
-must fit entirely into memory area `>2000` and `>3EFF` or `>A000` and `>FFFF`.
+Currently, jumpstarted programs may consist of up to 8 segments and must fit
+entirely into memory area `>2000` and `>3EFF` or `>A000` and `>FFFF`.
 
 
 ### Other Formats
