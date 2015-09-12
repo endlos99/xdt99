@@ -1042,8 +1042,8 @@ this:
     A006ABD020B8375B0980B0240B000FB0260B0700B0420B0000B10E87F410F               0006
     50000SLOAD 50000SFIRST5007ESLAST 5001CSTART 30030VSBW  7F28AF               0007
     30046VMBW  3007AVWTR  30062KSCAN 7F827F                                     0008
-    :       99/4 AS                                                             0009
-
+    :       xdt99 xas                                                           0009
+ 
 This file can be loaded with the Editor/Assembler module using option 3, or
 alternatively with the TI Extended BASIC module using the `CALL LOAD`
 statement.

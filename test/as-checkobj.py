@@ -66,6 +66,7 @@ def runtest():
             ("asimg1.asm", [], "ASIMG1-O", "ASIMG1-C"),
             ("asimg2.asm", [], "ASIMG2-O", None),
             ("asimg3.asm", [], "ASIMG3-OX", None),
+            #("asreloc.asm", [], "ASRELOC-O", None),
             ("ascart.asm", ["-R"], "ASCART-O", "ASCART-C")
             ]:
         source = os.path.join(Dirs.sources, infile)
@@ -107,7 +108,8 @@ def runtest():
 
     for infile, reffiles in [
         ("aslimg.asm", ["ASLIMG-I", "ASLIMG-J", "ASLIMG-K"]),
-        ("assimg.asm", ["ASSIMG-I", "ASSIMG-J", "ASSIMG-K", "ASSIMG-L"])
+        ("assimg.asm", ["ASSIMG-I", "ASSIMG-J", "ASSIMG-K", "ASSIMG-L"]),
+        ("asreloc.asm", ["ASRELOC-I"])
         ]:
         source = os.path.join(Dirs.sources, infile)
         xas(source, "-R", "-i", "-o", Files.output)

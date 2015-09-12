@@ -398,10 +398,11 @@ class Objcode:
         tags.append(":       xdt99 xas")
         return tags.dump()
 
-    def writeMem(self, mem, code, baseAddr):
+    def writeMem(self, mem, code, reloc, baseAddr):
         """load object code into memory"""
+        offset = baseAddr if reloc else 0
         for LC, w, _ in code:
-            addr = LC + baseAddr
+            addr = LC + offset
             if isinstance(w, Address):
                 mem[addr] = w.addr + baseAddr if w.relocatable else w.addr
             elif isinstance(w, Reference):
@@ -419,7 +420,7 @@ class Objcode:
                 mem[addr] = w
         return mem
 
-    def genImage(self, baseAddr=0xA000, chunkSize=0x2000):
+    def genImage(self, baseAddr=0xa000, chunkSize=0x2000):
         """generate memory image (E/A option 5)"""
         self.prepare()
         sfirst = self.symbols.getSymbol("SFIRST")
@@ -428,7 +429,7 @@ class Objcode:
             mem = {}
             for base, finalLC, reloc, dummy, code in self.segments:
                 if not dummy:
-                    mem = self.writeMem(mem, code, baseAddr if reloc else 0)
+                    mem = self.writeMem(mem, code, reloc, baseAddr)
             minAddr = sfirst.addr + baseAddr if sfirst.relocatable else sfirst.addr
             maxAddr = slast.addr + baseAddr if slast.relocatable else slast.addr
             words = [(minAddr, maxAddr, mem)]
@@ -436,7 +437,7 @@ class Objcode:
             words = []
             for base, finalLC, reloc, dummy, code in self.segments:
                 if not dummy:
-                    mem = self.writeMem({}, code, baseAddr if reloc else 0)
+                    mem = self.writeMem({}, code, reloc, baseAddr)
                     if mem:
                         addrs = mem.keys()
                         words.append((min(addrs), max(addrs) + 2, mem))
