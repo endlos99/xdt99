@@ -38,7 +38,7 @@ public class Xas99PsiImplUtil {
 
     public static PsiElement setName(Xas99Labeldef element, String newName) {
         ASTNode keyNode = element.getNode().findChildByType(Xas99Types.IDENT);
-        if (keyNode != null) {
+        if (keyNode != null && element.getText().charAt(0) != '!') {
             Xas99Labeldef label = Xas99ElementFactory.createLabel(element.getProject(), newName);
             ASTNode newKeyNode = label.getFirstChild().getNode();
             element.getNode().replaceChild(keyNode, newKeyNode);
@@ -48,7 +48,7 @@ public class Xas99PsiImplUtil {
 
     public static PsiElement setName(Xas99OpLabel element, String newName) {
         ASTNode keyNode = element.getNode().findChildByType(Xas99Types.IDENT);
-        if (keyNode != null) {
+        if (keyNode != null && element.getText().charAt(0) != '!') {
             Xas99Labeldef label = Xas99ElementFactory.createLabel(element.getProject(), newName);
             ASTNode newKeyNode = label.getFirstChild().getNode();
             element.getNode().replaceChild(keyNode, newKeyNode);
@@ -102,12 +102,16 @@ public class Xas99PsiImplUtil {
     }
 
     public static void rename(PsiElement myElement, String newElementName) {
+        // renaming/introduction of local label is prevented by Xas99NamesValidator;
+        // change of local label to global label is prevented by Xas99RefactoringSupportProvider
         if (myElement instanceof Xas99Labeldef) {
             Xas99Labeldef label = (Xas99Labeldef) myElement;
             label.setName(newElementName);
-        } else if (myElement instanceof Xas99OpLabel) {
+        } else if (myElement instanceof Xas99OpLabel &&
+                myElement.getText().charAt(0) != '!') {
             Xas99OpLabel label = (Xas99OpLabel) myElement;
             label.setName(newElementName);
         }
     }
+
 }

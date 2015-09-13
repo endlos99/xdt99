@@ -26,14 +26,12 @@ linecomment ::=  // used by folding builder
 
 // label
 private label ::=
-    labeldef OP_COLON? | anon_label
+    labeldef OP_COLON?
 labeldef ::=
     IDENT
     {mixin="net.endlos.xdt99.xas99.psi.impl.Xas99NamedElementImpl"
      implements="net.endlos.xdt99.xas99.psi.Xas99NamedElement"
      methods=[getName setName getNameIdentifier getPresentation]}
-anon_label ::=
-    LOCAL
 
 // mnemonics
 private statement ::=
@@ -119,7 +117,7 @@ opRegister ::=
     REGISTER | INT
     {name="register"}
 opText ::=
-    OP_MINUS? TEXT
+    OP_MINUS? (TEXT | INT)
     {name="text"}
 opLabel ::=
     IDENT

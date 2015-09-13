@@ -69,6 +69,7 @@ public class Xas99SyntaxHighlighter extends SyntaxHighlighterBase {
         } else if (tokenType.equals(Xas99Types.DIR_L) ||
                 tokenType.equals(Xas99Types.DIR_E) ||
                 tokenType.equals(Xas99Types.DIR_ES) ||
+                tokenType.equals(Xas99Types.DIR_EO) ||
                 tokenType.equals(Xas99Types.DIR_S) ||
                 tokenType.equals(Xas99Types.DIR_O) ||
                 tokenType.equals(Xas99Types.DIR_X)) {

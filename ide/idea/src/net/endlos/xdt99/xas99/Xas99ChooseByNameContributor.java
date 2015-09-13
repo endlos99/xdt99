@@ -26,7 +26,7 @@ public class Xas99ChooseByNameContributor implements ChooseByNameContributor {
     @NotNull
     @Override
     public NavigationItem[] getItemsByName(String name, String pattern, Project project, boolean includeNonProjectItems) {
-        List<Xas99Labeldef> labels = Xas99Util.findLabels(project, name);
+        List<Xas99Labeldef> labels = Xas99Util.findLabels(project, null, name, 0, 0);
         return labels.toArray(new NavigationItem[labels.size()]);
     }
 }

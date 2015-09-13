@@ -43,7 +43,10 @@ public class Xas99FindUsagesProvider implements FindUsagesProvider {
     @Override
     public String getType(@NotNull PsiElement element) {
         if (element instanceof Xas99Labeldef) {
-            return "Assembly label";
+            if (element.getText().charAt(0) == '!')
+                return "Assembly local label";
+            else
+                return "Assembly label";
         } else {
             return "";
         }

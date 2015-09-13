@@ -1,7 +1,7 @@
 <idea-plugin version="2">
   <name>xdt99 IntelliJ Plugin</name>
   <id>xdt99.intellij</id>
-  <version>1.1.3</version>
+  <version>1.2.0</version>
   <vendor email="xdt99dev@gmail.com" url="http://endlos99.github.io/xdt99/"><![CDATA[
     TI 99 Cross-Development Tools (xdt99)
     <br>
@@ -27,8 +27,7 @@
   ]]></description>
 
   <change-notes><![CDATA[
-    Improved error reporting and handling of assembly sources with unknown
-    constructs.
+    First regular release as part of the xdt99 tool suite.
   ]]></change-notes>
 
   <!-- https://confluence.jetbrains.com/display/IDEADEV/Build+Number+Ranges -->
@@ -46,11 +45,10 @@
     <colorSettingsPage implementation="net.endlos.xdt99.xas99.Xas99ColorSettingsPage"/>
     <lang.refactoringSupport language="Xas99" implementationClass="net.endlos.xdt99.xas99.Xas99RefactoringSupportProvider"/>
     <lang.findUsagesProvider language="Xas99" implementationClass="net.endlos.xdt99.xas99.Xas99FindUsagesProvider"/>
+    <lang.namesValidator language="Xas99" implementationClass="net.endlos.xdt99.xas99.Xas99NamesValidator"/>
     <lang.foldingBuilder language="Xas99" implementationClass="net.endlos.xdt99.xas99.Xas99FoldingBuilder"/>
-    <gotoSymbolContributor implementation="net.endlos.xdt99.xas99.Xas99ChooseByNameContributor"/>
     <lang.commenter language="Xas99" implementationClass="net.endlos.xdt99.xas99.Xas99Commenter"/>
     <codeStyleSettingsProvider implementation="net.endlos.xdt99.xas99.Xas99CodeStyleSettingsProvider"/>
-    <editorActionHandler action="EditorTab" implementationClass="net.endlos.xdt99.xas99.Xas99EditorWriteActionHandler"/>
     <!-- TI Extended BASIC -->
     <fileTypeFactory implementation="net.endlos.xdt99.xbas99.Xbas99FileTypeFactory"/>
     <lang.parserDefinition language="Xbas99" implementationClass="net.endlos.xdt99.xbas99.Xbas99ParserDefinition"/>
@@ -59,8 +57,10 @@
     <lang.refactoringSupport language="Xbas99" implementationClass="net.endlos.xdt99.xbas99.Xbas99RefactoringSupportProvider"/>
     <lang.findUsagesProvider language="Xbas99" implementationClass="net.endlos.xdt99.xbas99.Xbas99FindUsagesProvider"/>
     <lang.namesValidator language="Xbas99" implementationClass="net.endlos.xdt99.xbas99.Xbas99NamesValidator"/>
-    <!-- gotoSymbolContributor implementation="net.endlos.xdt99.xbas99.Xbas99ChooseByNameContributor"/-->
-    <!-- lang.commenter language="Xbasic99" implementationClass="net.endlos.xdt99.xbas99.Xbas99Commenter"/-->
+    <!-- general -->
+    <editorActionHandler action="EditorTab" implementationClass="net.endlos.xdt99.xas99.Xas99EditorWriteActionHandler"/>
+    <renamePsiElementProcessor implementation="net.endlos.xdt99.xas99.Xas99RenamePsiElementProcessor"/>
+    <gotoSymbolContributor implementation="net.endlos.xdt99.xas99.Xas99ChooseByNameContributor"/>
   </extensions>
 
   <application-components>
