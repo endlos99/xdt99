@@ -64,7 +64,7 @@ instruction ::=
     INSTR_O
     {pin=1}
 preprocessor ::=
-    PREP PREP_ARG?
+    PREP (PP_ARG | PP_SEP)*
     {pin=1}
 unknown_mnem ::=
     UNKNOWN
@@ -108,19 +108,19 @@ opGA ::=
     OP_AST opRegister OP_PLUS?
     {name="general address"}
 opAddress ::=
-    opLabel | OP_LC | LOCAL
+    opLabel | OP_LC | LOCAL | PP_PARAM
     {name="address value"}
 opValue ::=
     expr
     {name="value"}
 opRegister ::=
-    REGISTER | INT
+    REGISTER | INT | PP_PARAM
     {name="register"}
 opText ::=
-    OP_MINUS? (TEXT | INT)
+    OP_MINUS? (TEXT | INT | PP_PARAM)
     {name="text"}
 opLabel ::=
-    IDENT
+    IDENT | PP_PARAM
     {methods=[getName setName getNameIdentifier getReference]
      name="label"}
 

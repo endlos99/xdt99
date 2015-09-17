@@ -40,7 +40,7 @@ DIR_S = "TITL" | "IDT" | "COPY" | "TEXT" | "IBYTE"
 DIR_O = "EVEN" | "UNL" | "LIST" | "PAGE" | "DXOP"
 DIR_X = "PSEG" | "PEND" | "CSEG" | "CEND" | "DSEG" | "DEND" | "LOAD" | "SREF"
 
-PREP = ".IFDEF" | ".IFNDEF" | ".IFEQ" | ".IFNE" | ".IFGT" | ".IFGE" | ".ELSE" | ".ENDIF"
+PREP = "." [A-Za-z0-9]+
 
 LINE_COMMENT = "*" [^\r\n]*
 EOL_COMMENT = ";" [^\r\n]*
@@ -50,6 +50,8 @@ INT = {DIGIT}+ | ">" {HEX}+ | ":" [01]+
 TEXT = "'" ([^'\r\n] | "''")* "'" | "\"" [^\"\r\n]* "\""
 REGISTER = [Rr] ([0-9] | 1[0-5])
 OPMISC = [/%&|\^]
+PPARG = [^, \t\r\n]+
+PPPARM = "#" {DIGIT}+
 
 ALPHA = [^@$!,;>:+\-*/\^&|~() \t\r\n]
 DIGIT = [0-9]
@@ -60,7 +62,6 @@ BLANK = {SPACE} | \t
 WS = {BLANK}+
 FIELDSEP = {BLANK}{BLANK}+ | \t
 CRLF = \n | \r | \r\n
-ANY = [^\r\n]
 
 %state MNEMONIC
 %state MNEMONICO
@@ -121,10 +122,14 @@ ANY = [^\r\n]
 <ARGUMENTS> {IDENT}              { return Xas99Types.IDENT; }
 <ARGUMENTS> {INT}                { return Xas99Types.INT; }
 <ARGUMENTS> {TEXT}               { return Xas99Types.TEXT; }
+<ARGUMENTS> {PPPARM}             { return Xas99Types.PP_PARAM; }
 <ARGUMENTS> {FIELDSEP}           { yybegin(COMMENT); return TokenType.WHITE_SPACE; }
 <ARGUMENTS> {SPACE}              { return TokenType.WHITE_SPACE; }
 
-<PREPROC> {ANY}{ANY}*            { return Xas99Types.PREP_ARG; }
+<PREPROC> ","                    { return Xas99Types.PP_SEP; }
+<PREPROC> {PPARG}                { return Xas99Types.PP_ARG; }
+<PREPROC> {FIELDSEP}             { yybegin(COMMENT); return TokenType.WHITE_SPACE; }
+<PREPROC> {SPACE}                { return TokenType.WHITE_SPACE; }
 
 <COMMENT> [^\r\n]+               { yybegin(YYINITIAL); return Xas99Types.COMMENT; }
 

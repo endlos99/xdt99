@@ -49,6 +49,7 @@
     <lang.foldingBuilder language="Xas99" implementationClass="net.endlos.xdt99.xas99.Xas99FoldingBuilder"/>
     <lang.commenter language="Xas99" implementationClass="net.endlos.xdt99.xas99.Xas99Commenter"/>
     <codeStyleSettingsProvider implementation="net.endlos.xdt99.xas99.Xas99CodeStyleSettingsProvider"/>
+    <vetoRenameCondition implementation="net.endlos.xdt99.xas99.Xas99VetoRenameCondition"/>
     <!-- TI Extended BASIC -->
     <fileTypeFactory implementation="net.endlos.xdt99.xbas99.Xbas99FileTypeFactory"/>
     <lang.parserDefinition language="Xbas99" implementationClass="net.endlos.xdt99.xbas99.Xbas99ParserDefinition"/>

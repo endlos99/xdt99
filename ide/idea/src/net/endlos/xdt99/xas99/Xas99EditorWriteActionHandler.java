@@ -1,25 +1,31 @@
 package net.endlos.xdt99.xas99;
 
 import com.intellij.openapi.actionSystem.DataContext;
-import com.intellij.openapi.actionSystem.IdeActions;
 import com.intellij.openapi.actionSystem.LangDataKeys;
 import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.editor.Caret;
 import com.intellij.openapi.editor.Editor;
 import com.intellij.openapi.editor.EditorModificationUtil;
 import com.intellij.openapi.editor.actionSystem.EditorActionHandler;
-import com.intellij.openapi.editor.actionSystem.EditorActionManager;
 import com.intellij.openapi.editor.actionSystem.EditorWriteActionHandler;
 
 public class Xas99EditorWriteActionHandler extends EditorWriteActionHandler {
+    private final EditorActionHandler defaultHandler;
     private final String maxTabs = "                                                            ";  // 60 spaces
-    private final EditorActionManager actionManager = EditorActionManager.getInstance();
-    private final EditorActionHandler actionHandler = actionManager.getActionHandler(IdeActions.ACTION_EDITOR_TAB);
+
+    public Xas99EditorWriteActionHandler(EditorActionHandler defaultHandler) {
+        this.defaultHandler = defaultHandler;
+    }
+
+    public Xas99EditorWriteActionHandler(EditorActionHandler defaultHandler, boolean runForEachCaret) {
+        super(runForEachCaret);
+        this.defaultHandler = defaultHandler;
+    }
 
     @Override
     public void doExecute(final Editor editor, Caret caret, DataContext dataContext) {
         if (LangDataKeys.LANGUAGE.getData(dataContext) != Xas99Language.INSTANCE) {
-            actionHandler.execute(editor, caret, dataContext);
+            defaultHandler.execute(editor, caret, dataContext);
             return;
         }
 
