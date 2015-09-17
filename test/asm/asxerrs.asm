@@ -25,7 +25,26 @@ label4 clr  0
 label4:
        clr  1                 ;ERROR
        
-       end
+       ; preprocessor
+
+nolab  .ifdef 1               ;ERROR
+
+       ; macros
+
+       .defm mac1
+       .endm
+       .defm mac1             ;ERROR
+
+       ,defm mac2
+       clr  #2
+       .endm
+       .mac2 1                ;ERROR
+
+       .macX                  ;ERROR
+
+       .defm mac3
+       .defm mac4             ;ERROR
+       .endm
 
 * NO ERRORS
 

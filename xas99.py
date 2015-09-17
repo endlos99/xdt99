@@ -786,7 +786,7 @@ class Directives:
     def COPY(parser, code, label, ops):
         code.processLabel(parser.lidx, label)
         filename = parser.filename(ops[0])
-        parser.open(filename)
+        parser.open(filename=filename)
 
     @staticmethod
     def END(parser, code, label, ops):
@@ -858,6 +858,8 @@ class Preprocessor:
         self.parser = parser
         self.parse = True
         self.parseBranches = []
+        self.parseMacro = None
+        self.macros = {}
 
     def args(self, ops):
         lhs = self.parser.expression(
@@ -865,6 +867,17 @@ class Preprocessor:
         rhs = self.parser.expression(
             ops[1], wellDefined=True, relaxed=True) if len(ops) > 1 else 0
         return lhs, rhs
+
+    def DEFM(self, code, ops):
+        if len(ops) != 1:
+            raise AsmError("Invalid syntax")
+        self.parseMacro = ops[0]
+        if self.parseMacro in self.macros:
+            raise AsmError("Duplicate macro name")
+        self.macros[self.parseMacro] = []
+    
+    def ENDM(self, code, ops):
+        raise AsmError("Found .ENDM without .DEFM")
 
     def IFDEF(self, code, ops):
         self.parseBranches.append(self.parse)
@@ -898,20 +911,50 @@ class Preprocessor:
     def ENDIF(self, code, ops):
         self.parse = self.parseBranches.pop()
 
-    def process(self, code, label, mnemonic, operands):
-        if not mnemonic or mnemonic[:1] != '.':
-            return self.parse
-        if label:
-            raise AsmError("Invalid label for preprocessor directive")
+    def instmargs(self, text):
         try:
-            fn = getattr(Preprocessor, mnemonic[1:])
-        except AttributeError:
-            raise AsmError("Invalid preprocessor directive")
-        try:
-            fn(self, code, operands)
-        except (IndexError, ValueError):
-            raise AsmError("Syntax error")
-        return False
+            return re.sub(r"#(\d+)",
+                          lambda m: self.parser.margs[int(m.group(1)) - 1],
+                          text)
+        except (ValueError, IndexError):
+            return text
+
+    def instline(self, line):
+        # temporary kludge, breaks comments
+        parts = re.split(r"('(?:[^']|'')*'|\"[^\"]*\")", line)
+        parts[::2] = [self.instmargs(p) for p in parts[::2]]
+        return "".join(parts)
+
+    def process(self, code, label, mnemonic, operands, line):
+        if self.parseMacro:
+            if mnemonic == ".ENDM":
+                self.parseMacro = None
+            elif mnemonic == ".DEFM":
+                raise AsmError("Cannot define macro within macro")
+            else:
+                self.macros[self.parseMacro].append(line)
+            return False, None, None
+        if self.parse and operands and '#' in line:
+            operands = [self.instmargs(op) for op in operands]
+            line = self.instline(line)
+        if mnemonic and mnemonic[0] == '.':
+            if label:
+                raise AsmError("Invalid label for preprocessor directive")
+            name = mnemonic[1:]
+            if name in self.macros:
+                self.parser.open(macro=name, ops=operands)
+            else:
+                try:
+                    fn = getattr(Preprocessor, name)
+                except AttributeError:
+                    raise AsmError("Invalid preprocessor directive")
+                try:
+                    fn(self, code, operands)
+                except (IndexError, ValueError):
+                    raise AsmError("Syntax error")
+            return False, None, None
+        else:
+            return self.parse, operands, line
 
 
 ### Opcodes
@@ -1139,7 +1182,7 @@ class Parser:
         self.prep = Preprocessor(self)
         self.symbols = symbols
         self.textlits = []
-        self.path, self.file, self.lino = None, None, -1
+        self.path, self.source, self.margs, self.lino = None, None, [], -1
         self.suspendedFiles = []
         self.includePath = includePath or ["."]
         self.strictMode = strictMode
@@ -1147,24 +1190,33 @@ class Parser:
         self.passno = 0
         self.lidx = 0
 
-    def open(self, filename):
-        """open new source file"""
-        newfile = self.find(filename)
-        if newfile is None:
-            raise IOError(1, "File not found", filename)
-        if self.file:
-            self.suspendedFiles.append((self.path, self.file, self.lino))
-        self.path = os.path.dirname(newfile)
-        self.file = open(newfile, mode="r")
+    def open(self, filename=None, macro=None, ops=None):
+        """open new source file or macro buffer"""
+        if len(self.suspendedFiles) > 100:
+            raise AsmError("Too many nested files or macros")
+        if self.source is not None:
+            self.suspendedFiles.append((self.path, self.source, self.margs,
+                                        self.lino))
+        if filename:
+            newfile = self.find(filename)
+            if newfile is None:
+                raise IOError(1, "File not found", filename)
+            self.path = os.path.dirname(newfile)
+            with open(newfile, mode="r") as f:
+                self.source = f.readlines()
+        else:
+            #keep self.path for potential COPYs
+            self.source = self.prep.macros[macro]
+            self.margs = ops or []
         self.lino = 0
 
     def resume(self):
         """close current source file and resume previous one"""
         try:
-            self.path, self.file, self.lino = self.suspendedFiles.pop()
+            self.path, self.source, self.margs, self.lino = self.suspendedFiles.pop()
             return True
         except IndexError:
-            self.path, self.file, self.lino = None, None, -1
+            self.path, self.source, self.margs, self.lino = None, None, None, -1
             return False
 
     def stop(self):
@@ -1195,75 +1247,18 @@ class Parser:
 
     def read(self):
         """get next logical line from source files"""
-        while self.file:
-            line = self.file.readline()
-            if line:
+        while self.source is not None:
+            try:
+                line = self.source[self.lino]
                 self.lino += 1
                 return self.lino, line.rstrip()
-            self.resume()
+            except IndexError:
+                self.resume()
         return None, None
-
-    def parse(self, dummy, code):
-        """parse source code and generate object code"""
-        source, errors = [], []
-        # first pass: scan symbols
-        self.passno = 1
-        self.lidx = 0
-        self.symbols.resetLC()
-        prevlabel = None
-        while True:
-            # get next source line
-            lino, line = self.read()
-            if lino is None:
-                break
-            label, mnemonic, operands, comment, stmt = self.line(line)
-            if not self.prep.process(dummy, label, mnemonic, operands):
-                continue
-            source.append((lino, label, mnemonic, operands, line, stmt))
-            if not stmt:
-                continue
-            self.lidx += 1
-            # process continuation label
-            if prevlabel:
-                if label:
-                    errors.append("<1> %04d - %s\n***** %s\n" % (
-                        lino, line, "Invalid continuation for label"))
-                label, prevlabel = prevlabel, None
-            elif label[-1:] == ":" and not mnemonic:
-                prevlabel = label
-                continue
-            if label[-1:] == ":":
-                label = label[:-1]
-            # process mnemonic
-            try:
-                Directives.process(self, dummy, label, mnemonic, operands) or \
-                    Opcodes.process(self, dummy, label, mnemonic, operands)
-            except AsmError as e:
-                errors.append("<1> %04d - %s\n***** %s\n" % (
-                    lino, line, e.message))
-        # second pass: generate code
-        self.passno = 2
-        self.lidx = 0
-        self.symbols.resetLC()
-        for lino, label, mnemonic, operands, line, stmt in source:
-            code.list(lino, line=line)
-            if not stmt:
-                continue
-            self.lidx += 1
-            if label and label[-1] == ":" and not mnemonic:
-                continue
-            try:
-                Directives.process(self, code, label, mnemonic, operands) or \
-                    Opcodes.process(self, code, label, mnemonic, operands)
-            except AsmError as e:
-                errors.append("<2> %04d - %s\n***** %s\n" % (
-                    lino, line, e.message))
-        code.list(0, eos=True)
-        return errors
 
     def line(self, line):
         """parse single source line"""
-        if not line.strip() or line[0] == "*":
+        if not line or line[0] == "*":
             return None, None, None, None, False
         if self.strictMode:
             # blanks separate fields
@@ -1290,6 +1285,72 @@ class Parser:
                        for i in xrange(len(lits))]
         self.textlits.extend(lits)
         return "".join(parts).upper()
+
+    def restore(self, text):
+        """restore escaped text literals"""
+        return re.sub(r"'(\d+)'",
+                      lambda m: self.textlits[int(m.group(1))],
+                      text)
+
+    def parse(self, dummy, code):
+        """parse source code and generate object code"""
+        source, errors = [], []
+        # first pass: scan symbols
+        self.passno = 1
+        self.lidx = 0
+        self.symbols.resetLC()
+        prevlabel = None
+        while True:
+            # get next source line
+            lino, line = self.read()
+            if lino is None:
+                break
+            try:
+                # break line into fields
+                label, mnemonic, operands, comment, stmt = self.line(line)
+                keep, operands, line = self.prep.process(dummy, label, mnemonic,
+                                                         operands, line)
+                if not keep:
+                    continue
+                source.append((lino, label, mnemonic, operands, line, stmt))
+                if not stmt:
+                    continue
+                self.lidx += 1
+                # process continuation label
+                if prevlabel:
+                    if label:
+                        raise AsmError("Invalid continuation for label")
+                    label, prevlabel = prevlabel, None
+                elif label[-1:] == ":" and not mnemonic:
+                    prevlabel = label
+                    continue
+                if label[-1:] == ":":
+                    label = label[:-1]
+                # process mnemonic
+                Directives.process(self, dummy, label, mnemonic, operands) or \
+                    Opcodes.process(self, dummy, label, mnemonic, operands)
+            except AsmError as e:
+                errors.append("<1> %04d - %s\n***** %s\n" % (
+                    lino, line, e.message))
+        # second pass: generate code
+        self.passno = 2
+        self.lidx = 0
+        self.symbols.resetLC()
+        for lino, label, mnemonic, operands, line, stmt in source:
+            code.list(lino, line=line)
+            if not stmt:
+                continue
+            self.lidx += 1
+            if label and label[-1] == ":" and not mnemonic:
+                continue
+            try:
+                Directives.process(self, code, label, mnemonic, operands) or \
+                    Opcodes.process(self, code, label, mnemonic, operands)
+            except AsmError as e:
+                errors.append("<2> %04d - %s\n***** %s\n" % (
+                    lino, line, e.message))
+        code.list(0, eos=True)
+        return errors
 
     def address(self, op):
         """parse general address into t-field, register, address value"""
@@ -1416,6 +1477,9 @@ class Parser:
         elif op[0] == "!":
             m = re.match("(!+)(.*)", op)
             return Local(m.group(2), len(m.group(1)))
+        elif op[0] == "#":
+            # should have been eliminated by preprocessor
+            raise AsmError("Invalid macro argument")
         else:
             v = self.symbols.getSymbol(op[:6] if self.strictMode else op)
             if v is None and (self.passno > 1 or wellDefined):

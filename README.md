@@ -96,9 +96,10 @@ module:
 
  * Relaxed syntax (labels, comments, whitespace, case insensitivity, ...)
  * Improved expressions (Boolean operators, binary numbers, parentheses, ...)
- * Conditional assembly (`.ifdef`, ...)
  * Label continuations and local labels (`! dec r0; jne -!`)
  * New directive (`IBYTE` for binary includes)
+ * Conditional assembly (`.ifdef`, ...)
+ * Macros (`.defm`)
 
 Please refer to the [xdt99 manual][4] for a detailed description of these
 features.

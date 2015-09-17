@@ -390,18 +390,56 @@ well-defined conditional expressions.
     msg    text 'Hello World'
            .endif
 
-The preprocessor directives `.ifdef` and `.ifndef` check if a given symbol is
-defined or not.  The directives equals `.ifeq`, not-equals `.ifne`, greater-than
-`.ifgt`, and greater-than-or-equals `.ifge` compare two arguments.  If the
-second argument is missing, the first argument is compared against value `0`.
+The preprocessor commands `.ifdef` and `.ifndef` check if a given symbol is
+defined or not.  The commands `.ifeq`, `.ifne`, `.ifgt`, and `.ifge` test if
+two arguments are equal, not equal, greater than, or greater than or equal,
+resp.  If the second argument is missing, the first argument is compared
+against value `0`.
 
-Directives may be nested.  Valid conditional expressions and their rules of
-evaluation correspond to those of the `EQU` directive.  Additional symbols may
-be supplied on the command line.
+Conditional assembly preprocessor commands may be nested.  Valid conditional
+expressions and their rules of evaluation correspond to those of the `EQU`
+directive.  Additional symbols may be supplied on the command line.
 
     $ xas99.py ashello.a99 -D symbol1 symbol2=2
 
 If no value is given, the symbol is set to value `1`.
+
+`xas99` supports macros.  The `.defm` preprocessor command introduces a new
+macro.  The `.endm` command concludes the macro definition.  Inside the macro
+body the macro parameters `#1`, `#2`, ... refer to the actual arguments that
+are supplied when instantiating the macro:
+
+    * fill top <#1> rows with char <#2>
+        .defm fill
+        li   r0, >0040
+        li   r1, #1
+        li   r2, #2 * 32
+        movb @vdpwa
+        swpb r0
+        movb @vdpwa
+    !   movb r1, @vdpwd
+        dec  r2
+        jne  -!
+        .endm
+
+Macros are used like preprocessor commands, with any arguments separated
+by commas:
+
+        .fill 10, '* '
+
+Note that macro parameters are resolved by textual replacement.  Thus,
+when instantiating 
+
+        li   r0, 2 * #1
+
+inside some macro body with argument `1 + 2`, the resulting code will assign
+the value 4 instead of 6 to `R0`.
+
+Labels are allowed inside macro definitions.  To avoid duplicate symbols, all
+labels should be local.
+
+Macro definitions cannot be nested.  Macro uses may be nested, but
+instantiations must not be circular.
 
 `xas99` also provides a new directive `IBYTE` that includes an external binary
 file as a sequence of `BYTE`s.  For example, if `sprite.raw` is a raw data file

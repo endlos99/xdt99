@@ -107,10 +107,10 @@ def runtest():
         checkImageFilesEq(infile, Files.output, Files.reference)
 
     for infile, reffiles in [
-        ("aslimg.asm", ["ASLIMG-I", "ASLIMG-J", "ASLIMG-K"]),
-        ("assimg.asm", ["ASSIMG-I", "ASSIMG-J", "ASSIMG-K", "ASSIMG-L"]),
-        ("asreloc.asm", ["ASRELOC-I"])
-        ]:
+            ("aslimg.asm", ["ASLIMG-I", "ASLIMG-J", "ASLIMG-K"]),
+            ("assimg.asm", ["ASSIMG-I", "ASSIMG-J", "ASSIMG-K", "ASSIMG-L"]),
+            ("asreloc.asm", ["ASRELOC-I"])
+            ]:
         source = os.path.join(Dirs.sources, infile)
         xas(source, "-R", "-i", "-o", Files.output)
         for i, reffile in enumerate(reffiles):
@@ -123,10 +123,14 @@ def runtest():
     xas(source, "--embed", "-R", "-o", Files.output)
 
     # misc new features
-    source = os.path.join(Dirs.sources, "asxnew.asm")
-    xas(source, "-o", Files.output)
-    xdm(Disks.asmsrcs, "-e", "ASXNEW-O", "-o", Files.reference)
-    checkObjCodeEq(Files.output, Files.reference)
+    for infile, reffile in [
+            ("asxnew.asm", "ASXNEW-O"),
+            ("asmacs.asm", "ASMACS-O")
+            ]:
+        source = os.path.join(Dirs.sources, infile)
+        xas(source, "-o", Files.output)
+        xdm(Disks.asmsrcs, "-e", reffile, "-o", Files.reference)
+        checkObjCodeEq(Files.output, Files.reference)
 
     # cleanup
     for i in xrange(4):

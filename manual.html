@@ -296,16 +296,48 @@ msg    text 'Hallo Welt'
 msg    text 'Hello World'
        .endif
 </code></pre>
-<p>The preprocessor directives <code>.ifdef</code> and <code>.ifndef</code> check if a given symbol is
-defined or not.  The directives equals <code>.ifeq</code>, not-equals <code>.ifne</code>, greater-than
-<code>.ifgt</code>, and greater-than-or-equals <code>.ifge</code> compare two arguments.  If the
-second argument is missing, the first argument is compared against value <code>0</code>.</p>
-<p>Directives may be nested.  Valid conditional expressions and their rules of
-evaluation correspond to those of the <code>EQU</code> directive.  Additional symbols may
-be supplied on the command line.</p>
+<p>The preprocessor commands <code>.ifdef</code> and <code>.ifndef</code> check if a given symbol is
+defined or not.  The commands <code>.ifeq</code>, <code>.ifne</code>, <code>.ifgt</code>, and <code>.ifge</code> test if
+two arguments are equal, not equal, greater than, or greater than or equal,
+resp.  If the second argument is missing, the first argument is compared
+against value <code>0</code>.</p>
+<p>Conditional assembly preprocessor commands may be nested.  Valid conditional
+expressions and their rules of evaluation correspond to those of the <code>EQU</code>
+directive.  Additional symbols may be supplied on the command line.</p>
 <pre><code>$ xas99.py ashello.a99 -D symbol1 symbol2=2
 </code></pre>
 <p>If no value is given, the symbol is set to value <code>1</code>.</p>
+<p><code>xas99</code> supports macros.  The <code>.defm</code> preprocessor command introduces a new
+macro.  The <code>.endm</code> command concludes the macro definition.  Inside the macro
+body the macro parameters <code>#1</code>, <code>#2</code>, ... refer to the actual arguments that
+are supplied when instantiating the macro:</p>
+<pre><code>* fill top &lt;#1&gt; rows with char &lt;#2&gt;
+    .defm fill
+    li   r0, &gt;0040
+    li   r1, #1
+    li   r2, #2 * 32
+    movb @vdpwa
+    swpb r0
+    movb @vdpwa
+!   movb r1, @vdpwd
+    dec  r2
+    jne  -!
+    .endm
+</code></pre>
+<p>Macros are used like preprocessor commands, with any arguments separated
+by commas:</p>
+<pre><code>    .fill 10, '* '
+</code></pre>
+<p>Note that macro parameters are resolved by textual replacement.  Thus,
+when instantiating </p>
+<pre><code>    li   r0, 2 * #1
+</code></pre>
+<p>inside some macro body with argument <code>1 + 2</code>, the resulting code will assign
+the value 4 instead of 6 to <code>R0</code>.</p>
+<p>Labels are allowed inside macro definitions.  To avoid duplicate symbols, all
+labels should be local.</p>
+<p>Macro definitions cannot be nested.  Macro uses may be nested, but
+instantiations must not be circular.</p>
 <p><code>xas99</code> also provides a new directive <code>IBYTE</code> that includes an external binary
 file as a sequence of <code>BYTE</code>s.  For example, if <code>sprite.raw</code> is a raw data file
 containing some sprite pattern</p>
