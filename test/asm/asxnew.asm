@@ -13,9 +13,9 @@ binval  equ  :1010
 ; binary includes
 
 bininc  byte >AA
-        ibyte "asxnew.bin"
+        bcopy "asxnew.bin"
         byte >BB
-        ibyte "asxnew.bin"
+        bcopy "asxnew.bin"
         byte >CC
 
 ; text bytes

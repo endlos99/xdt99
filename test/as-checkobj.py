@@ -3,43 +3,7 @@
 import os
 
 from config import Dirs, Disks, Files
-from utils import xas, xdm, error, checkFilesEq
-
-
-### Check function
-
-def ordw(word):
-    return ord(word[0]) << 8 | ord(word[1])
-
-
-def checkObjCodeEq(infile, reffile):
-    """check if object code files are equal modulo id tag"""
-    with open(infile, "rb") as fin, open(reffile, "rb") as fref:
-        indata = fin.read()
-        inlines = [indata[i:i + 80] for i in xrange(0, len(indata), 80)]
-        refdata = fref.read()
-        reflines = [refdata[i:i + 80] for i in xrange(0, len(refdata), 80)]
-        if inlines[:-1] != reflines[:-1]:
-            error("Object code", "File contents mismatch")
-
-
-def checkImageFilesEq(name, genfile, reffile):
-    """check if non-zero bytes in binary files are equal"""
-    with open(genfile, "rb") as fg, open(reffile, "rb") as fr:
-        genimage = fg.read()
-        refimage = fr.read()
-    if not 0 <= len(genimage) - len(refimage) <= 1:
-        print len(genimage), len(refimage)
-        error("Object code", "Image length mismatch: " + name)
-    if (genimage[:2] != refimage[:2] or
-        not (0 <= ordw(genimage[2:4]) - ordw(refimage[2:4]) <= 1) or
-        genimage[4:6] != refimage[4:6]):
-        error("Object code", "Image header mismatch")
-    # TI-generated images may contain arbitrary bytes in BSS segments
-    for i in xrange(4, len(refimage)):
-        if genimage[i] != "\x00" and genimage[i] != refimage[i]:
-            error("Image file", "Image contents mismatch " + name +
-                  " @ " + hex(i))
+from utils import xas, xdm, checkFilesEq, checkObjCodeEq, checkImageFilesEq
 
 
 ### Main test
@@ -104,7 +68,7 @@ def runtest():
         source = os.path.join(Dirs.sources, infile)
         xas(*[source] + opts + ["-i", "-o", Files.output])
         xdm(Disks.asmsrcs, "-e", reffile, "-o", Files.reference)
-        checkImageFilesEq(infile, Files.output, Files.reference)
+        checkImageFilesEq(Files.output, Files.reference)
 
     for infile, reffiles in [
             ("aslimg.asm", ["ASLIMG-I", "ASLIMG-J", "ASLIMG-K"]),

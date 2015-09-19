@@ -308,9 +308,16 @@ class Objcode:
 
     def list(self, lino, line=None, eos=False, text1=None, text2=None):
         """create list file entry"""
-        if lino >= 0:
+        if lino == 0:
+            # change of source
+            l = Line(lino, line, eos)
+            l.text1 = l.text2 = "****"
+            self.code.append((0, l, 0))
+        elif lino > 0:
+            # regular statement
             self.code.append((self.symbols.LC, Line(lino, line, eos), 0))
         else:
+            # followup lines to statement
             lastline = self.code[-1][1]
             assert isinstance(lastline, Line)
             lastline.text1, lastline.text2 = text1, text2
@@ -538,7 +545,8 @@ class Objcode:
                             listing.append("     %-4s %-5s" % (ai, wi))
                         if w.eos:
                             break
-                    slino, sline = "%04d" % w.lino, w.line
+                    slino = "%04d" % w.lino if w.lino else "****"
+                    sline = w.line
                     if not (w.text1 is None and w.text2 is None):
                         words = [("%04X" % LC if w.text1 is None else w.text1,
                                   "" if w.text2 is None else
@@ -815,19 +823,18 @@ class Directives:
         code.symbols.addXop(ops[0], str(mode))
 
     @staticmethod
-    def IBYTE(parser, code, label, ops):
+    def BCOPY(parser, code, label, ops):
         """extension: include binary file as BYTE stream"""
         code.processLabel(parser.lidx, label)
-        fn = parser.find(parser.filename(ops[0]))
-        if fn is None:
-            raise AsmError("IBYTE file not found: " + ops[0])
+        filename = parser.filename(ops[0])
+        path = parser.find(filename)
         try:
-            with open(fn, "rb") as f:
+            with open(path, "rb") as f:
                 bs = f.read()
                 for b in bs:
                     code.byte(ord(b))
-        except IOError:
-            raise IOError(1, "Error while processing IBYTE", ops[0])
+        except IOError as e:
+            raise AsmError(e)
 
     ignores = [
         "",
@@ -938,11 +945,11 @@ class Preprocessor:
             operands = [self.instmargs(op) for op in operands]
             line = self.instline(line)
         if mnemonic and mnemonic[0] == '.':
-            if label:
-                raise AsmError("Invalid label for preprocessor directive")
+            code.processLabel(self.parser.lidx, label)
             name = mnemonic[1:]
             if name in self.macros:
-                self.parser.open(macro=name, ops=operands)
+                if self.parse:
+                    self.parser.open(macro=name, ops=operands)
             else:
                 try:
                     fn = getattr(Preprocessor, name)
@@ -1178,11 +1185,12 @@ class Opcodes:
 class Parser:
     """scanner and parser class"""
 
-    def __init__(self, symbols, includePath=None, strictMode=False):
+    def __init__(self, symbols, path=None, includePath=None, strictMode=False):
         self.prep = Preprocessor(self)
         self.symbols = symbols
         self.textlits = []
-        self.path, self.source, self.margs, self.lino = None, None, [], -1
+        self.fn, self.path = None, path
+        self.source, self.margs, self.lino = None, [], -1
         self.suspendedFiles = []
         self.includePath = includePath or ["."]
         self.strictMode = strictMode
@@ -1195,17 +1203,19 @@ class Parser:
         if len(self.suspendedFiles) > 100:
             raise AsmError("Too many nested files or macros")
         if self.source is not None:
-            self.suspendedFiles.append((self.path, self.source, self.margs,
-                                        self.lino))
+            self.suspendedFiles.append((self.fn, self.path, self.source,
+                                        self.margs, self.lino))
         if filename:
             newfile = self.find(filename)
-            if newfile is None:
-                raise IOError(1, "File not found", filename)
-            self.path = os.path.dirname(newfile)
-            with open(newfile, mode="r") as f:
-                self.source = f.readlines()
+            self.path, fn = os.path.split(newfile)
+            self.fn = "> " + fn
+            try:
+                with open(newfile, mode="r") as f:
+                    self.source = f.readlines()
+            except IOError as e:
+                raise AsmError(e)
         else:
-            #keep self.path for potential COPYs
+            # set self.fn here to indicate macro instantiation in list file
             self.source = self.prep.macros[macro]
             self.margs = ops or []
         self.lino = 0
@@ -1213,10 +1223,12 @@ class Parser:
     def resume(self):
         """close current source file and resume previous one"""
         try:
-            self.path, self.source, self.margs, self.lino = self.suspendedFiles.pop()
+            self.fn, self.path, self.source, self.margs, self.lino = \
+                self.suspendedFiles.pop()
             return True
         except IndexError:
-            self.path, self.source, self.margs, self.lino = None, None, None, -1
+            self.fn, self.path, self.source, self.margs, self.lino = \
+                None, None, None, None, -1
             return False
 
     def stop(self):
@@ -1228,7 +1240,7 @@ class Parser:
         """locate file that matches native filename or TI filename"""
         includePath = ([self.path] + self.includePath if self.path else
                        self.includePath)
-        tiname = re.match("DSK\d?\.(.*)", filename)
+        tiname = re.match(r"DSK\d?\.(.*)", filename)
         if tiname:
             nativeName = tiname.group(1)
             extensions = ["", ".a99", ".A99", ".asm", ".ASM", ".s", ".S"]
@@ -1243,7 +1255,7 @@ class Parser:
                 includefile = os.path.join(i, nativeName.lower() + e)
                 if os.path.isfile(includefile):
                     return includefile
-        return None
+        raise AsmError("File not found")
 
     def read(self):
         """get next logical line from source files"""
@@ -1251,10 +1263,10 @@ class Parser:
             try:
                 line = self.source[self.lino]
                 self.lino += 1
-                return self.lino, line.rstrip()
+                return self.lino, line.rstrip(), self.fn
             except IndexError:
                 self.resume()
-        return None, None
+        return None, None, None
 
     def line(self, line):
         """parse single source line"""
@@ -1302,7 +1314,7 @@ class Parser:
         prevlabel = None
         while True:
             # get next source line
-            lino, line = self.read()
+            lino, line, filename = self.read()
             if lino is None:
                 break
             try:
@@ -1312,7 +1324,8 @@ class Parser:
                                                          operands, line)
                 if not keep:
                     continue
-                source.append((lino, label, mnemonic, operands, line, stmt))
+                source.append((lino, label, mnemonic, operands, line, filename,
+                               stmt))
                 if not stmt:
                     continue
                 self.lidx += 1
@@ -1336,7 +1349,11 @@ class Parser:
         self.passno = 2
         self.lidx = 0
         self.symbols.resetLC()
-        for lino, label, mnemonic, operands, line, stmt in source:
+        prevfile = None
+        for lino, label, mnemonic, operands, line, filename, stmt in source:
+            if filename != prevfile:
+                code.list(0, line=filename)
+                prevfile = filename
             code.list(lino, line=line)
             if not stmt:
                 continue
@@ -1558,13 +1575,17 @@ class Assembler:
         self.includePath = includePath
         self.defs = defs
 
-    def assemble(self, srcname):
+    def assemble(self, path, srcname):
         symbols = Symbols(addRegisters=self.addRegisters, addDefs=self.defs)
         dummy = Objdummy(symbols)
         code = Objcode(symbols)
-        parser = Parser(symbols, includePath=self.includePath,
+        parser = Parser(symbols,
+                        path=path, includePath=self.includePath,
                         strictMode=self.strictMode)
-        parser.open(srcname)
+        try:
+            parser.open(srcname)
+        except AsmError as e:
+            raise IOError(1, e, srcname)
         errors = parser.parse(dummy, code)
         return code, errors
 
@@ -1602,6 +1623,8 @@ def main():
                       help="generate list file (TI Assembler option L)")
     args.add_argument("-S", "--symbol-table", action="store_true", dest="optl",
                       help="add symbol table to listing (TI Assembler option S) (ignored)")
+    args.add_argument("-I", "--include", dest="inclpath", metavar="<paths>",
+                      help="list of include search paths")
     args.add_argument("-D", "--define-symbol", nargs="+", dest="defs",
                       metavar="<sym=val>",
                       help="add symbol to symbol table")
@@ -1614,18 +1637,20 @@ def main():
     basename = os.path.basename(opts.source)
     barename = os.path.splitext(basename)[0]
     name = opts.name or barename[:10].upper()
-
+    inclpath = [dirname] + (opts.inclpath.split(",") if opts.inclpath else [])
+    
     # assembly
     asm = Assembler(addRegisters=opts.optr,
                     strictMode=opts.strict,
-                    includePath=[dirname],
+                    includePath=inclpath,
                     defs=opts.defs or [])
     try:
-        code, errors = asm.assemble(basename)
+        code, errors = asm.assemble(dirname, basename)
     except IOError as e:
         sys.exit("File error: %s: %s." % (e.filename, e.strerror))
 
     # output
+    out = []
     try:
         if errors:
             sys.stderr.write("".join(errors))
@@ -1641,27 +1666,34 @@ def main():
         elif opts.image:
             data = code.genImage()
             for i, image in enumerate(data):
-                output = sinc(opts.output, i) if opts.output else \
-                         sinc(barename, i) + ".img"
-                with open(output, "wb") as fout:
-                    fout.write(image)
+                if opts.output:
+                    name = "-" if opts.output == "-" else sinc(opts.output, i)
+                else:
+                    name = sinc(barename, i) + ".img"
+                out.append((name, image))
         elif opts.embed:
             prog = code.genXbLoader()
-            output = opts.output or barename + ".iv254"
-            with open(output, "wb") as fout:
-                fout.write(prog)
+            name = opts.output or barename + ".iv254"
+            out.append((name, prog))
         elif opts.jstart:
             disk = code.genJumpstart()
-            output = opts.output or barename + ".dsk"
-            with open(output, "wb") as fout:
-                fout.write(disk)
+            name = opts.output or barename + ".dsk"
+            out.append((name, disk))
         else:
             data = code.genObjCode(opts.optc)
-            output = opts.output or barename + ".obj"
-            with open(output, "wb") as fout:
-                fout.write(data)
-            if opts.optl:
-                listing = code.genList()
+            name = opts.output or barename + ".obj"
+            out.append((name, data))
+        for name, data in out:
+            if name == "-":
+                sys.stdout.write(data)
+            else:
+                with open(name, "wb") as fout:
+                    fout.write(data)
+        if opts.optl:
+            listing = code.genList()
+            if opts.optl == "-":
+                sys.stdout.write(listing)
+            else:
                 with open(opts.optl, "wb") as fout:
                     fout.write(listing)
     except BuildError as e:
@@ -1674,5 +1706,4 @@ def main():
 
 if __name__ == "__main__":
     status = main()
-    sys.exit(status)
-    
+    sys.exit(status)    

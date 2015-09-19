@@ -42,6 +42,13 @@ main   lwpi >8300
        mov @main, #1
        .endm
 
+       .defm macif
+       .ifdef doesnotexist
+       inc #1
+       .else
+       dec #1
+       .endm
+
 prog   data 0
        .mac0
        data 0
@@ -73,6 +80,15 @@ prog   data 0
 
        data 7
        .macglob @>8300
+
+       data 8
+l0
+l1     .mac1b >1234
+l2     .mac1b l2
+       data l0, l1, l2
+
+       data 9
+       .macif 9
 
        li   1, '#1'
 

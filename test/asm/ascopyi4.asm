@@ -1,0 +1,3 @@
+*  TEST COPY AND INCLUDE PATH
+
+        DATA >4444

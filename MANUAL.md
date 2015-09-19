@@ -284,7 +284,7 @@ include files
 and its corresponding lower-case variants.  `COPY` also supports native file
 paths, e.g., `COPY "/home/ralph/ti/src/file2.a99"`.
 
-`xas99` also provides a new directive `IBYTE` that includes an external binary
+`xas99` also provides a new directive `BCOPY` that includes an external binary
 file as a sequence of `BYTE`s.  Please refer to the section about *xdt99
 Extensions* for further information. 
 
@@ -441,16 +441,30 @@ labels should be local.
 Macro definitions cannot be nested.  Macro uses may be nested, but
 instantiations must not be circular.
 
-`xas99` also provides a new directive `IBYTE` that includes an external binary
+Preprocessor commands are always executed, even inside inactive `#ifdef` ...
+`#endif` blocks.  The correct way to define environment-dependent macros is
+thus
+
+    .defm mymacro
+    .ifdef symbol
+    clr r0
+    .else
+    clr r1
+    .endif
+    .endm
+
+instead of the other way around.
+
+`xas99` also provides a new directive `BCOPY` that includes an external binary
 file as a sequence of `BYTE`s.  For example, if `sprite.raw` is a raw data file
 containing some sprite pattern
 
     $ hexdump -C sprite.raw
     00000000  18 3c 7e ff ff 7e 3c 18                           |.<~..~<.|
 
-then including this file with `IBYTE`
+then including this file with `BCOPY`
 
-    SPRITE  IBYTE "sprite.raw"
+    SPRITE  BCOPY "sprite.raw"
 
 is equivalent to the conventional assembly statement sequence
 

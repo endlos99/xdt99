@@ -97,7 +97,7 @@ module:
  * Relaxed syntax (labels, comments, whitespace, case insensitivity, ...)
  * Improved expressions (Boolean operators, binary numbers, parentheses, ...)
  * Label continuations and local labels (`! dec r0; jne -!`)
- * New directive (`IBYTE` for binary includes)
+ * New directive (`BCOPY` for binary includes)
  * Conditional assembly (`.ifdef`, ...)
  * Macros (`.defm`)
 

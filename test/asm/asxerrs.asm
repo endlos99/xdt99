@@ -2,9 +2,10 @@
 
        idt 'ASXERRS'
 
-       ; binary includes
+       ; includes and binary includes
 
-bininc ibyte "nonexisting"    ;ERROR
+txtinc copy  "nonexisting"    ;ERROR
+bininc bcopy "nonexisting"    ;ERROR
 
        ; text bytes
 
@@ -25,20 +26,17 @@ label4 clr  0
 label4:
        clr  1                 ;ERROR
        
-       ; preprocessor
-
-nolab  .ifdef 1               ;ERROR
-
        ; macros
 
        .defm mac1
        .endm
        .defm mac1             ;ERROR
+       .endm     ; required, as assembly continues
 
-       ,defm mac2
-       clr  #2
+       .defm mac2
+       clr  #2                ;ERROR:0001
        .endm
-       .mac2 1                ;ERROR
+       .mac2 1                ; error reported on actual line
 
        .macX                  ;ERROR
 

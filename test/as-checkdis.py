@@ -71,12 +71,12 @@ def runtest():
             "IMG00D534", "IMG00DFDD", "IMG00EA86", "IMG00F52F",
             "IMG00FFD8"
             ]:
-        archive = os.path.join(Dirs.sources, n + ".dis.gz")
+        archive = os.path.join(Dirs.sources, "dis", n + ".dis.gz")
         with gzip.open(archive, "rb") as fin, open(Files.input, "w") as fout:
             srccode = processSource(fin.readlines())
             fout.write(srccode)
         xas(Files.input, "-i", "-R", "-o", Files.output)
-        checkImageFilesEq(n, os.path.join(Dirs.sources, n + ".img"),
+        checkImageFilesEq(n, os.path.join(Dirs.sources, "dis", n + ".img"),
                           Files.outputff)
 
     # cleanup

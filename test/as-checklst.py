@@ -3,51 +3,7 @@
 import os
 
 from config import Dirs, Disks, Files
-from utils import xas, xdm, error
-
-
-### Check function
-
-def ordw(word):
-    return ord(word[0]) << 8 | ord(word[1])
-
-
-def checkListFilesEq(genfile, reffile, ignoreLino=False):
-    """check if list files are equivalent"""
-    with open(genfile, "rb") as fg, open(reffile, "rb") as fr:
-        genlist = [(l[:16] + l[19:]).rstrip() for l in fg.readlines()]
-        reflist = [l[2:].rstrip() for l in fr.readlines() if l[:2] == "  "]
-    gi, ri = 1, 0
-    mincol, maxcol = 4 if ignoreLino else 0, 74
-    while gi < len(genlist):
-        gl, rl = genlist[gi], reflist[ri]
-        # ignore deliberate changes
-        try:
-            if gl[10] in ".X":
-                rl = rl[:10] + gl[10:15] + rl[15:]  # no data
-            if gl[14] == "r":
-                rl = rl[:14] + "r" + rl[15:]
-            if "ORG" in rl[16:] or "BES" in rl[16:]:
-                rl = rl[:5] + gl[5:9] + rl[9:]  # no address
-            # ignore list directives
-            if ("TITL" in gl[16:] or "PAGE" in gl[16:] or "UNL" in gl[16:] or
-                    "LIST" in gl[16:]):
-                gi += 1
-                continue
-            # ignore BYTE sections
-            if "BYTE" in gl[16:] and "BYTE" in rl[16:]:
-                gi += 1
-                while not genlist[gi][16:].rstrip():
-                    gi += 1
-                ri += 1
-                while not reflist[ri][16:].rstrip():
-                    ri += 1
-                continue
-        except IndexError:
-            pass
-        if gl[mincol:maxcol] != rl[mincol:maxcol]:
-            error("List file", "Line mismatch in %d/%d" % (gi, ri))
-        gi, ri = gi + 1, ri + 1
+from utils import xas, xdm, checkListFilesEq
 
 
 ### Main test

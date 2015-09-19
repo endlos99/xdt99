@@ -36,7 +36,7 @@ DIR_L = "DEF" | "REF" | "END"
 DIR_E = "EQU" | "BSS" | "BES" | "AORG" | "DORG"
 DIR_EO = "RORG"
 DIR_ES = "DATA" | "BYTE"
-DIR_S = "TITL" | "IDT" | "COPY" | "TEXT" | "IBYTE"
+DIR_S = "TITL" | "IDT" | "COPY" | "TEXT" | "BCOPY"
 DIR_O = "EVEN" | "UNL" | "LIST" | "PAGE" | "DXOP"
 DIR_X = "PSEG" | "PEND" | "CSEG" | "CEND" | "DSEG" | "DEND" | "LOAD" | "SREF"
 

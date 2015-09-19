@@ -206,7 +206,7 @@ src/FILE2.S
 </code></pre>
 <p>and its corresponding lower-case variants.  <code>COPY</code> also supports native file
 paths, e.g., <code>COPY "/home/ralph/ti/src/file2.a99"</code>.</p>
-<p><code>xas99</code> also provides a new directive <code>IBYTE</code> that includes an external binary
+<p><code>xas99</code> also provides a new directive <code>BCOPY</code> that includes an external binary
 file as a sequence of <code>BYTE</code>s.  Please refer to the section about <em>xdt99
 Extensions</em> for further information. </p>
 <h3><code>xdt99</code> Extensions</h3>
@@ -338,14 +338,26 @@ the value 4 instead of 6 to <code>R0</code>.</p>
 labels should be local.</p>
 <p>Macro definitions cannot be nested.  Macro uses may be nested, but
 instantiations must not be circular.</p>
-<p><code>xas99</code> also provides a new directive <code>IBYTE</code> that includes an external binary
+<p>Preprocessor commands are always executed, even inside inactive <code>#ifdef</code> ...
+<code>#endif</code> blocks.  The correct way to define environment-dependent macros is
+thus</p>
+<pre><code>.defm mymacro
+.ifdef symbol
+clr r0
+.else
+clr r1
+.endif
+.endm
+</code></pre>
+<p>instead of the other way around.</p>
+<p><code>xas99</code> also provides a new directive <code>BCOPY</code> that includes an external binary
 file as a sequence of <code>BYTE</code>s.  For example, if <code>sprite.raw</code> is a raw data file
 containing some sprite pattern</p>
 <pre><code>$ hexdump -C sprite.raw
 00000000  18 3c 7e ff ff 7e 3c 18                           |.&lt;~..~&lt;.|
 </code></pre>
-<p>then including this file with <code>IBYTE</code></p>
-<pre><code>SPRITE  IBYTE "sprite.raw"
+<p>then including this file with <code>BCOPY</code></p>
+<pre><code>SPRITE  BCOPY "sprite.raw"
 </code></pre>
 <p>is equivalent to the conventional assembly statement sequence</p>
 <pre><code>SPRITE  BYTE &gt;18,&gt;3C,&gt;7E,&gt;FF,&gt;FF,&gt;7E,&gt;3C,&gt;18

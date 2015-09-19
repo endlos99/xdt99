@@ -47,6 +47,15 @@ LOC2   DEC  2
        DATA 7
        MOV  @MAIN,@>8300
 
+       DATA 8
+L0
+L1     CLR  @>1234
+L2     CLR  @L2
+       DATA L0,L1,L2
+
+       DATA 9
+       DEC  9
+
        LI   1,'#1'
 
        RTWP

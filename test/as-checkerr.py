@@ -12,7 +12,7 @@ def readstderr(fn):
     errors, lino = {}, "----"
     with open(fn, "r") as f:
         for line in f:
-            err = re.match("<\d>\s+(\d+)", line)
+            err = re.match(r"<\d>\s+(\d+)", line)
             if err:
                 lino = err.group(1)
             else:
@@ -46,7 +46,7 @@ def runtest():
     xdm(Disks.asmsrcs, "-e", "ASERRS-L", "-o", Files.reference)
     with open(Files.reference, "r") as f:
         for line in f:
-            err = re.match("\*{5}\s+([A-Z ]*) - (\d+)", line)
+            err = re.match(r"\*{5}\s+([A-Z ]*) - (\d+)", line)
             if err:
                 lino, errmsg = err.group(2), err.group(1)
                 tierrors[lino] = errmsg
@@ -62,11 +62,20 @@ def runtest():
     referrors = {}
     with open(source, "r") as f:
         for i, line in enumerate(f):
-            if line.find(";ERROR") != -1:
-                referrors["%04d" % (i + 1)] = line
+            m = re.search(r";ERROR(:....)?", line)
+            if m:
+                if m.group(1):
+                    referrors[m.group(1)[1:]] = line
+                else:
+                    referrors["%04d" % (i + 1)] = line
 
     compare(referrors, xaserrors)
-                
+
+    # files not found
+    source = os.path.join(Dirs.sources, "ascopyi.asm")
+    with open(Files.error, "w") as ferr:
+        xas(source, "-o", Files.output, stderr=ferr, rc=1)
+
     # cleanup
     os.remove(Files.error)
     os.remove(Files.reference)
