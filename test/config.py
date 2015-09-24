@@ -16,7 +16,7 @@ xvmPy = ["../xvm99.py"]
 #xvmPy = ["c:\\bin\\python2\\python.exe", "..\\xvm99.py"]
 
 xbasPy = ["../xbas99.py"]
-#xvmPy = ["c:\\bin\\python2\\python.exe", "..\\xbas99.py"]
+#xbasPy = ["c:\\bin\\python2\\python.exe", "..\\xbas99.py"]
 
 
 ### Paths

@@ -24,7 +24,7 @@ import re
 import datetime
 import os.path
 
-VERSION = "1.4.0"
+VERSION = "1.5.0"
 
 
 ### Utility functions
@@ -67,6 +67,24 @@ def tiname(s):
 def sseq(s, i):
     """create string sequence"""
     return s[:-1] + chr(ord(s[-1]) + i)
+
+
+def writedata(n, d, m="wb"):
+    """write data to file or STDOUT"""
+    if n == "-":
+        sys.stdout.write(d)
+    else:
+        with open(n, m) as f:
+            f.write(d)
+
+
+def readdata(n, m="r"):
+    """read data from file or STDIN"""
+    if n == "-":
+        return sys.stdin.read()
+    else:
+        with open(n, m) as f:
+            return f.read()
 
 
 ### Sector-based disk image
@@ -767,11 +785,11 @@ def imageCmds(opts):
                     "DSDD": 1440, "CF": 1600}.get(opts.init.upper())
         if size is None:
             raise DiskError("Invalid disk size %s" % opts.init)
-        image = Disk.blankImage(size, opts.name or "")
+        barename = os.path.splitext(os.path.basename(opts.filename))[0]
+        image = Disk.blankImage(size, opts.name or barename[:10].upper())
         result = [(image, opts.filename, "wb")]
     else:
-        with open(opts.filename, "rb") as fin:
-            image = fin.read()
+        image = readdata(opts.filename, "rb")
     disk = Disk(image)
 
     # apply command to image
@@ -794,19 +812,17 @@ def imageCmds(opts):
                        name.lower() + ".v9t9", "wb")
                       for name in files]
         else:
-            result = [(disk.getFile(name).getContents(),
-                       name.lower(), "w" if fmtDV else "wb")
-                      for name in files]
+            fns = [(name, disk.getFile(name)) for name in files]
+            result = [(f.getContents(), n.lower(),
+                       "w" if f.fd.type == "D" and not f.fd.fixed else "wb")
+                      for n, f in fns]
     elif opts.add:
         n, c = opts.name, 0
         for name in opts.add:
+            data = readdata(name,
+                            "r" if fmtDV and not opts.astifiles else "rb")
             if name == "-":
                 name = "STDIN"
-                data = sys.stdin.read()
-            else:
-                with open(name, "r" if fmtDV and not opts.astifiles else
-                                "rb") as fin:
-                    data = fin.read()
             if opts.astifiles:
                 disk.addFile(File(tifimage=data))
             elif opts.asv9t9:
@@ -883,8 +899,7 @@ def fiadCmds(opts):
         sys.exit("Error: Cannot use -o when converting multiple files")
     fmt = opts.format.upper() if opts.format else "PROGRAM"
     for fi, fn in enumerate(files):
-        with open(fn, "rb") as fin:
-            image = fin.read()
+        image = readdata(fn, "rb")
         if opts.tofiad:
             n = sseq(opts.name, fi) if opts.name else tiname(fn)
             f = File(name=n, fmt=fmt, data=image)
@@ -899,7 +914,7 @@ def fiadCmds(opts):
             if opts.fromfiad:
                 result.append((f.getContents(),
                                os.path.splitext(fn)[0],
-                               "w" if f.fd.type == "D" else "wb"))
+                               "w" if f.fd.type == "D" and not f.fd.fixed else "wb"))
             elif opts.printfiad:
                 result.append((f.getContents(), "-", "w"))
             else:
@@ -1017,14 +1032,10 @@ def main():
     # write result
     for data, name, mode in result:
         outname = opts.output or name
-        if outname == "-":
-            sys.stdout.write(data)
-        else:
-            try:
-                with open(outname, mode) as fout:
-                    fout.write(data)
-            except IOError as e:
-                    sys.exit("Error: " + str(e))
+        try:
+            writedata(outname, data, mode)
+        except IOError as e:
+            sys.exit("Error: " + str(e))
 
     # return status
     return rc

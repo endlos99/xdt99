@@ -24,7 +24,7 @@ import re
 import os.path
 
 
-VERSION = "1.5.x"
+VERSION = "1.5.0"
 
 
 ### Utility functions

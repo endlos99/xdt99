@@ -10,29 +10,48 @@ As of this release, the cross-development tools comprise
  * `xas99`, a TMS9900 cross-assembler,
  * `xga99`, a GPL cross-assembler,
  * `xbas99`, a TI BASIC and TI Extended BASIC lister and encoder,
- * `xdm99`, a command-line disk manager for sector-based TI disk images, and
- * `xvm99`, a command-line volume manager for nanoPEB/CF7A Compact Flash cards.
+ * `xdm99`, a disk manager for sector-based TI disk images, and
+ * `xvm99`, a volume manager for nanoPEB/CF7A Compact Flash cards.
 
 All programs are written in Python and thus run on any platform that Python
-supports, including Linux, Windows, and Mac OS X.
+supports, including Linux, Windows, and OS X.
 
-The [xdt99 homepage][1] is hosted on GitHub.  You can download the latest
-[binary release][2] of xdt99 or clone the entire source code [repository][3].
+Additionally, xdt99 provides TI-specific editor support for some freely
+available cross-platform development environments:
 
-The xdt99 tools complement similar projects such as the excellent [TI Image
-Tool][5] or the [TI 99/Sim emulator][6] by offering slightly different
-approaches or extending their platform availability.
+ * `xdt99-mode`, a major mode for the GNU Emacs text editor, and
+ * `xdt99 IDEA`, a plugin for the IntelliJ IDEA development environment.
+
+The plugins offer syntax highlighting, navigation, and semantic renaming for
+assembly and TI Extended BASIC programs in addition to environment-specific
+functionality.
+
+The major design goals of xdt99 and differentiators to similarly spirited
+projects such as the [TI Image Tool][6] or the [Winasm99 assembler][7] are
+
+ * a comprehensive and consistent developer experience,
+ * a flexible and powerful command-line interface, and
+ * cross-platform availability.
+
+Future developments will focus on further simplifying typical development tasks
+such as data conversion and program generation.
+
+xdt99 is released under the GNU GPLv2.  All [sources][2] are available on
+GitHub.  TI developers may also download the latest [binary release][3] of
+xdt99.
+
+The [xdt99 homepage][1] always hosts the latest version of this document.
 
 
 Installation
 ------------
 
-Download the latest [binary release][2] from GitHub (recommended) or clone the
-[xdt99 repository][3].  Please note that the big download buttons on top of the
-xdt99 homepage on GitHub will include the entire repository; this is probably
-*not* what you want.
+Download the latest [binary release][3] from GitHub (recommended) or clone the
+[xdt99 repository][2].  Please note that the big download buttons on top of the
+xdt99 homepage will include the entire repository; this is probably *not* what
+you want.
 
-You will also need a working copy of [Python 2.x][4] installed on your computer.
+You will also need a working copy of [Python 2.x][5] installed on your computer.
 `xdt99` has been developed using Python 2.7, but other versions should work as
 well.  Note, however, that compatibility with Python 3 has been postponed to a
 later release for now.
@@ -42,7 +61,15 @@ that may be used independently of each other.  The volume manager depends on the
 disk manager and cannot be used without it.  For installation, simply place the
 files `xas99.py`, `xga99.py`, `xbas99.py`, `xdm99.py` and/or `xvm99.py`
 somewhere into your `$PATH` or where your command-line interpreter will find
-them.
+them.  Windows users will find additional information about installation and how
+to get started in the [Windows Tutorial][6].
+
+The `ide/` directory contains the editor plugins for GNU Emacs and IntelliJ
+IDEA.  Please refer to the `EDITORS.md` file for further information about
+editor support.
+
+The `lib/` directory contains the Jumpstart cartridge and some supporting
+functions that you may use in your TI programs.
 
 The `example/` directory of the binary distribution contains some sample files
 that are referenced throughout this manual.
@@ -119,7 +146,7 @@ loaded using Editor/Assembler option 5.
 
     $ xas99.py -R -i ashello.a99
 
-Images larger then 8 KB are split automatically into multiple files, using
+Images larger than 8 KB are split automatically into multiple files, using
 the filename convention of the Editor/Assembler module.
 
 The `-i` parameter simulates the `SAVE` utility program shipped with the
@@ -191,7 +218,7 @@ or 5 in the Editor/Assembler module and manually entering the program filename
 is no longer required.
 
 Currently, jumpstarted programs may consist of up to 8 segments and must fit
-entirely into memory area `>2000` and `>3EFF` or `>A000` and `>FFFF`.
+entirely into memory areas `>2000`-`>3EFF` and `>A000`-`>FFFF`.
 
 
 ### Other Formats
@@ -377,12 +404,13 @@ bit-not `~` as well as binary literals introduced by `:`.
 
 It is important to note that all operators have the *same precedence*, i.e., an
 expression such as `1 + 2 * 3 - 4 & 5` evaluates as `(((1 + 2) * 3) - 4) & 5`.
-To change the order of evaluation, parentheses can be used: `1 + (2 * 3) - (4 &
-5)`.  Changing the established order of evaluation would break the compatibility
-of `xas99` for existing sources.
+This may sound annoying, but changing the established order of evaluation would
+break the compatibility of `xas99` for existing sources.  To adjust the order of
+evaluation, parentheses can be used: `1 + (2 * 3) - (4 & 5)`.
 
-An additional source preprocessor allows for conditional assembly based on
-well-defined conditional expressions.
+A source code preprocessor allows for conditional assembly based on well-defined
+conditional expressions.  The preprocessor commands `.ifdef` and `.ifndef` check
+if a given symbol is defined or not.
 
            .ifdef lang_de
     msg    text 'Hallo Welt'
@@ -390,19 +418,23 @@ well-defined conditional expressions.
     msg    text 'Hello World'
            .endif
 
-The preprocessor commands `.ifdef` and `.ifndef` check if a given symbol is
-defined or not.  The commands `.ifeq`, `.ifne`, `.ifgt`, and `.ifge` test if
-two arguments are equal, not equal, greater than, or greater than or equal,
-resp.  If the second argument is missing, the first argument is compared
-against value `0`.
+The commands `.ifeq`, `.ifne`, `.ifgt`, and `.ifge` test if two arguments are
+equal, not equal, greater than, or greater than or equal, resp.  If the second
+argument is missing, the first argument is compared against value `0`.
 
-Conditional assembly preprocessor commands may be nested.  Valid conditional
-expressions and their rules of evaluation correspond to those of the `EQU`
-directive.  Additional symbols may be supplied on the command line.
+In addition to symbols defined by labels, `xas99` also sets exactly one of
+`_xas99_image`, `_xas99_cart`, `_xas99_obj`, `_xas99_xb`, or `_xas99_js`,
+depending on the assembly command `-i`, `-c`, ... used.
+
+Additional symbols may be supplied on the command line.
 
     $ xas99.py ashello.a99 -D symbol1 symbol2=2
 
 If no value is given, the symbol is set to value `1`.
+
+Conditional assembly preprocessor commands may be nested.  Valid conditional
+expressions and their rules of evaluation correspond to those of the `EQU`
+directive.
 
 `xas99` supports macros.  The `.defm` preprocessor command introduces a new
 macro.  The `.endm` command concludes the macro definition.  Inside the macro
@@ -695,6 +727,11 @@ for programs in internal format.  To override the default naming convention, the
 BASIC programs in long format are detected automatically.  To list programs in
 merge format, simply add the merge option `--merge`.
 
+(Technical note: On Windows, you currently cannot use `xdm99` to extract BASIC
+programs saved in merge format.  For some unknown reason merge programs are
+stored in `DIS/VAR` format even though they are binary data.  Windows will try
+to translate suspected end-of-line markers and thus garble the file contents.)
+
 The create command `-c` encodes a list of BASIC statements into internal format
 so that the resulting file can be loaded and run by the BASIC interpreter on a
 TI 99:
@@ -873,12 +910,12 @@ applied, the `-o` parameter may be used.
 Extracting files from a TI disk image to the local file system will lose certain
 TI-specific file information, such as the file type or the record length.  In
 order to retain this meta information along with the file contents, the v9t9 and
-TIFiles formats were created.  The approach of storing TI files directly on the 
+TIFiles formats were created.  The approach of storing TI files directly on the
 local file system instead of using a disk image is also known as "files in a
 directory" (FIAD).
 
-`xdm99` supports the TIFiles format and the v9t9 format for FIAD files by using 
-the `-t` and `-9` options, respectively.  To extract a file in either FIAD 
+`xdm99` supports the TIFiles format and the v9t9 format for FIAD files by using
+the `-t` and `-9` options, respectively.  To extract a file in either FIAD
 format, simply add `-t` or `-9` to the extract operation:
 
     $ xdm99.py work.disk -t -e HELLO-S
@@ -1281,13 +1318,15 @@ Feedback and Bug Reports
 The xdt99 tools are released under the GNU GPL, in the hope that TI 99
 enthusiasts may find them useful.
 
-For feedback, bug reports, and feature requests the developer can be reached at
-<xdt99dev@gmail.com>.
+Please email feedback and bug reports to the developer at <xdt99dev@gmail.com>
+or use the issue tracker on the project [GitHub page][2].
 
 
 [1]: https://endlos99.github.io/xdt99
-[2]: https://github.com/endlos99/xdt99/releases
-[3]: https://github.com/endlos99/xdt99
-[4]: https://www.python.org/downloads/
-[5]: http://www.mizapf.de/ti99/tiimagetool.html
-[6]: http://www.mrousseau.org/programs/ti99sim/
+[2]: https://github.com/endlos99/xdt99
+[3]: https://github.com/endlos99/xdt99/releases
+[4]: https://github.com/endlos99/xdt99/blob/master/WINDOWS.md
+[4]: https://github.com/endlos99/xdt99/releases
+[5]: https://www.python.org/downloads/
+[6]: http://www.mizapf.de/ti99/tiimagetool.html
+[7]: http://www.99er.net/win994a.shtml

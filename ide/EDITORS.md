@@ -2,7 +2,7 @@ xdt99 Editor Support
 ====================
 
 The `ide` folder provides plugins for various editors and integrated development
-environments (IDEs) that assist developers writing code for the TI 99 home
+environments (IDEs) that assist developers writing programs for the TI 99 home
 computer.
 
 Currently, xdt99 supports the following development environments:
@@ -10,11 +10,11 @@ Currently, xdt99 supports the following development environments:
  * [GNU Emacs][3]
  * [IntelliJ IDEA][6] (including related IDEs such as PyCharm)
 
-Both IDEs are available for free and run on Linux, Mac OS X, and Windows.
-Please refer to the projects' home pages for general information about
-installation and usage.  For running Emacs on the Windows platform, we recommend
-downloading the precompiled binary `emacs-<version>-bin-i686-pc-mingw.zip` from
-the [GNU server][4].
+Both IDEs are available for free and run on Linux, OS X, and Windows.  Please
+refer to the projects' home pages for general information about installation and
+usage.  For running Emacs on the Windows platform, we recommend downloading the
+precompiled binary `emacs-<version>-bin-i686-pc-mingw.zip` from the
+[GNU server][4].
 
 Picking an editor is very much a matter of personal taste.  For new users with
 no prior experience with either project we recommend IntelliJ IDEA.
@@ -23,37 +23,38 @@ no prior experience with either project we recommend IntelliJ IDEA.
 GNU Emacs
 ---------
 
-The Emacs plugin provides two major modes for editing assembly and TI Extended
-BASIC programs.  The assembly mode offers syntax highlighting and editing
-assistance, while the BASIC mode is currently limited to syntax highlighting.
+The Emacs plugin `xdt99-mode` provides two major modes for editing assembly and
+TI Extended BASIC programs.  The assembly mode offers syntax highlighting and
+editing assistance, while the BASIC mode is currently limited to syntax
+highlighting.
 
 Please note that stock Emacs uses relatively simple technology for analyzing
-source code, so the level of functionality that xdt99 can offer is limited.  For
-advanced features such as semantic navigation or code refactoring please use the
-IntelliJ IDEA plugin instead.
+source code, so the level of functionality that `xdt99-mode` can offer is
+limited.  For advanced features such as usages or code refactoring please use
+the IntelliJ IDEA plugin instead.
 
 
 ### Assembly Programs
 
 Assembly support is provided by the `asm99-mode` major mode.  To activate this
-mode, press `M-x` (i.e., press the meta key plus the X key) and enter
+mode, press `M-x` (i.e., press the meta key plus the `X` key) and enter
 `asm99-mode` at the prompt.  Please refer to the installation section on how to
 automate this step.
 
-`asm99-mode` highlights known TMS 9900 mnemonics and various assembly constructs
+`asm99-mode` highlights known TMS9900 mnemonics and various assembly constructs
 such as registers and strings.  The look and feel of the highlighting can be
 customized using the Emacs `font-lock` faces.
 
 The `asm99-goto-def` command will jump to the location of the label that the
 cursor is currently positioned on.  The `asm99-show-def` command will show the
-label definition in the mini buffer.  For easy navigation you may assign one
-or both commands to your preferred keys (see below).
+label definition in the mini buffer.  For easy navigation it is recommended to
+assign these commands to some shortcut keys of your choice (see below).
 
-The `comment-region` command (typically bound to `C-c ;`) adds the xdt99 comment
-character `;` to a range of lines.  Conversely, the `uncomment-region` command
-removes a single `;` character from each line.
+The `comment-region` command (typically bound to `C-c ;`) adds the `xas99`
+comment character `;` to a range of lines.  Conversely, the `uncomment-region`
+command removes a single `;` character from each line.
 
-Two minor modes provide support for smart keyboard navigation.  The
+Two minor modes provide support for formatting assistance.  The
 `asm99-smart-tab-mode` minor mode will
 
  * automatically indent the current line based on the left-most character or
@@ -102,7 +103,7 @@ to add its location to your library path in your `.emacs` config file, e.g.,
 
 To activate the xdt99 extension for Emacs, add
 
-    (autoload 'asm99-mode "xdt99-mode" "TMS 9900 Assembly Mode" t)
+    (autoload 'asm99-mode "xdt99-mode" "TMS9900 Assembly Mode" t)
     (autoload 'basic99-mode "xdt99-mode" "TI Extended BASIC Mode" t)
 
 to your `.emacs` file.
@@ -147,8 +148,8 @@ shortcut:
     (global-set-key [f3] 'asm99-goto-def)
     (global-set-key [S-f3] 'asm99-show-def)
 
-These lines assign function `asm99-goto-def` to the `F3` key and function
-`asm-show-def` to `Shift-F3`. 
+These lines assign functions `asm99-goto-def` and `asm-show-def` to the `F3` and
+`Shift-F3` keys, respectively.
 
 
 IDEA IntelliJ
@@ -160,10 +161,10 @@ to TI 99 assembly and Extended BASIC programs.
 
 ### Assembly Programs
 
-The xdt99 IDEA plugin provides semantic syntax highlighting for TMS 9900
-assembly programs, including `xas99` extensions.  Unlike the simple
-pattern-based Emacs colorizer, the IDEA plugin understands the TMS 9900
-instruction set and reports syntactic errors visually.
+The xdt99 IDEA plugin provides semantic syntax highlighting for TMS9900 assembly
+programs, including `xas99` extensions.  Unlike the simple pattern-based Emacs
+colorizer, the IDEA plugin understands the TMS9900 instruction set and reports
+syntactic errors visually.
 
 The plugin also tracks labels used throughout the program and supports
 navigation, usage lists, and semantic renaming for them.
@@ -178,6 +179,12 @@ consistently rename all occurrences of the label that the cursor is positioned
 on.  Renaming is "safe", i.e., renaming the label `SAMPLE` will not affect
 labels `SAMPLE1` or `ASAMPLE`, nor will it change strings or comments containing
 the word `SAMPLE`.
+
+Labels are tracked across all source files within a given project.  If you've
+split your program into multiple files -- be it using the `COPY` directive or
+assembling files individually -- you can still navigate between files and rename
+symbols consistenly.  Note, however, that duplicate symbols are likely to
+confuse the plugin.
 
 Line comments, i.e., comments starting with `*` in the first column, introduce
 code blocks that can be collapsed and expanded using the `+` and `-` boxes next
@@ -214,30 +221,38 @@ the cursor is positioned on `10` in line 20
     20 ON A GO TO 110,10,310
 	40 IF A<10 THEN 10 ELSE A=10 :: PRINT "SET TO 10"
 
-renaming might change the program to
+semantic renaming might change the program to
 
     15 IF RND>0.5 THEN A=INT(A/10) :: GOTO 15
     20 ON A GO TO 110,15,310
 	40 IF A<10 THEN 15 ELSE A=10 :: PRINT "SET TO 10"
 
-without affecting the integer value `10` in lines 10 and 40.  Thus, line number
-refactoring works similarly to the `RESEQUENCE` command in TI BASIC.
+without affecting the integer or string values `10` in lines 10 and 40.  Thus,
+line number refactoring works similarly to the `RESEQUENCE` command in TI BASIC.
 
 Similarly, refactoring variable names changes the name of a variable
 consistently across a program without affecting other variables or strings that
 may contain the original variable name.  Refactoring is thus safer than a simple
 global search and replace operation.
 
+Unlike assembly labels, BASIC line numbers and variable names are tracked for
+each file individually.
+
 
 ### Installation
 
-To install the plugin in your IDEA-based IDE, open the Settings menu and select
-the Plugins tab.  Choose "Install plugin from disk" and select the
-`xdt99-idea.jar` file.
+To install the plugin in your IntelliJ-based IDE, open the Settings menu and
+select the Plugins tab.  Choose "Install plugin from disk" and select the
+`xdt99-idea.jar` file provided by xdt99.
 
 The xdt99 IDEA plugin has been tested with IntelliJ IDEA Community Edition
 Version 14 and PyCharm Community Edition Version 4.5, but other reasonably
-recent versions should also work.
+recent versions and flavors should also work.
+
+When you start IntelliJ IDEA for the first time you'll be presented with a
+Welcome dialog window.  Simply select Open from the menu and navigate to the
+directory that contains (or will contain) your source files -- IDEA will create
+a project for you automatically.
 
 
 ### Customization
@@ -252,11 +267,11 @@ On the Settings > Editor > Code Style > xdt99 tab, you can customize the tab
 stop positions for assembly programs.
 
 Note that IDEA also supports different keymaps, including Eclipse and Emacs key
-bindings.
+bindings.  You can also define your own key bindings.
 
 By default, the xdt99 IDEA plugin associates file extensions `.a99` and `.b99`
-with TI assembly and TI Extended BASIC, respectively.  To register additional
-extensions, add them in the Settings > Editor > File Types tab.
+with TMS9900 assembly and TI Extended BASIC, respectively.  To register
+additional extensions, add them in the Settings > Editor > File Types tab.
 
 
 Contact Information

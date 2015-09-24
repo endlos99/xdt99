@@ -264,6 +264,20 @@ def runtest():
     xdm("-T", "dv064x010", "-9", "-n", "DV064X010", "-f", "DIS/VAR 64")
     checkFilesEq("CLI", "dv064x010.v9t9", Files.output, "PROGRAM", Masks.v9t9)
 
+    # stdin and stdout
+    ref = os.path.join(Dirs.refs, "vardis")
+    with open(ref, "r") as fin:
+        xdm(Disks.work, "--initialize", "sssd", "-a", "-", "-f", "dv40", stdin=fin)
+    with open(Files.output, "w") as fout:
+        xdm(Disks.work, "-e", "STDIN", "-o", "-", stdout=fout)
+    checkFilesEq("stdin/stdout", Files.output, ref, "DV")
+    ref = os.path.join(Dirs.refs, "sector1")
+    with open(Files.reference, "wb") as fout:
+        xdm(Disks.work, "--initialize", "sssd", "-a", ref, "-n", "T", "-o", "-", stdout=fout)
+    with open(Files.reference, "rb") as fin:
+        xdm("-", "-e", "T", "-o", Files.output, stdin=fin)
+    checkFilesEq("stdin/stdout", Files.output, ref, "P")
+        
     # usage errors
     with open(Files.error, "w") as ferr:
         xdm("-a", Files.output, stderr=ferr, rc=1)

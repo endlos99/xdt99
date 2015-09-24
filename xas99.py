@@ -23,7 +23,7 @@ import sys
 import re
 import os.path
 
-VERSION = "1.5.x"
+VERSION = "1.5.0"
 
 
 ### Utility functions
@@ -51,6 +51,24 @@ def used(n, m):
 def sinc(s, i):
     """string sequence increment"""
     return s[:-1] + chr(ord(s[-1]) + i)
+
+
+def writedata(n, d, m="wb"):
+    """write data to file or STDOUT"""
+    if n == "-":
+        sys.stdout.write(d)
+    else:
+        with open(n, m) as f:
+            f.write(d)
+
+
+def readlines(n, m="r"):
+    """read lines from file or STDIN"""
+    if n == "-":
+        return sys.stdin.readlines()
+    else:
+        with open(n, m) as f:
+            return f.readlines()
 
 
 ### Error handling
@@ -1206,12 +1224,11 @@ class Parser:
             self.suspendedFiles.append((self.fn, self.path, self.source,
                                         self.margs, self.lino))
         if filename:
-            newfile = self.find(filename)
+            newfile = "-" if filename == "-" else self.find(filename)
             self.path, fn = os.path.split(newfile)
             self.fn = "> " + fn
             try:
-                with open(newfile, mode="r") as f:
-                    self.source = f.readlines()
+                self.source = readlines(newfile, "r")
             except IOError as e:
                 raise AsmError(e)
         else:
@@ -1568,12 +1585,12 @@ class Parser:
 class Assembler:
     """main driver class"""
 
-    def __init__(self, addRegisters=False, strictMode=False,
+    def __init__(self, target="", addRegisters=False, strictMode=False,
                  includePath=None, defs=None):
         self.addRegisters = addRegisters
         self.strictMode = strictMode
         self.includePath = includePath
-        self.defs = defs
+        self.defs = ["_xas99_" + target] + defs
 
     def assemble(self, path, srcname):
         symbols = Symbols(addRegisters=self.addRegisters, addDefs=self.defs)
@@ -1597,7 +1614,7 @@ def main():
 
     args = argparse.ArgumentParser(
         version=VERSION,
-        description="TMS 9900 cross-assembler")
+        description="TMS9900 cross-assembler")
     args.add_argument("source", metavar="<source>",
                       help="assembly source code")
     cmd = args.add_mutually_exclusive_group()
@@ -1635,12 +1652,18 @@ def main():
     # setup
     dirname = os.path.dirname(opts.source) or "."
     basename = os.path.basename(opts.source)
-    barename = os.path.splitext(basename)[0]
+    barename = "stdin" if opts.source == "-" else os.path.splitext(basename)[0]
     name = opts.name or barename[:10].upper()
     inclpath = [dirname] + (opts.inclpath.split(",") if opts.inclpath else [])
     
     # assembly
-    asm = Assembler(addRegisters=opts.optr,
+    target = ("image" if opts.image else
+              "cart" if opts.cart else
+              "xb" if opts.embed else
+              "js" if opts.jstart else
+              "obj")
+    asm = Assembler(target=target,
+                    addRegisters=opts.optr,
                     strictMode=opts.strict,
                     includePath=inclpath,
                     defs=opts.defs or [])
@@ -1684,18 +1707,10 @@ def main():
             name = opts.output or barename + ".obj"
             out.append((name, data))
         for name, data in out:
-            if name == "-":
-                sys.stdout.write(data)
-            else:
-                with open(name, "wb") as fout:
-                    fout.write(data)
+            writedata(name, data, "wb")
         if opts.optl:
             listing = code.genList()
-            if opts.optl == "-":
-                sys.stdout.write(listing)
-            else:
-                with open(opts.optl, "wb") as fout:
-                    fout.write(listing)
+            writedata(opts.optl, listing, "w")
     except BuildError as e:
         sys.exit("Error: %s." % e)
     except IOError as e:

@@ -27,8 +27,8 @@ def checkListingEq(infile, reffile):
     with open(infile, "r") as f:
         for i, l in enumerate(f):
             if l.rstrip() != reflist[i].rstrip():
-                error("Listing", "Source mismatch on line %d:\n%s%s" % (
-                    i, l, reflist[i]))
+                error("Listing", "Source mismatch on line %d:\nexpected: %sactual: %s" % (
+                    i + 1, reflist[i], l))
 
 
 def genListing(infile, outfile):
@@ -58,7 +58,8 @@ def runtest():
         # ditto with MERGE format
         xdm(Disks.basic1, "-e", fn + "-M", "-o", Files.input)
         xbas(Files.input, "-d", "--merge", "-o", Files.output)
-        checkListingEq(Files.output, Files.reference)
+        if os.name != "nt":
+            checkListingEq(Files.output, Files.reference)
 
         # compare generated xbas99 basic program with TI BASIC reference
         xdm(Disks.basic1, "-e", fn + "-L", "-o", Files.input)

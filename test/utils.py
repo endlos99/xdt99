@@ -23,7 +23,7 @@ def xdm(*args, **kargs):
     if kargs.get("shell"):
         rc = call(" ".join(xdmPy + list(args)), shell=True)
     else:
-        rc = call(xdmPy + list(args),
+        rc = call(xdmPy + list(args), stdin=kargs.get("stdin"),
                   stdout=kargs.get("stdout"), stderr=kargs.get("stderr"))
     if rc != kargs.get("rc", 0):
         error("OS", "xdm99 call returned with failure code " + str(rc))

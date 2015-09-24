@@ -1,7 +1,7 @@
 <idea-plugin version="2">
   <name>xdt99 IntelliJ Plugin</name>
   <id>xdt99.intellij</id>
-  <version>1.2.0</version>
+  <version>1.5.0</version>
   <vendor email="xdt99dev@gmail.com" url="http://endlos99.github.io/xdt99/"><![CDATA[
     TI 99 Cross-Development Tools (xdt99)
     <br>
@@ -22,7 +22,7 @@
   ]]></vendor>
 
   <description><![CDATA[
-    The xdt99 IDEA Plugin provides code assistance for developing TMS 9900
+    The xdt99 IntelliJ Plugin provides code assistance for developing TMS 9900
     assembly, TI BASIC, and TI Extended BASIC programs.
   ]]></description>
 

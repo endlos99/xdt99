@@ -1,0 +1,12 @@
+* VDP WRITE TO REGISTER
+
+       ref  vdpwa
+
+       even
+
+vwtr:
+       movb @ws_r0lb, @vdpwa
+       ori  r0, >8000
+       movb r0, @vdpwa
+
+       rt
