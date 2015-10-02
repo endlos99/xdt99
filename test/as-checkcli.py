@@ -7,10 +7,25 @@ from utils import xas, xdm, error, checkObjCodeEq, checkImageFilesEq, \
                   checkListFilesEq
 
 
-### Check function
-
 def ordw(word):
     return ord(word[0]) << 8 | ord(word[1])
+
+
+def remove(files):
+    for fn in files:
+        if os.path.exists(fn):
+            os.remove(fn)
+
+
+### Check functions
+
+def checkExists(files):
+    for fn in files:
+        try:
+            with open(fn, "rb") as f:
+                x = f.read()[0]
+        except (IOError, IndexError):
+            error("Files", "File missing or empty: " + fn)
 
 
 ### Main test
@@ -67,6 +82,12 @@ def runtest():
     plen = ordw(prog[2:4]) - 6
     if disk[512:512 + plen] != prog[6:6 + plen]:
         error("Jumpstart", "Invalid program data")
+
+    # various parameter combinations
+    source = os.path.join(Dirs.sources, "asxbank1.asm")
+    remove([Files.reference])
+    xas(source, "-b", "-o", Files.output, "-L", Files.reference)
+    checkExists([Files.reference])
 
     # cleanup
     os.remove(Files.output)

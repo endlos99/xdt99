@@ -97,11 +97,15 @@ Generate cartridge file for the MESS emulator:
 
 Generate program image embedded in Extended BASIC loader:
 
-    $ xas99.py --embed [-R] <source file>
+    $ xas99.py --embed-xb <source file>
+
+Generate raw binary data files:
+
+    $ xbas99.py -b [--base <addr>] <source file>
 
 Generate list file diagnostic output:
 
-    $ xas99.py [-R] <source file> -L <list file>
+    $ xas99.py <source file> -L <list file>
 
 Generate jumpstart image for fast code, assemble, run cycles:
 
@@ -117,7 +121,7 @@ module:
  * Relaxed syntax (e.g., labels, comments, whitespace, case insensitivity)
  * Improved expressions (e.g., Boolean operators, binary numbers, parentheses)
  * Label continuations and local labels (e.g., `! dec r0; jne -!`)
- * New directives (e.g., `BCOPY` for binary includes)
+ * New directives (e.g., `BCOPY`, `XORG`, `SAVE`)
  * Conditional assembly (e.g., `.ifdef`)
  * Macros (`.defm`)
 

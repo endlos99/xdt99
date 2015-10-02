@@ -146,17 +146,17 @@ loaded using Editor/Assembler option 5.
 
     $ xas99.py -R -i ashello.a99
 
-Images larger than 8 KB are split automatically into multiple files, using
-the filename convention of the Editor/Assembler module.
+Images larger than 8 KB are split automatically into multiple files, using the
+filename convention of the Editor/Assembler module.
 
 The `-i` parameter simulates the `SAVE` utility program shipped with the
-Editor/Assembler package and honors the symbols `SFIRST` and `SLAST` to
-generate a single image for the entire memory area spanned by those two
-addresses.
+Editor/Assembler package and honors the symbols `SFIRST` and `SLAST` to generate
+a single image for the entire memory area spanned by those two addresses.  The
+image is automatically chunked into 8 KB files for the E/A loader.
 
-Alternatively, if either symbol is missing, `xas99` will generate separate
-image files for each program segment defined in the assembly source code.
-For example, the assembly of source file
+Alternatively, if either symbol is missing, `xas99` will generate separate image
+files for each program segment defined in the assembly source code.  For
+example, the assembly of source file
 
          AORG >A000
     L1   B @L2
@@ -164,11 +164,16 @@ For example, the assembly of source file
     L2   B @L1
 
 will yield two images files of 10 bytes each instead of a single file of 4 KB.
-Relocatable segments will be relocated to memory locations `>A000` upwards.
 
 Note that the E/A loader for program files happily loads non-contiguous image
 files for individual program segments even though original `SAVE` utility does
 not support this feature.
+
+For further control about the memory regions to save see the `SAVE` directive
+below.
+
+The optional `--base` argument can be used to define the base address for
+relocatable code.  If no base address is given, default address `>A000` is used.
 
 All the usual restrictions for program images apply.  In particular, the first
 word of the first image file must be an executable instruction.
@@ -199,6 +204,24 @@ using VDP memory access routines apply.
 Note that cartridge files cannot be generated from split image files.
 
 
+### Creating Raw Binaries
+
+Image files for the E/A loader option 5 contain the actual program code that is
+loaded verbatim into memory.  They also contain a small amount of metadata that
+instructs the loader how many files to load and where to store the data.
+
+The binary parameter `-b` tells `xas99` to generate raw binary files without
+metadata that are suitable for burning EPROMs or supplying other devices.
+
+    $ xas99.py -R -b ascart.a99 --base 0x6000
+
+The assembler will generate one binary file per code segment.  For further
+control, the `SAVE` directive may be used (see below).
+
+The optional `--base` argument sets the base address for relocatable segments;
+if no argument is given, `>0000` is used.
+
+
 ### Jumpstarting
 
 To make the code, assemble, run cycle as fast as possible, `xas99` can
@@ -226,16 +249,16 @@ entirely into memory areas `>2000`-`>3EFF` and `>A000`-`>FFFF`.
 For relocatable code not larger than around 24 KB, `xas99` can generate an
 Extended BASIC program that invisibly contains the generated code within:
 
-    $ xas99.py --embed asembed.a99 
+    $ xas99.py --embed-xb ashello.a99 
 
 The resulting program is a regular Extended BASIC program in so-called "long"
 format that will execute the assembly code when run:
 
-    >OLD DSK1.ASEMBED
+    >OLD DSK1.ASHELLO
     >RUN
 
-Thus, the `--embed` options allows for the creation of assembly programs that do
-require the Editor/Assembler module for execution.
+Thus, the `--embed-xb` options allows for the creation of assembly programs that
+do require the Editor/Assembler module for execution.
 
 The generated Extended BASIC program will have only one visible line:
 
@@ -308,8 +331,14 @@ include files
     src/FILE2.ASM
     src/FILE2.S
 
-and its corresponding lower-case variants.  `COPY` also supports native file
-paths, e.g., `COPY "/home/ralph/ti/src/file2.a99"`.
+and its corresponding lower-case variants.
+
+Additional search paths may be specified with the `-I` option as a
+comma-seperated list, e.g.,
+
+    $ xas99.by -I lib/,disk2/ ashello.asm
+
+`COPY` also supports native file paths, e.g., `COPY "ti/src/file2.a99"`.
 
 `xas99` also provides a new directive `BCOPY` that includes an external binary
 file as a sequence of `BYTE`s.  Please refer to the section about *xdt99
@@ -397,7 +426,7 @@ The extended expression syntax supports parentheses `(`, `)`, the modulo
 operator `%`, and binary operators bit-and `&`, bit-or `|`, bit-xor `^`, and
 bit-not `~` as well as binary literals introduced by `:`.
 
-    area    equ (xmax + 1) * (ymax + 1) 
+    area    equ (xmax + 1) * (ymax + 1)
     addr2   equ addr1 | >A000 & ~>001F
     padding bss size % 8
     binval  equ :01011010
@@ -501,6 +530,123 @@ then including this file with `BCOPY`
 is equivalent to the conventional assembly statement sequence
 
     SPRITE  BYTE >18,>3C,>7E,>FF,>FF,>7E,>3C,>18
+
+The extended `AORG` directive allows for an optional second argument that
+specifies the memory bank for the following code segment.
+
+    * ASBANK.A99
+          AORG >6000,0
+    FUNC1 CLR R0
+          ...
+          AORG >6000,1
+    FUNC2 LI  R1,>1234
+          ...
+
+Generating binary files with the `-b` command stores banked segments in
+separate files, e.g.,
+
+    $ xas99.py -b asbank.a99
+    $ ls
+    asbank.a99  asbank_6000_b0.bin  asbank_6000_b1.bin
+
+`xas99` warns about illegal cross-bank accesses, but it cannot guarantee that
+the correct bank is always active.
+
+          AORG >6000,0
+    L1    B    @L3      ; OK
+          B    @L2      ; error: different bank
+
+          AORG >6000,1
+    L2    B    @L3      ; OK
+          B    @L1      ; error: different bank
+
+          AORG >A000
+    L3    B    @L1      ; OK, needs correct bank
+          B    @L2      ; OK, needs correct bank
+
+In this example, the `B` instructions in segment `A000` will both branch to
+`L1` or `L2`, depending on which bank is active.
+
+The new `XORG` directive sets the location counter to a new address but does
+not change the actual placement of the subsequent code segment.
+
+          AORG >6000
+    L1    DATA 0
+          MOV  @L1,@L2      ; moves >6000 to >8380
+          BL   @FUNC        ; branches to >8382
+
+    A1    XORG >8380
+    A2
+    L2    DATA 0
+    FUNC  A    @L2,@L1      ; adds >8380 to >6000
+          RT
+    A3
+
+The list file for this program shows that the code of `FUNC` is placed within
+the `>6000` segment:
+
+    0001                      AORG >6000
+    0002 6000 0000     L1     DATA 0
+    0003 6002 C820  54        MOV  @L1,@L2      ; moves >6000 to >8380
+         6004 6000
+         6006 8380
+    0004 6008 06A0  32        BL   @FUNC        ; branches to >8382
+         600A 8382
+    0005
+    0006               A1     XORG >8380
+    0007               A2
+    0008 600C 0000     L2     DATA 0
+    0009 600E A820  54 FUNC   A    @L2,@L1      ; adds >8380 to >6000
+         6010 8380
+         6012 6000
+    0010 6014 045B  20        RT
+    0011               A3
+
+`XORG` is useful for assembling code blocks that will be moved to a different
+memory location, e.g., scratch pad RAM, before execution.
+
+    * MOVE FUNCTION TO SCRATCH PAD RAM
+    INIT  LI   R0,A1        ; source address of function
+          LI   R1,A2        ; target address of function
+          LI   R2,A3-A2     ; length of function to copy
+          BL   @COPY        ; fictious RAM to RAM copy routine
+
+Note that `xas99` cannot place `XORG` code directly into the indented target
+location; instead, all such blocks need to be copied manually in your program.
+For this, `XORG` assigns the real placement address instead of the location
+counter to its label.  Depending on the previous segment this address may be
+relocatable or not.
+
+The `XORG` directive can be used for all `xas99` output formats and is
+compatible with both E/A option 3 and E/A option 5.
+
+The `SAVE` directive controls the output format for the image `-i` and raw
+binary `-b` output formats.
+
+          SAVE >6000,>7000   ; generate single image for >6000->6FFF
+
+          AORG >6000
+    MAIN  LIMI 0
+          ...
+          AORG >6100
+    SUBR  CLR  R0
+          ...
+
+For each `SAVE`, a binary file containing the values of the specified memory
+region will be generated.  If the region contains banked memory, a separate file
+for each bank is written.  Empty regions, i.e., regions in which no actual value
+is placed, are skipped.
+
+If no `SAVE` directives are provided, the `-b` command will place each segment
+in its own output file.  The `-i` command will save the region between symbols
+`SFIRST` and `SLAST`, if present; otherwise, it generates images for each
+segment individually.
+
+The use of `SAVE` is recommended to reduce the number of generated files if
+`XORG` is employed.
+
+
+#### Compatibility
 
 The strictness option `-s` disables all `xas99`-specific extensions to improve
 backwards compatibility for old sources:

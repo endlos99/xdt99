@@ -31,6 +31,7 @@ def runtest():
             ("asimg2.asm", [], "ASIMG2-O", None),
             ("asimg3.asm", [], "ASIMG3-OX", None),
             #("asreloc.asm", [], "ASRELOC-O", None),
+            ("asxorg.asm", [], "ASXORG-O", None),
             ("ascart.asm", ["-R"], "ASCART-O", "ASCART-C")
             ]:
         source = os.path.join(Dirs.sources, infile)
@@ -44,18 +45,6 @@ def runtest():
             xas(*[source] + opts + ["-C", "-o", Files.output])
             xdm(Disks.asmsrcs, "-e", cprfile, "-o", Files.reference)
             checkObjCodeEq(Files.output, Files.reference)
-
-    # xdt99 extensions
-    source = os.path.join(Dirs.sources, "asxext.asm")
-    xas(source, "-R", "-o", Files.output)
-    xdm(Disks.asmsrcs, "-e", "ASXEXT0-O", "-o", Files.reference)
-    checkObjCodeEq(Files.output, Files.reference)
-    xas(source, "-R", "-D", "sym2", "-o", Files.output)
-    xdm(Disks.asmsrcs, "-e", "ASXEXT1-O", "-o", Files.reference)
-    checkObjCodeEq(Files.output, Files.reference)
-    xas(source, "-R", "-D", "sym2=2", "sym3=2", "-o", Files.output)
-    xdm(Disks.asmsrcs, "-e", "ASXEXT2-O", "-o", Files.reference)
-    checkObjCodeEq(Files.output, Files.reference)
 
     # image files
     for infile, opts, reffile in [
@@ -81,20 +70,6 @@ def runtest():
             xdm(Disks.asmimgs, "-e", reffile, "-o", Files.reference)
             checkFilesEq("Image file",
                          Files.outputff[i], Files.reference, fmt="P")
-
-    # some CLI options
-    source = os.path.join(Dirs.sources, "ashello.asm")
-    xas(source, "--embed", "-R", "-o", Files.output)
-
-    # misc new features
-    for infile, reffile in [
-            ("asxnew.asm", "ASXNEW-O"),
-            ("asmacs.asm", "ASMACS-O")
-            ]:
-        source = os.path.join(Dirs.sources, infile)
-        xas(source, "-o", Files.output)
-        xdm(Disks.asmsrcs, "-e", reffile, "-o", Files.reference)
-        checkObjCodeEq(Files.output, Files.reference)
 
     # cleanup
     for i in xrange(4):

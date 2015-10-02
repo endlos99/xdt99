@@ -71,6 +71,23 @@ def runtest():
 
     compare(referrors, xaserrors)
 
+    # xdt99-specific errors (image generation)
+    source = os.path.join(Dirs.sources, "asxerrsb.asm")
+    with open(Files.error, "w") as ferr:
+        xas(source, "-R", "-b", "-o", Files.output, stderr=ferr, rc=1)
+    xaserrors = readstderr(Files.error)
+    referrors = {}
+    with open(source, "r") as f:
+        for i, line in enumerate(f):
+            m = re.search(r";ERROR(:....)?", line)
+            if m:
+                if m.group(1):
+                    referrors[m.group(1)[1:]] = line
+                else:
+                    referrors["%04d" % (i + 1)] = line
+
+    compare(referrors, xaserrors)
+
     # files not found
     source = os.path.join(Dirs.sources, "ascopyi.asm")
     with open(Files.error, "w") as ferr:

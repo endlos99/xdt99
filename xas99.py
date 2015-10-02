@@ -23,7 +23,7 @@ import sys
 import re
 import os.path
 
-VERSION = "1.5.0"
+VERSION = "1.5.1"
 
 
 ### Utility functions
@@ -46,6 +46,11 @@ def pad(n, m):
 def used(n, m):
     """integer division rounding up"""
     return (n + m - 1) / m
+
+
+def xint(s):
+    """return hex or decimal value"""
+    return int(s.lstrip(">"), 16 if s[:2] == "0x" or s[:1] == ">" else 10)
 
 
 def sinc(s, i):
@@ -86,8 +91,9 @@ class BuildError(Exception):
 class Address:
     """absolute or relocatable address"""
 
-    def __init__(self, addr, relocatable=False):
+    def __init__(self, addr, bank=None, relocatable=False):
         self.addr = addr
+        self.bank = bank
         self.relocatable = relocatable
 
     def hex(self):
@@ -161,16 +167,24 @@ class Symbols:
 
     def resetLC(self):
         self.LC = 0
+        self.bank = None
         self.relocLC = True
+        self.xorgOffset = None
 
+    def effectiveLC(self):
+        return self.LC + (self.xorgOffset or 0)
+    
     def addSymbol(self, name, value):
         if name in self.symbols:
             raise AsmError("Multiple symbols: " + name)
         self.symbols[name] = value
         return name
 
-    def addLabel(self, lidx, label):
-        name = self.addSymbol(label, Address(self.LC, self.relocLC))
+    def addLabel(self, lidx, label, realLC=False):
+        addr = Address(self.LC if realLC else self.effectiveLC(),
+                       self.bank,
+                       self.relocLC and (realLC or not self.xorgOffset))
+        name = self.addSymbol(label, addr)
         self.locations.append((lidx, name))
 
     def addLocalLabel(self, lidx, label):
@@ -221,11 +235,19 @@ class Objdummy:
         self.savedLC = {True: 0x0000, False: 0x0000}
         self.segment(0x0000, relocatable=True, init=True)
 
-    def segment(self, base, relocatable=False, dummy=False, init=False):
+    def segment(self, base, relocatable=False, bank=None,
+                dummy=False, xorg=False, init=False):
         if not init:
             self.savedLC[self.symbols.relocLC] = self.symbols.LC
-        self.symbols.relocLC = relocatable
-        self.symbols.LC = self.savedLC[relocatable] if base is None else base
+        if xorg:
+            # for XORG, keep reloc status but save LC offset
+            self.symbols.xorgOffset = base - self.symbols.LC
+        else:
+            self.symbols.xorgOffset = None
+            self.symbols.relocLC = relocatable
+            self.symbols.LC = (base if base is not None else
+                               self.savedLC[relocatable])
+            self.symbols.bank = bank
 
     def even(self):
         if self.symbols.LC % 2 == 1:
@@ -247,13 +269,13 @@ class Objdummy:
             2 if saddr is not None else 0) + (
             2 if daddr is not None else 0)
 
-    def processLabel(self, lidx, label):
+    def processLabel(self, lidx, label, realLC=False):
         if not label:
             return
         if label[0] == "!":
             self.symbols.addLocalLabel(lidx, label[1:])
         else:
-            self.symbols.addLabel(lidx, label)
+            self.symbols.addLabel(lidx, label, realLC)
 
     def list(self, lino, line=None, eos=False, text1=None, text2=None):
         pass
@@ -266,25 +288,32 @@ class Objcode:
         self.symbols = symbols
         self.entry = None
         self.segments = []
+        self.saves = []
         self.savedLC = {True: 0x0000, False: 0x0000}
         self.segment(0x0000, relocatable=True, init=True)
         self.done = False
 
-    def processLabel(self, lidx, label):
+    def processLabel(self, lidx, label, realLC=False):
         pass
 
-    def segment(self, base, relocatable=False, dummy=False, init=False):
+    def segment(self, base, relocatable=False, bank=None,
+                dummy=False, xorg=False, init=False):
         if not init:
             self.savedLC[self.symbols.relocLC] = self.symbols.LC
-            self.segments.append((self.base, self.symbols.LC,
-                                  self.symbols.relocLC, self.dummy,
-                                  self.code))
-        self.base = self.savedLC[relocatable] if base is None else base
-        self.symbols.relocLC = relocatable
-        self.symbols.LC = self.base
+            self.segments.append((self.symbols.bank, self.symbols.LC,
+                                  self.symbols.relocLC, self.dummy, self.code))
+        if xorg:
+            # for XORG, keep reloc status but save LC offset
+            self.symbols.xorgLOffset = base - self.symbols.LC
+        else:
+            self.symbols.xorgOffset = None
+            self.symbols.relocLC = relocatable
+            self.symbols.LC = (base if base is not None else
+                               self.savedLC[relocatable])
+            self.symbols.bank = bank
         self.dummy = dummy
         self.code = []
-
+        
     def even(self):
         if self.symbols.LC % 2 == 1:
             self.symbols.LC += 1
@@ -350,11 +379,11 @@ class Objcode:
         """generate raw dump of internal data structures (debug)"""
         self.prepare()
         dump = ""
-        for (base, finalLC, reloc, dummy, code) in self.segments:
-            dump += "%s%cORG @ >%04X:\n" % (
+        for bank, finalLC, reloc, dummy, code in self.segments:
+            dump += "%s%cORG%s:\n" % (
                 "\n" if dump and dump[-1] != "\n" else "",
                 "R" if reloc else "D" if dummy else "A",
-                base)
+                "" if bank is None else " @ Bank " + str(bank))
             i, ttotal = 0, 0
             for LC, w, t in code:
                 if isinstance(w, Line):
@@ -379,13 +408,15 @@ class Objcode:
     def genObjCode(self, compressed=False):
         """generate object code (E/A option 3)"""
         self.prepare()
-        relocLCs = [finalLC for base, finalLC, reloc, dummy, code
+        relocLCs = [finalLC for bank, finalLC, reloc, dummy, code
                     in self.segments if reloc]
         relocSize = relocLCs[-1] if relocLCs else 0
         tags = Records(relocSize, self.symbols.idt, compressed)
         # add code and data words section
         refs = {}
-        for base, finalLC, reloc, dummy, code in self.segments:
+        for bank, finalLC, reloc, dummy, code in self.segments:
+            if bank:
+                raise BuildError("Cannot create banked object code")
             if dummy:
                 continue
             tags.addLC()
@@ -445,43 +476,73 @@ class Objcode:
                 mem[addr] = w
         return mem
 
-    def genImage(self, baseAddr=0xa000, chunkSize=0x2000):
+    def genBinaries(self, baseAddr, saves=None):
+        """generate raw memory images"""
+        self.prepare()
+        words = []
+        if self.saves or saves:
+            # populate memory per bank and apply save intervals
+            mems = {}
+            for bank, finalLC, reloc, dummy, code in self.segments:
+                if dummy:
+                    continue
+                mems[bank] = self.writeMem(mems.get(bank, {}),
+                                           code, reloc, baseAddr)
+            for bank in mems:
+                for minAddr, maxAddr in self.saves or saves:
+                    addrs = [a for a in mems[bank].keys()
+                             if minAddr <= a < maxAddr]
+                    if addrs:
+                        words.append((minAddr, maxAddr, bank, mems[bank]))
+        else:
+            # create one blob per segment
+            for bank, finalLC, reloc, dummy, code in self.segments:
+                if dummy:
+                    continue
+                mem = self.writeMem({}, code, reloc, baseAddr)
+                if mem:
+                    addrs = mem.keys()
+                    words.append((min(addrs), max(addrs) + 2, bank, mem))
+        # create list of (addr, bank, blob)
+        binaries = [(minAddr, bank,
+                     "".join([chrw(mem[addr]) if addr in mem else "\x00\x00"
+                              for addr in xrange(minAddr, maxAddr, 2)]))
+                    for minAddr, maxAddr, bank, mem in words]
+        return binaries
+
+    def genImage(self, baseAddr, chunkSize=0x2000):
         """generate memory image (E/A option 5)"""
         self.prepare()
-        sfirst = self.symbols.getSymbol("SFIRST")
-        slast = self.symbols.getSymbol("SLAST")
-        if sfirst and slast:
-            mem = {}
-            for base, finalLC, reloc, dummy, code in self.segments:
-                if not dummy:
-                    mem = self.writeMem(mem, code, reloc, baseAddr)
-            minAddr = sfirst.addr + baseAddr if sfirst.relocatable else sfirst.addr
-            maxAddr = slast.addr + baseAddr if slast.relocatable else slast.addr
-            words = [(minAddr, maxAddr, mem)]
-        else:
-            words = []
-            for base, finalLC, reloc, dummy, code in self.segments:
-                if not dummy:
-                    mem = self.writeMem({}, code, reloc, baseAddr)
-                    if mem:
-                        addrs = mem.keys()
-                        words.append((min(addrs), max(addrs) + 2, mem))
-        chunks = []
-        for minAddr, maxAddr, mem in words:
-            w = "".join([chrw(mem[addr]) if addr in mem else "\x00\x00"
-                         for addr in xrange(minAddr, maxAddr, 2)])
-            for i in xrange(0, len(w), chunkSize - 6):
-                chunks.append((minAddr + i, w[i:i + chunkSize - 6]))
+        try:
+            sfirst = self.symbols.getSymbol("SFIRST")
+            slast = self.symbols.getSymbol("SLAST")
+            save = [(sfirst.addr + baseAddr if sfirst.relocatable else
+                     sfirst.addr,
+                     slast.addr + baseAddr if slast.relocatable else
+                     slast.addr)]
+        except AttributeError:
+            save = None
+        binaries = self.genBinaries(baseAddr, save)
+        for addr, bank, blob in binaries:
+            if bank:
+                raise BuildError("Cannot create banked program image")
+        # split binaries into chunks for E/A 5 loader
+        chunks = [(addr + i, data[i:i + chunkSize - 6])
+                  for addr, bank, data in binaries
+                  for i in xrange(0, len(data), chunkSize - 6)]
+        # add meta data information to each chunk (next?, length, addr)
         images = [("\xff\xff" if i + 1 < len(chunks) else "\x00\x00") +
                   chrw(len(c) + 6) + chrw(a) + c
                   for i, (a, c) in enumerate(chunks)]
         return images
-
+        
     def genXbLoader(self):
         """stash code in Extended BASIC program"""
         self.prepare()
         size = 0
-        for base, finalLC, reloc, dummy, code in self.segments:
+        for bank, finalLC, reloc, dummy, code in self.segments:
+            if bank:
+                raise BuildError("Cannot create banked object code")
             if not reloc:
                 raise BuildError(
                     "Cannot create BASIC program for non-relocatable code")
@@ -550,7 +611,7 @@ class Objcode:
     def genList(self):
         """generate listing"""
         listing = []
-        for base, finalLC, reloc, dummy, code in self.segments:
+        for bank, finalLC, reloc, dummy, code in self.segments:
             words, slino, sline, skip = [], None, None, False
             for LC, w, t in code:
                 if isinstance(w, Line):
@@ -790,8 +851,9 @@ class Directives:
     @staticmethod
     def AORG(parser, code, label, ops):
         base = parser.value(ops[0]) if ops else None
+        bank = parser.value(ops[1]) if len(ops) > 1 else None
         code.list(0, eos=True)
-        code.segment(base, relocatable=False)
+        code.segment(base, relocatable=False, bank=bank)
         code.processLabel(parser.lidx, label)
 
     @staticmethod
@@ -807,6 +869,15 @@ class Directives:
         code.list(0, eos=True)
         code.segment(base, dummy=True)
         code.processLabel(parser.lidx, label)
+
+    @staticmethod
+    def XORG(parser, code, label, ops):
+        if not ops:
+            raise AsmError("Missing argument")
+        code.processLabel(parser.lidx, label, realLC=True)
+        base = parser.value(ops[0])
+        code.list(0, eos=True)
+        code.segment(base, relocatable=False, xorg=True)
 
     @staticmethod
     def COPY(parser, code, label, ops):
@@ -831,14 +902,25 @@ class Directives:
         code.symbols.idt = text[:8]
 
     @staticmethod
+    def SAVE(parser, code, label, ops):
+        if parser.passno != 2:
+            return
+        try:
+            first, last = parser.expression(ops[0]), parser.expression(ops[1])
+        except IndexError:
+            raise AsmError("Invalid arguments")
+        code.saves.append((first, last))
+
+    @staticmethod
     def DXOP(parser, code, label, ops):
         if parser.passno != 1:
             return
-        if len(ops) != 2:
-            raise AsmError("Invalid arguments")
         code.processLabel(parser.lidx, label)
-        mode = parser.expression(ops[1], wellDefined=True)
-        code.symbols.addXop(ops[0], str(mode))
+        try:
+            mode = parser.expression(ops[1], wellDefined=True)
+            code.symbols.addXop(ops[0], str(mode))
+        except IndexError:
+            raise AsmError("Invalid arguments")
 
     @staticmethod
     def BCOPY(parser, code, label, ops):
@@ -1408,11 +1490,11 @@ class Parser:
         if self.passno == 1:
             return 0
         addr = self.expression(op)
-        if (isinstance(addr, Address) and
-                addr.relocatable != self.symbols.relocLC):
-            raise AsmError("Invalid relocatable address")
-        disp = ((addr.addr if isinstance(addr, Address) else addr) -
-                self.symbols.LC) / 2 - 1
+        if isinstance(addr, Address):
+            if addr.relocatable != self.symbols.relocLC:
+                raise AsmError("Invalid relocatable address")
+            addr = addr.addr
+        disp = (addr - self.symbols.effectiveLC()) / 2 - 1
         if disp < -128 or disp > 127:
             raise AsmError("Out of range: " + op + " +/- " + hex(disp))
         return disp
@@ -1459,6 +1541,9 @@ class Parser:
                         raise AsmError("Invalid reference: " + expr)
                     return termval
                 elif isinstance(termval, Address):
+                    if (termval.bank is not None and self.symbols.bank is not None and
+                            termval.bank != self.symbols.bank):
+                        raise AsmError("Invalid cross-bank access")
                     v, reloc = termval.addr, 1 if termval.relocatable else 0
                 else:
                     v, reloc = termval, 0
@@ -1486,14 +1571,17 @@ class Parser:
                 raise AsmError("Invalid operator: " + op)
         if not 0 <= reloccount <= (0 if absolute else 1):
             raise AsmError("Invalid address: " + expr)
-        return Address(value.value, True) if reloccount else value.value
+        return Address(value.value, self.symbols.bank,
+                       True) if reloccount else value.value
 
     def term(self, op, wellDefined=False, relaxed=False):
         """parse constant or symbol"""
         if op[0] == ">":
             return int(op[1:], 16)
         elif op == "$":
-            return Address(self.symbols.LC, self.symbols.relocLC)
+            return Address(self.symbols.effectiveLC(),
+                           self.symbols.bank,
+                           self.symbols.relocLC and not self.symbols.xorgOffset)
         elif op[0] == ":":
             return int(op[1:], 2)
         elif op.isdigit():
@@ -1618,8 +1706,10 @@ def main():
     args.add_argument("source", metavar="<source>",
                       help="assembly source code")
     cmd = args.add_mutually_exclusive_group()
+    cmd.add_argument("-b", "--binary", action="store_true", dest="bin",
+                     help="create program binaries")
     cmd.add_argument("-i", "--image", action="store_true", dest="image",
-                     help="create program image")
+                     help="create program image (E/A option 5)")
     cmd.add_argument("-c", "--cart", action="store_true", dest="cart",
                      help="create MESS cart image")
     cmd.add_argument("--embed-xb", action="store_true", dest="embed",
@@ -1640,6 +1730,8 @@ def main():
                       help="generate list file (TI Assembler option L)")
     args.add_argument("-S", "--symbol-table", action="store_true", dest="optl",
                       help="add symbol table to listing (TI Assembler option S) (ignored)")
+    args.add_argument("--base", dest="base", metavar="<addr>",
+                      help="set base address for relocatable code")
     args.add_argument("-I", "--include", dest="inclpath", metavar="<paths>",
                       help="list of include search paths")
     args.add_argument("-D", "--define-symbol", nargs="+", dest="defs",
@@ -1686,8 +1778,18 @@ def main():
                 archive.writestr(name + ".bin", data)
                 archive.writestr("layout.xml", layout)
                 archive.writestr("meta-inf.xml", metainf)
+        elif opts.bin:
+            data = code.genBinaries(xint(opts.base) if opts.base else 0x0000)
+            for addr, bank, mem in data:
+                mid = (("_%04x" % addr) +
+                       ("" if bank is None else "_b%d" % bank))
+                if opts.output:
+                    name = "-" if opts.output == "-" else opts.output + mid
+                else:
+                    name = barename + mid + ".bin"
+                out.append((name, mem))
         elif opts.image:
-            data = code.genImage()
+            data = code.genImage(xint(opts.base) if opts.base else 0xa000)
             for i, image in enumerate(data):
                 if opts.output:
                     name = "-" if opts.output == "-" else sinc(opts.output, i)
