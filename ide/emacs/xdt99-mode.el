@@ -1,4 +1,4 @@
-;;; xdt99-mode: xdt99 major modes for Emacs - Version 1.1.0
+;;; xdt99-mode: xdt99 major modes for Emacs - Version 1.1.1
 
 ;; Copyright (c) 2015 Ralph Benzinger <xdt99dev@gmail.com>
 
@@ -57,16 +57,25 @@
     ("^\\*.*\\|;.*" . font-lock-comment-face)
     ("'[^']*'" . font-lock-string-face)
     ("\"[^\"]*\"" . font-lock-string-face)
-    ( ,(regexp-opt asm99-opcodes 'words) . font-lock-keyword-face)
-    ( ,(regexp-opt asm99-directives 'words) . font-lock-builtin-face)
-    ( ,(regexp-opt asm99-preprocessor 'words) . font-lock-preprocessor-face)
+    ( ,(regexp-opt asm99-opcodes 'symbols) . font-lock-keyword-face)
+    ( ,(regexp-opt asm99-directives 'symbols) . font-lock-builtin-face)
+    ( ,(regexp-opt asm99-preprocessor 'symbols) . font-lock-preprocessor-face)
     (">[0-9A-F]+\\>\\|\\<[0-9]+\\>" . font-lock-constant-face)
     ("@[A-Za-z0-9_.]+" . font-lock-variable-name-face)
     ("\\<R[0-9]\\>\\|\\<R1[0-5]\\>" . font-lock-doc-face)
     ))
 
+(defvar asm99-syntax-table
+  (let ((table (make-syntax-table))
+	(symbols '(?! ?$ ?: ?? ?@))
+	(punctuations '(?% ?& ?* ?+ ?- ?/ ?< ?= ?>)))
+    (mapc (lambda (c) (modify-syntax-entry c "_" table)) symbols)
+    (mapc (lambda (c) (modify-syntax-entry c "." table)) punctuations)
+    (modify-syntax-entry ?' "\"" table)
+    table))
+
 (setq asm99-keywords-regex
-      (regexp-opt (append asm99-opcodes asm99-directives asm99-preprocessor) 'words))
+      (regexp-opt (append asm99-opcodes asm99-directives asm99-preprocessor) 'symbols))
 
 ;; intendation and smart edit modes
 
@@ -95,7 +104,7 @@
    ; flush * comments to left margin
    (and (looking-at "\\*") 0)
    ; flush non-instructions to left margin
-   (and (looking-at "\\w") (not (looking-at asm99-keywords-regex)) 0)
+   (and (looking-at "\\w\\|\\s_") (not (looking-at asm99-keywords-regex)) 0)
    ; flush everything else to first tab stop
    (or (car tab-stop-list) 0)))
 
@@ -196,6 +205,7 @@
   "Major mode for editing TMS 9900 assembly source files"
   (interactive)
   ;; syntax highlighting
+  (set-syntax-table asm99-syntax-table)
   (setq-local font-lock-defaults (list asm99-font-lock-keywords t t))
   ;; intendation
   (setq-local tab-stop-list asm99-field-positions)
@@ -250,13 +260,21 @@
     ; line number definitions
     ("^[0-9]+" . font-lock-constant-face)            
     ("!.*\\|\\<REM .*" . font-lock-comment-face)
-    ( ,(regexp-opt basic99-statements 'words) . font-lock-keyword-face)
-    ( ,(regexp-opt basic99-subprograms 'words) . font-lock-builtin-face)
-    ( ,(regexp-opt basic99-functions 'words) . font-lock-function-name-face)
-    ( ,(regexp-opt basic99-commands 'words) . font-lock-warning-face)
+    ( ,(regexp-opt basic99-statements 'symbols) . font-lock-keyword-face)
+    ( ,(regexp-opt basic99-subprograms 'symbols) . font-lock-builtin-face)
+    ( ,(regexp-opt basic99-functions 'symbols) . font-lock-function-name-face)
+    ( ,(regexp-opt basic99-commands 'symbols) . font-lock-warning-face)
     ; numbers (line number references and float literals)
     ("\\<[0-9.]+\\(?:E[-+]?[0-9]+\\)?\\>" . font-lock-variable-name-face)
     ))
+
+(defvar basic99-syntax-table
+  (let ((table (make-syntax-table))
+	(symbols '(?# ?@ ?[ ?\\ ?]))
+	(punctuations '(?% ?& ?* ?+ ?- ?/ ?< ?= ?>)))
+    (mapc (lambda (c) (modify-syntax-entry c "_" table)) symbols)
+    (mapc (lambda (c) (modify-syntax-entry c "." table)) punctuations)
+    table))
 
 ;; major and minor mode definitions
 
@@ -266,6 +284,7 @@
   "Major mode for editing TI BASIC and TI Extended BASIC source files"
   (interactive)
   ;; syntax highlighting
+  (set-syntax-table basic99-syntax-table)
   (setq-local font-lock-defaults (list basic99-font-lock-keywords t t))
   ;; indentation
   (setq-local indent-tabs-mode nil)
