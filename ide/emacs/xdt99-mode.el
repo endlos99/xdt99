@@ -47,7 +47,7 @@
     "AORG" "RORG" "DORG" "PSEG" "PEND" "CSEG" "CEND" "DSEG" "DEND"
     "IDT" "UNL" "LIST" "PAGE" "TITL" "DXOP" "LOAD" "SREF" "END"
     ; xdt99 extensions
-    "BCOPY"))
+    "BCOPY" "XORG" "SAVE"))
 
 (defvar asm99-preprocessor
   '(".IFDEF" ".IFNDEF" ".IFEQ" ".IFNE" ".IFGT" ".IFGE" ".ELSE" ".ENDIF"))
