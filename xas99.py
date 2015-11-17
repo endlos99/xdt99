@@ -1196,7 +1196,7 @@ class Opcodes:
         # 13. pseudo instructions
         "NOP": ("JMP", ["$+2"]),
         "RT": ("B", ["*11"]),
-        "PIC": ("XOP", None)
+        "PIX": ("XOP", None)
     }
 
     @staticmethod

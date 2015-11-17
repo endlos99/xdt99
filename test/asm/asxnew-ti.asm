@@ -122,9 +122,9 @@ F18A
 *       SLC  R2, 0
         DATA >0E02
 
-*       PIC  R1, R2
+*       PIX  R1, R2
         XOP  1,2
-*       PIC  @>1234(R5), R0
+*       PIX  @>1234(R5), R0
         XOP  @>1234(5),0
 
         END
