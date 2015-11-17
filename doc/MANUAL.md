@@ -645,6 +645,20 @@ segment individually.
 The use of `SAVE` is recommended to reduce the number of generated files if
 `XORG` is employed.
 
+`xas99` supports the F18A GPU instruction set.
+
+    CALL <gas>
+    RET
+    PUSH <gas>
+    POP  <gad>
+    SLC  <wa>, <count>  
+    PIC  <gas>, <gad>
+
+Note that `PIC` is not an immediate instruction, so its arguments need to be
+constructed separately by hand.
+
+The `SPI` family of instructions is not supported; please use their equivalents
+`CKON`, ... instead.
 
 #### Compatibility
 

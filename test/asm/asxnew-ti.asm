@@ -98,4 +98,33 @@ LLLB    NOP
         JMP  LLLB
         JMP  LLLA
 
+* F18A GPU SUPPORT
+
+F18A
+*       CALL @F18A
+        DATA >0CA0,F18A
+*       CALL *R1
+        DATA >0C91
+*       RET
+        DATA >0C00
+
+*       PUSH R1
+        DATA >0D01
+*       PUSH @>2222
+        DATA >0D20,>2222
+*       POP  *R2+
+        DATA >0F32
+*       POP  @>3(R4)
+        DATA >0F24,>0003
+
+*       SLC  R1, 2
+        DATA >0E21
+*       SLC  R2, 0
+        DATA >0E02
+
+*       PIC  R1, R2
+        XOP  1,2
+*       PIC  @>1234(R5), R0
+        XOP  @>1234(5),0
+
         END

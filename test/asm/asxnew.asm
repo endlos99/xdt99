@@ -105,4 +105,22 @@ lcont7:
         jmp -!
         jmp -!!
 
+; F18A GPU support
+
+f18a:
+        call @f18a
+        call *1
+        ret
+
+        push 1
+        push @>2222
+        pop  *2+
+        pop  @>3(4)
+
+        slc  1, 2
+        slc  2, 0
+
+        pic  1, 2
+        pic  @>1234(5), 0
+
         end

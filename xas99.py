@@ -23,7 +23,7 @@ import sys
 import re
 import os.path
 
-VERSION = "1.5.1"
+VERSION = "1.5.2"
 
 
 ### Utility functions
@@ -1182,14 +1182,21 @@ class Opcodes:
         "SRA": (0x0800, 5, opWa, opScnt, Timing(52, 1)),
         "SRL": (0x0900, 5, opWa, opScnt, Timing(52, 1)),
         "SLA": (0x0A00, 5, opWa, opScnt, Timing(52, 1)),
-        "SRC": (0x0B00, 5, opWa, opScnt, Timing(52, 1))
+        "SRC": (0x0B00, 5, opWa, opScnt, Timing(52, 1)),
+        # F18A GPU instructions
+        "CALL": (0x0C80, 6, opGa, None, Timing(0, 0)),
+        "RET": (0x0C00, 7, None, None, Timing(0, 0)),
+        "PUSH": (0x0D00, 6, opGa, None, Timing(0, 0)),
+        "POP": (0x0F00, 6, opGa, None, Timing(0, 0)),
+        "SLC": (0x0E00, 5, opWa, opScnt, Timing(0, 0))
         # end of opcodes
     }
 
     pseudos = {
         # 13. pseudo instructions
         "NOP": ("JMP", ["$+2"]),
-        "RT": ("B", ["*11"])
+        "RT": ("B", ["*11"]),
+        "PIC": ("XOP", None)
     }
 
     @staticmethod
@@ -1198,7 +1205,8 @@ class Opcodes:
         code.even()
         code.processLabel(parser.lidx, label)
         if mnemonic in Opcodes.pseudos:
-            mnemonic, operands = Opcodes.pseudos[mnemonic]
+            m, os = Opcodes.pseudos[mnemonic]
+            mnemonic, operands = m, os or operands
         elif mnemonic in parser.symbols.xops:
             mode = parser.symbols.xops[mnemonic]
             mnemonic, operands = "XOP", [operands[0], mode]
