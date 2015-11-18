@@ -304,7 +304,7 @@ class Objcode:
                                   self.symbols.relocLC, self.dummy, self.code))
         if xorg:
             # for XORG, keep reloc status but save LC offset
-            self.symbols.xorgLOffset = base - self.symbols.LC
+            self.symbols.xorgOffset = base - self.symbols.LC
         else:
             self.symbols.xorgOffset = None
             self.symbols.relocLC = relocatable

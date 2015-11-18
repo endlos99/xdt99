@@ -17,7 +17,9 @@ L2X    DATA >2222
        DATA L1,L2,L3
        DATA L4,L5,L6,L7
        JMP  L2X+16
-       B    @L2X+18
+       B    @L2+18
+       JMP  $
+       B    @L2+22
 
 A3     RORG
 L3     DATA >3333
@@ -40,7 +42,8 @@ L5X    DATA >5555
        DATA L1,L2,L3
        DATA L4,L5,L6,L7
        JMP  L5X+16
-       B    @L5X+18
+       B    @L5+18
+       JMP  $
 
 A6     AORG >A040
 L6     DATA >6666
@@ -57,7 +60,9 @@ L7X    DATA >7777
        DATA L1,L2,L3
        DATA L4,L5,L6,L7
        JMP  L7X+16
-       B    @L7X+18
+       B    @L7+18
+       JMP  $
+       B    @L7+22
 
 *      XORG >2000
 A8     RORG
