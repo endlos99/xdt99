@@ -1,7 +1,7 @@
 <idea-plugin version="2">
   <name>xdt99 IntelliJ Plugin</name>
   <id>xdt99.intellij</id>
-  <version>1.5.0</version>
+  <version>1.5.1</version>
   <vendor email="xdt99dev@gmail.com" url="http://endlos99.github.io/xdt99/"><![CDATA[
     TI 99 Cross-Development Tools (xdt99)
     <br>
@@ -27,11 +27,11 @@
   ]]></description>
 
   <change-notes><![CDATA[
-    First regular release as part of the xdt99 tool suite.
+    Updated for IDEA 15.
   ]]></change-notes>
 
   <!-- https://confluence.jetbrains.com/display/IDEADEV/Build+Number+Ranges -->
-  <idea-version since-build="133"/>
+  <idea-version since-build="139"/>
 
   <!-- https://confluence.jetbrains.com/display/IDEADEV/Plugin+Compatibility+with+IntelliJ+Platform+Products -->
   <depends>com.intellij.modules.lang</depends>
@@ -48,8 +48,10 @@
     <lang.namesValidator language="Xas99" implementationClass="net.endlos.xdt99.xas99.Xas99NamesValidator"/>
     <lang.foldingBuilder language="Xas99" implementationClass="net.endlos.xdt99.xas99.Xas99FoldingBuilder"/>
     <lang.commenter language="Xas99" implementationClass="net.endlos.xdt99.xas99.Xas99Commenter"/>
-    <codeStyleSettingsProvider implementation="net.endlos.xdt99.xas99.Xas99CodeStyleSettingsProvider"/>
     <vetoRenameCondition implementation="net.endlos.xdt99.xas99.Xas99VetoRenameCondition"/>
+    <codeStyleSettingsProvider implementation="net.endlos.xdt99.xas99.Xas99CodeStyleSettingsProvider"/>
+    <lang.formatter language="Xas99" implementationClass="net.endlos.xdt99.xas99.Xas99FormattingModelBuilder"/>
+    <postFormatProcessor implementation="net.endlos.xdt99.xas99.Xas99PostFormatProcessor"/>
     <!-- TI Extended BASIC -->
     <fileTypeFactory implementation="net.endlos.xdt99.xbas99.Xbas99FileTypeFactory"/>
     <lang.parserDefinition language="Xbas99" implementationClass="net.endlos.xdt99.xbas99.Xbas99ParserDefinition"/>

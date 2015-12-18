@@ -15,13 +15,14 @@ public class Xas99ColorSettingsPage implements ColorSettingsPage {
     private static final AttributesDescriptor[] DESCRIPTORS = new AttributesDescriptor[]{
             new AttributesDescriptor("Instruction", Xas99SyntaxHighlighter.INSTRUCTION),
             new AttributesDescriptor("Directive", Xas99SyntaxHighlighter.DIRECTIVE),
-            new AttributesDescriptor("Preprocessor", Xas99SyntaxHighlighter.PREPROCESSOR),
+            new AttributesDescriptor("Instruction extension", Xas99SyntaxHighlighter.XINSTRUCTION),
+            new AttributesDescriptor("Preprocessor command", Xas99SyntaxHighlighter.PREPROCESSOR),
             new AttributesDescriptor("Label", Xas99SyntaxHighlighter.IDENT),
             new AttributesDescriptor("Value", Xas99SyntaxHighlighter.VALUE),
-            new AttributesDescriptor("Text", Xas99SyntaxHighlighter.TEXT),
+            new AttributesDescriptor("Text literal", Xas99SyntaxHighlighter.TEXT),
             new AttributesDescriptor("Register", Xas99SyntaxHighlighter.REGISTER),
             new AttributesDescriptor("Operator", Xas99SyntaxHighlighter.OPERATOR),
-            new AttributesDescriptor("Argument Separator", Xas99SyntaxHighlighter.SEPARATOR),
+            new AttributesDescriptor("Argument separator", Xas99SyntaxHighlighter.SEPARATOR),
             new AttributesDescriptor("Comment", Xas99SyntaxHighlighter.COMMENT),
     };
 
@@ -49,6 +50,7 @@ public class Xas99ColorSettingsPage implements ColorSettingsPage {
                 "MESSGL EQU  $-MESSG\n\n" +
                 "START  LIMI 0                       CLEAR SCREEN\n" +
                 "       LWPI WRKSP\n" +
+                "       PUSH R15\n" +
                 "       CLR  R0\n" +
                 "       LI   R1,'* '\n" +
                 "       LI   R2,24*32\n" +

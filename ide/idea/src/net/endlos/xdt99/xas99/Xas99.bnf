@@ -61,7 +61,11 @@ instruction ::=
     INSTR_VIII_R args_VIII_R |
     INSTR_IX args_IX |
     INSTR_IX_X args_IX_X |
-    INSTR_O
+    INSTR_O |
+    INSTR_9995 args_IX |
+    INSTR_F18A_I args_F18A_I |
+    INSTR_F18A_II args_F18A_II |
+    INSTR_F18A_O
     {pin=1}
 preprocessor ::=
     PREP (PP_ARG | PP_SEP)*
@@ -99,6 +103,11 @@ private args_IX ::=
     {pin="OP_SEP"}
 private args_IX_X ::=
     opGA OP_SEP opValue
+    {pin="OP_SEP"}
+private args_F18A_I ::=
+    opGA
+private args_F18A_II ::=
+    opGA OP_SEP (opGA | opValue)
     {pin="OP_SEP"}
 
 // arguments

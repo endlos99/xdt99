@@ -8,6 +8,7 @@ import com.intellij.openapi.editor.markup.TextAttributes;
 import com.intellij.openapi.fileTypes.SyntaxHighlighterBase;
 import com.intellij.psi.TokenType;
 import com.intellij.psi.tree.IElementType;
+import com.intellij.psi.tree.TokenSet;
 import net.endlos.xdt99.xas99.psi.Xas99Types;
 import org.jetbrains.annotations.NotNull;
 
@@ -17,7 +18,20 @@ import java.io.Reader;
 import static com.intellij.openapi.editor.colors.TextAttributesKey.createTextAttributesKey;
 
 public class Xas99SyntaxHighlighter extends SyntaxHighlighterBase {
+    public static final TokenSet instructions = TokenSet.create(Xas99Types.INSTR_I, Xas99Types.INSTR_II,
+            Xas99Types.INSTR_III, Xas99Types.INSTR_IV, Xas99Types.INSTR_V, Xas99Types.INSTR_VI, Xas99Types.INSTR_VII,
+            Xas99Types.INSTR_VIII, Xas99Types.INSTR_VIII_I, Xas99Types.INSTR_VIII_R, Xas99Types.INSTR_IX,
+            Xas99Types.INSTR_IX_X, Xas99Types.INSTR_O);
+    public static final TokenSet extendedInstructions = TokenSet.create(Xas99Types.INSTR_F18A_I,
+            Xas99Types.INSTR_F18A_II, Xas99Types.INSTR_F18A_O, Xas99Types.INSTR_9995);
+    public static final TokenSet directives = TokenSet.create(Xas99Types.DIR_L, Xas99Types.DIR_E, Xas99Types.DIR_ES,
+            Xas99Types.DIR_EO, Xas99Types.DIR_S, Xas99Types.DIR_O, Xas99Types.DIR_X);
+    public static final TokenSet operators = TokenSet.create(Xas99Types.OP_AT, Xas99Types.OP_AST,
+            Xas99Types.OP_PLUS, Xas99Types.OP_MINUS, Xas99Types.OP_NOT, Xas99Types.OP_LPAREN, Xas99Types.OP_RPAREN,
+            Xas99Types.OP_MISC);
+
     public static final TextAttributesKey INSTRUCTION = createTextAttributesKey("XAS99_INSTR", DefaultLanguageHighlighterColors.KEYWORD);
+    public static final TextAttributesKey XINSTRUCTION = createTextAttributesKey("XAS99_XINSTR", DefaultLanguageHighlighterColors.INSTANCE_METHOD);
     public static final TextAttributesKey DIRECTIVE = createTextAttributesKey("XAS99_DIR", DefaultLanguageHighlighterColors.INSTANCE_FIELD);
     public static final TextAttributesKey PREPROCESSOR = createTextAttributesKey("XAS99_PREP", DefaultLanguageHighlighterColors.METADATA);
     public static final TextAttributesKey IDENT = createTextAttributesKey("XAS99_IDENT", DefaultLanguageHighlighterColors.IDENTIFIER);
@@ -34,6 +48,7 @@ public class Xas99SyntaxHighlighter extends SyntaxHighlighterBase {
 
     private static final TextAttributesKey[] BAD_CHAR_KEYS = new TextAttributesKey[]{BAD_CHARACTER};
     private static final TextAttributesKey[] INSTRUCTION_KEYS = new TextAttributesKey[]{INSTRUCTION};
+    private static final TextAttributesKey[] XINSTRUCTION_KEYS = new TextAttributesKey[]{XINSTRUCTION};
     private static final TextAttributesKey[] DIRECTIVE_KEYS = new TextAttributesKey[]{DIRECTIVE};
     private static final TextAttributesKey[] PREPROCESSOR_KEYS = new TextAttributesKey[]{PREPROCESSOR};
     private static final TextAttributesKey[] IDENT_KEYS = new TextAttributesKey[]{IDENT};
@@ -48,31 +63,16 @@ public class Xas99SyntaxHighlighter extends SyntaxHighlighterBase {
 
     @NotNull
     @Override
-    public Lexer getHighlightingLexer() { return new FlexAdapter(new Xas99Lexer((Reader) null)); }
+    public Lexer getHighlightingLexer() { return new FlexAdapter(new Xas99Lexer(null)); }
 
     @NotNull
     @Override
     public TextAttributesKey[] getTokenHighlights(IElementType tokenType) {
-        if (tokenType.equals(Xas99Types.INSTR_I) ||
-                tokenType.equals(Xas99Types.INSTR_II) ||
-                tokenType.equals(Xas99Types.INSTR_III) ||
-                tokenType.equals(Xas99Types.INSTR_IV) ||
-                tokenType.equals(Xas99Types.INSTR_V) ||
-                tokenType.equals(Xas99Types.INSTR_VI) ||
-                tokenType.equals(Xas99Types.INSTR_VII) ||
-                tokenType.equals(Xas99Types.INSTR_VIII) ||
-                tokenType.equals(Xas99Types.INSTR_VIII_I) ||
-                tokenType.equals(Xas99Types.INSTR_VIII_R) ||
-                tokenType.equals(Xas99Types.INSTR_IX) ||
-                tokenType.equals(Xas99Types.INSTR_O)) {
+        if (instructions.contains(tokenType)) {
             return INSTRUCTION_KEYS;
-        } else if (tokenType.equals(Xas99Types.DIR_L) ||
-                tokenType.equals(Xas99Types.DIR_E) ||
-                tokenType.equals(Xas99Types.DIR_ES) ||
-                tokenType.equals(Xas99Types.DIR_EO) ||
-                tokenType.equals(Xas99Types.DIR_S) ||
-                tokenType.equals(Xas99Types.DIR_O) ||
-                tokenType.equals(Xas99Types.DIR_X)) {
+        } else if (extendedInstructions.contains(tokenType)) {
+            return XINSTRUCTION_KEYS;
+        } else if (directives.contains(tokenType)) {
             return DIRECTIVE_KEYS;
         } else if (tokenType.equals(Xas99Types.PREPROCESSOR)) {
             return PREPROCESSOR_KEYS;
@@ -86,14 +86,7 @@ public class Xas99SyntaxHighlighter extends SyntaxHighlighterBase {
             return TEXT_KEYS;
         } else if (tokenType.equals(Xas99Types.REGISTER)) {
             return REGISTER_KEYS;
-        } else if (tokenType.equals(Xas99Types.OP_AT) ||
-                tokenType.equals(Xas99Types.OP_AST) ||
-                tokenType.equals(Xas99Types.OP_PLUS) ||
-                tokenType.equals(Xas99Types.OP_MINUS) ||
-                tokenType.equals(Xas99Types.OP_NOT) ||
-                tokenType.equals(Xas99Types.OP_LPAREN) ||
-                tokenType.equals(Xas99Types.OP_RPAREN) ||
-                tokenType.equals(Xas99Types.OP_MISC)) {
+        } else if (operators.contains(tokenType)) {
             return OPERATOR_KEYS;
         } else if (tokenType.equals(Xas99Types.OP_SEP) ||
                 tokenType.equals(Xas99Types.PP_SEP)) {

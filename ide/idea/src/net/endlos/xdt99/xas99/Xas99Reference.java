@@ -75,7 +75,9 @@ public class Xas99Reference extends PsiReferenceBase<PsiElement> implements PsiP
     private int findBeginningOfLine(PsiElement element) {
         while (element != null && !(element.getParent() instanceof Xas99File))
             element = element.getParent();
-        while (element != null && element.getPrevSibling().getNode().getElementType() != Xas99Types.CRLF)
+        while (element != null &&
+                (element.getPrevSibling() == null ||
+                        element.getPrevSibling().getNode().getElementType() != Xas99Types.CRLF))
             element = element.getPrevSibling();
         return element == null ? 0 : element.getTextOffset();
     }

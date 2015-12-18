@@ -31,6 +31,10 @@ INSTR_VIII_R = "STST" | "STWP"
 INSTR_IX = "MPY" | "DIV"
 INSTR_IX_X = "XOP"
 INSTR_O = "NOP" | "RT"
+INSTR_F18A_I = "CALL" | "PUSH" | "POP"
+INSTR_F18A_II = "SLC" | "PIX"
+INSTR_F18A_O = "RET"
+INSTR_9995 = "MPYS" | "DIVS"
 
 DIR_L = "DEF" | "REF" | "END"
 DIR_E = "EQU" | "BSS" | "BES" | "DORG" | "XORG"
@@ -93,6 +97,10 @@ CRLF = \n | \r | \r\n
 <MNEMONIC> {INSTR_IX}            { return Xas99Types.INSTR_IX; }
 <MNEMONIC> {INSTR_IX_X}          { return Xas99Types.INSTR_IX_X; }
 <MNEMONIC> {INSTR_O}             { yybegin(MNEMONICO); return Xas99Types.INSTR_O; }
+<MNEMONIC> {INSTR_9995}          { return Xas99Types.INSTR_9995; }
+<MNEMONIC> {INSTR_F18A_I}        { return Xas99Types.INSTR_F18A_I; }
+<MNEMONIC> {INSTR_F18A_II}       { return Xas99Types.INSTR_F18A_II; }
+<MNEMONIC> {INSTR_F18A_O}        { yybegin(MNEMONICO); return Xas99Types.INSTR_F18A_O; }
 
 <MNEMONIC> {DIR_L}               { return Xas99Types.DIR_L; }
 <MNEMONIC> {DIR_E}               { return Xas99Types.DIR_E; }
