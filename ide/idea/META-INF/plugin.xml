@@ -50,6 +50,7 @@
     <lang.commenter language="Xas99" implementationClass="net.endlos.xdt99.xas99.Xas99Commenter"/>
     <vetoRenameCondition implementation="net.endlos.xdt99.xas99.Xas99VetoRenameCondition"/>
     <codeStyleSettingsProvider implementation="net.endlos.xdt99.xas99.Xas99CodeStyleSettingsProvider"/>
+    <fileIndentOptionsProvider implementation="net.endlos.xdt99.xas99.Xas99FileIndentOptionsProvider"/>
     <lang.formatter language="Xas99" implementationClass="net.endlos.xdt99.xas99.Xas99FormattingModelBuilder"/>
     <postFormatProcessor implementation="net.endlos.xdt99.xas99.Xas99PostFormatProcessor"/>
     <!-- TI Extended BASIC -->

@@ -57,7 +57,7 @@ public class Xas99Block extends AbstractBlock {
     public Indent getIndent() {
         IElementType t = this.getNode().getElementType();
         if (statements.contains(t) || t == Xas99Types.COMMENT) {
-            return Indent.getSpaceIndent(mySettings.XAS99_MNEMONIC_TAB_STOP - 1);
+            return Indent.getNormalIndent();
         }
         return Indent.getNoneIndent();
     }

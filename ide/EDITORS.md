@@ -194,8 +194,17 @@ Pressing `Ctrl+/` or selecting Code > Comment with Line Comment from the menu
 will quickly commment out a block of code.  Repeating this step will uncomment
 the block again.
 
+To reformat your source file press `Ctrl+Alt+L` or select Code > Reformat Code
+from the menu.  Note that comment placement may be off by a new spaces; simply
+reformat again to get proper alignment.  (That's a technical limitation of the
+plugin infrastructure that would be very hard to fix.)  You may configure your
+preferred code style, e.g., character case and spacing, in Editor > Code
+Style > xdt99 Assembly in the Settings dialog.
+
 Finally, the `Tab` key moves the cursor to the beginning of the next assembly
-instruction field.
+instruction field.  If you observe unusual or unwanted cursor navigation when
+pressing `Tab`, `Return`, or `Backspace`, check your Editor > General > Smart
+Keys settings, in partcular Enter > Smart Indent and Backspace.
 
 
 ### TI Extended BASIC Programs
@@ -246,8 +255,8 @@ select the Plugins tab.  Choose "Install plugin from disk" and select the
 `xdt99-idea.jar` file provided by xdt99.
 
 The xdt99 IDEA plugin has been tested with IntelliJ IDEA Community Edition
-Version 14 and PyCharm Community Edition Version 4.5, but other reasonably
-recent versions and flavors should also work.
+Version 15 and PyCharm Community Edition Version 5.0, but all flavors of IDEA
+version 14 anf 15 should work.
 
 When you start IntelliJ IDEA for the first time you'll be presented with a
 Welcome dialog window.  Simply select Open from the menu and navigate to the

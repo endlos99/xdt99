@@ -44,7 +44,7 @@ For additional information, please refer to the [xdt99 homepage][1] or the
 [xdt99 manual][4].  Windows users unfamiliar with working with the command line
 will find some platform-specific information in the [Windows tutorial][5].
 
-**Latest version: 1.5.0**
+**Latest version: 1.5.1**
 
 The latest binary distribution of xdt99 is available on the project
 [releases page][2] on GitHub.  xdt99 requires [Python 2.7.x][6] and runs on any

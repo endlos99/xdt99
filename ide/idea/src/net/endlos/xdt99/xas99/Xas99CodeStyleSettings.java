@@ -6,7 +6,8 @@ import com.intellij.psi.codeStyle.CodeStyleSettingsManager;
 import com.intellij.psi.codeStyle.CustomCodeStyleSettings;
 
 public class Xas99CodeStyleSettings extends CustomCodeStyleSettings {
-    public int XAS99_MNEMONIC_TAB_STOP = 8;
+    public static final int XAS99_INDENT = 7;
+    public int XAS99_MNEMONIC_TAB_STOP = XAS99_INDENT + 1;
     public int XAS99_OPERANDS_TAB_STOP = 13;
     public int XAS99_COMMENT_TAB_STOP = 40;
     public int XAS99_CHAR_CASE = 0;  // 0=lower, 1=upper, 2=as-is
