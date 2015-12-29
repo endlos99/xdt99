@@ -127,6 +127,17 @@ def runtest():
         xdm(Disks.tifiles, "-t", "-a", Files.tifile)
     checkFilesEq("Write records", Disks.tifiles, Disks.work, "P")
 
+    # convert to and from TIFiles cycle
+    for name, fmt in [("intvar32v", "IV32"), ("intfix32v", "IF32"),
+                      ("vardis", "dv40")]:
+        path = os.path.join(Dirs.refs, name)
+        xdm(Disks.work, "-a", path, "-f", fmt, "-n", "T")
+        xdm(Disks.work, "-e", "T", "-t", "-o", Files.output)
+        xdm(Disks.work, "-d", "T")
+        xdm(Disks.work, "-a", Files.output, "-t")
+        xdm(Disks.work, "-e", "T", "-o", Files.output)
+        checkFilesEq("TIFiles cycle", Files.output, path, fmt)
+
     # add and remove big files
     for name, path, fmt in bigFiles:
         xdm(Disks.work, "-a", path, "-f", fmt)

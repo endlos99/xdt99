@@ -24,7 +24,7 @@ import re
 import datetime
 import os.path
 
-VERSION = "1.5.0"
+VERSION = "1.5.2"
 
 
 ### Utility functions
@@ -508,7 +508,7 @@ class FileDescriptor:
         if len(header) < 0x26 or header[:0x08] != "\x07TIFILES":
             raise FileError("Invalid TIFiles header")
         self.name = header[0x10:0x1A].rstrip()
-        self.flags = ord(header[0x0A]) & 0x81
+        self.flags = ord(header[0x0A]) & 0x83
         self.recordsPerSector = ord(header[0x0B])
         self.totalSectors = ordw(header[0x08:0x0A])
         self.eofOffset = ord(header[0x0C])
