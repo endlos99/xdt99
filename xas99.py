@@ -23,7 +23,7 @@ import sys
 import re
 import os.path
 
-VERSION = "1.5.2"
+VERSION = "1.5.3"
 
 
 ### Utility functions
@@ -493,7 +493,7 @@ class Objcode:
                     addrs = [a for a in mems[bank].keys()
                              if minAddr <= a < maxAddr]
                     if addrs:
-                        words.append((minAddr, maxAddr, bank, mems[bank]))
+                        words.append([minAddr, maxAddr, bank, mems[bank]])
         else:
             # create one blob per segment
             for bank, finalLC, reloc, dummy, code in self.segments:
@@ -502,7 +502,21 @@ class Objcode:
                 mem = self.writeMem({}, code, reloc, baseAddr)
                 if mem:
                     addrs = mem.keys()
-                    words.append((min(addrs), max(addrs) + 2, bank, mem))
+                    words.append([min(addrs), max(addrs) + 2, bank, mem])
+            # merge consecutive segments (espc. for XORGs)
+            i = 0
+            while i < len(words):
+                j = 0
+                while j < len(words):
+                    if i != j and (words[i][1] == words[j][0] and
+                                           words[i][2] == words[j][2]):
+                        words[i][1] = words[j][1]
+                        words[i][3].update(words[j][3])
+                        del words[j]
+                        i, j = 0, 0
+                    else:
+                        j += 1
+                i += 1
         # create list of (addr, bank, blob)
         binaries = [(minAddr, bank,
                      "".join([chrw(mem[addr]) if addr in mem else "\x00\x00"

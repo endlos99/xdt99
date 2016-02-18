@@ -638,9 +638,9 @@ for each bank is written.  Empty regions, i.e., regions in which no actual value
 is placed, are skipped.
 
 If no `SAVE` directives are provided, the `-b` command will place each segment
-in its own output file.  The `-i` command will save the region between symbols
-`SFIRST` and `SLAST`, if present; otherwise, it generates images for each
-segment individually.
+in its own output file, but merges adjacent segments into one file.  The `-i`
+command will save the region between symbols `SFIRST` and `SLAST`, if present;
+otherwise, it generates images for each segment individually.
 
 The use of `SAVE` is recommended to reduce the number of generated files if
 `XORG` is employed.

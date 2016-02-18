@@ -25,6 +25,15 @@ def checkNoFiles(files):
             error("Files", "Extraneous file " + fn)
 
 
+def checkFileSizes(files):
+    for fn, fs in files:
+        size = None
+        with open(fn, "rb") as f:
+            size = len(f.read())
+        if fs != size:
+            error("Files", "Incorect file size " + fn + ": " + str(size))
+
+
 ### Main test
 
 def runtest():
@@ -68,7 +77,7 @@ def runtest():
     source = os.path.join(Dirs.sources, "asxbank1.asm")
     xas(source, "-b", "-o", Files.output)
     save2s = [Files.output + "_" + ext
-              for ext in ["0000", "0010", "6000_b0", "6000_b1", "6100_b0",
+              for ext in ["0000", "6000_b0", "6000_b1", "6100_b0",
                           "6200_b1", "6200_b2"]]
     checkConcatEq(save2s, os.path.join(Dirs.refs, "save2"))
     checkNoFiles([Files.output + "_" + ext
@@ -81,6 +90,12 @@ def runtest():
     checkConcatEq(save3s, os.path.join(Dirs.refs, "save3"))
     checkNoFiles([Files.output + "_" + ext
                   for ext in ["d000", "d000_b1", "e000", "e000_b0"]])
+
+    source = os.path.join(Dirs.sources, "asxsegm.asm")
+    xas(source, "-b", "-o", Files.output)
+    checkFileSizes([(Files.output + "_" + ext, size)
+                    for ext, size in [("0000", 20), ("b000_b1", 14),
+                                      ("b010_b1", 2), ("b012_b2", 6)]])
 
     # cleanup
     os.remove(Files.output)
