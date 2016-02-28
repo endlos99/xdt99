@@ -47,6 +47,12 @@ def runtest():
         checkFilesEq("GPL cart", Files.output, ref, "P",
                      mask=((0x8, 0x1e), (0x188, 0xfff)))
 
+    # extensions
+    source = os.path.join(Dirs.gplsources, "gaxprep.gpl")
+    xga(source, "-D", "isdef=2", "-o", Files.output)
+    xdm(Disks.gplsrcs, "-e", "GAXPREP-Q", "-o", Files.reference)
+    checkGbcFilesEq(source, Files.output, Files.reference)
+
     # error messages
     source = os.path.join(Dirs.gplsources, "gaerrs.gpl")
     with open(source, "r") as fin:

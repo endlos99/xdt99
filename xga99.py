@@ -2,7 +2,7 @@
 
 # xga99: A GPL cross-assembler
 #
-# Copyright (c) 2015 Ralph Benzinger <xdt99@endlos.net>
+# Copyright (c) 2015-2016 Ralph Benzinger <xdt99@endlos.net>
 #
 # This program is part of the TI 99 Cross-Development Tools (xdt99).
 #
@@ -23,7 +23,7 @@ import sys
 import re
 import os.path
 
-VERSION = "1.5.0"
+VERSION = "1.5.3"
 
 
 ### Utility functions
@@ -48,9 +48,22 @@ def trunc(i, m):
     return i - i % m
 
 
+def readlines(n, m="r"):
+    """read lines from file or STDIN"""
+    if n == "-":
+        return sys.stdin.readlines()
+    else:
+        with open(n, m) as f:
+            return f.readlines()
+
+
 ### Error handling
 
 class AsmError(Exception):
+    pass
+
+
+class PrepError(Exception):
     pass
 
 
@@ -136,8 +149,7 @@ class Operand:
 class Symbols:
     """symbol table and line counter"""
 
-    def __init__(self, verbose=False):
-        self.verbose = verbose
+    def __init__(self, addDefs=None):
         self.symbols = {}
         self.predefs = {
             # CPU RAM
@@ -168,6 +180,10 @@ class Symbols:
             "VPAB": 0x8356,
             "VSTACK": 0x836E
             }
+        for d in addDefs or []:
+            parts = d.upper().split("=")
+            val = Parser.symconst(parts[1]) if len(parts) > 1 else 1
+            self.symbols[parts[0]] = val
         self.resetLC()
 
     def resetLC(self):
@@ -179,11 +195,11 @@ class Symbols:
         if not re.match(r"[^\W\d]\w*$", name):
             raise AsmError("Invalid symbol name: " + name)
         prev = self.symbols.get(name)
-        if passno == 1 and prev is not None:
+        if passno == 0 and prev is not None:
             raise AsmError("Multiple symbols: " + name)
         if value != prev:
-            if self.verbose and passno > 1:
-                print "* New value for:", name
+            #if passno > 1:
+            #    print "Value changed for:", name
             self.symbols[name] = value
             self.updated = True
 
@@ -197,6 +213,9 @@ class Symbols:
             if value is None and passno > 1:
                 raise AsmError("Unknown symbol: " + name)
         return value or 0
+
+    def isSymbol(self, name):
+        return name in self.symbols
 
 
 class Objcode:
@@ -472,6 +491,12 @@ class Directives:
             raise AsmError("Syntax error: unexpected FEND")
 
     @staticmethod
+    def COPY(parser, code, label, ops):
+        code.processLabel(label, parser.passno)
+        filename = parser.filename(ops[0])
+        parser.open(filename=filename)
+
+    @staticmethod
     def END(parser, code, label, ops):
         code.processLabel(label, parser.passno)
         if ops:
@@ -613,19 +638,18 @@ class Opcodes:
 
     pseudos = {
         # 4.3 bit manipulation and pseudo instruction
-        "RB": (("", "AND", ["2**($1)^>FFFF", "$2"]),),
-        "SB": (("", "OR", ["2**($1)", "$2"]),),
-        "TBR": (("", "CLOG", ["2**($1)", "$2"]),),
-        "HOME": (("", "DCLR", ["@YPT"]),),
-        "POP": (("", "ST", ["*STATUS", "$1"]),)
+        "RB": ("AND", ["2**($1)^>FFFF", "$2"]),
+        "SB": ("OR", ["2**($1)", "$2"]),
+        "TBR": ("CLOG", ["2**($1)", "$2"]),
+        "HOME": ("DCLR", ["@YPT"]),
+        "POP": ("ST", ["*STATUS", "$1"])
     }
 
     opText = lambda parser, x: parser.fmttext(x)
     opChar = lambda parser, x: (parser.expression(x[0]),
                                 parser.expression(x[1]))
     opChars = lambda parser, x: (parser.expression(x[0]),
-                                 parser.gaddress(x[1], isGs=False,
-                                                       isMove=True))
+                                 parser.gaddress(x[1], isGs=False, isMove=True))
     opIncr = lambda parser, x: (parser.expression(x[0]),)
     opValue = lambda parser, x: (1, parser.expression(x[0]))
     opBias = lambda parser, x: parser.fmtbias(x)
@@ -649,6 +673,10 @@ class Opcodes:
     def process(parser, code, label, mnemonic, operands):
         """get assembly code for mnemonic"""
         code.processLabel(label, parser.passno)
+        if mnemonic in Opcodes.pseudos:
+            mnemonic, os = Opcodes.pseudos[mnemonic]
+            operands = [re.sub(r"\$(\d+)", lambda m: operands[int(m.group(1)) - 1], o)
+                        for o in os]
         if parser.fmtmode:
             try:
                 opcode, parse = Opcodes.fmtcodes[mnemonic]
@@ -767,51 +795,107 @@ class Syntax:
 
 
 class Preprocessor:
-    """xga99-specific preprocessor extensions"""
+    """xdt99-specific preprocessor extensions"""
 
     def __init__(self, parser):
         self.parser = parser
         self.parse = True
         self.parseBranches = []
+        self.parseMacro = None
         self.macros = {}
 
-    def loadmacros(self, macros):
-        """add set of macros to preprocessor"""
-        for m in macros:
-            self.macros[m] = macros[m]
+    def args(self, ops):
+        lhs = self.parser.expression(ops[0])
+        rhs = self.parser.expression(ops[1]) if len(ops) > 1 else 0
+        return lhs, rhs
 
-    def defmacro(self, name):
-        """define new macro (TODO)"""
-        pass
-
-    def getmacro(self, lino, label, mnemonic, ops, line):
-        """instantiate macro"""
-        instructions = [(lino, label, "", [], line)] if label else []  # save label
-        for ml, mm, mos in self.macros[mnemonic]:
-            mrs = [re.sub(r"\$(\d+)", lambda m: ops[int(m.group(1)) - 1], o)
-                   for o in mos]
-            instructions.append((0, ml, mm, mrs, "(macro)"))
-        return instructions
-
-    def includefile(self, ops):
-        """open new source file"""
-        try:
-            filename = ops[0][1:-1] if (
-                ops[0][0] == ops[0][-1] == '"' or
-                ops[0][0] == ops[0][-1] == "'") else ops[0]
-        except IndexError:
-            raise AsmError("Invalid file name")
-        self.parser.open(filename)
-        return []
-
-    def process(self, lino, label, mnemonic, operands, line):
-        if mnemonic in self.macros:
-            return self.getmacro(lino, label, mnemonic, operands, line)
-        elif mnemonic == "COPY":
-            return self.includefile(operands)
-        return None
-
+    def DEFM(self, code, ops):
+        if len(ops) != 1:
+            raise AsmError("Invalid syntax")
+        self.parseMacro = ops[0]
+        if self.parseMacro in self.macros:
+            raise AsmError("Duplicate macro name")
+        self.macros[self.parseMacro] = []
     
+    def ENDM(self, code, ops):
+        raise AsmError("Found .ENDM without .DEFM")
+
+    def IFDEF(self, code, ops):
+        self.parseBranches.append(self.parse)
+        self.parse = code.symbols.isSymbol(ops[0]) if self.parse else None
+
+    def IFNDEF(self, code, ops):
+        self.parseBranches.append(self.parse)
+        self.parse = not code.symbols.isSymbol(ops[0]) if self.parse else None
+
+    def IFEQ(self, code, ops):
+        self.parseBranches.append(self.parse)
+        self.parse = cmp(*self.args(ops)) == 0 if self.parse else None
+
+    def IFNE(self, code, ops):
+        self.parseBranches.append(self.parse)
+        self.parse = cmp(*self.args(ops)) != 0 if self.parse else None
+
+    def IFGT(self, code, ops):
+        self.parseBranches.append(self.parse)
+        self.parse = cmp(*self.args(ops)) > 0 if self.parse else None
+
+    def IFGE(self, code, ops):
+        self.parseBranches.append(self.parse)
+        self.parse = cmp(*self.args(ops)) >= 0 if self.parse else None
+
+    def ELSE(self, code, ops):
+        self.parse = not self.parse if self.parse is not None else None
+
+    def ENDIF(self, code, ops):
+        self.parse = self.parseBranches.pop()
+
+    def instmargs(self, text):
+        try:
+            return re.sub(r"\$(\d+)",
+                          lambda m: self.parser.margs[int(m.group(1)) - 1],
+                          text)
+        except (ValueError, IndexError):
+            return text
+
+    def instline(self, line):
+        # temporary kludge, breaks comments
+        parts = re.split(r"('(?:[^']|'')*'|\"[^\"]*\")", line)
+        parts[::2] = [self.instmargs(p) for p in parts[::2]]
+        return "".join(parts)
+
+    def process(self, code, label, mnemonic, operands, line):
+        if self.parseMacro:
+            if mnemonic == ".ENDM":
+                self.parseMacro = None
+            elif mnemonic == ".DEFM":
+                raise AsmError("Cannot define macro within macro")
+            else:
+                self.macros[self.parseMacro].append(line)
+            return False, None, None
+        if self.parse and operands and '$' in line:
+            operands = [self.instmargs(op) for op in operands]
+            line = self.instline(line)
+        if mnemonic and mnemonic[0] == '.':
+            code.processLabel(label, 0)
+            name = mnemonic[1:]
+            if name in self.macros:
+                if self.parse:
+                    self.parser.open(macro=name, ops=operands)
+            else:
+                try:
+                    fn = getattr(Preprocessor, name)
+                except AttributeError:
+                    raise AsmError("Invalid preprocessor directive")
+                try:
+                    fn(self, code, operands)
+                except (IndexError, ValueError):
+                    raise AsmError("Syntax error")
+            return False, None, None
+        else:
+            return self.parse, operands, line
+
+
 class Parser:
     """scanner and parser class"""
 
@@ -819,39 +903,51 @@ class Parser:
         self.prep = Preprocessor(self)
         self.symbols = symbols
         self.syntax = Syntax.get(syntax)
-        self.prep.loadmacros(Opcodes.pseudos)
-        #self.prep.loadmacros(self.syntax.macros)
         self.textlits = []
-        self.path, self.file, self.lino = None, None, -1
+        self.path = None
+        self.source, self.margs, self.lino = None, [], -1
         self.suspendedFiles = []
         self.includePath = includePath or ["."]
         self.passno = 0
+        self.lidx = 0
         self.fmtmode = False
         self.forloop = []
 
     def reset(self, code):
+        """reset state for new assembly pass"""
         self.fmtmode = False
         self.forloop = []
         code.resetGen()
 
-    def open(self, filename):
-        """open new source file"""
-        newfile = self.find(filename)
-        if not newfile:
-            raise IOError(1, "File not found", filename)
-        if self.file:
-            self.suspendedFiles.append((self.path, self.file, self.lino))
-        self.path = os.path.dirname(newfile)
-        self.file = open(newfile, mode="r")
+    def open(self, filename=None, macro=None, ops=None):
+        """open new source file or macro buffer"""
+        if len(self.suspendedFiles) > 100:
+            raise AsmError("Too many nested files or macros")
+        if self.source is not None:
+            self.suspendedFiles.append((self.path, self.source, self.margs,
+                                        self.lino))
+        if filename:
+            newfile = "-" if filename == "-" else self.find(filename)
+            self.path = os.path.dirname(newfile)
+            try:
+                self.source = readlines(newfile, "r")
+            except IOError as e:
+                raise AsmError(e)
+        else:
+            # set self.fn here to indicate macro instantiation in list file
+            self.source = self.prep.macros[macro]
+            self.margs = ops or []
         self.lino = 0
 
     def resume(self):
         """close current source file and resume previous one"""
         try:
-            self.path, self.file, self.lino = self.suspendedFiles.pop()
+            self.path, self.source, self.margs, self.lino = \
+                self.suspendedFiles.pop()
             return True
         except IndexError:
-            self.path, self.file, self.lino = None, None, -1
+            self.path, self.source, self.margs, self.lino = \
+                None, None, None, -1
             return False
 
     def stop(self):
@@ -880,64 +976,25 @@ class Parser:
                     return includefile
         return None
 
-    def nextline(self):
-        while self.file:
-            line = self.file.readline()
-            if not line:
-                self.resume()
-            else:
-                self.lino += 1
-                if line.strip() and line[0] != "*":
-                    return line.rstrip()
-        return None
-
     def read(self):
-        """get and tokenize source file"""
-        source = []
-        while self.file:
-            line = self.nextline()
-            if line is None:
-                break
-            label, mnemonic, operands, comment = self.line(line)
-            reps = self.prep.process(self.lino, label, mnemonic, operands, line)
-            if reps:
-                source.extend(reps)
-            elif reps is None:
-                source.append((self.lino, label, mnemonic, operands, line))
-        return source
-    
-    def parse(self, code):
-        """parse source code and generate object code"""
-        errors = []
-        source = self.read()
-        while True:
-            self.passno += 1
-            if self.passno > 32:
-                errors.append("Too many assembly passes, aborting. :-(")
-                break
-            self.reset(code)
-            errors = []
-            for lino, label, mnemonic, operands, line in source:
-                #print "<%d> %s [%04X] " % (self.passno, lino,
-                #        self.symbols.LC), label, mnemonic, operands
-                try:
-                    Directives.process(self, code, label, mnemonic, operands) or \
-                        Opcodes.process(self, code, label, mnemonic, operands)
-                except AsmError as e:
-                    errors.append("%04d: %s\n***** <%d> %s\n" % (
-                        lino, line, self.passno, e.message))
-            if self.fmtmode:
-                errors.append("Source ends with open FMT block, aborting.")
-            if errors and self.passno > 1 or not self.symbols.updated:
-                break
-        return errors
+        """get next logical line from source files"""
+        while self.source is not None:
+            try:
+                line = self.source[self.lino]
+                self.lino += 1
+                return self.lino, line.rstrip(), "n/a"
+            except IndexError:
+                self.resume()
+        return None, None, None
 
     def line(self, line):
         """parse single source line"""
-        stmt = self.escape(line).split(";")
-        parts = re.split(r"\s+", stmt[0], maxsplit=1)
-        label = parts[0]
-        instruction = parts[1] if len(parts) > 1 else ""
+        if not line or line[0] == "*":
+            return None, None, None, None, False
+        parts = self.escape(line).split(";")
+        fields = re.split(r"\s+", parts[0], maxsplit=1)
+        label = fields[0]
+        instruction = fields[1] if len(fields) > 1 else ""
         # convert to native syntax
         for pat, repl in self.syntax.repls:
             instruction = re.sub(pat, repl, instruction)
@@ -950,7 +1007,8 @@ class Parser:
         operands = ([op.strip() for op in opfields[0].split(",")]
                     if opfields[0] else [])
         comment = " ".join(opfields[1:]) + ";".join(parts[1:])
-        return label, mnemonic, operands, comment
+        #print "Line:", line, "->", label, mnemonic, operands, comment, True
+        return label, mnemonic, operands, comment, True
 
     def escape(self, text):
         """remove and save text literals from line"""
@@ -962,6 +1020,64 @@ class Parser:
                        for i in xrange(len(lits))]
         self.textlits.extend(lits)
         return "".join(parts).upper()
+
+    def parse(self, code):
+        """parse source code and generate object code"""
+        source = []
+        # prepare source (pass 0)
+        self.passno = 0
+        errors0 = []
+        while True:
+            # get next source line
+            lino, line, filename = self.read()
+            if lino is None:
+                break
+            try:
+                # break line into fields
+                label, mnemonic, operands, comment, stmt = self.line(line)
+                keep, operands, line = self.prep.process(code, label, mnemonic,
+                                                         operands, line)
+                if not keep:
+                    continue
+                source.append((lino, label, mnemonic, operands, line, filename,
+                               stmt))
+                if not stmt:
+                    continue
+                self.lidx += 1
+                # process directives only
+                Directives.process(self, code, label, mnemonic, operands)
+            except PrepError as e:
+                errors0.append("%04d: %s\n***** <0> %s\n" % (
+                    lino, line, e.message))
+            except AsmError as e:
+                pass
+        # code generation (passes 1+)
+        while True:
+            self.passno += 1
+            if self.passno > 32:
+                errors.append("Too many assembly passes, aborting. :-(")
+                break
+            self.reset(code)
+            errors = []
+            for lino, label, mnemonic, operands, line, fn, stmt in source:
+                #print "<%d> %s [%04X] " % (self.passno, lino,
+                #        self.symbols.LC), label, mnemonic, operands
+                if not stmt:
+                    continue
+                if label[-1:] == ":":
+                    label = label[:-1]
+                try:
+                    Directives.process(self, code, label, mnemonic, operands) or \
+                        Opcodes.process(self, code, label, mnemonic, operands)
+                except AsmError as e:
+                    errors.append("%04d: %s\n***** <%d> %s\n" % (
+                        lino, line, self.passno, e.message))
+            if self.fmtmode:
+                errors.append("Source ends with open FMT block, aborting.")
+            if errors and self.passno > 1 or not self.symbols.updated:
+                break
+        return errors0 + errors
+
 
     def value(self, op):
         """parse well-defined value"""
@@ -1120,20 +1236,38 @@ class Parser:
             pass
         raise AsmError("Invalid text literal: " + op)
 
+    def filename(self, op):
+        """parse double-quoted filename"""
+        if len(op) < 3:
+            raise AsmError("Invalid filename: " + op)
+        if op[0] == op[-1] == self.syntax.tdelim:
+            return self.textlits[int(op[1:-1])]
+        return op[1:-1]
+
+    @staticmethod
+    def symconst(op):
+        """parse symbol constant (-D option)"""
+        try:
+            return int(op[1:], 16) if op[0] == ">" else int(op)
+        except ValueError:
+            return op
+
 
 ### Main assembler
 
 class Assembler:
     """main driver class"""
 
-    def __init__(self, syntax, grom, aorg, includePath=None):
+    def __init__(self, syntax, grom, aorg, target="", includePath=None,
+                 defs=None):
         self.syntax = syntax
         self.grom = grom
         self.aorg = aorg
         self.includePath = includePath
+        self.defs = ["_xga99_" + target] + defs
 
     def assemble(self, srcname):
-        symbols = Symbols()
+        symbols = Symbols(addDefs=self.defs)
         code = Objcode(symbols, self.grom, self.aorg)
         parser = Parser(symbols,
                         syntax=self.syntax,
@@ -1168,6 +1302,11 @@ def main():
                       help="set AORG origin in GROM for byte code")
     args.add_argument("-s", "--syntax", dest="syntax", metavar="<style>",
                       help="set syntax style (xdt99, rag, mizapf)")
+    args.add_argument("-I", "--include", dest="inclpath", metavar="<paths>",
+                      help="list of include search paths")
+    args.add_argument("-D", "--define-symbol", nargs="+", dest="defs",
+                      metavar="<sym=val>",
+                      help="add symbol to symbol table")
     args.add_argument("-o", "--output", dest="output", metavar="<file>",
                       help="set output file name")
     opts = args.parse_args()
@@ -1186,10 +1325,17 @@ def main():
             0x6000 if opts.cart else 0x0000)
     aorg = (xint(opts.aorg) if opts.aorg is not None else
             0x0030 if opts.cart else 0x0000)
-    
+    inclpath = [dirname] + (opts.inclpath.split(",") if opts.inclpath else [])
+
     # assembly
-    asm = Assembler(syntax=opts.syntax or "xdt99",
-                    grom=grom, aorg=aorg, includePath=[dirname])
+    target = ("image" if opts.image else
+              "cart" if opts.cart else
+              "gbc")
+    asm = Assembler(target=target,
+                    syntax=opts.syntax or "xdt99",
+                    grom=grom, aorg=aorg,
+                    includePath=inclpath,
+                    defs=opts.defs or [])
     try:
         code, errors = asm.assemble(basename)
     except IOError as e:

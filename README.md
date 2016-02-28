@@ -44,7 +44,7 @@ For additional information, please refer to the [xdt99 homepage][1] or the
 [xdt99 manual][4].  Windows users unfamiliar with working with the command line
 will find some platform-specific information in the [Windows tutorial][5].
 
-**Latest version: 1.5.1**
+**Latest version: 1.5.3**
 
 The latest binary distribution of xdt99 is available on the project
 [releases page][2] on GitHub.  xdt99 requires [Python 2.7.x][6] and runs on any
@@ -154,6 +154,15 @@ Assemble source file using "RAG GPL Assembler" syntax style:
 
 For a complete overview of the available command-line options, see `xga99.py
 -h`.
+
+`xga99` offers various language extensions similar to `xas99`:
+
+ * Relaxed syntax (e.g., labels, comments, whitespace, case insensitivity)
+ * Conditional assembly (e.g., `.ifdef`)
+ * Macros (`.defm`)
+
+Please refer to the [xdt99 manual][4] for a detailed description of these
+features.
 
 
 Basic Usage: `xbas99`

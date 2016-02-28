@@ -1,0 +1,172 @@
+* pre-processor
+
+        title 'PREP'
+
+e1      equ 1
+e2      equ 2
+
+start
+
+** conditional assembly
+
+        data 1
+        .ifdef isdef
+        data 2
+        .else
+        data 3
+        .endif
+
+        .ifdef notdef
+        data 5
+        .else
+        data 6
+        .endif
+
+        .ifndef e1
+        data 7
+        .endif
+
+        .ifndef e99
+        data 8
+        .endif
+
+        .ifeq e1, e2
+        data 9
+        .endif
+
+        .ifne e1, e2
+        data 10
+        .endif
+
+        .ifgt e2, e1
+        data 11
+        .endif
+
+        .ifgt e1 + 1, e2 - 1
+        data 12
+        .endif
+
+        .ifdef e8
+        .ifdef e1
+        data 13
+        .else
+        data 14
+        .endif
+        .else
+        .ifdef e2
+        data 15
+        .else
+        data 16
+        .endif
+        .endif
+
+        .ifeq e1, e99
+        data 17
+        .endif
+
+        .ifdef e99
+        COPY "FOOBAR"
+e88     equ 88
+        .endif
+
+        .ifndef e88
+        data 18
+        .endif
+
+        .ifeq isdef, 2
+        data 19
+        .else
+        data 20
+        .endif
+
+        .ifdef _xga99_gbc
+        data 21
+        .endif
+
+        .ifdef _xga99_image
+        data 22
+        .endif
+
+** macros
+
+m1     .defm mac0     comment #1 $1
+       byte 1         comment #1 $1
+       .endm
+
+       .defm mac2
+       st   $1,V@$2   comment $1
+       .endm
+
+       .defm fmt
+       fmt
+       .endm
+
+       .defm home
+       home
+       .endm
+
+       .defm macnull
+       .endm
+
+       .defm macnest
+       data $1
+       .mac2 $1,$2
+       data $2
+       .endm
+
+       .defm macglob
+       dst @m3, $1
+       .endm
+
+       .defm macif
+       .ifeq $1,1
+       move 1,@>8301,#$1
+       .else
+       move 1,@>8302,#$1
+       .endif
+       .endm
+
+       .defm move
+       move $1,$2,$3
+       .endm
+
+m2     data 0
+       .mac0
+
+       data 1
+       .mac2 :01010101, >2
+       .mac2 '$1', -1
+m3     equ >6000
+       .mac2 1+2, m3
+
+       data 2
+       .home
+       .fmt
+       col 1
+       fend
+
+       data 3
+       .macnull
+
+       data 4
+       .macnest >10, >2000
+
+       data 5
+       .macglob v@>1000
+
+       data 6
+       .macnest >1, 2
+
+       data 7
+       .macglob @>8300
+
+       data 8
+       .macif 1,@>1000
+       .macif 2,@m1(@>8300)
+
+       data 9
+       .move 1,V@>0002(@>8384),V@3
+       .move 1,@>8301,#7
+       .move *m3+m3,V@2,V@3
+
+       end

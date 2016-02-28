@@ -843,6 +843,25 @@ parameters `-G` and `-A`, respectively.  Note that cartridge parameter `-c`
 implies `-G 0x6000` and `-A 0x30`.
 
 
+### `xdt99` Extensions
+
+The `xga99` GPL cross-assembler offers various "modern" extensions to the
+original TI GPL specification to improve the developer experience for writing
+GPL programs.  All extensions are backwards compatible in virtually all
+situations of practical relevance so that any existing source code should
+compile as-is.
+
+The source code preprocessor supports conditional assembly `.ifdef` and macros
+`.defm`.  For a description of both features please refer to the respective
+section in the `xas99` manual.
+
+Note, however, that GPL macros use macro parameters `$1`, `$2`, ... instead
+of `#1`, `#2`, ..., as the latter are used to denote VDP registers in GPL.
+
+The predefined symbols set by `xga99` are `_xga99_image`, `_xga99_cart`, or
+`_xga99_gbc`, depending on the assembly command `-i`, `-c`, ... used.
+
+
 xbas99 TI BASIC and TI Extended BASIC Tool
 ------------------------------------------
 

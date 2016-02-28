@@ -1,0 +1,193 @@
+* PRE-PROCESSOR
+
+        TITL 'PREP'
+
+        GROM >0000
+
+E1      EQU 1
+E2      EQU 2
+
+START
+
+** CONDITIONAL ASSEMBLY
+
+        DATA 1
+*        .IFDEF ISDEF
+        DATA 2
+*        .ELSE
+*        DATA 3
+*        .ENDIF
+
+*        .IFDEF NOTDEF
+*        DATA 5
+*        .ELSE
+        DATA 6
+*        .ENDIF
+
+*        .IFNDEF E1
+*        DATA 7
+*        .ENDIF
+
+*        .IFNDEF E99
+        DATA 8
+*        .ENDIF
+
+*        .IFEQ E1, E2
+*        DATA 9
+*        .ENDIF
+
+*        .IFNE E1, E2
+        DATA 10
+*       .ENDIF
+
+*       .IFGT E2, E1
+        DATA 11
+*       .ENDIF
+
+*       .IFGT E1 + 1, E2 - 1
+        DATA 12
+*       .ENDIF
+
+*       .IFDEF E8
+*       .IFDEF E1
+*       DATA 13
+*       .ELSE
+*       DATA 14
+*       .ENDIF
+*       .ELSE
+*       .IFDEF E2
+        DATA 15
+*       .ELSE
+*       DATA 16
+*       .ENDIF
+*       .ENDIF
+
+*       .IFEQ E1, E99
+*       DATA 17
+*       .ENDIF
+
+*       .IFDEF E99
+*       COPY "FOOBAR"
+*E88     EQU 88
+*       .ENDIF
+
+*       .IFNDEF E88
+        DATA 18
+*       .ENDIF
+
+*       .IFEQ ISDEF, 2
+        DATA 19
+*       .ELSE
+*       DATA 20
+*       .ENDIF
+
+*       .IFDEF _XGA99_GBC
+        DATA 21
+*       .ENDIF
+
+*       .IFDEF _XGA99_IMAGE
+*       DATA 22
+*       .ENDIF
+
+** MACROS
+
+*M1     .DEFM MAC0     COMMENT #1 $1
+*      BYTE 1         COMMENT #1 $1
+*      .ENDM
+
+*      .DEFM MAC2
+*      ST   $1,V@$2   COMMENT $1
+*      .ENDM
+
+*      .DEFM FMT
+*      FMT
+*      .ENDM
+
+*      .DEFM HOME
+*      HOME
+*      .ENDM
+
+*      .DEFM MACNULL
+*      .ENDM
+
+*      .DEFM MACNEST
+*      DATA $1
+*      .MAC2 $1,$2
+*      DATA $2
+*      .ENDM
+
+*      .DEFM MACGLOB
+*      DST @M1, $1
+*      .ENDM
+
+*      .DEFM MACIF
+*      .IFEQ $1,1
+*      MOVE 1,@>8301,#$1
+*      .ELSE
+*      MOVE 1,@>8302,#$1
+*      .ENDM
+
+*      .DEFM MOVE
+*      MOVE $1,$2,$3
+*      .ENDM
+
+M2     DATA 0
+*      .MAC0
+       BYTE 1
+
+       DATA 1
+*      .MAC2 :01010101, >2
+       ST >55,V@>2
+*      .MAC2 '$1', -1
+       ST '$1',V@>FFFF
+
+M3     EQU >6000
+*      .MAC2 1+2, M3
+       ST 3,V@>6000
+
+       DATA 2
+*      .HOME
+       HOME
+*      .FMT
+       FMT
+       COL 1
+       FEND
+
+       DATA 3
+*      .MACNULL
+
+       DATA 4
+*      .MACNEST >10, >2000
+       DATA >10
+       ST >10,V@>2000
+       DATA >2000
+
+       DATA 5
+*      .MACGLOB V@>1000
+       DST @>6000,V@>1000
+
+       DATA 6
+*      .MACNEST >1, 2
+       DATA >1
+       ST >1,V@2
+       DATA 2
+
+       DATA 7
+*      .MACGLOB @>8300
+       DST @>6000,@>8300
+
+       DATA 8
+*      .MACIF 1,@>1000
+       MOVE 1,@>8301,#1
+*      .MACIF 2,@M1(@>8300)
+       MOVE 1,@>8302,#2
+
+       DATA 9
+*      .MOVE 1,V@>0002(@>8384),V@3
+       MOVE 1,V@>0002(@>8384),V@3
+*      .MOVE 1,@>8301,#7
+       MOVE 1,@>8301,#7
+*      .MOVE *M3+M3,V@2,V@3
+       MOVE *M3+M3,V@2,V@3
+
+       END
