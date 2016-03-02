@@ -2,7 +2,7 @@
 
 # xdm99: A disk manager for TI disk images
 #
-# Copyright (c) 2015 Ralph Benzinger <xdt99@endlos.net>
+# Copyright (c) 2015-2016 Ralph Benzinger <xdt99@endlos.net>
 #
 # This program is part of the TI 99 Cross-Development Tools (xdt99).
 #
@@ -24,7 +24,7 @@ import re
 import datetime
 import os.path
 
-VERSION = "1.5.2"
+VERSION = "1.5.3"
 
 
 ### Utility functions
@@ -105,7 +105,7 @@ class Disk:
             raise DiskError("Invalid disk image")
         self.image = image
         self.readSectors = []
-        self.warnings = []
+        self.warnings = {}
         # meta data
         sector0 = self.getSector(0)
         self.name = sector0[:0x0A]
@@ -119,22 +119,27 @@ class Disk:
         self.allocBitmap = sector0[0x38:]
         # derived values and sanity checks
         if self.dsk != "DSK":
-            raise DiskError("Disk image not initialized")
+            self.warn("Disk image not initialized", "image")
         if len(self.image) < self.totalSectors * Disk.bytesPerSector:
-            self.warn("Disk image truncated")
-        if (self.totalSectors !=
-                self.sides * self.tracksPerSide * self.sectorsPerTrack) or (
-                self.totalSectors % 8 != 0):
-            self.warn("Sector count does not match disk geometry")
+            self.warn("Disk image truncated", "image")
+        self.checkGeometry()
         self.usedSectors = 0
         try:
             for i in xrange(used(self.totalSectors, 8)):
                 self.usedSectors += bin(ord(self.allocBitmap[i])).count("1")
         except IndexError:
-            self.warn("Allocation map corrupted")
+            self.warn("Allocation map corrupted", "alloc")
         self.catalog = {}
         self.initCatalog()
         self.checkAllocation()
+
+    def checkGeometry(self):
+        """check geometry against sector count"""
+        if (self.totalSectors !=
+                self.sides * self.tracksPerSide * self.sectorsPerTrack):
+            self.warn("Sector count does not match disk geometry", "geom")
+        if self.totalSectors % 8 != 0:
+            self.warn("Sector count is not multiple of 8", "geom")
 
     def initCatalog(self):
         """read all files from disk"""
@@ -353,6 +358,7 @@ class Disk:
 
     def setGeometry(self, sides, density, tracks):
         """override geometry of disk image"""
+        self.wclear("geom")
         self.sides = sides or self.sides
         self.density = density or self.density
         self.tracksPerSide = tracks or self.tracksPerSide
@@ -362,6 +368,7 @@ class Disk:
                         chr(self.density)) +
             self.image[0x14:]
             )
+        self.checkGeometry()
 
     def fixDisk(self):
         """rebuild disk with non-erroneous files"""
@@ -413,14 +420,25 @@ class Disk:
         return (sector0 + "\x00" * Disk.bytesPerSector +
                 Disk.blankByte * ((size - 2) * Disk.bytesPerSector))
 
-    def warn(self, text):
+    def warn(self, text, category="main"):
         """issue non-critical warning"""
-        if text not in self.warnings:
-            self.warnings.append(text)
+        if category not in self.warnings:
+            self.warnings[category] = []
+        if text not in self.warnings[category]:
+            self.warnings[category].append(text)
 
+    def wclear(self, category):
+        """clear all warnings in given category"""
+        try:
+            del(self.warnings[category])
+        except KeyError:
+            pass
+        
     def getWarnings(self):
         """return warnings issued while processing disk image"""
-        return "".join(["Warning: %s\n" % w for w in self.warnings])
+        return "".join(["Warning: %s\n" % w
+                        for c in self.warnings.keys()
+                        for w in self.warnings[c]])
 
 
 ### Files
@@ -968,9 +986,6 @@ def main():
         "-Z", "--resize", dest="resize", metavar="<sectors>",
         help="resize image to given total sector count")
     cmd.add_argument(
-        "--set-geometry", dest="geometry", metavar="<geometry>",
-        help="set disk geometry (S<size> D<density> T<track count>)")
-    cmd.add_argument(
         "-C", "--check", action="store_true", dest="checkonly",
         help="check disk image integrity only")
     cmd.add_argument(
@@ -1009,6 +1024,9 @@ def main():
     args.add_argument(
         "--initialize", dest="init", metavar="<size>",
         help="initialize disk image (sector count or sides/density alias)")
+    args.add_argument(
+        "--set-geometry", dest="geometry", metavar="<geometry>",
+        help="set disk geometry (<sides>S <density>D <tracks>T)")
     args.add_argument(
         "-o", "--output", dest="output", metavar="<file>",
         help="set output filename")
