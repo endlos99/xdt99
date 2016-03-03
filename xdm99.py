@@ -97,6 +97,8 @@ class Disk:
     """sector-based TI disk image file"""
 
     bytesPerSector = 256
+    defaultSectorsPerTrack = 9
+    defaultTracks = 40
     maxSectors = 1600
     blankByte = "\xe5"
     
@@ -136,7 +138,7 @@ class Disk:
     def checkGeometry(self):
         """check geometry against sector count"""
         if (self.totalSectors !=
-                self.sides * self.tracksPerSide * self.sectorsPerTrack):
+                self.sides * self.density * self.tracksPerSide * self.sectorsPerTrack):
             self.warn("Sector count does not match disk geometry", "geom")
         if self.totalSectors % 8 != 0:
             self.warn("Sector count is not multiple of 8", "geom")
@@ -342,14 +344,13 @@ class Disk:
 
     def resizeDisk(self, newsize):
         """resize image to given sector count"""
-        self.usedSectors = 0
-        if not self.usedSectors <= newsize <= Disk.maxSectors:
+        if not 2 < newsize <= Disk.maxSectors:
             raise DiskError(
-                "Invalid disk size %d, expected between %d and %d sectors" % (
-                    self.usedSectors, newsize, Disk.maxSectors))
+                "Invalid disk size, expected between 2 and %d sectors" %
+                    Disk.maxSectors)
         if self.totalSectors % 8 != 0 or newsize % 8 != 0:
             raise DiskError("Disk size must be multiple of 8 sectors")
-        oldsize, self.totalSectors = self.totalSectors, newsize
+        oldsize, self.totalSectors, self.usedSectors = self.totalSectors, newsize, 0
         self.rebuildDisk()
         self.image = (self.image[:0x0A] + chrw(newsize) +
                       self.image[0x0C:newsize * self.bytesPerSector] +
@@ -358,7 +359,6 @@ class Disk:
 
     def setGeometry(self, sides, density, tracks):
         """override geometry of disk image"""
-        self.wclear("geom")
         self.sides = sides or self.sides
         self.density = density or self.density
         self.tracksPerSide = tracks or self.tracksPerSide
@@ -368,6 +368,7 @@ class Disk:
                         chr(self.density)) +
             self.image[0x14:]
             )
+        self.wclear("geom")
         self.checkGeometry()
 
     def fixDisk(self):
@@ -405,20 +406,57 @@ class Disk:
                         for n in sorted(self.catalog)])
 
     @staticmethod
-    def blankImage(size, name):
+    def blankImage(geometry, name):
         """return initialized disk image"""
-        if size is None or not 2 < size <= Disk.maxSectors or size % 8 != 0:
+        size, layout = Disk.parseGeometry(geometry)
+        sides, density, tracks = layout or (
+            2 if 360 <= (size - 1) % 720 else 1,
+            2 if 720 < size <= 1440 else 1,  # favor DSSD over SSDD
+            Disk.defaultTracks)
+        if (not 2 < size <= Disk.maxSectors or size % 8 != 0 or
+            not (sides and density)):
             raise DiskError("Invalid disk size")
-        tracksPerSide, sectorsPerTrack = 40, 9
-        sides = 2 if 360 <= (size - 1) % 720 else 1
-        density = 2 if 720 < size <= 1440 else 1
         sector0 = "%-10s%2s%cDSK %c%c%c" % (
-            name, chrw(size), sectorsPerTrack,
-            tracksPerSide, sides, density) + "\x00" * 0x24 + (
+            name, chrw(size), Disk.defaultSectorsPerTrack,
+            tracks or Disk.defaultTracks, sides, density) + "\x00" * 0x24 + (
             "\x03" + "\x00" * (size / 8 - 1)) + (
             "\xff" * (Disk.bytesPerSector - size / 8 - 0x38))
         return (sector0 + "\x00" * Disk.bytesPerSector +
                 Disk.blankByte * ((size - 2) * Disk.bytesPerSector))
+
+    @staticmethod
+    def parseGeometry(geometry):
+        """get disk size and layout from geometry string"""
+        if geometry.upper() == "CF":
+            return 1600, (1, 1, Disk.defaultTracks)
+        try:
+            size = xint(geometry)
+            return size, None
+        except ValueError:
+            pass
+        sides, density, tracks = None, None, None
+        stoi = lambda s: 1 if s == "S" else 2 if s == "D" else int(s)
+        gs = re.split(r"(\d+|[SD])([SDT])", geometry.upper())
+        if "".join(gs[::3]):
+            raise DiskError("Invalid disk geometry " + geometry)
+        try:
+            for part, val in zip(gs[2::3], gs[1::3]):
+                if part == "S" and sides is None:
+                    sides = stoi(val)
+                elif part == "D" and density is None:
+                    density = stoi(val)
+                elif part == "T" and tracks is None:
+                    tracks = stoi(val)
+                else:
+                    raise DiskError("Invalid disk geometry " + geometry)
+        except (IndexError, ValueError):
+            raise DiskError("Invalid disk geometry " + geometry)
+        try:
+            size = (sides * density * (tracks or Disk.defaultTracks) *
+                    Disk.defaultSectorsPerTrack)
+        except TypeError:
+            size = None
+        return size, (sides, density, tracks)
 
     def warn(self, text, category="main"):
         """issue non-critical warning"""
@@ -796,15 +834,8 @@ def imageCmds(opts):
 
     # get disk image
     if opts.init:
-        try:
-            size = int(opts.init)
-        except ValueError:
-            size = {"SSSD": 360, "DSSD": 720,
-                    "DSDD": 1440, "CF": 1600}.get(opts.init.upper())
-        if size is None:
-            raise DiskError("Invalid disk size %s" % opts.init)
         barename = os.path.splitext(os.path.basename(opts.filename))[0]
-        image = Disk.blankImage(size, opts.name or barename[:10].upper())
+        image = Disk.blankImage(opts.init, opts.name or barename[:10].upper())
         result = [(image, opts.filename, "wb")]
     else:
         image = readdata(opts.filename, "rb")
@@ -862,27 +893,18 @@ def imageCmds(opts):
             disk.removeFile(name)
         result = [(disk.getImage(), opts.filename, "wb")]
     elif opts.resize:
-        try:
-            size = xint(opts.resize)
-        except ValueError:
-            raise DiskError("Invalid disk size %s" % opts.resize)
+        size, layout = Disk.parseGeometry(opts.resize)
         disk.resizeDisk(size)
+        if layout:
+            sides, density, tracks = layout
+            disk.setGeometry(sides, density, tracks or Disk.defaultTracks)
         result = [(disk.getImage(), opts.filename, "wb")]
     elif opts.geometry:
-        sides, density, tracks = None, None, None
-        gs = re.split("(\d+|[SD])([SDT])", opts.geometry.upper())
-        stoi = lambda s: 1 if s == "S" else 2 if s == "D" else int(s)
-        for v, g in zip(gs[1::3], gs[2::3]):
-            try:
-                if g == "S":
-                    sides = stoi(v)
-                elif g == "D":
-                    density = stoi(v)
-                else:
-                    tracks = stoi(v)
-            except (IndexError, ValueError):
-                raise DiskError("Invalid geometry %s" % opts.geometry)
-        disk.setGeometry(sides, density, tracks)
+        size, layout = Disk.parseGeometry(opts.geometry)
+        try:
+            disk.setGeometry(*layout)
+        except TypeError:
+            raise DiskError("Invalid disk geometry " + opts.geometry)
         result = [(disk.getImage(), opts.filename, "wb")]
     elif opts.checkonly:
         rc = 1 if disk.warnings else 0
@@ -986,6 +1008,9 @@ def main():
         "-Z", "--resize", dest="resize", metavar="<sectors>",
         help="resize image to given total sector count")
     cmd.add_argument(
+        "--set-geometry", dest="geometry", metavar="<geometry>",
+        help="set disk geometry (xSxDxT)")
+    cmd.add_argument(
         "-C", "--check", action="store_true", dest="checkonly",
         help="check disk image integrity only")
     cmd.add_argument(
@@ -1016,17 +1041,14 @@ def main():
         help="use v9t9 file format for added/extracted files")
     args.add_argument(
         "-f", "--format", dest="format", metavar="<format>",
-        help="set TI file format (DIS/VARnnn, DIS/FIXnnn, INT/VARnnn, " + \
-             "INT/FIXnnn, PROGRAM) for data to add")
+        help="set TI file format (DIS/VARxx, DIS/FIXxx, INT/VARxx, " + \
+             "INT/FIXxx, PROGRAM) for data to add")
     args.add_argument(
         "-n", "--name", dest="name", metavar="<name>",
         help="set TI filename for data to add")
     args.add_argument(
-        "--initialize", dest="init", metavar="<size>",
-        help="initialize disk image (sector count or sides/density alias)")
-    args.add_argument(
-        "--set-geometry", dest="geometry", metavar="<geometry>",
-        help="set disk geometry (<sides>S <density>D <tracks>T)")
+        "-X", "--initialize", dest="init", metavar="<size>",
+        help="initialize disk image (sector count or disk geometry xSxDxT)")
     args.add_argument(
         "-o", "--output", dest="output", metavar="<file>",
         help="set output filename")

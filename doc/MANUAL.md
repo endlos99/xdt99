@@ -1163,27 +1163,51 @@ erroneous files from it.
 The repair operation is likely to cause data loss, so it's best to extract
 erroneous files beforehand or to specify an alternative output file with `-o`.
 
-The `--initialize` option creates a new, blank disk image, using an
+The `-X` or `--initialize` option creates a new, blank disk image, using an
 optional name provided by `-n`.
 
     $ xdm99.py blank.dsk --initialize 720 -n BLANK
 
-The size of the disk image is given by the number of sectors.  You may
-also use the aliases `SSSD`, `DSSD`, `DSDD`, and `CF` for sector
-counts of 360, 720, 1440, and 1600, respectively.  Note that the disk
-format used by the TI 99 supports up to 1600 sectors per disk.
+The size of the disk image is given by the number of sectors.  You may also use
+a disk geometry string, which is any combination of the number of sides `<n>S`,
+the density `<n>D`, and an optional number of tracks `<n>T`, where `<n>` is an
+integer or the letters `S` or `D`.  If `<n>T` is missing, `40T` is assumed.
+  
+    $ xdm99.py blank.dsk -X DSDD
+    $ xdm99.py blank.dsk -X 1d2s80t
 
-You can combine `--initialize` with other parameters such `-a` to work with
-the newly created image immediately:
+Note that the disk format used by the TI 99 supports up to 1600 sectors per
+disk.
 
-    $ xdm99.py work.dsk --initialize SSSD -a file -f DV80
+The special geometry `CF` is used for disk images for the CF7+/nanoPEB devices
+and corresponds to 1600 sectors.
 
-The resize parameter `-Z` will change the total number of sector of
+    $ xdm99.py volume.dsk -X cf
+
+You can combine `-X` with other parameters such `-a` to work with the newly
+created image immediately:
+
+    $ xdm99.py work.dsk -X SSSD -a file -f DV80
+
+The resize parameter `-Z` will change the total number of sectors of
 the disk without changing the contents of the files currently stored.
 
     $ xdm99.py work.dsk -Z 720
 
+An integer argument will not change the geometry information of the disk.  To
+change both size and geometry, `-Z` also accepts a disk geometry string:
+
+    $ xdm99.py corcomp.dsk -Z dssd80t -o ti-80t.dsk  # convert to 80 tracks
+
 Resizing fails if more sectors than the target size are currently in use.
+
+The `--set-geometry` parameter explicitly sets the number of sides, the
+density, and the track information of the disk image.
+
+    $ xdm99.py work.dsk --set-geometry 2S1D80T
+
+Note that the `--set-geometry` command is rarely required for regular images
+but may be helpful for experimenting with non-standard disk image formats.
 
 The sector dump parameter `-S` prints the hexadecimal contents of individual
 sectors to `stdout`.  This can be used to further analyze disk errors or to save
@@ -1192,20 +1216,8 @@ fragments of corrupted files.
     $ xdm99.py work.dsk -S 1
     $ xdm99.py work.dsk -S 0x22 -o first-file-sector
     
-For convenience, the arguments of `-Z` and `-S` may be specified in either
-decimal or hexadecimal notation.
-
-The `--set-geometry` parameter explicitly sets the number of sides, the
-density, and the track information of the disk image.
-
-    $ xdm99.py work.dsk --set-geometry 2S1D80T
-
-The geometry format is any combination of the number of sides `<n>S`, the
-density `<n>D`, and the number of tracks `<n>T`.  The commonly used aliases
-`SS`, `DS`, `SD`, and `DD` are also supported.
-
-Note that the `--set-geometry` command is rarely required for regular images
-but may be helpful for experimenting with non-standard disk image formats.
+For convenience, integer arguments of `-S`, `-X` and `-Z` may be specified in
+either decimal or hexadecimal notation.
 
 
 xvm99 Volume Manager
@@ -1294,8 +1306,8 @@ these files are located under the `test` folder.
     -rw-rw---- 1 ralph ralph 92160 Jan 10 12:33 work.dsk
     
 The file `ashello.a99` contains a simple assembly program that we want to
-assemble and run.  Since the program uses register symbols like `R0` to refer to
-registers, we need to specify the `-R` option for assembly.
+assemble and run.  Since the program uses register symbols like `R0` to refer
+to registers, we need to specify the `-R` option for assembly.
 
     $ xas99.py -R ashello.a99
 
@@ -1339,8 +1351,8 @@ This time we should get a binary file `ashello.img` of 132 bytes.
     -rw-rw---- 1 ralph ralph   132 Jan 10 13:11 ashello.img
 
 We now need to transfer these files to a TI disk image so that the TI 99
-emulated by MESS can load it.  We'll use the SS/SD disk image `work.dsk` that is
-included in the example folder of xdt99 for convenience:
+emulated by MESS can load it.  We'll use the SS/SD disk image `work.dsk` that
+is included in the example folder of xdt99 for convenience:
 
     $ xdm99.py work.dsk -a ashello.obj -n HELLO-O -f DIS/FIX80
     $ xdm99.py work.dsk -a ashello.img -n HELLO-I

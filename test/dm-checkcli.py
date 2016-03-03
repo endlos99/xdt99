@@ -184,8 +184,8 @@ def runtest():
     xdm(Disks.work, "--initialize", "1600", "-n", "GEO")
     for g, p in [("1S1D", "1S/1D\s+40 TpS"), ("99T8D7S", "7S/8D\s+99 TpS"),
                  ("22TDD", "7S/2D\s+22 TpS"), ("DSSD", "2S/1D\s+22 TpS"),
-                 ("1T", "2S/1D\s+1 TpS"), ("3D 10T 9S", "9S/3D\s+10 TpS"),
-                 ("SD DS", "2S/1D\s+10 TpS"), ("SS", "1S/1D\s+10 TpS")]:
+                 ("1T", "2S/1D\s+1 TpS"), ("3D10T9S", "9S/3D\s+10 TpS"),
+                 ("SDDS", "2S/1D\s+10 TpS"), ("SS", "1S/1D\s+10 TpS")]:
         xdm(Disks.work, "--set-geometry", g)
         with open(Files.output, "w") as fout:
             xdm(Disks.work, "-i", "-q", stdout=fout)
@@ -203,6 +203,28 @@ def runtest():
         xdm(Disks.work, "-Z", "240", stderr=ferr, rc=1)
         xdm(Disks.work, "-Z", "1608", stderr=ferr, rc=1)
 
+    # new geometry handling (v1.5.3)
+    for c, g, p in [
+            ("--initialize", "SSSD", r"358 free\s+90 KB\s+1S/1D\s+40 TpS"),
+            ("--resize", "DS1D", r"718 free\s+180 KB\s+2S/1D\s+40 TpS"),
+            ("--set-geometry", "80T", r"718 free\s+180 KB\s+2S/1D\s+80 TpS"), # geom mismatch
+            ("--initialize", "408", r"406 free\s+102 KB\s+2S/1D\s+40 TpS"),
+            ("--resize", "DSSD80T", r"1438 free\s+360 KB\s+2S/1D\s+80 TpS"),
+            ("--resize", "2DSS", r"718 free\s+180 KB\s+1S/2D\s+40 TpS"),
+            ("-Z", "208", r"206 free\s+52 KB\s+1S/2D\s+40 TpS"),
+            ("--set-geometry", "SD80T", r"206 free\s+52 KB\s+1S/1D\s+80 TpS"),
+            ("-X", "DSSD80T", r"1438 free\s+360 KB\s+2S/1D\s+80 TpS"),
+            ("--set-geometry", "20T", r"1438 free\s+360 KB\s+2S/1D\s+20 TpS")]: # geom mismatch
+        xdm(Disks.work, c, g)
+        with open(Files.output, "w") as fout:
+            xdm(Disks.work, "-i", "-q", stdout=fout)
+        checkFileMatches(Files.output, [(0, p)])
+    with open(Files.error, "w") as ferr:
+        xdm(Disks.work, "--initialize", "SS80T", stderr=ferr, rc=1)
+        xdm(Disks.work, "--resize", "2S", stderr=ferr, rc=1)
+        xdm(Disks.work, "--resize", "80T", stderr=ferr, rc=1)
+        xdm(Disks.work, "--set-geometry", "123", stderr=ferr, rc=1)
+    
     # repair disks
     shutil.copyfile(Disks.bad, Disks.work)
     with open(Files.output, "w") as f1, open(Files.reference, "w") as f2:
