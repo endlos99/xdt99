@@ -1,4 +1,4 @@
-*  ERROR MESSAGES
+*  ERROR MESSAGES PASS0
 
 * OVERFLOW (TODO)
 
@@ -12,6 +12,11 @@
 X'Y     EQU 2            * ERROR
 X*Y     EQU 3            * ERROR
         EQU 4            * ERROR
+
+* DUPLICATE LABEL
+
+DUP     DATA 1
+DUP     DATA 2           * ERROR
 
 * UNKNOWN MNEMONICS
 
@@ -29,10 +34,10 @@ BAD     BAD              * ERROR
 
 * INVALID LITERALS
 
-INVLIT  DATA 1A          * ERROR
+INVLIT  DATA 1A          * SHADOWED
         DATA >1G         * ERROR
         DATA :2          * ERROR
-        DATA 'A          * ERROR
+        DATA 'A          * SHADOWED
         DATA
         BYTE ,           * ERROR
         TEXT 1           * ERROR
@@ -65,10 +70,10 @@ INVOP   CLR @1(@>9000)   * ERROR
         INC G@1          * ERROR
         CLR G*1          * ERROR
 
-        ST 1!2,@1        * ERROR
+        ST 1!2,@1        * SHADOWED
         ST 1+,@1         * ERROR
         ST 1//2,@1       * ERROR
-        ST 1+@1,@1       * ERROR
+        ST 1+@1,@1       * SHADOWED
         ST ,@1           * ERROR
         ST 1,            * ERROR
 

@@ -63,10 +63,6 @@ class AsmError(Exception):
     pass
 
 
-class PrepError(Exception):
-    pass
-
-
 ### Symbol table
 
 class Address:
@@ -192,12 +188,14 @@ class Symbols:
 
     def addSymbol(self, name, value, passno):
         """add symbol to symbol table or update existing symbol"""
-        if not re.match(r"[^\W\d]\w*$", name):
-            raise AsmError("Invalid symbol name: " + name)
         prev = self.symbols.get(name)
-        if passno == 0 and prev is not None:
-            raise AsmError("Multiple symbols: " + name)
-        if value != prev:
+        if passno == 0:
+            if not re.match(r"[^\W\d]\w*$", name):
+                raise AsmError("Invalid symbol name: " + name)
+            if prev is not None:
+                raise AsmError("Multiple symbols: " + name)
+            self.symbols[name] = value
+        elif value != prev:
             #if passno > 1:
             #    print "Value changed for:", name
             self.symbols[name] = value
@@ -210,7 +208,7 @@ class Symbols:
         value = self.symbols.get(name)
         if value is None:
             value = self.predefs.get(name)
-            if value is None and passno > 1:
+            if value is None and passno > 0:
                 raise AsmError("Unknown symbol: " + name)
         return value or 0
 
@@ -509,6 +507,7 @@ class Directives:
 
     @staticmethod
     def process(parser, code, label, mnemonic, operands):
+        """process directives"""
         if mnemonic in Directives.ignores:
             code.processLabel(label, parser.passno)
             return True
@@ -865,6 +864,7 @@ class Preprocessor:
         return "".join(parts)
 
     def process(self, code, label, mnemonic, operands, line):
+        """process preprocessor directive"""
         if self.parseMacro:
             if mnemonic == ".ENDM":
                 self.parseMacro = None
@@ -1026,7 +1026,7 @@ class Parser:
         source = []
         # prepare source (pass 0)
         self.passno = 0
-        errors0 = []
+        errors = []
         while True:
             # get next source line
             lino, line, filename = self.read()
@@ -1039,23 +1039,26 @@ class Parser:
                                                          operands, line)
                 if not keep:
                     continue
+                if label and label[-1] == ":":
+                    label = label[:-1]
                 source.append((lino, label, mnemonic, operands, line, filename,
                                stmt))
                 if not stmt:
                     continue
                 self.lidx += 1
                 # process directives only
-                Directives.process(self, code, label, mnemonic, operands)
-            except PrepError as e:
-                errors0.append("%04d: %s\n***** <0> %s\n" % (
-                    lino, line, e.message))
+                Directives.process(self, code, label, mnemonic, operands) or \
+                    Opcodes.process(self, code, label, mnemonic, operands)
             except AsmError as e:
-                pass
+                errors.append("%04d: %s\n***** <0> %s\n" % (
+                    lino, line, e.message))
+        if errors:
+            return errors
         # code generation (passes 1+)
         while True:
             self.passno += 1
             if self.passno > 32:
-                errors.append("Too many assembly passes, aborting. :-(")
+                errors.append("Too many assembly passes, aborting. :-(\n")
                 break
             self.reset(code)
             errors = []
@@ -1064,8 +1067,6 @@ class Parser:
                 #        self.symbols.LC), label, mnemonic, operands
                 if not stmt:
                     continue
-                if label[-1:] == ":":
-                    label = label[:-1]
                 try:
                     Directives.process(self, code, label, mnemonic, operands) or \
                         Opcodes.process(self, code, label, mnemonic, operands)
@@ -1076,7 +1077,7 @@ class Parser:
                 errors.append("Source ends with open FMT block, aborting.")
             if errors and self.passno > 1 or not self.symbols.updated:
                 break
-        return errors0 + errors
+        return errors
 
 
     def value(self, op):

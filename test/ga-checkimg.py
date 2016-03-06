@@ -54,23 +54,24 @@ def runtest():
     checkGbcFilesEq(source, Files.output, Files.reference)
 
     # error messages
-    source = os.path.join(Dirs.gplsources, "gaerrs.gpl")
-    with open(source, "r") as fin:
-        expect = [lino + 1 for lino, line in enumerate(fin)
-                  if "* ERROR" in line]
-    with open(Files.error, "w") as ferr:
-        xga(source, "-o", Files.output, stderr=ferr, rc=1)
-    with open(Files.error, "r") as fin:
-        try:
-            found = [int(line[:4]) for line in fin if line[0] != "*"]
-        except ValueError:
-            error("Error messages", "Unexpected error message")
-    if found != expect:
-        error("Error messages",
-              "Error mismatch, extra: " +
-              str([x for x in found if x not in expect]) +
-              " missing: " +
-              str([x for x in expect if x not in found]))
+    for s in ["gaerrs0.gpl", "gaerrs1.gpl"]:
+        source = os.path.join(Dirs.gplsources, s)
+        with open(source, "r") as fin:
+            expect = [lino + 1 for lino, line in enumerate(fin)
+                      if "* ERROR" in line]
+        with open(Files.error, "w") as ferr:
+            xga(source, "-o", Files.output, stderr=ferr, rc=1)
+        with open(Files.error, "r") as fin:
+            try:
+                found = [int(line[:4]) for line in fin if line[0] != "*"]
+            except ValueError:
+                error("Error messages", "Unexpected error message")
+        if found != expect:
+            error("Error messages",
+                  "Error mismatch, extra: " +
+                  str([x for x in found if x not in expect]) +
+                  " missing: " +
+                  str([x for x in expect if x not in found]))
 
     # cleanup
     os.remove(Files.output)

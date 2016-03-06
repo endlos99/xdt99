@@ -1,0 +1,11 @@
+*  ERROR MESSAGES PASS1+
+
+* BAD OR MISSING SYMBOLS
+
+INVLIT  DATA 1A          * ERROR
+        DATA 'A          * ERROR
+
+        ST 1!2,@1        * ERROR
+        ST 1+@1,@1       * ERROR
+
+        END
