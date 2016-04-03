@@ -138,7 +138,7 @@ class Disk:
     def checkGeometry(self):
         """check geometry against sector count"""
         if (self.totalSectors !=
-                self.sides * self.density * self.tracksPerSide * self.sectorsPerTrack):
+                self.sides * self.tracksPerSide * self.sectorsPerTrack):
             self.warn("Sector count does not match disk geometry", "geom")
         if self.totalSectors % 8 != 0:
             self.warn("Sector count is not multiple of 8", "geom")
@@ -362,8 +362,11 @@ class Disk:
         self.sides = sides or self.sides
         self.density = density or self.density
         self.tracksPerSide = tracks or self.tracksPerSide
+	self.sectorsPerTrack = self.density * 9
         self.image = (
-            self.image[:0x11] +
+	    self.image[:0x0C] +
+	    chr(self.density * 9) +
+            self.image[0x0D:0x11] +
             "%c%c%c" % (chr(self.tracksPerSide), chr(self.sides),
                         chr(self.density)) +
             self.image[0x14:]
