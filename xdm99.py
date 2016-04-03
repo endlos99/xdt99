@@ -857,7 +857,7 @@ def imageCmds(opts):
                 "Error: Cannot use -o when extracting multiple files")
         if opts.astifiles:
             result = [(disk.getTifilesFile(name),
-                       name.lower() + ".tfi", "wb")
+                       re.sub('[^\w\-_\. ]', '_', name.lower()) + ".tfi", "wb")
                       for name in files]
         elif opts.asv9t9:
             result = [(disk.getV9t9File(name),
