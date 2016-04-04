@@ -493,6 +493,8 @@ def main():
                       help="join split source lines (for -e)")
     args.add_argument("-o", "--output", dest="output", metavar="<file>",
                       help="set output filename")
+    args.add_argument("-t", "--tifiles", action="store_true", dest="astifiles",
+                      help="assume TIFILES format program to list or decode")
     opts = args.parse_args()
 
     #setup
@@ -507,6 +509,8 @@ def main():
             else:
                 with open(opts.source, "rb") as fin:
                     image = fin.read()
+	    if opts.astifiles:
+		    image = image[128:]
             if opts.merge:
                 program = BasicProgram()
                 program.merge(image)
