@@ -412,8 +412,10 @@ class BasicProgram:
                       chrw(checksum) + chrw(lastAddr - 1))
             chunks = [(linoTable + tokenTable)[i:i + 254]
                       for i in xrange(0, len(linoTable + tokenTable), 254)]
-            return (chr(len(header)) + header +
-                    "".join([chr(len(c)) + c for c in chunks]))
+            return (chr(len(header)) + header + chr(0x00)*(len(header)-1) +
+		    chr(0xff) +
+		    (chr(0x00)*(254-len(header))) +  chr(0xfe) +
+                    "".join([chr(len(c)) + c + chr(0xff) for c in chunks]))
         else:
             header = (chrw(checksum) + chrw(tokenTabAddr - 1) +
                       chrw(linoTabAddr) + chrw(lastAddr - 1))
@@ -511,6 +513,8 @@ def main():
                     image = fin.read()
 	    if opts.astifiles:
 		    image = image[128:]
+	    if image[1:3] == "\xab\xcd":
+		long_ = True;
             if opts.merge:
                 program = BasicProgram()
                 program.merge(image)
