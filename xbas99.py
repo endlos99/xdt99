@@ -196,7 +196,8 @@ class BasicProgram:
             # convert long format INT/VAR 254 to PROGRAM
 	    if _tifiles:
 		newdata = data[0:11]
-		for i in range(1, (len(data) / 256)):
+		print len(data)
+		for i in range(1, (len(data) / 255)):
 		   newdata += data[(i*256):(i*256)+255]
 		data = newdata
             program, p = "", 11
