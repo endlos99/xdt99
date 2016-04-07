@@ -419,9 +419,7 @@ class BasicProgram:
                       chrw(checksum) + chrw(lastAddr - 1))
             chunks = [(linoTable + tokenTable)[i:i + 254]
                       for i in xrange(0, len(linoTable + tokenTable), 254)]
-            return (chr(len(header)) + header + chr(0x00)*(len(header)-1) +
-		    chr(0xff) +
-		    (chr(0x00)*(254-len(header))) +  chr(0xfe) +
+            return (chr(len(header)) + header + (chr(0x00)*(256-len(header)) +
                     "".join([chr(len(c)) + c + chr(0xff) for c in chunks]))
         else:
             header = (chrw(checksum) + chrw(tokenTabAddr - 1) +
