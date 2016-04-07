@@ -170,13 +170,13 @@ class BasicProgram:
     # maximum number of bytes/tokens per BASIC line
     maxTokensPerLine = 254
     
-    def __init__(self, data=None, source=None, long_=False, _tifiles=False):
+    def __init__(self, data=None, source=None, long_=False, tifiles_=False):
         self.lines = {}
         self.textlits = []
         self.warnings = []
         if data:
             try:
-                self.load(data, long_, _tifiles)
+                self.load(data, long_, tifiles_)
             except IndexError:
                 self.warn("Program file is corrupted")
 		print traceback.format_exc()
@@ -190,8 +190,8 @@ class BasicProgram:
 
     # program -> source
 
-    def load(self, data, long_, _tifiles):
-	if _tifiles:
+    def load(self, data, long_, tifiles_):
+	if long_ and tifiles_:
 		newdata = data[0:11]
 		for i in range(1, (len(data) / 256)):
 		   newdata += data[(i*256):(i*256)+255]
@@ -523,12 +523,12 @@ def main():
 		    image = image[128:]
 		    tifiles = True
 	    if image[1:3] == "\xab\xcd":
-		long_ = True
+		opts.long_ = True
             if opts.merge:
                 program = BasicProgram()
                 program.merge(image)
             else:
-                program = BasicProgram(data=image, long_=opts.long_, _tifiles=tifiles)
+                program = BasicProgram(data=image, long_=opts.long_, tifiles_=tifiles)
             data = program.getSource()
             output = "-" if opts.list_ else opts.output or barename + ".b99"
         elif opts.dump:
