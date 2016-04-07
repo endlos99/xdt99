@@ -523,7 +523,7 @@ def main():
 		    image = image[128:]
 		    tifiles = True
 	    if image[1:3] == "\xab\xcd":
-		long_ = True;
+		long_ = True
             if opts.merge:
                 program = BasicProgram()
                 program.merge(image)
