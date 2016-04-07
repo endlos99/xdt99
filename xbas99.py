@@ -516,6 +516,8 @@ def main():
             else:
                 with open(opts.source, "rb") as fin:
                     image = fin.read()
+	    if image[1:8] == "TIFILES":
+		    opts.astifiles = True
 	    if opts.astifiles:
 		    image = image[128:]
 		    tifiles = True
