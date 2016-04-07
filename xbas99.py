@@ -191,19 +191,18 @@ class BasicProgram:
     # program -> source
 
     def load(self, data, long_, tifiles_):
-	if long_ and tifiles_:
-		newdata = data[0:11]
-		for i in range(1, (len(data) / 256)):
-		   newdata += data[(i*256):(i*256)+255]
-		data = newdata
         """load tokenized BASIC program"""
         if long_ or data[1:3] == "\xab\xcd":
             # convert long format INT/VAR 254 to PROGRAM
-            program, p = "", 11
+	    if tifiles_:
+	        p = 128
+	    else:
+		p = 11
+            program = ""
             while p < len(data):
                 l = ord(data[p]) + 1
                 program += data[p + 1:p + l]
-                p += l
+                p += l + 1
             data = "XX" + data[5:7] + data[3:5] + "XX" + program
         # extract line number table and token table
         ptrTokens = ordw(data[2:4]) + 1
