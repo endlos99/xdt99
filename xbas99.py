@@ -179,7 +179,7 @@ class BasicProgram:
                 self.load(data, long_, tifiles_)
             except IndexError:
                 self.warn("Program file is corrupted")
-		print traceback.format_exc()
+#		print traceback.format_exc()
         elif source:
             self.parse(source)
 
@@ -204,6 +204,9 @@ class BasicProgram:
                 program += data[p + 1:p + l]
                 p += l + 1
             data = "XX" + data[5:7] + data[3:5] + "XX" + program
+#	f = open("data", "wb")
+#	f.write(data)
+#	f.close()
         # extract line number table and token table
         ptrTokens = ordw(data[2:4]) + 1
         ptrLineNumbers = ordw(data[4:6])
@@ -263,6 +266,9 @@ class BasicProgram:
                     softspace = True
                 else:
                     lit, typ, n = Tokens.literal(tokens[p:])
+		    if not lit:
+			sys.stderr.write("Illegal token\n")
+			sys.exit(1)
                     istext = (lit[0] in "ABCDEFGHIJKLMNOPQRSTUVWXYZ" +
                                         Tokens.STMTSEP) and typ is None
                     if (((istext or lit == "#" or
@@ -418,7 +424,7 @@ class BasicProgram:
                       chrw(checksum) + chrw(lastAddr - 1))
             chunks = [(linoTable + tokenTable)[i:i + 254]
                       for i in xrange(0, len(linoTable + tokenTable), 254)]
-            return (chr(len(header)) + header + (chr(0x00)*(256-len(header))) +
+            return (chr(len(header)) + header + (chr(0x00)*(255-len(header))) +
                     "".join([chr(len(c)) + c + chr(0xff) for c in chunks]))
         else:
             header = (chrw(checksum) + chrw(tokenTabAddr - 1) +
@@ -519,8 +525,14 @@ def main():
 	    if image[1:8] == "TIFILES":
 		    opts.astifiles = True
 	    if opts.astifiles:
-		    image = image[128:]
-		    tifiles = True
+		    flags = ord(image[0x0a])
+		    reclen = ord(image[0x0d])
+		    if (flags & 0x01) or ( (flags & 0x82) and reclen == 0xfe):
+		      image = image[128:]
+		      tifiles = True
+		    else:
+		      print "File is not in TIFILES PROGRAM or IV254 format."
+		      sys.exit(1)
 	    if image[1:3] == "\xab\xcd":
 		opts.long_ = True
             if opts.merge:
@@ -551,6 +563,20 @@ def main():
                     raise BasicError("Invalid line delta for join")
             program = BasicProgram(source=lines)
             data = program.getImage(long_=opts.long_, protected=opts.protect)
+	    if opts.astifiles:
+		tifiles_header = chr(0x07) + "TIFILES" + chr(0x00)
+		print hex(len(data)), len(data), (len(data) // 256)
+		data += chr(0x00)*( (((len(data) // 256) + 1) * 256) - len(data))
+		tifiles_header += chr( (len(data) / 256) + 1)
+		if opts.long_:
+		    tifiles_header += chr(0x82) + chr(0x01)
+		    tifiles_header += chr(0xba) # wrong, placeholder
+		else:
+		    tifiles_header += chr(0x01) + chr(0x00)
+		    tifiles_header += chr(0xba) # wrong, placeholder
+		tifiles_header += chr(0x00)*(128-len(tifiles_header))
+		
+		data = tifiles_header + data
             output = opts.output or barename + ".prg"
 
         if program and program.warnings:
