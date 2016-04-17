@@ -99,8 +99,9 @@ class Disk:
     bytesPerSector = 256
     defaultSectorsPerTrack = 9
     defaultTracks = 40
-    maxSectors = 1600
+    maxSectors = 2880
     blankByte = "\xe5"
+    clusterSize = 1
     
     def __init__(self, image):
         if len(image) < 2 * Disk.bytesPerSector:
@@ -125,10 +126,13 @@ class Disk:
         if len(self.image) < self.totalSectors * Disk.bytesPerSector:
             self.warn("Disk image truncated", "image")
         self.checkGeometry()
+	if self.totalSectors == 2880:
+	    Disk.clusterSize = 2
         self.usedSectors = 0
         try:
-            for i in xrange(used(self.totalSectors, 8)):
-                self.usedSectors += bin(ord(self.allocBitmap[i])).count("1")
+            for i in xrange(used(self.totalSectors / self.clusterSize, 8)):
+                    self.usedSectors += bin(ord(self.allocBitmap[i])).count("1") * self.clusterSize
+
         except IndexError:
             self.warn("Allocation map corrupted", "alloc")
         self.catalog = {}
@@ -187,7 +191,13 @@ class Disk:
                     self.warn("%s: File contents corrupted" % name)
                     error = True
                     continue
-        if len(data) != sectors * Disk.bytesPerSector:
+	if Disk.clusterSize is 2 and ((Disk.bytesPerSector * sectors) % 512):
+	    # pad to multiple of 2 sectors for DSDD80T
+	    expectedLength = Disk.bytesPerSector * (sectors+1)
+	else:
+	    expectedLength = Disk.bytesPerSector * sectors
+	
+        if len(data) != expectedLength:
             self.warn("%s: File size mismatch: found %d bytes, expected %d" % (
                 name, len(data), sectors * Disk.bytesPerSector))
             error = True
@@ -321,10 +331,11 @@ class Disk:
         """check sector allocation for consistency"""
         reads = {n: [] for n in xrange(self.totalSectors)}
         allocated = []
-        for i in xrange(used(self.totalSectors, 8)):
+	for i in xrange(used(self.totalSectors / self.clusterSize, 8)):
             byte = ord(self.allocBitmap[i])
-            for j in xrange(8):
-                allocated.append(byte & 1 << j != 0)
+	    for j in xrange(8):
+		for k in xrange(self.clusterSize):
+                    allocated.append(byte & 1 << j != 0)
         # unallocated sectors
         for n, context in self.readSectors:
             reads[n].append(context)
