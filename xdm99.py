@@ -167,7 +167,11 @@ class Disk:
             if error:
                 fd.error = True
             self.catalog[fd.name] = File(fd=fd, data=data)
-            scount += fd.totalSectors + 1
+	    # Myarc DSDD80T always uses multiple of 512 bytes, including dir
+	    # entries
+	    if ((fd.totalSectors % 2) != 0) and Disk.clusterSize == 2:
+	        fd.totalSectors += 1
+            scount += fd.totalSectors + Disk.clusterSize
         # consistency check
         if scount != self.usedSectors - 2:
             self.warn(
@@ -196,7 +200,7 @@ class Disk:
 	    expectedLength = Disk.bytesPerSector * (sectors+1)
 	else:
 	    expectedLength = Disk.bytesPerSector * sectors
-	
+
         if len(data) != expectedLength:
             self.warn("%s: File size mismatch: found %d bytes, expected %d" % (
                 name, len(data), sectors * Disk.bytesPerSector))
