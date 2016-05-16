@@ -1032,6 +1032,10 @@ class Preprocessor:
     def ENDIF(self, code, ops):
         self.parse = self.parseBranches.pop()
 
+    def ERROR(self, code, ops):
+        if self.parse:
+            raise AsmError("Error state")
+
     def instmargs(self, text):
         try:
             return re.sub(r"#(\d+)",
@@ -1773,6 +1777,7 @@ def main():
     # assembly
     target = ("image" if opts.image else
               "cart" if opts.cart else
+              "bin" if opts.bin else
               "xb" if opts.embed else
               "js" if opts.jstart else
               "obj")
