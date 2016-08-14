@@ -1117,6 +1117,19 @@ As all information about the TI filename and the TI file format is retrieved
 from the FIAD meta data, parameters `-n` and `-f` are ignored when used in
 combination with `-t` or `-9`.
 
+`xdm99` also handles "short" TIFiles used, e.g., by Classic 99.
+
+    $ xdm99.py work.disk -t -a HELLO-S
+
+Short TIFiles do not store TI filename and creation date, but use the host
+filesystem information instead.  `xdm99` detects automatically if a given
+TIFiles file is in long or short TIFiles format.
+
+Extracted TIFiles are always in long format, but Classic 99 can use those files
+just as well if the extension `.tfi` is removed.  To simplify exchange with
+Classic 99, the `--ti-names` option will use the uppercase name without
+extension.
+
 The info parameter `-I` displays the meta file information contained in FIAD
 files, while the print parameter `-P` dumps the file contents to
 `stdout`:
@@ -1124,8 +1137,7 @@ files, while the print parameter `-P` dumps the file contents to
     $ xdm99.py -I hello-s.tfi
     $ xdm99.py -P hello-s.v9t9
 
- 
-`xdm99` can also convert from FIAD files to plain files and vice versa without 
+`xdm99` can also convert from FIAD files to plain files and vice versa without
 relying on disk images using the `-T` and `-F` parameters:
 
     $ xdm99.py -F hello-s.tfi

@@ -54,6 +54,9 @@ class Disks:
     asmdumpRand = os.path.join(Dirs.disks, "asmdumpr.dsk")
     # reference image files
     asmimgs = os.path.join(Dirs.disks, "asmimgs.dsk")
+    tisssd = os.path.join(Dirs.disks, "tisssd.dsk")
+    tidsdd = os.path.join(Dirs.disks, "tidsdd.dsk")
+    tidssd80 = os.path.join(Dirs.disks, "tidssd80.hd")
     # GPL sources
     gplsrcs = os.path.join(Dirs.disks, "gplsrcs.dsk")
     # BASIC sources

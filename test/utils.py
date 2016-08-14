@@ -118,6 +118,22 @@ def checkBinaryFilesEq(tid, infile, reffile, mask):
             error(tid, "%s: File contents mismatch" % infile)
 
 
+def checkFileMatches(infile, matches):
+    """check if text file contents match regular expressions"""
+    try:
+        with open(infile, "r") as f:
+            contents = f.readlines()
+    except IOError:
+        error("CLI", "%s: File not found" % infile)
+    for line, pattern in matches:
+        try:
+            if not re.search(pattern, contents[line]):
+                error("CLI",
+                      "%s: Line %d does not match" % (infile, line))
+        except IndexError:
+            error("CLI", "%s: Line %d missing" % (infile, line))
+
+
 ### Common check functions: xas99
 
 def checkObjCodeEq(infile, reffile):

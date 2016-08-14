@@ -2,9 +2,15 @@
 
 import os
 import shutil
+import datetime
 
 from config import Dirs, Disks, Files, Masks
-from utils import xdm, checkFilesEq
+from utils import xdm, checkFilesEq, checkFileMatches
+
+
+def tiname(s):
+    """create TI filename from local filename"""
+    return os.path.splitext(os.path.basename(s))[0][:10].upper()
 
 
 ### Main test
@@ -52,6 +58,20 @@ def runtest():
     xdm(Disks.work, "-e", "F1", "-o", Files.output)
     checkFilesEq("Frag Disk", Files.output, os.path.join(Dirs.refs, "FRAGF1"),
                  "DIS/VAR127")
+
+    # compare short and long TIFiles
+    rfile = os.path.join(Dirs.refs, "V64V")
+    shutil.copyfile(rfile, Files.reference)
+    with open(Files.output, "w") as f:
+        xdm(Disks.work, "-I", Files.reference, stdout=f)
+    checkFileMatches(Files.output,
+                     [(0, "^%-10s" % tiname(Files.reference) +
+                          r"\s+4  DIS/VAR 64\s+575 B\s+9 recs\s+" +
+                          str(datetime.date.today()))])
+    xdm(Disks.work, "-X", "sssd", "-t", "-a", rfile)
+    xdm(Disks.work, "-e", "V64V", "-o", Files.output)
+    xdm("-F", rfile, "-o", Files.reference)
+    checkFilesEq("Short TIFiles", Files.output, Files.reference, "DIS/VAR64")
 
     # cleanup
     os.remove(Files.output)

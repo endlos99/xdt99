@@ -5,7 +5,7 @@ import shutil
 import re
 
 from config import Dirs, Disks, Files, Masks
-from utils import xdm, error, checkFilesEq
+from utils import xdm, error, checkFilesEq, checkFileMatches
 
 
 ### Check functions
@@ -32,19 +32,14 @@ def checkFileSize(infile, size):
                   infile, statinfo.st_size, size))
 
 
-def checkFileMatches(infile, matches):
-    """check if text file contents match regular expressions"""
-    try:
-        with open(infile, "r") as f:
-            contents = f.readlines()
-    except IOError:
-        error("CLI", "%s: File not found" % infile)
-    for line, pattern in matches:
-        try:
-            if not re.search(pattern, contents[line]):
-                error("CLI", "%s: Line %d does not match" % (infile, line))
-        except IndexError:
-            error("CLI", "%s: Line %d missing" % (infile, line))
+def checkDisksEq(disk, ref):
+    """check if disk metadata (sectors 0 and 1) are equal"""
+    with open(disk, "rb") as f:
+        dat = f.read(512)
+    with open(ref, "rb") as f:
+        ref = f.read(512)
+    if dat != ref:
+        error("CLI", "Disk metadata mismatch");
 
 
 ### Main test
@@ -224,7 +219,36 @@ def runtest():
         xdm(Disks.work, "--resize", "2S", stderr=ferr, rc=1)
         xdm(Disks.work, "--resize", "80T", stderr=ferr, rc=1)
         xdm(Disks.work, "--set-geometry", "123", stderr=ferr, rc=1)
-    
+
+    # xdm99 vs real images
+    rfile = os.path.join(Dirs.refs, "ti-text")  # TEXT D/V80
+    with open(Files.output, "w") as fout, open(Files.error, "w") as ferr:
+        xdm(Disks.work, "-X", "sssd", "-n", "TI-DISK", stderr=ferr, rc=0)
+        xdm(Disks.work, "-a", rfile, "-n", "TEXT", "-f", "dv80",
+            stderr=ferr, rc=0)
+        checkFileLen(Files.error, maxlines=0)
+        checkDisksEq(Disks.work, Disks.tisssd)
+        xdm(Disks.work, "-X", "dsdd", "-n", "TI-DISK", stderr=ferr, rc=0)
+        xdm(Disks.work, "-a", rfile, "-n", "TEXT", "-f", "dv80",
+            stderr=ferr, rc=0)
+        checkFileLen(Files.error, maxlines=0)
+        checkDisksEq(Disks.work, Disks.tidsdd)
+        xdm(Disks.work, "-Z", "sssd", stderr=ferr, rc=0)
+        checkFileLen(Files.error, maxlines=0)
+        checkDisksEq(Disks.work, Disks.tisssd)
+        xdm(Disks.work, "--set-geometry", "ssdd", stderr=ferr, rc=0)  # warn
+        checkFileLen(Files.error, minlines=1, maxlines=1)
+        xdm(Disks.work, "-i", stdout=fout, stderr=ferr, rc=0)  # warn
+        checkFileLen(Files.error, minlines=2, maxlines=2)
+        xdm(Disks.work, "-Z", "dsdd", stderr=ferr, rc=0)
+        checkFileLen(Files.error, maxlines=2)
+        checkDisksEq(Disks.work, Disks.tidsdd)
+        xdm(Disks.work, "--set-geometry", "ssdd80t", stderr=ferr, rc=0)
+        checkFileLen(Files.error, maxlines=2)
+        xdm(Disks.work, "-X", "dssd80t", "-n", "TI-DSSD80", stderr=ferr, rc=0)
+        checkFileLen(Files.error, maxlines=2)
+        checkDisksEq(Disks.work, Disks.tidssd80)
+
     # repair disks
     shutil.copyfile(Disks.bad, Disks.work)
     with open(Files.output, "w") as f1, open(Files.reference, "w") as f2:
@@ -286,6 +310,19 @@ def runtest():
     xdm("-T", "dv064x010", "-9", "-n", "DV064X010", "-f", "DIS/VAR 64")
     checkFilesEq("CLI", "dv064x010.v9t9", Files.output, "PROGRAM", Masks.v9t9)
 
+    # TI names
+    shutil.copyfile(Disks.recsdis, Disks.work)
+    xdm(Disks.work, "-t", "-e", "F16", "V16")
+    xdm(Disks.work, "-t", "-e", "F16", "V16", "--ti-names")
+    checkFilesEq("TI names", "F16", "f16.tfi", "PROGRAM")
+    checkFilesEq("TI names", "V16", "v16.tfi", "PROGRAM")
+    xdm(Disks.work, "-9", "-e", "F1")
+    xdm(Disks.work, "-9", "-e", "F1", "--ti-names")
+    checkFilesEq("TI names", "F1", "f1.v9t9", "PROGRAM")
+    xdm(Disks.work, "-e", "V1", "-o", Files.reference)
+    xdm(Disks.work, "-e", "V1", "--ti-names")
+    checkFilesEq("TI names", "V1", Files.reference, "PROGRAM")
+
     # stdin and stdout
     ref = os.path.join(Dirs.refs, "vardis")
     with open(ref, "r") as fin:
@@ -319,7 +356,8 @@ def runtest():
         "prog00001", "prog00002", "prog00255", "dv064x010",
         "df002x001", "df127x001", "df127x010", "df127x020p",
         "prog00001.tfi", "prog00002.tfi", "prog00255.tfi", "dv064x010.tfi",
-        "prog00002.v9t9", "prog00255.v9t9", "dv064x010.v9t9"
+        "prog00002.v9t9", "prog00255.v9t9", "dv064x010.v9t9",
+        "F16", "V16", "f16.tfi", "v16.tfi", "F1", "f1.v9t9", "V1"
         ]:
         os.remove(fn)
 
