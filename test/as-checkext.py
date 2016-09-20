@@ -50,6 +50,9 @@ def runtest():
     xas(source, "-R", "-D", "sym2=2", "sym3=2", "-o", Files.output)
     xdm(Disks.asmsrcs, "-e", "ASXEXT2-O", "-o", Files.reference)
     checkObjCodeEq(Files.output, Files.reference)
+    xas(source, "-R", "-D", "sym2=2,sym3=2", "-o", Files.output)
+    xdm(Disks.asmsrcs, "-e", "ASXEXT2-O", "-o", Files.reference)
+    checkObjCodeEq(Files.output, Files.reference)
 
     # some CLI options
     source = os.path.join(Dirs.sources, "ashello.asm")
