@@ -10,8 +10,9 @@ As of this release, the cross-development tools comprise
  * `xas99`, a TMS9900 cross-assembler,
  * `xga99`, a GPL cross-assembler,
  * `xbas99`, a TI BASIC and TI Extended BASIC lister and encoder,
- * `xdm99`, a disk manager for sector-based TI disk images, and
- * `xvm99`, a volume manager for nanoPEB/CF7A Compact Flash cards.
+ * `xdm99`, a disk manager for sector-based TI disk images,
+ * `xhm99`, a manager for HFE images used by HxC floppy emulators, and
+ * `xvm99`, a volume manager for nanoPEB/CF7+ Compact Flash cards.
 
 All programs are written in Python and thus run on any platform that Python
 supports, including Linux, Windows, and OS X.
@@ -57,12 +58,13 @@ well.  Note, however, that compatibility with Python 3 has been postponed to a
 later release for now.
 
 Both cross-assemblers and the disk manager are self-contained Python programs
-that may be used independently of each other.  The volume manager depends on the
-disk manager and cannot be used without it.  For installation, simply place the
-files `xas99.py`, `xga99.py`, `xbas99.py`, `xdm99.py` and/or `xvm99.py`
-somewhere into your `$PATH` or where your command-line interpreter will find
-them.  Windows users will find additional information about installation and how
-to get started in the [Windows Tutorial][6].
+that may be used independently of each other.  The volume manager and the HFE
+manager depends on the disk manager and cannot be used without it.  For
+installation, simply place the files `xas99.py`, `xga99.py`, `xbas99.py`,
+`xdm99.py`, `xhm99.py`, and `xvm99.py` somewhere in your `$PATH` or where your
+command-line interpreter will find them.  Windows users will find additional
+information about installation and how to get started in the
+[Windows Tutorial][6].
 
 The `ide/` directory contains the editor plugins for GNU Emacs and IntelliJ
 IDEA.  Please refer to the `EDITORS.md` file for further information about
@@ -1232,13 +1234,85 @@ For convenience, integer arguments of `-S`, `-X` and `-Z` may be specified in
 either decimal or hexadecimal notation.
 
 
-xvm99 Volume Manager
---------------------
+xhm99 HFE Image Manager
+-----------------------
 
-`xvm99` is an extension to the `xdm99` tool specifically for the
-nanoPEB/CF7A-kind of devices that simulate TI floppy drives using Compact Flash
-cards.  `xvm99` manages and manipulates the disk images stored in the individual
-volumes of CF cards.
+The `xhm99` HFE image manager is an extension to the `xdm99` disk manager that
+is both a conversion tool and a manager for HFE images used by HxC floppy
+emulators.
+
+
+### Converting Images
+
+To convert an existing disk image to an HFE image that can be copied onto an SD
+card and used by the HxC floppy emulator, invoke `xhm99` with a single to HFE
+`-T` argument:
+
+	$ xhm99.py -T work.dsk [...] [-o <filename>]
+
+This yields the file `work.hfe` by default.  Instead of `-T` you may also use
+the long format `--to-hfe`.
+
+Similarly, the from HFE `-F` argument converts from HFE image back to disk
+image:
+
+	$ xhm99.py -F image.hfe [-o <filename>]
+
+This yields the file `image.dsk` by default.  Instead of `-F` you may also use
+the long formats `--from-hfe` or `--to-dsk`.
+
+
+### Managing Image Contents
+
+All options other than `-F` and `-T` are similar to those of `xdm99` and operate
+directly on the disk image that is contained in the HFE image supplied.
+
+To show the contents of a HFE image, simply invoke `xhm99` with the HFE filename
+and no further arguments.
+
+	$ xhm99.py image.hfe
+    SOMEDISK  :     4 used  356 free   90 KB  1S/1D 40T  9 S/T
+    ----------------------------------------------------------------------------
+    SOMEFILE       2  DIS/FIX 60      60 B    1 recs  2016-08-18 20:50:12    
+
+To show the contents of a file on the console, use the print argument `-P`.
+
+	$ xhm99.py image.hfe -p SOMEFILE
+	Hello xdt99, meet HFE!
+
+You may also add, extract, rename, or delete files:
+
+	$ xhm99.py image.hfe -a manual.txt -f dv80
+	$ xhm99.py image.hfe -r MANUAL:README
+	$ xhm99.py image.hfe -e SOMEFILE -o greeting.txt
+	$ xhm99.py image.hfe -d SOMEFILE
+
+To create a new HFE image from a single FIAD file, combine the initialize option
+`-X` with the add file argument `-a` and the TIFiles option `-t`:
+
+	$ xhm99.py new.hfe -X dssd -a somegame.tfi -t
+
+You can also resize HFE images, e.g., if you want to create more free space:
+
+	$ xhm99.py sssd_image.hfe -Z ssdd
+
+The resize argument `-Z` can even change the number of tracks, e.g., converting
+from DSDD with 40 tracks to DSSD with 80 tracks:
+
+	$ xhm99.py dsdd_image.hfe -Z dssd80t
+
+The only format currently not supported is DSDD80T.
+
+For further information about available arguments please refer to the `xdm99`
+section above.
+
+
+xvm99 nanoPEB Volume Manager
+----------------------------
+
+The `xvm99` volume manager is an extension to the `xdm99` disk manager that is
+both a conversion tool and a manager for CF card volumes used by nanoPEB/CF7+
+devices.
 
 
 ### Managing Volumes
@@ -1263,12 +1337,12 @@ The second argument may be a single volume number or a combination of value
 ranges, e.g., `1,3-4,6-10`.  In general, if more than one volume is specified,
 then the command is applied to *all* volumes.
 
-The `-w` parameter writes a disk image to one or more volumes.
+The `-w` argument writes a disk image to one or more volumes.
 
     $ xvm99.py /dev/sdc 1,3 -w work.dsk
 
 `xvm99` automatically extends the disk image to match the 1600 sector format
-used by the CF7A device, unless the `--keep-size` option is given.
+used by the CF7+ device, unless the `--keep-size` option is given.
 
 The `-r` argument reads a disk image from a volume and stores it on the local
 file system.
@@ -1466,12 +1540,12 @@ program.
 Note that the programs runs without the 32K memory expansion, as the
 program code is stored inside a virtual cartridge ROM.
 
-If we want to run our sample program on a real TI 99 using the CF7A flash drive,
+If we want to run our sample program on a real TI 99 using the CF7+ flash drive,
 we need to transfer our disk image to a flash card first:
 
     $ xvm99.py /dev/sdc 2 -w work.dsk
 
-This will make our work disk from above available as volume 2 on the CF7A, where
+This will make our work disk from above available as volume 2 on the CF7+, where
 it can be accessed as `DSK2` by default on the TI 99.  If we don't want to
 replace the entire disk contents of volume 2 we could also just transfer the
 file instead.

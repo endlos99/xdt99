@@ -2,7 +2,7 @@ import sys
 import re
 
 from subprocess import call
-from config import xdmPy, xvmPy, xasPy, xgaPy, xbasPy
+from config import xdmPy, xhmPy, xvmPy, xasPy, xgaPy, xbasPy
 
 
 ### Utility functions
@@ -27,6 +27,18 @@ def xdm(*args, **kargs):
                   stdout=kargs.get("stdout"), stderr=kargs.get("stderr"))
     if rc != kargs.get("rc", 0):
         error("OS", "xdm99 call returned with failure code " + str(rc))
+
+
+def xhm(*args, **kargs):
+    """invoke HFE Manager"""
+    print "HM:", args
+    if kargs.get("shell"):
+        rc = call(" ".join(xhmPy + list(args)), shell=True)
+    else:
+        rc = call(xhmPy + list(args),
+                  stdout=kargs.get("stdout"), stderr=kargs.get("stderr"))
+    if rc != kargs.get("rc", 0):
+        error("OS", "xhm99 call returned with failure code " + str(rc))
 
 
 def xvm(*args, **kargs):

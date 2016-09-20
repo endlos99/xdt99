@@ -12,6 +12,9 @@ xgaPy = ["../xga99.py"]
 xdmPy = ["../xdm99.py"]
 #xdmPy = ["c:\\bin\\python2\\python.exe", "..\\xdm99.py"]
 
+xhmPy = ["../xhm99.py"]
+#xhmPy = ["c:\\bin\\python2\\python.exe", "..\\xhm99.py"]
+
 xvmPy = ["../xvm99.py"]
 #xvmPy = ["c:\\bin\\python2\\python.exe", "..\\xvm99.py"]
 
@@ -26,6 +29,8 @@ class Dirs:
     disks = "disk"
     # reference files
     refs = "files"
+    # HFE images and files
+    hfe = "hfe"
     # assembler sources
     sources = "asm"
     # GPL sources
@@ -67,6 +72,8 @@ class Disks:
     # scratch disks
     work = os.path.join(Dirs.tmp, "work.dsk")
     tifiles = os.path.join(Dirs.tmp, "tifiles.dsk")
+    # HFE work disk
+    hfe = os.path.join(Dirs.hfe, "hfedisk_dsk.hfe.gz")
     # simulated CF volume
     volumes = os.path.join(Dirs.tmp, "volumes.dev")
 

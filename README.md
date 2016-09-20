@@ -9,7 +9,8 @@ modern computer systems:
  * `xga99`: A GPL cross-assembler
  * `xbas99`: A TI BASIC and TI Extended BASIC lister and encoder
  * `xdm99`: A disk manager for sector-based TI disk images
- * `xvm99`: A volume manager for nanoPEB/CF7A Compact Flash cards
+ * `xhm99`: A manager for HFE images used by HxC floppy emulators
+ * `xvm99`: A volume manager for nanoPEB/CF7+ Compact Flash cards
  * `xdt99-mode`: A major mode for the GNU Emacs text editor
  * `xdt99 IDEA`: A plugin for the IntelliJ IDEA development environment
 
@@ -33,7 +34,8 @@ similarly to the `LIST` command.
 The `xdm99` disk manager works with sector-based TI disk images used by most
 emulators, including MESS.  `xdm99` also supports disk-less files in TIFiles and
 V9T9 format.  The `xvm99` volume manager extends the `xdm99` functionality to CF
-cards used by the nanoPEB/CF7A devices.
+cards used by the nanoPEB/CF7+ devices.  Similarly, `xhm99` extends `xdm99` to
+HFE images used by the HxC floppy emulators.
 
 The `xdt99-mode` and `xdt99 IDEA` plugins provide editor support for writing
 assembly and TI Extended BASIC programs using the GNU Emacs and the IntelliJ
@@ -44,7 +46,7 @@ For additional information, please refer to the [xdt99 homepage][1] or the
 [xdt99 manual][4].  Windows users unfamiliar with working with the command line
 will find some platform-specific information in the [Windows tutorial][5].
 
-**Latest version: 1.5.3**
+**Latest version: 1.6.0**
 
 The latest binary distribution of xdt99 is available on the project
 [releases page][2] on GitHub.  xdt99 requires [Python 2.7.x][6] and runs on any
@@ -60,11 +62,12 @@ Download and Installation
 Download the latest [binary release][2] from GitHub.  Alternatively, clone the
 entire xdt99 GitHub [repository][3].
 
-All tools -- `xas99` cross-assembler, `xga99` GPL cross-assembler, `xbas99`
-BASIC tool, `xdm99` disk manager, and `xvm99` volume manager -- are standalone
-self-contained Python programs (but `xvm99` requires `xdm99`).  Simply place the
-files `xas99.py`, `xga99.py`, `xbas99.py`, `xdm99.py`, and `xvm99.py` somewhere
-into your `$PATH` or wherever your Python installation will find them.
+All language tools -- `xas99` cross-assembler, `xga99` GPL cross-assembler, and
+`xbas99` BASIC tool -- are standalone self-contained Python programs.  The
+`xdm99` disk manager can also be used by its own, but the `xvm99` volume manager
+and the `xhm99` image manager require `xdm99` to function.  To be on the safe
+side, simply place all files somewhere in your `$PATH` or wherever your Python
+installation will find them.
 
 The `xdt99-mode` and `xdt99 IDEA` plugins provide editor support and may be used
 independently of the other xdt99 tools.  Likewise, `xas99` and others may be
@@ -266,6 +269,44 @@ For a complete overview of the available command-line options, see `xdm99.py
 -h`.
 
 
+Basic Usage: `xhm99`
+--------------------
+
+This is just a brief overview of the most common usages for `xhm99`.  For
+detailed information, please refer to the [xdt99 homepage][1] or the manual
+included with xdt99.
+
+Convert disk image to HFE image:
+
+    $ xhm99.py -T <disk image> [-o <HFE image>]
+
+Convert HFE image to disk image:
+
+    $ xhm99.py -F <HFE image> [-o <disk image>]
+
+Show disk catalog:
+
+    $ xhm99.py <HFE image>
+
+Additionally, `xhm99` supports all commands of `xdm99`.
+
+Add or remove files to/from image:
+
+    $ xhm99.py <HFE file> -a <files> ... [-n <name>] [-f <format>] [-t | -9]
+    $ xhm99.py <HFE file> -e <files> ...
+
+Create new image (and add a file to it):
+
+	$ xhm99.py <HFE file> -X <size> [-a <files> ...]
+
+Resize image (e.g., DSDD/40T to DSSD/80T):
+
+    $ xhm99.py <HFE file> -Z <size>
+
+For a complete overview of the available command-line options, see `xhm99.py
+-h`.
+
+
 Basic Usage: `xvm99`
 --------------------
 
@@ -302,7 +343,7 @@ Print disk catalog of one or more volumes:
 
 Add file to one or more volumes:
 
-    $ xvm99.py <device> <volumes> -a <file> [-n <name>] [-f <format>]
+    $ xvm99.py <device> <volumes> -a <file> [-n <name>] [-f <format>] [-t | -9]
 
 For a complete overview of the available command-line options, see `xvm99.py
 -h`.

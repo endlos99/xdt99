@@ -24,7 +24,7 @@ import re
 import datetime
 import os.path
 
-VERSION = "1.5.4"
+VERSION = "1.6.0"
 
 
 ### Utility functions
@@ -78,10 +78,10 @@ def writedata(n, d, m="wb"):
             f.write(d)
 
 
-def readdata(n, m="r"):
-    """read data from file or STDIN"""
+def readdata(n, m="r", d=None):
+    """read data from file or STDIN (or return supplied data)"""
     if n == "-":
-        return sys.stdin.read()
+        return d or sys.stdin.read()
     else:
         with open(n, m) as f:
             return f.read()
@@ -110,6 +110,8 @@ class Disk:
         self.warnings = {}
         # meta data
         sector0 = self.getSector(0)
+        if sector0[0] == "\x00" and sector0[21:23] == "\x00\xfe":
+            raise DiskError("Track dump images not supported")
         self.name = sector0[:0x0A]
         self.totalSectors = ordw(sector0[0x0A:0x0C])
         self.sectorsPerTrack = ord(sector0[0x0C])
@@ -268,7 +270,7 @@ class Disk:
 
     def getSector(self, n, context=None):
         """retrieve sector from image"""
-        if n > 0 and n > self.totalSectors:
+        if n > 0 and n >= self.totalSectors:
             raise IndexError("Invalid sector number")
         if context:
             self.readSectors.append((n, context))
@@ -397,11 +399,11 @@ class Disk:
 
     def getInfo(self):
         """return information about disk image"""
-        return "%10s: %c   %d used  %d free   %d KB  %dS/%dD  %2d TpS\n" % (
+        return "%10s: %c   %d used  %d free   %d KB  %dS/%dD %dT  %d S/T\n" % (
             self.name, self.protected,
             self.usedSectors, self.totalSectors - self.usedSectors,
             self.totalSectors * Disk.bytesPerSector / 1024,
-            self.sides, self.density, self.tracksPerSide)
+            self.sides, self.density, self.tracksPerSide, self.sectorsPerTrack)
 
     def getCatalog(self):
         """return formatted disk catalog"""
@@ -492,6 +494,7 @@ class FileDescriptor:
     """file meta data descriptor based on TI disk image format"""
 
     def __init__(self, name=None, fmt=None, sector=None, header=None, hostfn=None):
+        self.error = False
         if sector:
             self.initSector(sector)
         elif header:
@@ -512,7 +515,6 @@ class FileDescriptor:
         self.size = (self.totalSectors * Disk.bytesPerSector -
                      pad(self.eofOffset, Disk.bytesPerSector))  # excludes FDR
         self.actualRecords = -1
-        self.error = False
 
     def init(self, name, fmt):
         """create new empty file"""
@@ -729,7 +731,7 @@ class File:
                         r, len(record) - self.fd.recordLen))
                     record = record[:self.fd.recordLen]
                 if p + 1 + len(record) + 1 > Disk.bytesPerSector and p > 0:
-                    data += "\xFF" + "\x00" * (Disk.bytesPerSector - p - 1)
+                    data += "\xff" + "\x00" * (Disk.bytesPerSector - p - 1)
                     s, p = s + 1, 0
                 data += chr(len(record)) + record
                 r += 1
@@ -841,7 +843,7 @@ def dump(s):
     return result
 
 
-def imageCmds(opts):
+def imageCmds(opts, extdata=None):
     """disk image manipulation"""
     rc, result = 0, []
     fmt = opts.format.upper() if opts.format else "PROGRAM"
@@ -851,9 +853,9 @@ def imageCmds(opts):
     if opts.init:
         barename = os.path.splitext(os.path.basename(opts.filename))[0]
         image = Disk.blankImage(opts.init, opts.name or barename[:10].upper())
-        result = [(image, opts.filename, "wb")]
+        result = (image, opts.filename, "wb")
     else:
-        image = readdata(opts.filename, "rb")
+        image = extdata or readdata(opts.filename, "rb")
     disk = Disk(image)
 
     # apply command to image
@@ -900,35 +902,35 @@ def imageCmds(opts):
                 if f.warnings and not opts.quiet:
                     sys.stderr.write(f.getWarnings())
                 disk.addFile(f)
-        result = [(disk.getImage(), opts.filename, "wb")]
+        result = (disk.getImage(), opts.filename, "wb")
     elif opts.rename:
         names = [arg.split(":") for arg in opts.rename]
         disk.renameFiles(names)
-        result = [(disk.getImage(), opts.filename, "wb")]
+        result = (disk.getImage(), opts.filename, "wb")
     elif opts.delete:
         files = disk.globFiles(opts.delete)
         for name in files:
             disk.removeFile(name)
-        result = [(disk.getImage(), opts.filename, "wb")]
+        result = (disk.getImage(), opts.filename, "wb")
     elif opts.resize:
         size, layout = Disk.parseGeometry(opts.resize)
         disk.resizeDisk(size)
         if layout:
             sides, density, tracks = layout
             disk.setGeometry(sides, density, tracks or Disk.defaultTracks)
-        result = [(disk.getImage(), opts.filename, "wb")]
+        result = (disk.getImage(), opts.filename, "wb")
     elif opts.geometry:
         size, layout = Disk.parseGeometry(opts.geometry)
         try:
             disk.setGeometry(*layout)
         except TypeError:
             raise DiskError("Invalid disk geometry " + opts.geometry)
-        result = [(disk.getImage(), opts.filename, "wb")]
+        result = (disk.getImage(), opts.filename, "wb")
     elif opts.checkonly:
         rc = 1 if disk.warnings else 0
     elif opts.repair:
         disk.fixDisk()
-        result = [(disk.getImage(), opts.filename, "wb")]
+        result = (disk.getImage(), opts.filename, "wb")
     elif opts.sector:
         opts.quiet = True
         try:
@@ -981,7 +983,7 @@ def fiadCmds(opts):
     return rc, result
 
 
-def main():
+def main(argv, extdata=None):
     import os
     import argparse
     import glob
@@ -1078,7 +1080,7 @@ def main():
     args.add_argument(
         "-q", "--quiet", action="store_true", dest="quiet",
         help="suppress all warnings")
-    opts = args.parse_args()
+    opts = args.parse_args(argv)
 
     # process image
     try:
@@ -1088,11 +1090,17 @@ def main():
             args.print_usage(sys.stderr)
             sys.exit("Error: Missing disk image")
         else:
-            rc, result = imageCmds(opts)
+            rc, result = imageCmds(opts, extdata)
     except (IOError, DiskError, FileError) as e:
         sys.exit("Error: " + str(e))
 
+    # process result
+    if extdata:
+        return result
+
     # write result
+    if isinstance(result, tuple):  # main file manipulation
+        result = [result]
     for data, name, mode in result:
         outname = opts.output or name
         try:
@@ -1104,5 +1112,5 @@ def main():
     return rc
 
 if __name__ == "__main__":
-    status = main()
+    status = main(sys.argv[1:])
     sys.exit(status)
