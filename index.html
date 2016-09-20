@@ -32,7 +32,7 @@
     <div id="main_content_wrap" class="outer">
       <section id="main_content" class="inner">
         <h1>
-<a id="xdt99-ti-99-cross-development-tools" class="anchor" href="#xdt99-ti-99-cross-development-tools" aria-hidden="true"><span class="octicon octicon-link"></span></a>xdt99: TI 99 Cross-Development Tools</h1>
+<a id="xdt99-ti-99-cross-development-tools" class="anchor" href="#xdt99-ti-99-cross-development-tools" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>xdt99: TI 99 Cross-Development Tools</h1>
 
 <p>The <strong>TI 99 Cross-Development Tools</strong> (xdt99) are a small suite of programs that
 facilitate the development of programs for the TI 99 family of home computers on
@@ -48,9 +48,11 @@ modern computer systems.</p>
 <li>
 <code>xbas99</code>, a TI BASIC and TI Extended BASIC lister and encoder,</li>
 <li>
-<code>xdm99</code>, a disk manager for sector-based TI disk images, and</li>
+<code>xdm99</code>, a disk manager for sector-based TI disk images,</li>
 <li>
-<code>xvm99</code>, a volume manager for nanoPEB/CF7A Compact Flash cards.</li>
+<code>xhm99</code>, a manager for HFE images used by HxC floppy emulators, and</li>
+<li>
+<code>xvm99</code>, a volume manager for nanoPEB/CF7+ Compact Flash cards.</li>
 </ul>
 
 <p>All programs are written in Python and thus run on any platform that Python
@@ -89,7 +91,7 @@ xdt99.</p>
 <p>The <a href="https://endlos99.github.io/xdt99">xdt99 homepage</a> always hosts the latest version of this document.</p>
 
 <h2>
-<a id="installation" class="anchor" href="#installation" aria-hidden="true"><span class="octicon octicon-link"></span></a>Installation</h2>
+<a id="installation" class="anchor" href="#installation" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Installation</h2>
 
 <p>Download the latest <a href="https://github.com/endlos99/xdt99/releases">binary release</a> from GitHub (recommended) or clone the
 <a href="https://github.com/endlos99/xdt99">xdt99 repository</a>.  Please note that the big download buttons on top of the
@@ -102,12 +104,13 @@ well.  Note, however, that compatibility with Python 3 has been postponed to a
 later release for now.</p>
 
 <p>Both cross-assemblers and the disk manager are self-contained Python programs
-that may be used independently of each other.  The volume manager depends on the
-disk manager and cannot be used without it.  For installation, simply place the
-files <code>xas99.py</code>, <code>xga99.py</code>, <code>xbas99.py</code>, <code>xdm99.py</code> and/or <code>xvm99.py</code>
-somewhere into your <code>$PATH</code> or where your command-line interpreter will find
-them.  Windows users will find additional information about installation and how
-to get started in the <a href="http://www.mizapf.de/ti99/tiimagetool.html">Windows Tutorial</a>.</p>
+that may be used independently of each other.  The volume manager and the HFE
+manager depends on the disk manager and cannot be used without it.  For
+installation, simply place the files <code>xas99.py</code>, <code>xga99.py</code>, <code>xbas99.py</code>,
+<code>xdm99.py</code>, <code>xhm99.py</code>, and <code>xvm99.py</code> somewhere in your <code>$PATH</code> or where your
+command-line interpreter will find them.  Windows users will find additional
+information about installation and how to get started in the
+<a href="http://www.mizapf.de/ti99/tiimagetool.html">Windows Tutorial</a>.</p>
 
 <p>The <code>ide/</code> directory contains the editor plugins for GNU Emacs and IntelliJ
 IDEA.  Please refer to the <code>EDITORS.md</code> file for further information about
@@ -120,7 +123,7 @@ functions that you may use in your TI programs.</p>
 that are referenced throughout this manual.</p>
 
 <h2>
-<a id="xas99-cross-assembler" class="anchor" href="#xas99-cross-assembler" aria-hidden="true"><span class="octicon octicon-link"></span></a>xas99 Cross-Assembler</h2>
+<a id="xas99-cross-assembler" class="anchor" href="#xas99-cross-assembler" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>xas99 Cross-Assembler</h2>
 
 <p>The <code>xas99</code> cross-assembler translates TMS9900 assembly code into executable
 programs for the TI 99 home computer equipped with the Editor/Assembler module
@@ -159,7 +162,7 @@ notably the TI 990 mini computers, <code>xas99</code> currently targets the TI 9
 exclusively.</p>
 
 <h3>
-<a id="assembling-source-code" class="anchor" href="#assembling-source-code" aria-hidden="true"><span class="octicon octicon-link"></span></a>Assembling Source Code</h3>
+<a id="assembling-source-code" class="anchor" href="#assembling-source-code" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Assembling Source Code</h3>
 
 <p>The <code>xas99</code> cross-assembler reads an assembly source code file and generates an
 uncompressed object code file that is suitable for the original TI 99
@@ -186,7 +189,7 @@ Editor/Assembler, but it should be able to assemble any source that the
 Editor/Assembler package can assemble.</p>
 
 <h3>
-<a id="creating-program-images" class="anchor" href="#creating-program-images" aria-hidden="true"><span class="octicon octicon-link"></span></a>Creating Program Images</h3>
+<a id="creating-program-images" class="anchor" href="#creating-program-images" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Creating Program Images</h3>
 
 <p>The image parameter <code>-i</code> tells <code>xas99</code> to generate image files that can be
 loaded using Editor/Assembler option 5.</p>
@@ -194,17 +197,17 @@ loaded using Editor/Assembler option 5.</p>
 <pre><code>$ xas99.py -R -i ashello.a99
 </code></pre>
 
-<p>Images larger than 8 KB are split automatically into multiple files, using
-the filename convention of the Editor/Assembler module.</p>
+<p>Images larger than 8 KB are split automatically into multiple files, using the
+filename convention of the Editor/Assembler module.</p>
 
 <p>The <code>-i</code> parameter simulates the <code>SAVE</code> utility program shipped with the
-Editor/Assembler package and honors the symbols <code>SFIRST</code> and <code>SLAST</code> to
-generate a single image for the entire memory area spanned by those two
-addresses.</p>
+Editor/Assembler package and honors the symbols <code>SFIRST</code> and <code>SLAST</code> to generate
+a single image for the entire memory area spanned by those two addresses.  The
+image is automatically chunked into 8 KB files for the E/A loader.</p>
 
-<p>Alternatively, if either symbol is missing, <code>xas99</code> will generate separate
-image files for each program segment defined in the assembly source code.
-For example, the assembly of source file</p>
+<p>Alternatively, if either symbol is missing, <code>xas99</code> will generate separate image
+files for each program segment defined in the assembly source code.  For
+example, the assembly of source file</p>
 
 <pre><code>     AORG &gt;A000
 L1   B @L2
@@ -212,18 +215,23 @@ L1   B @L2
 L2   B @L1
 </code></pre>
 
-<p>will yield two images files of 10 bytes each instead of a single file of 4 KB.
-Relocatable segments will be relocated to memory locations <code>&gt;A000</code> upwards.</p>
+<p>will yield two images files of 10 bytes each instead of a single file of 4 KB.</p>
 
 <p>Note that the E/A loader for program files happily loads non-contiguous image
 files for individual program segments even though original <code>SAVE</code> utility does
 not support this feature.</p>
 
+<p>For further control about the memory regions to save see the <code>SAVE</code> directive
+below.</p>
+
+<p>The optional <code>--base</code> argument can be used to define the base address for
+relocatable code.  If no base address is given, default address <code>&gt;A000</code> is used.</p>
+
 <p>All the usual restrictions for program images apply.  In particular, the first
 word of the first image file must be an executable instruction.</p>
 
 <h3>
-<a id="creating-mess-cartridges" class="anchor" href="#creating-mess-cartridges" aria-hidden="true"><span class="octicon octicon-link"></span></a>Creating MESS Cartridges</h3>
+<a id="creating-mess-cartridges" class="anchor" href="#creating-mess-cartridges" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Creating MESS Cartridges</h3>
 
 <p>The cartridge parameter <code>-c</code> tells <code>xas99</code> to create an RPK cartridge file that
 can be used with the MESS emulator.</p>
@@ -250,7 +258,26 @@ using VDP memory access routines apply.</p>
 <p>Note that cartridge files cannot be generated from split image files.</p>
 
 <h3>
-<a id="jumpstarting" class="anchor" href="#jumpstarting" aria-hidden="true"><span class="octicon octicon-link"></span></a>Jumpstarting</h3>
+<a id="creating-raw-binaries" class="anchor" href="#creating-raw-binaries" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Creating Raw Binaries</h3>
+
+<p>Image files for the E/A loader option 5 contain the actual program code that is
+loaded verbatim into memory.  They also contain a small amount of metadata that
+instructs the loader how many files to load and where to store the data.</p>
+
+<p>The binary parameter <code>-b</code> tells <code>xas99</code> to generate raw binary files without
+metadata that are suitable for burning EPROMs or supplying other devices.</p>
+
+<pre><code>$ xas99.py -R -b ascart.a99 --base 0x6000
+</code></pre>
+
+<p>The assembler will generate one binary file per code segment.  For further
+control, the <code>SAVE</code> directive may be used (see below).</p>
+
+<p>The optional <code>--base</code> argument sets the base address for relocatable segments;
+if no argument is given, <code>&gt;0000</code> is used.</p>
+
+<h3>
+<a id="jumpstarting" class="anchor" href="#jumpstarting" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Jumpstarting</h3>
 
 <p>To make the code, assemble, run cycle as fast as possible, <code>xas99</code> can
 generate so-called "jumpstart disks" that may be loaded and executed by the
@@ -273,23 +300,23 @@ is no longer required.</p>
 entirely into memory areas <code>&gt;2000</code>-<code>&gt;3EFF</code> and <code>&gt;A000</code>-<code>&gt;FFFF</code>.</p>
 
 <h3>
-<a id="other-formats" class="anchor" href="#other-formats" aria-hidden="true"><span class="octicon octicon-link"></span></a>Other Formats</h3>
+<a id="other-formats" class="anchor" href="#other-formats" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Other Formats</h3>
 
 <p>For relocatable code not larger than around 24 KB, <code>xas99</code> can generate an
 Extended BASIC program that invisibly contains the generated code within:</p>
 
-<pre><code>$ xas99.py --embed asembed.a99 
+<pre><code>$ xas99.py --embed-xb ashello.a99 
 </code></pre>
 
 <p>The resulting program is a regular Extended BASIC program in so-called "long"
 format that will execute the assembly code when run:</p>
 
-<pre><code>&gt;OLD DSK1.ASEMBED
+<pre><code>&gt;OLD DSK1.ASHELLO
 &gt;RUN
 </code></pre>
 
-<p>Thus, the <code>--embed</code> options allows for the creation of assembly programs that do
-require the Editor/Assembler module for execution.</p>
+<p>Thus, the <code>--embed-xb</code> options allows for the creation of assembly programs that
+do require the Editor/Assembler module for execution.</p>
 
 <p>The generated Extended BASIC program will have only one visible line:</p>
 
@@ -303,7 +330,7 @@ require the Editor/Assembler module for execution.</p>
 assembly code!</p>
 
 <h3>
-<a id="creating-list-files" class="anchor" href="#creating-list-files" aria-hidden="true"><span class="octicon octicon-link"></span></a>Creating List Files</h3>
+<a id="creating-list-files" class="anchor" href="#creating-list-files" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Creating List Files</h3>
 
 <p>The <code>-L</code> option instructs <code>xas99</code> to generate a list file for the assembled
 source code:</p>
@@ -319,7 +346,7 @@ Editor/Assembler module.  The most prominent difference is the listing of
 the <code>BYTE</code> directive, where individual byte values are grouped into words.</p>
 
 <h3>
-<a id="tms9900-assembly-support" class="anchor" href="#tms9900-assembly-support" aria-hidden="true"><span class="octicon octicon-link"></span></a>TMS9900 Assembly Support</h3>
+<a id="tms9900-assembly-support" class="anchor" href="#tms9900-assembly-support" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>TMS9900 Assembly Support</h3>
 
 <p>The <code>xas99</code> is a complete TMS9900 assembler supporting all documented TMS9900
 opcodes.  TMS9995 opcodes such as <code>MPYS</code> and <code>DIVS</code> are currently not supported
@@ -349,7 +376,7 @@ silently ignored by <code>xas99</code>:</p>
 <p>are also ignored.</p>
 
 <h4>
-<a id="source-code-organization" class="anchor" href="#source-code-organization" aria-hidden="true"><span class="octicon octicon-link"></span></a>Source Code Organization</h4>
+<a id="source-code-organization" class="anchor" href="#source-code-organization" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Source Code Organization</h4>
 
 <p>The <code>COPY</code> directive is used to break large assembly sources into individual
 files.</p>
@@ -369,15 +396,22 @@ src/FILE2.ASM
 src/FILE2.S
 </code></pre>
 
-<p>and its corresponding lower-case variants.  <code>COPY</code> also supports native file
-paths, e.g., <code>COPY "/home/ralph/ti/src/file2.a99"</code>.</p>
+<p>and its corresponding lower-case variants.</p>
+
+<p>Additional search paths may be specified with the <code>-I</code> option as a
+comma-seperated list, e.g.,</p>
+
+<pre><code>$ xas99.by -I lib/,disk2/ ashello.asm
+</code></pre>
+
+<p><code>COPY</code> also supports native file paths, e.g., <code>COPY "ti/src/file2.a99"</code>.</p>
 
 <p><code>xas99</code> also provides a new directive <code>BCOPY</code> that includes an external binary
 file as a sequence of <code>BYTE</code>s.  Please refer to the section about <em>xdt99
 Extensions</em> for further information. </p>
 
 <h3>
-<a id="xdt99-extensions" class="anchor" href="#xdt99-extensions" aria-hidden="true"><span class="octicon octicon-link"></span></a><code>xdt99</code> Extensions</h3>
+<a id="xdt99-extensions" class="anchor" href="#xdt99-extensions" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a><code>xdt99</code> Extensions</h3>
 
 <p>The <code>xas99</code> cross-assembler offers various "modern" extensions to the original
 TI Assembler to improve the developer experience for writing assembly programs.
@@ -463,7 +497,7 @@ valid <code>EQU</code> expression.)</p>
 operator <code>%</code>, and binary operators bit-and <code>&amp;</code>, bit-or <code>|</code>, bit-xor <code>^</code>, and
 bit-not <code>~</code> as well as binary literals introduced by <code>:</code>.</p>
 
-<pre><code>area    equ (xmax + 1) * (ymax + 1) 
+<pre><code>area    equ (xmax + 1) * (ymax + 1)
 addr2   equ addr1 | &gt;A000 &amp; ~&gt;001F
 padding bss size % 8
 binval  equ :01011010
@@ -578,6 +612,146 @@ containing some sprite pattern</p>
 <pre><code>SPRITE  BYTE &gt;18,&gt;3C,&gt;7E,&gt;FF,&gt;FF,&gt;7E,&gt;3C,&gt;18
 </code></pre>
 
+<p>The extended <code>AORG</code> directive allows for an optional second argument that
+specifies the memory bank for the following code segment.</p>
+
+<pre><code>* ASBANK.A99
+      AORG &gt;6000,0
+FUNC1 CLR R0
+      ...
+      AORG &gt;6000,1
+FUNC2 LI  R1,&gt;1234
+      ...
+</code></pre>
+
+<p>Generating binary files with the <code>-b</code> command stores banked segments in
+separate files, e.g.,</p>
+
+<pre><code>$ xas99.py -b asbank.a99
+$ ls
+asbank.a99  asbank_6000_b0.bin  asbank_6000_b1.bin
+</code></pre>
+
+<p><code>xas99</code> warns about illegal cross-bank accesses, but it cannot guarantee that
+the correct bank is always active.</p>
+
+<pre><code>      AORG &gt;6000,0
+L1    B    @L3      ; OK
+      B    @L2      ; error: different bank
+
+      AORG &gt;6000,1
+L2    B    @L3      ; OK
+      B    @L1      ; error: different bank
+
+      AORG &gt;A000
+L3    B    @L1      ; OK, needs correct bank
+      B    @L2      ; OK, needs correct bank
+</code></pre>
+
+<p>In this example, the <code>B</code> instructions in segment <code>A000</code> will both branch to
+<code>L1</code> or <code>L2</code>, depending on which bank is active.</p>
+
+<p>The new <code>XORG</code> directive sets the location counter to a new address but does
+not change the actual placement of the subsequent code segment.</p>
+
+<pre><code>      AORG &gt;6000
+L1    DATA 0
+      MOV  @L1,@L2      ; moves &gt;6000 to &gt;8380
+      BL   @FUNC        ; branches to &gt;8382
+
+A1    XORG &gt;8380
+A2
+L2    DATA 0
+FUNC  A    @L2,@L1      ; adds &gt;8380 to &gt;6000
+      RT
+A3
+</code></pre>
+
+<p>The list file for this program shows that the code of <code>FUNC</code> is placed within
+the <code>&gt;6000</code> segment:</p>
+
+<pre><code>0001                      AORG &gt;6000
+0002 6000 0000     L1     DATA 0
+0003 6002 C820  54        MOV  @L1,@L2      ; moves &gt;6000 to &gt;8380
+     6004 6000
+     6006 8380
+0004 6008 06A0  32        BL   @FUNC        ; branches to &gt;8382
+     600A 8382
+0005
+0006               A1     XORG &gt;8380
+0007               A2
+0008 600C 0000     L2     DATA 0
+0009 600E A820  54 FUNC   A    @L2,@L1      ; adds &gt;8380 to &gt;6000
+     6010 8380
+     6012 6000
+0010 6014 045B  20        RT
+0011               A3
+</code></pre>
+
+<p><code>XORG</code> is useful for assembling code blocks that will be moved to a different
+memory location, e.g., scratch pad RAM, before execution.</p>
+
+<pre><code>* MOVE FUNCTION TO SCRATCH PAD RAM
+INIT  LI   R0,A1        ; source address of function
+      LI   R1,A2        ; target address of function
+      LI   R2,A3-A2     ; length of function to copy
+      BL   @COPY        ; fictious RAM to RAM copy routine
+</code></pre>
+
+<p>Note that <code>xas99</code> cannot place <code>XORG</code> code directly into the indented target
+location; instead, all such blocks need to be copied manually in your program.
+For this, <code>XORG</code> assigns the real placement address instead of the location
+counter to its label.  Depending on the previous segment this address may be
+relocatable or not.</p>
+
+<p>The <code>XORG</code> directive can be used for all <code>xas99</code> output formats and is
+compatible with both E/A option 3 and E/A option 5.</p>
+
+<p>The <code>SAVE</code> directive controls the output format for the image <code>-i</code> and raw
+binary <code>-b</code> output formats.</p>
+
+<pre><code>      SAVE &gt;6000,&gt;7000   ; generate single image for &gt;6000-&gt;6FFF
+
+      AORG &gt;6000
+MAIN  LIMI 0
+      ...
+      AORG &gt;6100
+SUBR  CLR  R0
+      ...
+</code></pre>
+
+<p>For each <code>SAVE</code>, a binary file containing the values of the specified memory
+region will be generated.  If the region contains banked memory, a separate file
+for each bank is written.  Empty regions, i.e., regions in which no actual value
+is placed, are skipped.</p>
+
+<p>If no <code>SAVE</code> directives are provided, the <code>-b</code> command will place each segment
+in its own output file, but merges adjacent segments into one file.  The <code>-i</code>
+command will save the region between symbols <code>SFIRST</code> and <code>SLAST</code>, if present;
+otherwise, it generates images for each segment individually.</p>
+
+<p>The use of <code>SAVE</code> is recommended to reduce the number of generated files if
+<code>XORG</code> is employed.</p>
+
+<p><code>xas99</code> supports the F18A GPU instruction set.</p>
+
+<pre><code>CALL &lt;gas&gt;
+RET
+PUSH &lt;gas&gt;
+POP  &lt;gad&gt;
+SLC  &lt;wa&gt;, &lt;count&gt;  
+PIC  &lt;gas&gt;, &lt;gad&gt;
+</code></pre>
+
+<p>Note that <code>PIC</code> is not an immediate instruction, so its arguments need to be
+constructed separately by hand.</p>
+
+<p>The <code>SPI</code> family of instructions is not supported; please use their equivalents
+<code>CKON</code>, ... instead.</p>
+
+<h4>
+<a id="compatibility" class="anchor" href="#compatibility" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Compatibility</h4>
+
 <p>The strictness option <code>-s</code> disables all <code>xas99</code>-specific extensions to improve
 backwards compatibility for old sources:</p>
 
@@ -596,7 +770,7 @@ whitespace mode:</p>
 <p>Finally, note that case insensitivity cannot be disabled at the moment.</p>
 
 <h2>
-<a id="xga99-gpl-cross-assembler" class="anchor" href="#xga99-gpl-cross-assembler" aria-hidden="true"><span class="octicon octicon-link"></span></a>xga99 GPL Cross-Assembler</h2>
+<a id="xga99-gpl-cross-assembler" class="anchor" href="#xga99-gpl-cross-assembler" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>xga99 GPL Cross-Assembler</h2>
 
 <p>The <code>xga99</code> GPL cross-assembler translates programs written in TI's proprietary
 Graphics Programming Language into byte code that can be interpreted by the TI
@@ -664,7 +838,7 @@ sources and relaxes the use of whitespace.  For details, please refer to the
 respective section of the <code>xas99</code> manual.</p>
 
 <h3>
-<a id="gpl-instructions" class="anchor" href="#gpl-instructions" aria-hidden="true"><span class="octicon octicon-link"></span></a>GPL Instructions</h3>
+<a id="gpl-instructions" class="anchor" href="#gpl-instructions" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>GPL Instructions</h3>
 
 <p><code>xga99</code> supports all GPL mnemonics described in the <em>GPL Programmer's Guide</em>.
 As is common practice, however, the operand order for the shift instructions
@@ -727,7 +901,7 @@ FOR &lt;n&gt; ... FEND [&lt;label&gt;]
 address label for the <code>FEND</code> instruction.</p>
 
 <h3>
-<a id="gpl-directives" class="anchor" href="#gpl-directives" aria-hidden="true"><span class="octicon octicon-link"></span></a>GPL Directives</h3>
+<a id="gpl-directives" class="anchor" href="#gpl-directives" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>GPL Directives</h3>
 
 <p>The <code>xga99</code> GPL assembler supports the following directives:</p>
 
@@ -774,8 +948,27 @@ location of the final GPL byte code image may also be specified by command-line
 parameters <code>-G</code> and <code>-A</code>, respectively.  Note that cartridge parameter <code>-c</code>
 implies <code>-G 0x6000</code> and <code>-A 0x30</code>.</p>
 
+<h3>
+<a id="xdt99-extensions-1" class="anchor" href="#xdt99-extensions-1" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a><code>xdt99</code> Extensions</h3>
+
+<p>The <code>xga99</code> GPL cross-assembler offers various "modern" extensions to the
+original TI GPL specification to improve the developer experience for writing
+GPL programs.  All extensions are backwards compatible in virtually all
+situations of practical relevance so that any existing source code should
+compile as-is.</p>
+
+<p>The source code preprocessor supports conditional assembly <code>.ifdef</code> and macros
+<code>.defm</code>.  For a description of both features please refer to the respective
+section in the <code>xas99</code> manual.</p>
+
+<p>Note, however, that GPL macros use macro parameters <code>$1</code>, <code>$2</code>, ... instead
+of <code>#1</code>, <code>#2</code>, ..., as the latter are used to denote VDP registers in GPL.</p>
+
+<p>The predefined symbols set by <code>xga99</code> are <code>_xga99_image</code>, <code>_xga99_cart</code>, or
+<code>_xga99_gbc</code>, depending on the assembly command <code>-i</code>, <code>-c</code>, ... used.</p>
+
 <h2>
-<a id="xbas99-ti-basic-and-ti-extended-basic-tool" class="anchor" href="#xbas99-ti-basic-and-ti-extended-basic-tool" aria-hidden="true"><span class="octicon octicon-link"></span></a>xbas99 TI BASIC and TI Extended BASIC Tool</h2>
+<a id="xbas99-ti-basic-and-ti-extended-basic-tool" class="anchor" href="#xbas99-ti-basic-and-ti-extended-basic-tool" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>xbas99 TI BASIC and TI Extended BASIC Tool</h2>
 
 <p><code>xbas99</code> is a command-line tool for converting TI BASIC and TI Extended BASIC
 programs from source format to internal format, and vice versa.  For brevity, we
@@ -889,7 +1082,7 @@ contain more advanced checks to assist developers in creating new BASIC
 programs.</p>
 
 <h2>
-<a id="xdm99-disk-manager" class="anchor" href="#xdm99-disk-manager" aria-hidden="true"><span class="octicon octicon-link"></span></a>xdm99 Disk Manager</h2>
+<a id="xdm99-disk-manager" class="anchor" href="#xdm99-disk-manager" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>xdm99 Disk Manager</h2>
 
 <p><code>xdm99</code> is a command-line tool for cataloging and manipulating sector-based TI
 disk images used by most emulators, including MESS.  <code>xdm99</code> also supports the
@@ -897,7 +1090,7 @@ TIFiles file format that retains TI-specific meta data for files that originate
 from TI disk images.</p>
 
 <h3>
-<a id="cataloging-disks" class="anchor" href="#cataloging-disks" aria-hidden="true"><span class="octicon octicon-link"></span></a>Cataloging Disks</h3>
+<a id="cataloging-disks" class="anchor" href="#cataloging-disks" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Cataloging Disks</h3>
 
 <p>The default operation of <code>xdm99</code> when invoked without any options is to print
 the file catalog of the disk image to <code>stdout</code>:</p>
@@ -925,7 +1118,7 @@ Files affected by inconsistencies are flagged with <code>ERR</code> in the catal
 can try the <code>-R</code> option to automatically repair disks with inconsistencies.</p>
 
 <h3>
-<a id="extracting-files" class="anchor" href="#extracting-files" aria-hidden="true"><span class="octicon octicon-link"></span></a>Extracting Files</h3>
+<a id="extracting-files" class="anchor" href="#extracting-files" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Extracting Files</h3>
 
 <p>The extract parameter <code>-e</code> extracts one or more files from a disk image to the
 local file system.</p>
@@ -963,7 +1156,7 @@ retain file meta data about file type and record length, use the
 TIFiles or v9t9 formats described below.</p>
 
 <h3>
-<a id="manipulating-disks" class="anchor" href="#manipulating-disks" aria-hidden="true"><span class="octicon octicon-link"></span></a>Manipulating Disks</h3>
+<a id="manipulating-disks" class="anchor" href="#manipulating-disks" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Manipulating Disks</h3>
 
 <p>The add parameter <code>-a</code> adds local files to the disk image.  <code>xdm99</code> will infer a
 suitable TI filename from the local filename unless an explicit filename is
@@ -1012,7 +1205,7 @@ To create an independent copy of the original disk image with the changes
 applied, the <code>-o</code> parameter may be used.</p>
 
 <h3>
-<a id="files-in-a-directory-fiad" class="anchor" href="#files-in-a-directory-fiad" aria-hidden="true"><span class="octicon octicon-link"></span></a>Files in a Directory (FIAD)</h3>
+<a id="files-in-a-directory-fiad" class="anchor" href="#files-in-a-directory-fiad" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Files in a Directory (FIAD)</h3>
 
 <p>Extracting files from a TI disk image to the local file system will lose certain
 TI-specific file information, such as the file type or the record length.  In
@@ -1047,6 +1240,20 @@ file metadata as part of the file contents.</p>
 from the FIAD meta data, parameters <code>-n</code> and <code>-f</code> are ignored when used in
 combination with <code>-t</code> or <code>-9</code>.</p>
 
+<p><code>xdm99</code> also handles "short" TIFiles used, e.g., by Classic 99.</p>
+
+<pre><code>$ xdm99.py work.disk -t -a HELLO-S
+</code></pre>
+
+<p>Short TIFiles do not store TI filename and creation date, but use the host
+filesystem information instead.  <code>xdm99</code> detects automatically if a given
+TIFiles file is in long or short TIFiles format.</p>
+
+<p>Extracted TIFiles are always in long format, but Classic 99 can use those files
+just as well if the extension <code>.tfi</code> is removed.  To simplify exchange with
+Classic 99, the <code>--ti-names</code> option will use the uppercase name without
+extension.</p>
+
 <p>The info parameter <code>-I</code> displays the meta file information contained in FIAD
 files, while the print parameter <code>-P</code> dumps the file contents to
 <code>stdout</code>:</p>
@@ -1055,7 +1262,7 @@ files, while the print parameter <code>-P</code> dumps the file contents to
 $ xdm99.py -P hello-s.v9t9
 </code></pre>
 
-<p><code>xdm99</code> can also convert from FIAD files to plain files and vice versa without 
+<p><code>xdm99</code> can also convert from FIAD files to plain files and vice versa without
 relying on disk images using the <code>-T</code> and <code>-F</code> parameters:</p>
 
 <pre><code>$ xdm99.py -F hello-s.tfi
@@ -1073,7 +1280,7 @@ format used automatically, but detection may be overridden with the <code>-t</co
 <code>-9</code> options.</p>
 
 <h3>
-<a id="analyzing-disks" class="anchor" href="#analyzing-disks" aria-hidden="true"><span class="octicon octicon-link"></span></a>Analyzing Disks</h3>
+<a id="analyzing-disks" class="anchor" href="#analyzing-disks" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Analyzing Disks</h3>
 
 <p>The check parameter <code>-C</code> analyzes a disk image for errors and prints a summary
 to <code>stderr</code>.  While all disk operations, including cataloging, also check and
@@ -1096,30 +1303,58 @@ erroneous files from it.</p>
 <p>The repair operation is likely to cause data loss, so it's best to extract
 erroneous files beforehand or to specify an alternative output file with <code>-o</code>.</p>
 
-<p>The <code>--initialize</code> option creates a new, blank disk image, using an
+<p>The <code>-X</code> or <code>--initialize</code> option creates a new, blank disk image, using an
 optional name provided by <code>-n</code>.</p>
 
 <pre><code>$ xdm99.py blank.dsk --initialize 720 -n BLANK
 </code></pre>
 
-<p>The size of the disk image is given by the number of sectors.  You may
-also use the aliases <code>SSSD</code>, <code>DSSD</code>, <code>DSDD</code>, and <code>CF</code> for sector
-counts of 360, 720, 1440, and 1600, respectively.  Note that the disk
-format used by the TI 99 supports up to 1600 sectors per disk.</p>
+<p>The size of the disk image is given by the number of sectors.  You may also use
+a disk geometry string, which is any combination of the number of sides <code>&lt;n&gt;S</code>,
+the density <code>&lt;n&gt;D</code>, and an optional number of tracks <code>&lt;n&gt;T</code>, where <code>&lt;n&gt;</code> is an
+integer or the letters <code>S</code> or <code>D</code>.  If <code>&lt;n&gt;T</code> is missing, <code>40T</code> is assumed.</p>
 
-<p>You can combine <code>--initialize</code> with other parameters such <code>-a</code> to work with
-the newly created image immediately:</p>
-
-<pre><code>$ xdm99.py work.dsk --initialize SSSD -a file -f DV80
+<pre><code>$ xdm99.py blank.dsk -X DSDD
+$ xdm99.py blank.dsk -X 1d2s80t
 </code></pre>
 
-<p>The resize parameter <code>-Z</code> will change the total number of sector of
+<p>Note that the disk format used by the TI 99 supports up to 1600 sectors per
+disk.</p>
+
+<p>The special geometry <code>CF</code> is used for disk images for the CF7+/nanoPEB devices
+and corresponds to 1600 sectors.</p>
+
+<pre><code>$ xdm99.py volume.dsk -X cf
+</code></pre>
+
+<p>You can combine <code>-X</code> with other parameters such <code>-a</code> to work with the newly
+created image immediately:</p>
+
+<pre><code>$ xdm99.py work.dsk -X SSSD -a file -f DV80
+</code></pre>
+
+<p>The resize parameter <code>-Z</code> will change the total number of sectors of
 the disk without changing the contents of the files currently stored.</p>
 
 <pre><code>$ xdm99.py work.dsk -Z 720
 </code></pre>
 
+<p>An integer argument will not change the geometry information of the disk.  To
+change both size and geometry, <code>-Z</code> also accepts a disk geometry string:</p>
+
+<pre><code>$ xdm99.py corcomp.dsk -Z dssd80t -o ti-80t.dsk  # convert to 80 tracks
+</code></pre>
+
 <p>Resizing fails if more sectors than the target size are currently in use.</p>
+
+<p>The <code>--set-geometry</code> parameter explicitly sets the number of sides, the
+density, and the track information of the disk image.</p>
+
+<pre><code>$ xdm99.py work.dsk --set-geometry 2S1D80T
+</code></pre>
+
+<p>Note that the <code>--set-geometry</code> command is rarely required for regular images
+but may be helpful for experimenting with non-standard disk image formats.</p>
 
 <p>The sector dump parameter <code>-S</code> prints the hexadecimal contents of individual
 sectors to <code>stdout</code>.  This can be used to further analyze disk errors or to save
@@ -1129,32 +1364,98 @@ fragments of corrupted files.</p>
 $ xdm99.py work.dsk -S 0x22 -o first-file-sector
 </code></pre>
 
-<p>For convenience, the arguments of <code>-Z</code> and <code>-S</code> may be specified in either
-decimal or hexadecimal notation.</p>
-
-<p>The <code>--set-geometry</code> parameter explicitly sets the number of sides, the
-density, and the track information of the disk image.</p>
-
-<pre><code>$ xdm99.py work.dsk --set-geometry 2S1D80T
-</code></pre>
-
-<p>The geometry format is any combination of the number of sides <code>&lt;n&gt;S</code>, the
-density <code>&lt;n&gt;D</code>, and the number of tracks <code>&lt;n&gt;T</code>.  The commonly used aliases
-<code>SS</code>, <code>DS</code>, <code>SD</code>, and <code>DD</code> are also supported.</p>
-
-<p>Note that the <code>--set-geometry</code> command is rarely required for regular images
-but may be helpful for experimenting with non-standard disk image formats.</p>
+<p>For convenience, integer arguments of <code>-S</code>, <code>-X</code> and <code>-Z</code> may be specified in
+either decimal or hexadecimal notation.</p>
 
 <h2>
-<a id="xvm99-volume-manager" class="anchor" href="#xvm99-volume-manager" aria-hidden="true"><span class="octicon octicon-link"></span></a>xvm99 Volume Manager</h2>
+<a id="xhm99-hfe-image-manager" class="anchor" href="#xhm99-hfe-image-manager" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>xhm99 HFE Image Manager</h2>
 
-<p><code>xvm99</code> is an extension to the <code>xdm99</code> tool specifically for the
-nanoPEB/CF7A-kind of devices that simulate TI floppy drives using Compact Flash
-cards.  <code>xvm99</code> manages and manipulates the disk images stored in the individual
-volumes of CF cards.</p>
+<p>The <code>xhm99</code> HFE image manager is an extension to the <code>xdm99</code> disk manager that
+is both a conversion tool and a manager for HFE images used by HxC floppy
+emulators.</p>
 
 <h3>
-<a id="managing-volumes" class="anchor" href="#managing-volumes" aria-hidden="true"><span class="octicon octicon-link"></span></a>Managing Volumes</h3>
+<a id="converting-images" class="anchor" href="#converting-images" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Converting Images</h3>
+
+<p>To convert an existing disk image to an HFE image that can be copied onto an SD
+card and used by the HxC floppy emulator, invoke <code>xhm99</code> with a single to HFE
+<code>-T</code> argument:</p>
+
+<pre><code>$ xhm99.py -T work.dsk [...] [-o &lt;filename&gt;]
+</code></pre>
+
+<p>This yields the file <code>work.hfe</code> by default.  Instead of <code>-T</code> you may also use
+the long format <code>--to-hfe</code>.</p>
+
+<p>Similarly, the from HFE <code>-F</code> argument converts from HFE image back to disk
+image:</p>
+
+<pre><code>$ xhm99.py -F image.hfe [-o &lt;filename&gt;]
+</code></pre>
+
+<p>This yields the file <code>image.dsk</code> by default.  Instead of <code>-F</code> you may also use
+the long formats <code>--from-hfe</code> or <code>--to-dsk</code>.</p>
+
+<h3>
+<a id="managing-image-contents" class="anchor" href="#managing-image-contents" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Managing Image Contents</h3>
+
+<p>All options other than <code>-F</code> and <code>-T</code> are similar to those of <code>xdm99</code> and operate
+directly on the disk image that is contained in the HFE image supplied.</p>
+
+<p>To show the contents of a HFE image, simply invoke <code>xhm99</code> with the HFE filename
+and no further arguments.</p>
+
+<pre><code>$ xhm99.py image.hfe
+SOMEDISK  :     4 used  356 free   90 KB  1S/1D 40T  9 S/T
+----------------------------------------------------------------------------
+SOMEFILE       2  DIS/FIX 60      60 B    1 recs  2016-08-18 20:50:12    
+</code></pre>
+
+<p>To show the contents of a file on the console, use the print argument <code>-P</code>.</p>
+
+<pre><code>$ xhm99.py image.hfe -p SOMEFILE
+Hello xdt99, meet HFE!
+</code></pre>
+
+<p>You may also add, extract, rename, or delete files:</p>
+
+<pre><code>$ xhm99.py image.hfe -a manual.txt -f dv80
+$ xhm99.py image.hfe -r MANUAL:README
+$ xhm99.py image.hfe -e SOMEFILE -o greeting.txt
+$ xhm99.py image.hfe -d SOMEFILE
+</code></pre>
+
+<p>To create a new HFE image from a single FIAD file, combine the initialize option
+<code>-X</code> with the add file argument <code>-a</code> and the TIFiles option <code>-t</code>:</p>
+
+<pre><code>$ xhm99.py new.hfe -X dssd -a somegame.tfi -t
+</code></pre>
+
+<p>You can also resize HFE images, e.g., if you want to create more free space:</p>
+
+<pre><code>$ xhm99.py sssd_image.hfe -Z ssdd
+</code></pre>
+
+<p>The resize argument <code>-Z</code> can even change the number of tracks, e.g., converting
+from DSDD with 40 tracks to DSSD with 80 tracks:</p>
+
+<pre><code>$ xhm99.py dsdd_image.hfe -Z dssd80t
+</code></pre>
+
+<p>The only format currently not supported is DSDD80T.</p>
+
+<p>For further information about available arguments please refer to the <code>xdm99</code>
+section above.</p>
+
+<h2>
+<a id="xvm99-nanopeb-volume-manager" class="anchor" href="#xvm99-nanopeb-volume-manager" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>xvm99 nanoPEB Volume Manager</h2>
+
+<p>The <code>xvm99</code> volume manager is an extension to the <code>xdm99</code> disk manager that is
+both a conversion tool and a manager for CF card volumes used by nanoPEB/CF7+
+devices.</p>
+
+<h3>
+<a id="managing-volumes" class="anchor" href="#managing-volumes" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Managing Volumes</h3>
 
 <p>The default operation of <code>xvm99</code> when invoked without any command arguments is
 to print a short summary of the disk images stored in the specified volumes.</p>
@@ -1177,13 +1478,13 @@ appropriate read and/or write permissions to access the device.</p>
 ranges, e.g., <code>1,3-4,6-10</code>.  In general, if more than one volume is specified,
 then the command is applied to <em>all</em> volumes.</p>
 
-<p>The <code>-w</code> parameter writes a disk image to one or more volumes.</p>
+<p>The <code>-w</code> argument writes a disk image to one or more volumes.</p>
 
 <pre><code>$ xvm99.py /dev/sdc 1,3 -w work.dsk
 </code></pre>
 
 <p><code>xvm99</code> automatically extends the disk image to match the 1600 sector format
-used by the CF7A device, unless the <code>--keep-size</code> option is given.</p>
+used by the CF7+ device, unless the <code>--keep-size</code> option is given.</p>
 
 <p>The <code>-r</code> argument reads a disk image from a volume and stores it on the local
 file system.</p>
@@ -1196,7 +1497,7 @@ automatically.  <code>xvm99</code> trims disk images to match the sector count s
 the image, unless the <code>--keep-size</code> option is given.</p>
 
 <h3>
-<a id="manipulating-volumes" class="anchor" href="#manipulating-volumes" aria-hidden="true"><span class="octicon octicon-link"></span></a>Manipulating Volumes</h3>
+<a id="manipulating-volumes" class="anchor" href="#manipulating-volumes" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Manipulating Volumes</h3>
 
 <p>Most commands provided by <code>xdm99</code> are also available for <code>xvm99</code>.</p>
 
@@ -1217,7 +1518,7 @@ volumes.  For example,</p>
 <p>adds the local file README to all disk images in volumes 1 through 20.</p>
 
 <h2>
-<a id="example-usage" class="anchor" href="#example-usage" aria-hidden="true"><span class="octicon octicon-link"></span></a>Example Usage</h2>
+<a id="example-usage" class="anchor" href="#example-usage" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Example Usage</h2>
 
 <p>This section gives an example on how to assemble a TI 99 assembly program and
 run it on the MESS emulator.  The commands entered and the responses shown here
@@ -1236,8 +1537,8 @@ $ ls -l
 </code></pre>
 
 <p>The file <code>ashello.a99</code> contains a simple assembly program that we want to
-assemble and run.  Since the program uses register symbols like <code>R0</code> to refer to
-registers, we need to specify the <code>-R</code> option for assembly.</p>
+assemble and run.  Since the program uses register symbols like <code>R0</code> to refer
+to registers, we need to specify the <code>-R</code> option for assembly.</p>
 
 <pre><code>$ xas99.py -R ashello.a99
 </code></pre>
@@ -1287,8 +1588,8 @@ two thirds of the size of the uncompressed file:</p>
 </code></pre>
 
 <p>We now need to transfer these files to a TI disk image so that the TI 99
-emulated by MESS can load it.  We'll use the SS/SD disk image <code>work.dsk</code> that is
-included in the example folder of xdt99 for convenience:</p>
+emulated by MESS can load it.  We'll use the SS/SD disk image <code>work.dsk</code> that
+is included in the example folder of xdt99 for convenience:</p>
 
 <pre><code>$ xdm99.py work.dsk -a ashello.obj -n HELLO-O -f DIS/FIX80
 $ xdm99.py work.dsk -a ashello.img -n HELLO-I
@@ -1398,13 +1699,13 @@ program.</p>
 <p>Note that the programs runs without the 32K memory expansion, as the
 program code is stored inside a virtual cartridge ROM.</p>
 
-<p>If we want to run our sample program on a real TI 99 using the CF7A flash drive,
+<p>If we want to run our sample program on a real TI 99 using the CF7+ flash drive,
 we need to transfer our disk image to a flash card first:</p>
 
 <pre><code>$ xvm99.py /dev/sdc 2 -w work.dsk
 </code></pre>
 
-<p>This will make our work disk from above available as volume 2 on the CF7A, where
+<p>This will make our work disk from above available as volume 2 on the CF7+, where
 it can be accessed as <code>DSK2</code> by default on the TI 99.  If we don't want to
 replace the entire disk contents of volume 2 we could also just transfer the
 file instead.</p>
@@ -1416,7 +1717,7 @@ file instead.</p>
 loaded as <code>DSK2.HELLO-O</code> by the Editor/Assembler module.</p>
 
 <h3>
-<a id="building-cartridges-with-gpl" class="anchor" href="#building-cartridges-with-gpl" aria-hidden="true"><span class="octicon octicon-link"></span></a>Building Cartridges With GPL</h3>
+<a id="building-cartridges-with-gpl" class="anchor" href="#building-cartridges-with-gpl" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Building Cartridges With GPL</h3>
 
 <p>This subsection shows how we can use the <code>xga99</code> GPL cross-assembler to assemble
 GPL programs into virtual cartridges that run in any TI 99 emulator.  (With the
@@ -1451,7 +1752,7 @@ and reset the virtual TI 99.  Again, you should find an entry for the program on
 the TI menu selection screen.</p>
 
 <h2>
-<a id="feedback-and-bug-reports" class="anchor" href="#feedback-and-bug-reports" aria-hidden="true"><span class="octicon octicon-link"></span></a>Feedback and Bug Reports</h2>
+<a id="feedback-and-bug-reports" class="anchor" href="#feedback-and-bug-reports" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Feedback and Bug Reports</h2>
 
 <p>The xdt99 tools are released under the GNU GPL, in the hope that TI 99
 enthusiasts may find them useful.</p>
