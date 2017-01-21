@@ -362,6 +362,6 @@ Please email all feedback and bug reports to the developer at
 [1]: https://endlos99.github.io/xdt99
 [2]: https://github.com/endlos99/xdt99/releases
 [3]: https://github.com/endlos99/xdt99
-[4]: https://github.com/endlos99/xdt99/blob/master/MANUAL.md
-[5]: https://github.com/endlos99/xdt99/blob/master/WINDOWS.md
+[4]: https://github.com/endlos99/xdt99/blob/master/doc/MANUAL.md
+[5]: https://github.com/endlos99/xdt99/blob/master/doc/WINDOWS.md
 [6]: https://www.python.org/downloads/
