@@ -1,6 +1,6 @@
-;;; xdt99-mode: xdt99 major modes for Emacs - Version 1.1.1
+;;; xdt99-mode: xdt99 major modes for Emacs - Version 1.2
 
-;; Copyright (c) 2015 Ralph Benzinger <xdt99dev@gmail.com>
+;; Copyright (c) 2015-2017 Ralph Benzinger <xdt99dev@gmail.com>
 
 ;; This program is part of the TI 99 Cross-Development Tools (xdt99).
 
@@ -176,7 +176,7 @@
 ;; compilation
 
 (defcustom asm99-compile-options
-  "-R -C"
+  "-b -R"
   "options passed to xas99")
 
 (defun asm99-compile-command ()
@@ -201,6 +201,10 @@
             (set (make-local-variable 'compile-command)
                  (asm99-compile-command))))
 
+; default tab stops, customize using "M-x edit-tabs-stops"
+(defvar asm99-field-positions
+  '(7 12 30 60 61))
+
 (define-derived-mode asm99-mode prog-mode "asm99"
   "Major mode for editing TMS 9900 assembly source files"
   (interactive)
@@ -223,6 +227,138 @@
   (run-hooks 'asm99-mode-hook))
 
 (provide 'asm99-mode)
+
+
+;;; Graphics Programming Language (GPL)
+
+;; syntax highlighting
+
+(defvar gpl99-opcodes
+  ;; 4.1 compare and test instructions
+  '("H" "GT" "CARRY" "OVF" "CEQ" "DCEQ" "CH" "DCH" "CHE" "DCHE"
+    "CGT" "DCGT" "CGE" "DCGE" "CLOG" "DCLOG" "CZ" "DCZ"
+    ;; 4.2 program control instructions
+    "BS" "BR" "B" "CASE" "DCASE" "CALL" "FETCH" "RTN" "RTNC"
+    ;; 4.3 bit manipulation and pseudo instruction
+    "RB" "SB" "TBR" "HOME" "POP"
+    ;; 4.4 arithmetic and logical instructions
+    "ADD" "DADD" "SUB" "DSUB" "MUL" "DMUL" "DIV" "DDIV" "INC" "DINC"
+    "INCT" "DINCT" "DEC" "DDEC" "DECT" "DDECT" "ABS" "DABS" "NEG"
+    "DNEG" "INV" "DINV" "AND" "DAND" "OR" "DOR" "XOR" "DXOR" "CLR"
+    "DCLR" "ST" "DST" "EX" "DEX" "PUSH" "MOVE" "SLL" "DSLL" "SRA"
+    "DSRA" "SRL" "DSRL" "SRC" "DSRC"
+    ;; 4.5 graphics and miscellaneous instructions
+    "COINC" "BACK" "ALL" "RAND" "SCAN" "XML" "EXIT" "I/O"
+    ;; BASIC
+    "PARSE" "CONT" "EXEC" "RTNB"
+    ;; undocumented
+    "SWGR" "DSWGR" "RTGR"
+    ;; variants
+    "IO"
+    )
+  )
+
+(defvar gpl99-format
+  '("FMT" "FEND" "HTEXT" "VTEXT" "HCHAR" "VCHAR" "COL+" "ROW+"
+    "HMOVE" "FOR" "BIAS" "ROW" "COL"
+    ;; variants RAG/RYTE DATA
+    "HTEX" "VTEX" "HCHA" "VCHA" "HSTR" "SCRO" "IROW" "ICOL"
+    ;; variants mizapf
+    "PRINTH" "PRINTV" "TIMES" "DOWN" "RIGHT" "XGPL"
+    )
+  )
+
+(defvar gpl99-directives
+  '("EQU" "DATA" "BYTE" "TEXT" "STRI" "BSS" "GROM" "AORG" "TITLE"
+    "COPY" "END" "PAGE" "LIST" "UNL" "LISTM" "UNLM"
+    ;; variants
+    "ORG" "TITL" "IDT"
+    )
+  )
+
+(defvar gpl99-preprocessor
+  '(".IFDEF" ".IFNDEF" ".IFEQ" ".IFNE" ".IFGT" ".IFGE" ".ELSE" ".ENDIF")
+  )
+
+(defvar gpl99-font-lock-keywords
+  `(
+    ("^\\*.*\\|;.*" . font-lock-comment-face)
+    ("'[^']*'" . font-lock-string-face)
+    ("\"[^\"]*\"" . font-lock-string-face)
+    ( ,(regexp-opt gpl99-opcodes 'symbols) . font-lock-keyword-face)
+    ( ,(regexp-opt gpl99-format 'symbols) . font-lock-function-name-face)
+    ( ,(regexp-opt gpl99-directives 'symbols) . font-lock-builtin-face)
+    ( ,(regexp-opt gpl99-preprocessor 'symbols) . font-lock-preprocessor-face)
+    (">[0-9A-F]+\\>\\|\\<[0-9]+\\>" . font-lock-constant-face)
+    ;("[GV]?[@*][A-Za-z0-9_.]*" . font-lock-variable-name-face)
+    ("[GV]?@\\|#" . font-lock-variable-name-face)  ; only highlight addr prefix
+    ("\\(V?\\*\\)[^ ]" 1 font-lock-variable-name-face)  ; only highlight addr prefix
+    ))
+
+(defvar gpl99-syntax-table
+  (let ((table (make-syntax-table))
+	(symbols '(?! ?$ ?: ?@))
+	(punctuations '(?, ?% ?& ?* ?+ ?- ?/ ?< ?= ?>)))
+    (mapc (lambda (c) (modify-syntax-entry c "_" table)) symbols)
+    (mapc (lambda (c) (modify-syntax-entry c "." table)) punctuations)
+    (modify-syntax-entry ?' "\"" table)
+    table))
+
+(setq gpl99-keywords-regex
+      (regexp-opt (append gpl99-opcodes gpl99-format gpl99-directives gpl99-preprocessor) 'symbols))
+
+(defvar gpl99-field-positions
+  '(7 13 30 60 61))
+
+;; compilation
+
+(defcustom gpl99-compile-options
+  "-b"
+  "options passed to xga99")
+
+(defun gpl99-compile-command ()
+    (set (make-local-variable 'compile-command)
+       (concat "xga99.py " gpl99-compile-options " "
+               buffer-file-name)))
+
+;; major and minor mode definitions
+
+(define-minor-mode gpl99-smart-tab-mode
+  "Smart tab key handling for gpl99-mode"
+  nil " SmartTab")
+
+(define-minor-mode gpl99-smart-backspace-mode
+  "Smart backspace key handling for gpl99-mode"
+  nil " SmartBack" '(([backspace] . asm99-backspace)))
+
+(defvar gpl99-mode-hook nil)
+(add-hook 'gpl99-mode-hook
+          (lambda ()
+            (set (make-local-variable 'compile-command)
+                 (gpl99-compile-command))))
+
+(define-derived-mode gpl99-mode prog-mode "gpl99"
+  "Major mode for editing GPL source files"
+  (interactive)
+  ;; syntax highlighting
+  (set-syntax-table gpl99-syntax-table)
+  (setq-local font-lock-defaults (list gpl99-font-lock-keywords t t))
+  ;; intendation
+  (setq-local tab-stop-list gpl99-field-positions)
+  (setq-local indent-line-function 'asm99-indent-line)
+  (setq-local indent-tabs-mode nil)
+  ;; comments
+  (use-local-map asm99-keymap)
+  (set (make-local-variable 'comment-start) ";")
+  (set (make-local-variable 'comment-padding) "")
+  (set (make-local-variable 'comment-style) 'plain)
+  ;; enable smart minor modes by default
+  (gpl99-smart-tab-mode 1)
+  (gpl99-smart-backspace-mode 1)
+  ;; run user hooks
+  (run-hooks 'gpl99-mode-hook))
+
+(provide 'gpl99-mode)
 
 
 ;;; TI BASIC and TI Extended BASIC
