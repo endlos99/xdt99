@@ -22,6 +22,7 @@
 import sys
 import re
 import os.path
+import traceback
 
 
 VERSION = "1.5.0"
@@ -169,15 +170,16 @@ class BasicProgram:
     # maximum number of bytes/tokens per BASIC line
     maxTokensPerLine = 254
     
-    def __init__(self, data=None, source=None, long_=False):
+    def __init__(self, data=None, source=None, long_=False, _tifiles=False):
         self.lines = {}
         self.textlits = []
         self.warnings = []
         if data:
             try:
-                self.load(data, long_)
+                self.load(data, long_, _tifiles)
             except IndexError:
                 self.warn("Program file is corrupted")
+		print traceback.format_exc()
         elif source:
             self.parse(source)
 
@@ -188,10 +190,15 @@ class BasicProgram:
 
     # program -> source
 
-    def load(self, data, long_):
+    def load(self, data, long_, _tifiles):
         """load tokenized BASIC program"""
         if long_ or data[1:3] == "\xab\xcd":
             # convert long format INT/VAR 254 to PROGRAM
+	    if _tifiles:
+		newdata = data[0:11]
+		for i in range(1, (len(data) / 256)):
+		   newdata += data[(i*256):(i*256)+255]
+		data = newdata
             program, p = "", 11
             while p < len(data):
                 l = ord(data[p]) + 1
@@ -468,6 +475,7 @@ class BasicProgram:
 
 def main():
     import argparse
+    tifiles = False
 
     args = argparse.ArgumentParser(
         version=VERSION,
@@ -493,6 +501,8 @@ def main():
                       help="join split source lines (for -e)")
     args.add_argument("-o", "--output", dest="output", metavar="<file>",
                       help="set output filename")
+    args.add_argument("-t", "--tifiles", action="store_true", dest="astifiles",
+                      help="assume TIFILES format program to list or decode")
     opts = args.parse_args()
 
     #setup
@@ -507,11 +517,14 @@ def main():
             else:
                 with open(opts.source, "rb") as fin:
                     image = fin.read()
+	    if opts.astifiles:
+		    image = image[128:]
+		    tifiles = True
             if opts.merge:
                 program = BasicProgram()
                 program.merge(image)
             else:
-                program = BasicProgram(data=image, long_=opts.long_)
+                program = BasicProgram(data=image, long_=opts.long_, _tifiles=tifiles)
             data = program.getSource()
             output = "-" if opts.list_ else opts.output or barename + ".b99"
         elif opts.dump:
