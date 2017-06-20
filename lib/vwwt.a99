@@ -1,0 +1,29 @@
+* VDP write word text: write hex value of r1 to r0
+
+       ref  vdpwa, vdpwd
+
+       even
+
+vwwt:
+       movb @ws_r0lb, @vdpwa
+       ori  r0, >4000
+       movb r0, @vdpwa
+
+       li   r0, 4
+       mov  r1, r2
+       srl  r2, 4
+       jmp  !
+vwwt_next:
+       mov  r1, r2
+       sla  r1, 4
+!      andi r2, >0f00
+       ai   r2, '0 '
+       ci   r2, '9 '
+       jle  !
+       ai   r2, '@ ' - '9 '
+!      movb r2, @vdpwd
+
+       dec  r0
+       jne  vwwt_next
+
+       rt

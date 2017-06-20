@@ -197,7 +197,7 @@ class Symbols:
             self.symbols[name] = value
         elif value != prev:
             #if passno > 1:
-            #    print "Value changed for:", name
+            #    print "Value changed for:", name, value
             self.symbols[name] = value
             self.updated = True
 
@@ -1023,10 +1023,12 @@ class Parser:
 
     def parse(self, code):
         """parse source code and generate object code"""
-        source = []
+        source, errors = [], []
         # prepare source (pass 0)
         self.passno = 0
-        errors = []
+        self.lidx = 0
+        prevlabel = None
+        # pass 0
         while True:
             # get next source line
             lino, line, filename = self.read()
@@ -1039,13 +1041,21 @@ class Parser:
                                                          operands, line)
                 if not keep:
                     continue
-                if label and label[-1] == ":":
-                    label = label[:-1]
                 source.append((lino, label, mnemonic, operands, line, filename,
                                stmt))
                 if not stmt:
                     continue
                 self.lidx += 1
+                # process continuation label
+                if prevlabel:
+                    if label:
+                        raise AsmError("Invalid continuation for label")
+                    label, prevlabel = prevlabel, None
+                elif label[-1:] == ":" and not mnemonic:
+                    prevlabel = label
+                    continue
+                if label[-1:] == ":":
+                    label = label[:-1]
                 # process directives only
                 Directives.process(self, code, label, mnemonic, operands) or \
                     Opcodes.process(self, code, label, mnemonic, operands)
@@ -1067,6 +1077,17 @@ class Parser:
                 #        self.symbols.LC), label, mnemonic, operands
                 if not stmt:
                     continue
+                # process continuation label
+                if prevlabel:
+                    if label:
+                        raise AsmError("Invalid continuation for label")
+                    label, prevlabel = prevlabel, None
+                elif label[-1:] == ":" and not mnemonic:
+                    prevlabel = label
+                    continue
+                if label[-1:] == ":":
+                    label = label[:-1]
+                # process directives and opcodes
                 try:
                     Directives.process(self, code, label, mnemonic, operands) or \
                         Opcodes.process(self, code, label, mnemonic, operands)

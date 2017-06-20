@@ -1,6 +1,6 @@
-* xdt99 Extensions
+* xga99 Extensions
 
-        title 'xdt99 Extensions'
+        title 'xga99 Extensions'
 
 
     ; new comments
@@ -47,6 +47,18 @@ data    data $ , $ + 2 , expr1 + $
         tbr 0,V*>8301
         tbr 1,@>8380(@>8302)
         tbr 7,V@>1000(@>8303)
+
+
+*** Line continuations
+
+var1:
+       equ  >8300
+var2:
+       equ  >8302
+start:
+       all  >20
+       dst  1, @var1
+       dst  2, @var2
 
 
 *** Special cases

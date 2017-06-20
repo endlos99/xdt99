@@ -1739,6 +1739,8 @@ def main():
                      help="create program image (E/A option 5)")
     cmd.add_argument("-c", "--cart", action="store_true", dest="cart",
                      help="create MESS cart image")
+    cmd.add_argument("-t", "--text", action="store_true", dest="text",
+                     help="create text file with binary values")
     cmd.add_argument("--embed-xb", action="store_true", dest="embed",
                      help="create Extended BASIC program with embedded code")
     cmd.add_argument("--jumpstart", action="store_true", dest="jstart",
@@ -1824,6 +1826,18 @@ def main():
                 else:
                     name = sinc(barename, i) + ".img"
                 out.append((name, image))
+        elif opts.text:
+            data = code.genBinaries(xint(opts.base) if opts.base else 0x0000)
+            name = opts.output or barename + ".dat"
+            text = ""
+            for addr, bank, mem in data:
+                text += "\n;      aorg >%04x\n" % addr
+                bytes = [">%02x" % ord(mem[i])
+                         for i in xrange(0, len(mem))]
+                lines = ["       byte " + ", ".join(bytes[i : i + 8]) + "\n"
+                         for i in xrange(0, len(bytes), 8)]
+                text += "".join(lines)
+            out.append((name, text))
         elif opts.embed:
             prog = code.genXbLoader()
             name = opts.output or barename + ".iv254"

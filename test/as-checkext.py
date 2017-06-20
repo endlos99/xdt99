@@ -31,7 +31,27 @@ def checkFileSizes(files):
         with open(fn, "rb") as f:
             size = len(f.read())
         if fs != size:
-            error("Files", "Incorect file size " + fn + ": " + str(size))
+            error("Files", "Incorrect file size " + fn + ": " + str(size))
+
+
+def checkNumericalEqual(output, ref):
+    idx = 0
+    with open(output, "r") as fout, open(ref, "rb") as fref:
+        data = fref.read()
+        for l in fout:
+            line = l.strip()
+            if not line or line[0] == '*' or line[0] == ';':
+                continue
+            if line[:4].lower() != "byte":
+                error("Files", "Bad format: " + l)
+            toks = [x.strip() for x in line[4:].split(",")]
+            vals = [int(x[1:], 16) if x[0] == ">" else int(x)
+                    for x in toks]
+            for v in vals:
+                if chr(v) != data[idx]:
+                    error("Files", "Unexpected data: %d/%d at %d" %
+                          (v, ord(data[idx]), idx))
+                idx += 1
 
 
 ### Main test
@@ -99,6 +119,12 @@ def runtest():
     checkFileSizes([(Files.output + "_" + ext, size)
                     for ext, size in [("0000", 20), ("b000_b1", 14),
                                       ("b010_b1", 2), ("b012_b2", 6)]])
+
+    # data output (-t)
+    source = os.path.join(Dirs.sources, "ashexdat.asm")
+    xas(source, "-t", "-R", "-o", Files.output)
+    xas(source, "-b", "-R", "-o", Files.reference)
+    checkNumericalEqual(Files.output, Files.reference + "_a000")
 
     # cleanup
     os.remove(Files.output)

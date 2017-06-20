@@ -1,5 +1,13 @@
 #!/usr/bin/env python
 
+# How to update the gplsrcs.dsk:
+# - replace source file DIS/VAR 80 (no ext)
+# - start ti99 gpl gplsrcs.dsk
+# - enter source name, then -O, then -L, options G3
+# - start DSK2.LINK
+# - enter -O, -P, options G3
+
+
 import os
 
 from config import Dirs, Disks, Files

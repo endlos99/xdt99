@@ -1,6 +1,6 @@
-* xdt99 Extensions
+* xga99 Extensions
 
-        TITL 'xdt99 Extensions'
+        TITL 'xga99 Extensions'
 
         GROM >0000
 
@@ -63,6 +63,15 @@ DATA    DATA $,$+2,EXPR1+$
         CLOG >02,@>8380(@>8302)
 *       tbr 7,V@>1000(@>8303)
         CLOG >80,V@>1000(@>8303)
+
+
+*** Line continuations
+
+VAR1   EQU  >8300
+VAR2   EQU  >8302
+START  ALL  >20
+       DST  1,@VAR1
+       DST  2,@VAR2
 
 
 *** Special cases
