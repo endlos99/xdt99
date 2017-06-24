@@ -12,7 +12,7 @@ def readstderr(fn):
     errors, lino = {}, "----"
     with open(fn, "r") as f:
         for line in f:
-            err = re.match(r"<\d>\s+(\d+)", line)
+            err = re.match(r">[ \w.]+<\d>\s+(\d+)", line)
             if err:
                 lino = err.group(1)
             else:

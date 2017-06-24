@@ -1469,8 +1469,8 @@ class Parser:
                 Directives.process(self, dummy, label, mnemonic, operands) or \
                     Opcodes.process(self, dummy, label, mnemonic, operands)
             except AsmError as e:
-                errors.append("<1> %04d - %s\n***** %s\n" % (
-                    lino, line, e.message))
+                errors.append("%s <1> %04d - %s\n***** %s\n" % (
+                    filename, lino, line, e.message))
         # second pass: generate code
         self.passno = 2
         self.lidx = 0
@@ -1490,8 +1490,8 @@ class Parser:
                 Directives.process(self, code, label, mnemonic, operands) or \
                     Opcodes.process(self, code, label, mnemonic, operands)
             except AsmError as e:
-                errors.append("<2> %04d - %s\n***** %s\n" % (
-                    lino, line, e.message))
+                errors.append("%s <2> %04d - %s\n***** %s\n" % (
+                    filename, lino, line, e.message))
         code.list(0, eos=True)
         return errors
 
