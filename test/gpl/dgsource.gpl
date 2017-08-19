@@ -1,0 +1,82 @@
+; gpl disassembler source test
+
+       grom  >2000
+       aorg  >0000
+
+pad:
+       equ   >8300
+pad2:
+       equ   >8302
+mid:
+       equ   >8380
+bad:
+       equ   >8412
+far:
+       equ   >9000
+vfar:
+       equ   >3f00
+
+start  back  >02
+       dst   pad2, @pad
+       dst   @bad, *pad
+       dst   *bad, @pad2(@pad)
+       dst   @far(@>01), @mid(@>f0)
+
+       dst   V*bad, V*pad2
+       dst   v@>0400, v*bad(@>10)
+
+       call  s1
+
+       clr   *pad
+       bs    l1
+
+       fmt
+       row   >09
+       col   >09
+       vtext 'HELLO'
+       bias  *>3333
+       hmove >09, v*bad
+       fend
+
+       xml   >77
+       b     l2
+
+       byte  >99
+       byte  >99
+
+l1     call  s1
+       rtn
+
+       byte  >99
+       byte  >99
+
+l2     dec   v@>0040
+       dsll  >000f, @mid
+       bs    l2
+
+       call  s1
+
+       case  @pad2
+       byte  >00  *IGNORE
+       byte  >00  *IGNORE
+       br    l1
+       br    l2
+       br    l3
+       
+       byte  >99
+       byte  >99
+
+s1     fetch @bad
+       dsub  *pad, v@vfar
+       rtnc
+
+       byte  >99
+       byte  >99
+
+l3     st    >01, @far
+       exit
+
+       byte  >99
+       byte  >99
+
+       end

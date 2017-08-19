@@ -3,7 +3,26 @@
 import os
 
 from config import Dirs, Disks, Files
-from utils import xas, xdm, checkListFilesEq
+from utils import xas, xdm, error, checkListFilesEq
+
+
+### Check functions
+
+def checkEndEqual(outfile, reffile):
+    with open(outfile, "r") as fout, open(reffile, "r") as fref:
+        otxt = [l.strip() for l in fout.readlines()]
+        rtxt = [l.strip() for l in fref.readlines()]
+    for i, rline in enumerate(rtxt):
+        if rline.strip() != otxt[-len(rtxt) + i].strip():
+            error("symbols", "Symbols not as expected in line %d" % i)
+
+
+def checkSymEquEquiv(outfile, reffile):
+    with open(outfile, "r") as fout, open(reffile, "r") as fref:
+        otxt = fout.readlines()
+        rtxt = [l for l in fref.readlines() if "..." in l]
+    if len(otxt) != 2 * len(rtxt):
+        error("EQUs", "Symbols/EQUs count mismatch")
 
 
 ### Main test
@@ -42,6 +61,18 @@ def runtest():
         xas(*[source] + opts + ["-L", Files.output, "-o", Files.reference])
         xdm(Disks.asmsrcs, "-e", reffile, "-o", Files.reference)
         checkListFilesEq(Files.output, Files.reference, ignoreLino=True)
+
+    # symbols
+    source = os.path.join(Dirs.sources, "ashello.asm")
+    xas(source, "-R", "-L", Files.output, "-S", "-o", Files.input)
+    reffile = os.path.join(Dirs.refs, "ashello.sym")
+    checkEndEqual(Files.output, reffile)
+
+    # EQUs
+    source = os.path.join(Dirs.sources, "ashello.asm")
+    xas(source, "-R", "-E", Files.output, "-o", Files.input)
+    reffile = os.path.join(Dirs.refs, "ashello.sym")
+    checkSymEquEquiv(Files.output, reffile)
 
     # cleanup
     os.remove(Files.output)

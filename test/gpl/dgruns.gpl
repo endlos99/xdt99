@@ -1,0 +1,51 @@
+* test xdg99 runs
+
+       grom  0
+
+start  all   42
+       fmt
+       row   7
+       col   5
+       for   3
+       htext 'HELLO, WORLD'
+       row+  2
+       fend
+       fend
+
+       call  p1
+       dcase @>8300
+       br    p2
+       br    p3
+       data  0
+
+p1:
+       clr   @>8300
+       rtn
+
+       data  0
+
+p2:
+       dinc  @>8300
+       bs    p4
+       call  p1
+       b     p4
+
+       data  0
+
+p3:    ddec  @>8300
+       call  p5
+
+p4:    all   32
+       back  2
+       b     $
+
+       data  0
+
+p5:    inc   @>8300
+       call  p1
+
+       exit
+
+       data  0
+
+       end

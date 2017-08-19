@@ -1,0 +1,17 @@
+; re-assembly and force -F test
+
+       grom >a000
+
+       dclr  @>1000
+       b     l2
+
+l1     dst   v*>8310, @>8335
+l2     dst   @>8300, *>8302     
+       dclr  @>2000
+
+       b     l1 + 1
+
+       dclr  @>3000
+       dclr  @>4000
+
+       end

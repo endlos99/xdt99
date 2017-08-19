@@ -2,7 +2,7 @@ import sys
 import re
 
 from subprocess import call
-from config import xdmPy, xhmPy, xvmPy, xasPy, xgaPy, xbasPy
+from config import xdmPy, xhmPy, xvmPy, xasPy, xdaPy, xgaPy, xdgPy, xbasPy
 
 
 ### Utility functions
@@ -13,6 +13,11 @@ def chrw(word):
 
 def ordw(word):
     return ord(word[0]) << 8 | ord(word[1])
+
+
+def xint(s):
+    """return hex or decimal value"""
+    return int(s.lstrip(">"), 16 if s[:2] == "0x" or s[:1] == ">" else 10)
 
 
 ### Test management functions
@@ -54,7 +59,7 @@ def xvm(*args, **kargs):
 
 
 def xas(*args, **kargs):
-    """invoke Assembler"""
+    """invoke assembler"""
     print "AS:", args
     rc = call(xasPy + list(args),
               stdout=kargs.get("stdout"), stderr=kargs.get("stderr"))
@@ -62,13 +67,31 @@ def xas(*args, **kargs):
         error("OS", "xas99 call returned with failure code " + str(rc))
 
 
+def xda(*args, **kargs):
+    """invoke disassembler"""
+    print "DA:", args
+    rc = call(xdaPy + list(args),
+              stdout=kargs.get("stdout"), stderr=kargs.get("stderr"))
+    if rc != kargs.get("rc", 0):
+        error("OS", "xda99 call returned with failure code " + str(rc))
+
+
 def xga(*args, **kargs):
-    """invoke Assembler"""
+    """invoke GPL assembler"""
     print "GA:", args
     rc = call(xgaPy + list(args),
               stdout=kargs.get("stdout"), stderr=kargs.get("stderr"))
     if rc != kargs.get("rc", 0):
         error("OS", "xga99 call returned with failure code " + str(rc))
+
+
+def xdg(*args, **kargs):
+    """invoke GPL disssembler"""
+    print "DG:", args
+    rc = call(xdgPy + list(args),
+              stdout=kargs.get("stdout"), stderr=kargs.get("stderr"))
+    if rc != kargs.get("rc", 0):
+        error("OS", "xdg99 call returned with failure code " + str(rc))
 
 
 def xbas(*args, **kargs):
@@ -92,7 +115,6 @@ def checkFilesEq(tid, infile, reffile, fmt, mask=None):
         if "V" in fmt:
             checkTextFilesEq(tid, infile, reffile)
         else:
-            #checkTextLinesEq(tid, infile, reffile, fmt)
             checkBinaryFilesEq(tid, infile, reffile, [])
     else:
         checkBinaryFilesEq(tid, infile, reffile, mask or [])
@@ -214,3 +236,102 @@ def checkListFilesEq(genfile, reffile, ignoreLino=False):
         if gl[mincol:maxcol] != rl[mincol:maxcol]:
             error("List file", "Line mismatch in %d/%d" % (gi, ri))
         gi, ri = gi + 1, ri + 1
+
+
+# common check functions: xda99/xdg99
+
+def checkIndent(fn, blocks):
+    """check if first lines are indented correctly"""
+    with open(fn, "r") as fin:
+        source = fin.readlines()
+    indents = []
+    for line in source:
+        if not line:
+            continue
+        if line[0] == ' ':
+            indents.append(re.match(r"\s+(\w)", line).start(1))
+        else:
+            try:
+                indents.append(
+                    re.match(r"(?:[\w?!~]+\s+){%d}(\w)" % blocks, line).start(
+                        1))
+            except AttributeError:
+                pass
+    if len(indents) < 3:
+        error("indent", "Too few indent values: %d" % len(indents))
+    return all([i == indents[0] for i in indents[1:]])
+
+
+def countMnemonics(fn, offset=0, wanted=None):
+    """build dict of all ocurring mnemonics"""
+    with open(fn, "r") as fin:
+        source = [l[offset:] for l in fin.readlines()]
+    mnems = {}
+    for line in source:
+        parts = re.split(r"\s+", line.rstrip(), maxsplit=2)
+        if len(parts) < 2:
+            continue
+        mnem = parts[1].lower()
+        if wanted is not None and wanted != mnem:
+            continue
+        n = mnems.setdefault(mnem, 0)
+        mnems[parts[1].lower()] = n + 1
+    return mnems.get(wanted, 0) if wanted is not None else mnems
+
+
+def checkSource(outfile, reffile):
+    """compare sources"""
+    with open(outfile, "r") as fout, open(reffile, "r") as fref:
+        out = fout.readlines()
+        ref = fref.readlines()
+    j = -1
+    for i, oline in enumerate(out):
+        # split output instruction (generated source)
+        oinstr = re.split(r"\s+", re.sub(";.*$", "", oline.rstrip()).lower(),
+                          2)
+        if len(oinstr) < 2 or oinstr[1] == "equ":
+            continue  # no instruction
+        oargs = [a.strip().upper() for a in oinstr[2].split(",")] if len(
+            oinstr) > 2 else []
+        rline, rinstr, urargs = "", (), ()
+        while True:
+            j += 1
+            rline = re.sub(";.*$", "", ref[j]).rstrip()
+            if rline[:1] == '*':
+                continue  # ignore comments
+            if "IGNORE" in rline:
+                break  # don't compare two corresponding lines
+            # split reference instruction (original source)
+            rinstr = re.split(r"\s+", rline.lower(), 2)
+            rargs = [a.strip().upper() for a in rinstr[2].split(",")] if len(
+                rinstr) > 2 else []
+            # uniform numerical arguments >XXXX, except if they're
+            # already >XX (for xdg99)
+            urargs = [(">%04X" % xint(a)) if (a[0] == '>' and len(
+                a) != 3) or a.isdigit() else a
+                      for a in rargs]
+            if rline and rinstr[0][-1:] != ":" and rinstr[1] != "equ":
+                break
+        if "IGNORE" not in rline and (
+                oinstr[1] != rinstr[1] or oargs != urargs):
+            error("source", "Mismatch in line %d:\n(R) %s\n(O) %s" % (
+                i, rline, oline))
+
+
+def checkOrigins(fn, origins):
+    """check origins in source"""
+    with open(fn, "r") as fin:
+        source = fin.readlines()
+    ocnt = 0
+    for line in source:
+        m = re.match(r"^(\w+)\s[^;]*; <-(.*)$", line)
+        if m:
+            addr = int(m.group(1), 16)
+            anns = [int(a.strip()[1:], 16) for a in m.group(2).split(",")]
+            if addr in origins:
+                if origins[addr] == anns:
+                    ocnt += 1
+                else:
+                    error("origin", "Origin mismatch @%04X" % addr)
+    if ocnt != len(origins):
+        error("origin", "Origin count mismatch: %d/%d" % (ocnt, len(origins)))

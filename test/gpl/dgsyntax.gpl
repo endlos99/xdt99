@@ -1,0 +1,23 @@
+; syntax test
+
+       grom >0
+
+       title 'SYNTAX TEST'
+       i/o   4, @>af01
+
+       fmt
+       row   10
+       col   1
+       htext 'HELLO'
+       row+  1
+       vtext 'SYNTAX!'
+       bias  >20
+       for   3
+       col+  2
+       vchar 31, 'A'
+       hchar 4, '-'
+       fend
+       fend
+
+       end
+       

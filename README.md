@@ -8,6 +8,8 @@ modern computer systems:
  * `xas99`: A TMS9900 cross-assembler
  * `xga99`: A GPL cross-assembler
  * `xbas99`: A TI BASIC and TI Extended BASIC lister and encoder
+ * `xda99`: A TMS9900 disassembler
+ * `xdg99`: A GPL disassembler
  * `xdm99`: A disk manager for sector-based TI disk images
  * `xhm99`: A manager for HFE images used by HxC floppy emulators
  * `xvm99`: A volume manager for nanoPEB/CF7+ Compact Flash cards
@@ -31,6 +33,11 @@ their internal format that can be loaded by the BASIC interpreter using
 the `OLD` command.  Conversely, the tool also lists BASIC program files
 similarly to the `LIST` command. 
 
+The `xda99` and `xdg99` disassembler generate source code from machine code
+or GPL bytecode files, respectively.  In addition to regular top-down
+disassembly, both disassemblers also support a run mode that follows
+the program flow statically.
+
 The `xdm99` disk manager works with sector-based TI disk images used by most
 emulators, including MESS.  `xdm99` also supports disk-less files in TIFiles and
 V9T9 format.  The `xvm99` volume manager extends the `xdm99` functionality to CF
@@ -46,7 +53,7 @@ For additional information, please refer to the [xdt99 homepage][1] or the
 [xdt99 manual][4].  Windows users unfamiliar with working with the command line
 will find some platform-specific information in the [Windows tutorial][5].
 
-**Latest version: 1.6.0**
+**Latest version: 1.7.0**
 
 The latest binary distribution of xdt99 is available on the project
 [releases page][2] on GitHub.  xdt99 requires [Python 2.7.x][6] and runs on any
@@ -192,6 +199,33 @@ List BASIC program stored on disk image (advanced use):
 	$ xdm99.py <disk image> -p <prog name> | xbas99.py -l -
 
 For a complete overview of the available command-line options, see `xbas99.py
+-h`.
+
+
+Basic Usage: `xda99`
+--------------------
+
+This is just a brief overview of the most common usages for `xda99`.  For
+detailed information, please refer to the [xdt99 homepage][1] or the [manual][4]
+included with xdt99.
+
+Disassemble binary top-down:
+
+    $ xda99.py <binary file> -d -a <bin addr> [-f <from addr>]
+    
+Disassemble with run simulation:
+
+    $ xda99.py <binary file> -a <bin addr> [-f <from addr>]
+
+Disassemble with run simulation and additional starting points:
+
+    $ xda99.py <binary file> -a <bin addr> -r <addr> [...]
+
+Disassemble using a list of symbols:
+
+    $ xda99.py <binary file> -a <bin addr> -S <symbol file>
+
+For a complete overview of the available command-line options, see `xda99.py
 -h`.
 
 

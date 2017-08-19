@@ -2,7 +2,7 @@
 
 # xhm99: An HFE image manager that focuses on the TI 99
 #
-# Copyright (c) 2016 Ralph Benzinger <xdt99@endlos.net>
+# Copyright (c) 2016-2017 Ralph Benzinger <xdt99@endlos.net>
 #
 # This program is part of the TI 99 Cross-Development Tools (xdt99).
 #

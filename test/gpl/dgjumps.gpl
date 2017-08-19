@@ -1,0 +1,33 @@
+* GPL jump and origin test
+
+      grom >0000
+
+start:
+      all  >20
+      dst  s1, @>8302
+      dclr @>8304
+
+      call sub
+
+      dec  @>8301
+      br   s2
+      st   @>8302,@>8301
+      b    start
+
+s1:
+      text 'HELLO'
+
+s2:
+      dclr *>8300
+      inc  @>8301
+      h
+      bs   s2
+
+      call sub
+      b    start
+
+sub:
+      fmt
+      htext 'WORLD'
+      fend
+      rtnc

@@ -9,6 +9,8 @@ As of this release, the cross-development tools comprise
 
  * `xas99`, a TMS9900 cross-assembler,
  * `xga99`, a GPL cross-assembler,
+ * `xda99`, a TMS9900 disassembler,
+ * `xdg99`, a GPL disassembler,
  * `xbas99`, a TI BASIC and TI Extended BASIC lister and encoder,
  * `xdm99`, a disk manager for sector-based TI disk images,
  * `xhm99`, a manager for HFE images used by HxC floppy emulators, and
@@ -186,7 +188,7 @@ word of the first image file must be an executable instruction.
 The cartridge parameter `-c` tells `xas99` to create an RPK cartridge file that
 can be used with the MESS emulator.
 
-    $ xas99.py -R -c ascart.a99 -n "HELLO WORLD"
+    $ xas99.py -c -R ascart.a99 -n "HELLO WORLD"
 
 The optional name parameter `-n` overrides the default name of the program that
 shows up in the TI 99 menu selection screen.
@@ -215,13 +217,32 @@ instructs the loader how many files to load and where to store the data.
 The binary parameter `-b` tells `xas99` to generate raw binary files without
 metadata that are suitable for burning EPROMs or supplying other devices.
 
-    $ xas99.py -R -b ascart.a99 --base 0x6000
+    $ xas99.py -b -R ascart.a99 --base 0x6000
 
 The assembler will generate one binary file per code segment.  For further
 control, the `SAVE` directive may be used (see below).
 
 The optional `--base` argument sets the base address for relocatable segments;
 if no argument is given, `>0000` is used.
+
+
+### Creating Text Files
+
+The text parameter `-t` generates a textual version of the raw binary generated
+by `-b`.
+
+    $ xas99.py -t -R ascart.a99
+
+The resulting text file contains an `AORG` comment followed by many `BYTE`
+directives for each assembled segment.
+
+    ;  aorg >1000
+       byte >04, >c0, >c0, >81, >04, >60, >20, >00
+    ;  aorg >2000
+       byte >02, >e0, >83, >e0, >04, >d0
+
+The text format is useful for including the binary result of another program
+into some assembly or GPL source source.
 
 
 ### Jumpstarting
@@ -251,7 +272,7 @@ entirely into memory areas `>2000`-`>3EFF` and `>A000`-`>FFFF`.
 For relocatable code not larger than around 24 KB, `xas99` can generate an
 Extended BASIC program that invisibly contains the generated code within:
 
-    $ xas99.py --embed-xb ashello.a99 
+    $ xas99.py --embed-xb ashello.a99
 
 The resulting program is a regular Extended BASIC program in so-called "long"
 format that will execute the assembly code when run:
@@ -282,7 +303,7 @@ source code:
 
 The list file is useful for inferring the relative or absolute memory addresses
 of source code lines or the effective values of expressions.
- 
+
 The format of the list file is almost identical to that of the original
 Editor/Assembler module.  The most prominent difference is the listing of
 the `BYTE` directive, where individual byte values are grouped into words.
@@ -344,7 +365,7 @@ comma-seperated list, e.g.,
 
 `xas99` also provides a new directive `BCOPY` that includes an external binary
 file as a sequence of `BYTE`s.  Please refer to the section about *xdt99
-Extensions* for further information. 
+Extensions* for further information.
 
 
 ### `xdt99` Extensions
@@ -365,11 +386,11 @@ literals are still case sensitive, though.
     label1 byte >A,>b
     LABEL2 TEXT 'Hello World'
     Label3 mov Label1(R1),Label2(r2)
-    
+
 Labels may be of arbitrary length and may contain arbitrary characters except
 for whitespace and operators such as `+`, `*`, `(`, `$`, etc.  An optional
 colon `:` may be appended to the label name.  The colon is not part of the
-name, but logically continues the current line to the next:  
+name, but logically continues the current line to the next:
 
     my_label_1:
         equ 1         ; assigns 1 to my_label_1
@@ -382,7 +403,7 @@ Local labels simplify the implementation of small loops.  A local label is
 introduced by an exclamation mark `!` and an optional name.  Thus, the simplest
 local label is just a single `!`.  Local labels need not be unique within the
 program.
-  
+
 References to local labels are resolved relative to the current position.  By
 default, matching labels are searched after the current position.  References
 prefixed with a unary minus sign `-` are searched before the current position.
@@ -396,7 +417,7 @@ prefixed with a unary minus sign `-` are searched before the current position.
         rt
 
 Doubling, tripling, ... the number of `!`s before a reference refers to the
-second, third, ... match of the local label relative to the current position: 
+second, third, ... match of the local label relative to the current position:
 
     !   dec  r1              <-+
         jeq  !     --+         |
@@ -407,8 +428,8 @@ second, third, ... match of the local label relative to the current position:
         jmp  -!!          |  --|
     !   inc  r1         <-+    |
         jmp  -!!!            --+
-    !   rt        
-            
+    !   rt
+
 Note that labels `label` and `!label` are entirely different and can be used
 without conflict in the same program.
 
@@ -491,7 +512,7 @@ by commas:
         .fill 10, '* '
 
 Note that macro parameters are resolved by textual replacement.  Thus,
-when instantiating 
+when instantiating
 
         li   r0, 2 * #1
 
@@ -653,7 +674,7 @@ The use of `SAVE` is recommended to reduce the number of generated files if
     RET
     PUSH <gas>
     POP  <gad>
-    SLC  <wa>, <count>  
+    SLC  <wa>, <count>
     PIC  <gas>, <gad>
 
 Note that `PIC` is not an immediate instruction, so its arguments need to be
@@ -864,6 +885,243 @@ The predefined symbols set by `xga99` are `_xga99_image`, `_xga99_cart`, or
 `_xga99_gbc`, depending on the assembly command `-i`, `-c`, ... used.
 
 
+xda99 Disassembler
+------------------
+
+The cross-disassembler `xda99` is a command-line tool to convert machine code
+into assembly source code.
+
+To disassemble a binary machine code file, the disassembler needs to know the
+first address of the machine code as well as the starting address for the
+disassembly:
+
+	$ xda99.py ascart_6000.bin -a 6000 -f 600c
+
+All command line values are interpreted as hexadecimal values.  They can
+optionally be prefixed by `>` or `0x`.
+
+The resulting file has the same name as the binary file but ends in `.dis`.  It
+contains the disassembled instructions in a source-like list:
+
+                AORG >6000
+    6000 4845?
+    6002 4C4C?
+    6004 4F20?
+    6006 4341?
+    6008 5254?
+    600A 2100?
+    600C 0300   LIMI  >0000
+    600E 0000
+    6010 02E0   LWPI  PAD
+    6012 8300
+    6014 04C0   CLR   R0
+    ...
+
+The output option `-o` redirects the output to a different file, or prints to
+stdout when using the special filename `-`.
+
+An optional to parameter `-t` will limit the disassembly to below that address.
+
+The from parameter `-f` starts the disassembler in "top-down mode", which
+disassembles the machine code sequentially word by word into.  This is often
+problematic, as programs consists of both code and data segments.  Disassembling
+data segments results in accurate, but meaningless statements, which can be seen
+if above command line is changed to `-f 6000`:
+
+                AORG >6000
+    6000 4845   SZC   R5, @>4C4C(R1)
+    6002 4C4C
+    6004 4F20   SZC   @>4341, *R12+
+    6006 4341
+    6008 5254   SZCB  *R4, R9
+    600A 2100   COC   R0, R4
+    600C 0300   LIMI  >0000
+    600E 0000
+
+If the data segments are known, those can be excluded from disassembly with the
+exclude `-e` option:
+
+	$ xda99.py ascart_6000.bin -a 6000 -f 6000 -e 6000-600c 70e0-7f00
+
+The upper address `yyyy` of an exclude range `xxxx-yyyy` is not included in the
+range, so range `6000-6000` is an empty range.
+
+For unknown programs, exclusion of data segments is difficult.  Thus, `xdg99`
+offers an additional "run mode" `-r` that recognizes static branch, call, and
+return statements, and disassembles only along the program flow.
+
+	$ xda99.py ascart_6000.bin -a 6000 -r 600c
+
+Note that for the `ascart` program, there won't be any differences between run
+mode and top-down mode, as code and data are seperate in that program.
+
+Run mode is not limited to one starting address:
+
+	$ xda99.py suprdupC.bin -a 6000 -r 6034 603c
+
+For convenience, the special address `start` denotes all start addresses derived
+for the given machine code.  Thus, the above line becomes
+
+	$ xda99.py suprdupC.bin -a 6000 -r start
+
+If the binary is not a cartridge image, `start` will currently default to the
+beginning given by `-a`.
+
+Run mode also includes jump markers as comments that show from where an
+instruction was branched to:
+
+    6058 D809   MOVB R9, @>837C
+    605A 837C
+    605C D809   MOVB R9, @>8374           ; <- >6068
+    605E 8374
+    6060 0420   BLWP @KSCAN
+    6062 2108
+    6064 9220   CB   @>8375, R8
+    6066 8375
+    6068 13F9   JEQ  >605C
+    606A D020   MOVB @>8375, R0
+    606C 8375
+
+The program option `-p` turns the disassembly into actual source code that can
+be re-assembled again:
+
+           AORG >6000
+    VDPWD  EQU  >8C00
+    PAD    EQU  >8300
+    GPLLNK EQU  >2100
+    VDPWA  EQU  >8C02
+    L6000  DATA >4845
+    L6002  DATA >4C4C
+    L6004  DATA >4F20
+    L6006  DATA >4341
+    L6008  DATA >5254
+    L600A  DATA GPLLNK
+    L600C  LIMI >0000
+    L600E
+    L6010  LWPI PAD
+    L6012
+    L6014  CLR  R0
+    ...
+
+The `-p` options will also include an `EQU` stanza of all symbols used, in this
+case all `xas99` internal symbols that were referred (`REF`) by the program.
+
+To use more symbols, a symbol file can be supplied with the `-S` parameter.  The
+symbol file can be generated with the EQU option `-E` of `xas99`, which is
+admittedly a rare case in practice, or written manually in fairly free form,
+e.g.,
+
+    S1 EQU >10
+    S2:
+            EQU 10
+    S3 >10
+    S4: 0x10
+
+Data segments often contain strings, that can be restored heuristically by using
+the string option `-n`, either with or without the `-p` option.
+
+                AORG >6000
+    6000 4845   TEXT  'HELLO CART'
+    6002 4C4C
+    6004 4F20
+    6006 4341
+    6008 5254
+    600A 2100?
+    600C 0300   LIMI  >0000
+    600E 0000
+    6010 02E0   LWPI  PAD
+
+Option `-n` is only useful in run mode, as top-down mode will not leave behind
+any data segments, where strings could be found.
+
+Note that currently, `xda99` only disassembles even length strings.
+
+
+### Run Mode and Conflicts
+
+When the run mode disassembler hits an address which has already been
+disassembled, it stops the current run.  This regularly happens for multiple
+calls to a subroutine, loops, or recursion.  The disassembler hitting an address
+where it has previously disassembled a statement is perfectly normal and
+correct.
+
+But run mode is not always 100% accurate, as `xda99` cannot follow indirect
+branches such as `B *R1`, and doesn't know if a condition for `JEQ LABEL` is
+always true and thus has no alternate path.  (The latter remark is more relevant
+for `xdg99`, where `BR` is often used as a shorter `B`.)  As a consequence, a
+run may "run off" (no pun indented), and worse, different runs may try to
+disassemble the same range differently:
+
+                   First run,              Second run,
+                   starting @>6000         starting @>6002
+                   AORG >6000              AORG >6000
+    6000 C820      MOV  @PAD, @>831C                           | disagree-
+    6002 8300                              C    R0, R12        |      ment
+    6004 831C                              C    *R12, R12      |
+    6006 0A51      SLA  R1, 5              SLA  R1, 5
+    6008 1620      JNE  >604A              JNE  >604A
+
+Above, the second run hit an address that is only *part* of a previously
+disassembled address (i.e., an operator), which raises a conflict about which
+version is correct.
+
+The default behavior of `xda99` is to stop the run, leaving the previous
+disassembly untouched.  You can override the default with the force option `-F`,
+which will always overwrite previous results.  This is done cleanly, so that run
+#2 above will reset the overridden instruction at address `@>6000`.
+
+There is no recommendation to disassemble with or without override.  The result
+of each disassembly may vary with each binary, and should be tried out.
+
+
+xdg99 GPL Disassembler
+----------------------
+
+The GPL disassembler `xdg99` is a command-line tool to convert GPL bytecode into
+GPL source code.
+
+`xdg99` shares all options with `xda99`, and works very similar to this
+disassembler.  In fact, at some point in the furure, both programs might be
+merged into one.
+
+To show the similarities,
+
+	$ xdg99.py gacart.bin -a 6000 -f 6030
+
+disassembles bytecode file `gacart.bin`, i.e., a GROM file, into GPL
+instructions:
+
+	          GROM >6000
+              AORG >0000
+	6000 AA?
+	...
+	602F 00?
+    6030 07   ALL   >20
+    6031 20
+    6032 04   BACK  >04
+    6033 04
+    6034 BE   ST    >48, V@>0021
+    6035 A0
+    6036 21
+    6037 48
+    ...
+
+The only option that `xdg99` features over `xda99` is the syntax selection
+option `-s`, which is already known from `xga99`:
+
+	$ xdg99.py gacart.bin -a 6000 -f 6030
+    ...
+    6206 31   MOVE >0010, G@>6EC4, V@>0033
+    ...
+
+yields the standard syntax, but `-s` selects RAG, Ryte Data, or TIMT style:
+
+	$ xdg99.py gacart.bin -a 6000 -f 6030 -s mizapf
+    ...
+    6206 31   MOVE >0010 BYTES FROM GROM@>6EC4 TO VDP@>0033
+    ...
+
+
 xbas99 TI BASIC and TI Extended BASIC Tool
 ------------------------------------------
 
@@ -893,7 +1151,7 @@ the line wrapping.
     10 REM HELLO
     20 INPUT "YOUR NAME? ":NAME$
     30 PRINT "HELLO ";NAME$
-    40 END 
+    40 END
 
 The similar decode command `-d` saves the program listing to a file instead:
 
@@ -957,7 +1215,7 @@ All tools in xdt99 follow the convention that the special filename `-` denotes
 `stdin` or `stdout`, respectively.  You can also pipe from `xdm99` into `xbas99`
 to list BASIC programs quickly that are stored on a disk image:
 
-    $ xdm99.py basic.dsk -p HELLO | xbas99.py -l - 
+    $ xdm99.py basic.dsk -p HELLO | xbas99.py -l -
 
 Finally, `xbas99` does not distinguish between TI BASIC and TI Extended BASIC
 programs.  To create a TI BASIC program that does not rely on the TI Extended
@@ -1055,7 +1313,7 @@ The syntax for `-f` is fairly permissible, e.g., `DIS/FIX 80`, `DISFIX80`, or
 
 When adding multiple files with the `-n` option, the last character of the
 specified filename will be incremented by one for each subsequent file, e.g.,
- 
+
     $ xdm99.py work.dsk -a intro main appendix -n FILE
 
 will add the files as `FILE`, `FILF`, and `FILG` to the disk image.
@@ -1065,7 +1323,7 @@ The rename parameter `-r` renames one or more files on the disk.
     $ xdm99.py work.dsk -r HELLO-S:HELLO/S
 
 For each file to rename, provide the old filename. followed by a colon `:`,
-followed by the new filename. 
+followed by the new filename.
 
 The delete parameter `-d` deletes one or more files on the disk.
 
@@ -1148,7 +1406,7 @@ relying on disk images using the `-T` and `-F` parameters:
 Note that creating a FIAD file using the `-T` option usually requires
 information about the TI filename and the TI file type, similar to adding plain
 files to a disk image using `-a`.  When converting multiple files to FIAD
-format, the TI filename supplied by `-n` is incremented automatically for each 
+format, the TI filename supplied by `-n` is incremented automatically for each
 file.
 
 FIAD file conversion `-T`, `-F` and information `-I` and `-P` infer the FIAD
@@ -1186,7 +1444,7 @@ The size of the disk image is given by the number of sectors.  You may also use
 a disk geometry string, which is any combination of the number of sides `<n>S`,
 the density `<n>D`, and an optional number of tracks `<n>T`, where `<n>` is an
 integer or the letters `S` or `D`.  If `<n>T` is missing, `40T` is assumed.
-  
+
     $ xdm99.py blank.dsk -X DSDD
     $ xdm99.py blank.dsk -X 1d2s80t
 
@@ -1229,7 +1487,7 @@ fragments of corrupted files.
 
     $ xdm99.py work.dsk -S 1
     $ xdm99.py work.dsk -S 0x22 -o first-file-sector
-    
+
 For convenience, integer arguments of `-S`, `-X` and `-Z` may be specified in
 either decimal or hexadecimal notation.
 
@@ -1273,7 +1531,7 @@ and no further arguments.
 	$ xhm99.py image.hfe
     SOMEDISK  :     4 used  356 free   90 KB  1S/1D 40T  9 S/T
     ----------------------------------------------------------------------------
-    SOMEFILE       2  DIS/FIX 60      60 B    1 recs  2016-08-18 20:50:12    
+    SOMEFILE       2  DIS/FIX 60      60 B    1 recs  2016-08-18 20:50:12
 
 To show the contents of a file on the console, use the print argument `-P`.
 
@@ -1390,7 +1648,7 @@ these files are located under the `test` folder.
     -rw-rw---- 1 ralph ralph  1822 Jan 10 12:51 ascart.a99
     -rw-rw---- 1 ralph ralph   925 Jan 10 12:32 ashello.a99
     -rw-rw---- 1 ralph ralph 92160 Jan 10 12:33 work.dsk
-    
+
 The file `ashello.a99` contains a simple assembly program that we want to
 assemble and run.  Since the program uses register symbols like `R0` to refer
 to registers, we need to specify the `-R` option for assembly.
@@ -1409,7 +1667,7 @@ this:
     50000SLOAD 50000SFIRST5007ESLAST 5001CSTART 30030VSBW  7F28AF               0007
     30046VMBW  3007AVWTR  30062KSCAN 7F827F                                     0008
     :       xdt99 xas                                                           0009
- 
+
 This file can be loaded with the Editor/Assembler module using option 3, or
 alternatively with the TI Extended BASIC module using the `CALL LOAD`
 statement.
@@ -1477,7 +1735,7 @@ enter the name of the image file:
 The program will start automatically once loading has completed.
 
 If we want to learn more about the internals of our assembled program we can
-take a look at its list file: 
+take a look at its list file:
 
     $ xas99.py -R ashello.a99 -L ashello.lst
 
@@ -1485,27 +1743,27 @@ This yields a text file `ashello.lst` that begins like this:
 
     XAS99 CROSS-ASSEMBLER   VERSION 1.2.3
     0001            *  HELLO WORLD
-    0002            
+    0002
     0003                   IDT 'ASHELLO'
-    0004            
+    0004
     0005                   DEF SLOAD,SFIRST,SLAST,START
     0006                   REF VSBW,VMBW,VWTR
     0007                   REF KSCAN
-    0008            
+    0008
     0009            SLOAD
     0010 0000 100D  SFIRST JMP  START
-    0011            
+    0011
     0012      8300  WRKSP  EQU  >8300
     0013      8374  KMODE  EQU  >8374
     0014      8375  KCODE  EQU  >8375
     0015      837C  GPLST  EQU  >837C
-    0016            
+    0016
     0017 0002 ....  MESSG  TEXT 'HELLO WORLD'
     0018 000D ....         TEXT '   hit any key!'
     0019      001A  MESSGL EQU  $-MESSG
-    0020            
+    0020
     0021 001C 0300  START  LIMI 0
-         001E 0000 
+         001E 0000
     0022 0020 02E0         LWPI WRKSP
          0022 8300
     ...

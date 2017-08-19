@@ -4,22 +4,28 @@ import os.path
 ### Executables
 
 xasPy = ["../xas99.py"]
-#xasPy = ["c:\\bin\\python2\\python.exe", "..\\xas99.py"]
+#xasPy = ["python.exe", "..\\xas99.py"]
+
+xdaPy = ["../xda99.py"]
+#xasPy = ["python.exe", "..\\xda99.py"]
 
 xgaPy = ["../xga99.py"]
-#xgaPy = ["c:\\bin\\python2\\python.exe", "..\\xga99.py"]
+#xgaPy = ["python.exe", "..\\xga99.py"]
+
+xdgPy = ["../xdg99.py"]
+#xgaPy = ["python.exe", "..\\xdg99.py"]
 
 xdmPy = ["../xdm99.py"]
-#xdmPy = ["c:\\bin\\python2\\python.exe", "..\\xdm99.py"]
+#xdmPy = ["python.exe", "..\\xdm99.py"]
 
 xhmPy = ["../xhm99.py"]
-#xhmPy = ["c:\\bin\\python2\\python.exe", "..\\xhm99.py"]
+#xhmPy = ["python.exe", "..\\xhm99.py"]
 
 xvmPy = ["../xvm99.py"]
-#xvmPy = ["c:\\bin\\python2\\python.exe", "..\\xvm99.py"]
+#xvmPy = ["python.exe", "..\\xvm99.py"]
 
 xbasPy = ["../xbas99.py"]
-#xbasPy = ["c:\\bin\\python2\\python.exe", "..\\xbas99.py"]
+#xbasPy = ["python.exe", "..\\xbas99.py"]
 
 
 ### Paths

@@ -2,7 +2,7 @@
 
 # xas99: A TMS9900 cross-assembler
 #
-# Copyright (c) 2015 Ralph Benzinger <xdt99@endlos.net>
+# Copyright (c) 2015-2017 Ralph Benzinger <xdt99@endlos.net>
 #
 # This program is part of the TI 99 Cross-Development Tools (xdt99).
 #
@@ -23,7 +23,7 @@ import sys
 import re
 import os.path
 
-VERSION = "1.6.0"
+VERSION = "1.7.0"
 
 
 ### Utility functions
@@ -136,9 +136,10 @@ class Symbols:
     """symbol table and line counter"""
 
     def __init__(self, addRegisters=False, addDefs=None):
-        self.symbols = {
+        self.registers = {
             "R" + str(i): i for i in xrange(16)
             } if addRegisters else {}
+        self.symbols = self.registers.copy()
         self.exts = {
             "VSBW": 0x210C, "VMBW": 0x2110,
             "VSBR": 0x2114, "VMBR": 0x2118,
@@ -174,7 +175,7 @@ class Symbols:
 
     def effectiveLC(self):
         return self.LC + (self.xorgOffset or 0)
-    
+
     def addSymbol(self, name, value):
         if name in self.symbols:
             raise AsmError("Multiple symbols: " + name)
@@ -224,7 +225,7 @@ class Symbols:
         except IndexError:
             return None
         return self.getSymbol(fullname)
-        
+
 
 ### Code generation
 
@@ -285,7 +286,7 @@ class Objdummy:
 class Objcode:
     """generate object code"""
 
-    def __init__(self, symbols):
+    def __init__(self, symbols, strict=False):
         self.symbols = symbols
         self.entry = None
         self.segments = []
@@ -293,6 +294,7 @@ class Objcode:
         self.savedLC = {True: 0x0000, False: 0x0000}
         self.segment(0x0000, relocatable=True, init=True)
         self.done = False
+        self.strict = strict
 
     def processLabel(self, lidx, label, realLC=False):
         pass
@@ -314,7 +316,7 @@ class Objcode:
             self.symbols.bank = bank
         self.dummy = dummy
         self.code = []
-        
+
     def even(self):
         if self.symbols.LC % 2 == 1:
             self.symbols.LC += 1
@@ -550,7 +552,7 @@ class Objcode:
                   chrw(len(c) + 6) + chrw(a) + c
                   for i, (a, c) in enumerate(chunks)]
         return images
-        
+
     def genXbLoader(self):
         """stash code in Extended BASIC program"""
         self.prepare()
@@ -623,7 +625,38 @@ class Objcode:
         assert len(disk) % 256 == 0
         return disk + "\x00" * (360 * 256 - len(disk))
 
-    def genList(self):
+    def genSymbols(self, equ=False):
+        """generate symbols"""
+        # merge all defined symbols
+        symbols = self.symbols.symbols
+        # get their values
+        regs = self.symbols.registers  # no not include these
+        symlist = []
+        for s in sorted(symbols):
+            if s in regs or s[0] == '$' or s[0] == "_":
+                continue  # skip registers, local and internal symbols
+            addr = symbols.get(s)
+            if isinstance(addr, Address):
+                # add extra information to addresses
+                a, r, b = (addr.addr,
+                           "REL" if addr.relocatable else "   ",
+                           "B>%02X" % addr.bank if addr.bank is not None else "")
+            elif isinstance(addr, Reference):
+                # add value of references
+                a, r, b = (self.symbols.exts.get(addr.name), "REF", "")
+            else:
+                # add immediate address value
+                a, r, b = addr, "   ", ""
+            symlist.append((s, a, r, b))
+        if self.strict:
+            fmt = ("{:<6} EQU  >{:04X}    * {} {}" if equ else
+                   "    {:.<6} {} : {} {}")
+        else:
+            fmt = ("{}:\n       equ  >{:04X}  ; {} {}" if equ else
+                   "    {:.<20} >{:04X} : {} {}")
+        return "\n".join([fmt.format(*s) for s in symlist])
+
+    def genList(self, gensymbols):
         """generate listing"""
         listing = []
         for bank, finalLC, reloc, dummy, code in self.segments:
@@ -662,8 +695,9 @@ class Objcode:
                     words.append(("%04X" % LC, "....", t))
                 else:
                     words.append(("%04X" % LC, "%04X" % w, t))
+        symbols = "\n" + self.genSymbols() + "\n" if gensymbols else ""
         return ("XAS99 CROSS-ASSEMBLER   VERSION " + VERSION + "\n" +
-                "\n".join(listing) + "\n")
+                "\n".join(listing) + "\n" + symbols)
 
     def genCart(self, name):
         """generate RPK file for use as MESS rom cartridge"""
@@ -997,7 +1031,7 @@ class Preprocessor:
         if self.parseMacro in self.macros:
             raise AsmError("Duplicate macro name")
         self.macros[self.parseMacro] = []
-    
+
     def ENDM(self, code, ops):
         raise AsmError("Found .ENDM without .DEFM")
 
@@ -1710,7 +1744,7 @@ class Assembler:
     def assemble(self, path, srcname):
         symbols = Symbols(addRegisters=self.addRegisters, addDefs=self.defs)
         dummy = Objdummy(symbols)
-        code = Objcode(symbols)
+        code = Objcode(symbols, self.strictMode)
         parser = Parser(symbols,
                         path=path, includePath=self.includePath,
                         strictMode=self.strictMode)
@@ -1757,8 +1791,10 @@ def main():
                       help="compress object code (TI Assembler option C)")
     args.add_argument("-L", "--list-file", dest="optl", metavar="<file>",
                       help="generate list file (TI Assembler option L)")
-    args.add_argument("-S", "--symbol-table", action="store_true", dest="optl",
+    args.add_argument("-S", "--symbol-table", action="store_true", dest="opts",
                       help="add symbol table to listing (TI Assembler option S) (ignored)")
+    args.add_argument("-E", "--symbol-equs", dest="equs", metavar="<file>",
+                      help="put symbols in EQU file")
     args.add_argument("--base", dest="base", metavar="<addr>",
                       help="set base address for relocatable code")
     args.add_argument("-I", "--include", dest="inclpath", metavar="<paths>",
@@ -1776,7 +1812,7 @@ def main():
     barename = "stdin" if opts.source == "-" else os.path.splitext(basename)[0]
     name = opts.name or barename[:10].upper()
     inclpath = [dirname] + (opts.inclpath.split(",") if opts.inclpath else [])
-    
+
     # assembly
     target = ("image" if opts.image else
               "cart" if opts.cart else
@@ -1853,8 +1889,10 @@ def main():
         for name, data in out:
             writedata(name, data, "wb")
         if opts.optl:
-            listing = code.genList()
+            listing = code.genList(opts.opts)
             writedata(opts.optl, listing, "w")
+        if opts.equs:
+            writedata(opts.equs, code.genSymbols(equ=True))
     except BuildError as e:
         sys.exit("Error: %s." % e)
     except IOError as e:
@@ -1865,4 +1903,4 @@ def main():
 
 if __name__ == "__main__":
     status = main()
-    sys.exit(status)    
+    sys.exit(status)

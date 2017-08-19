@@ -1,0 +1,29 @@
+; start test
+       grom  >6000
+       aorg  >0000
+       
+       byte  >aa
+       byte  >05
+       byte  >01
+       byte  >00
+       byte  0
+       byte  0
+       data  menu
+       byte  0
+       byte  0
+
+menu:
+       byte  0
+       byte  0
+       data  start
+       byte  5
+       text  'START'
+
+start:
+       all   >34
+       back  >07
+       dclr  @>8309
+       dadd  *>8302,*>8304
+
+       end
+       

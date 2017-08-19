@@ -2,7 +2,7 @@
 
 # xga99: A GPL cross-assembler
 #
-# Copyright (c) 2015-2016 Ralph Benzinger <xdt99@endlos.net>
+# Copyright (c) 2015-2017 Ralph Benzinger <xdt99@endlos.net>
 #
 # This program is part of the TI 99 Cross-Development Tools (xdt99).
 #
@@ -23,7 +23,7 @@ import sys
 import re
 import os.path
 
-VERSION = "1.5.3"
+VERSION = "1.7.0"
 
 
 ### Utility functions
@@ -57,6 +57,15 @@ def readlines(n, m="r"):
             return f.readlines()
 
 
+def writedata(n, d, m="wb"):
+    """write data to file or STDOUT"""
+    if n == "-":
+        sys.stdout.write(d)
+    else:
+        with open(n, m) as f:
+            f.write(d)
+
+
 ### Error handling
 
 class AsmError(Exception):
@@ -76,6 +85,9 @@ class Address:
             self.addr = addr
             self.size = 2
         self.local = local
+
+    def hex(self):
+        return "%04X" % self.addr
 
     def __eq__(self, other):
         return (isinstance(other, Address) and
@@ -114,13 +126,14 @@ class Operand:
                 (0b0010 if self.vram else 0) |
                 (0b0001 if self.indirect else 0)) << 4
         # form MOVE
-        if self.grom:
+        if self.grom and not self.indirect:
             bs = [addr >> 8, addr & 0xff]
         # form I
         elif cpuram and 0x00 <= addr <= 0x7f and (
                 not (self.indirect or self.index)):
             bs = [addr]
         # form II/III
+        # NOTE: could II-V include address mode G*?
         elif addr < 0x0f00:
             bs = [mask | addr >> 8, addr & 0xff]
         # form IV/V
@@ -256,6 +269,22 @@ class Objcode:
              0 if a is None else 1
              for a in args])
 
+    def list(self, lino, line=None, eos=False, text1=None, text2=None):
+        """create list file entry"""
+        if lino == 0:
+            # change of source
+            l = Line(lino, line, eos)
+            l.text1 = l.text2 = "****"
+            self.code.append((0, l))
+        elif lino > 0:
+            # regular statement
+            self.code.append((self.symbols.LC, Line(lino, line, eos)))
+        else:
+            # followup lines to statement
+            lastline = self.code[-1][1]
+            assert isinstance(lastline, Line)
+            lastline.text1, lastline.text2 = text1, text2
+        
     def wrapup(self):
         """wrap-up code generation"""
         self.segments.append(
@@ -269,6 +298,8 @@ class Objcode:
             dump += "%sGROM >%04X AORG >%04X:" % (
                 "\n" if dump and dump[-1] != "\n" else "", grom, base)
             for LC, bs in code:
+                if isinstance(bs, Line):
+                    continue                
                 dump += "\n%04X:  " % LC
                 for b in bs:
                     if isinstance(b, Address):
@@ -293,11 +324,10 @@ class Objcode:
         mems = {}
         # put bytes into memory
         for grom, base, finalLC, code in self.segments:
-            try:
-                mem = mems[grom]
-            except KeyError:
-                mem = mems[grom] = {}
+            mem = mems.setdefault(grom, {})
             for LC, bs in code:
+                if isinstance(bs, Line):
+                    continue
                 addr = LC
                 for b in bs:
                     if isinstance(b, Address):
@@ -322,17 +352,18 @@ class Objcode:
         for grom in mems:
             mem = mems[grom]
             addrs = mem.keys()
-            sfirst, slast = min(addrs), max(addrs) + 1
-            bs = "".join([chr(mem[addr] & 0xff) if addr in mem else "\x00"
-                          for addr in xrange(sfirst, slast)])
-            groms.append((grom, sfirst, bs))
+            if addrs:  # could be empty if only lines are before GROM dir
+                sfirst, slast = min(addrs), max(addrs) + 1
+                bs = "".join([chr(mem[addr] & 0xff) if addr in mem else "\x00"
+                              for addr in xrange(sfirst, slast)])
+                groms.append((grom, sfirst, bs))
         return groms
 
     def genHeader(self, grom, base, name):
         """generate GPL header"""
         offset = base - grom
         if offset < 0x16:
-            AsmError("No space for GROM header")
+            raise AsmError("No space for GROM header")
         entry = self.entry or self.symbols.getSymbol("START") or base
         gplhdr = "\xaa\x01\x00\x00\x00\x00%s" % chrw(grom + 0x10) + "\x00" * 8
         menuname = name[:offset - 0x15]
@@ -371,6 +402,72 @@ class Objcode:
                      </meta-inf>""" % name
         return image, layout, metainf
 
+    def genList(self, gensymbols):
+        """generate listing file"""
+        listing = []
+        for grom, base, finalLC, code in self.segments:
+            words, slino, sline, skip = [], None, None, False
+            # code:  Line()             <-
+            #        (LC, [byte, ...])  <-  belongs together
+            #        (LC, [byte, ...])  <-
+            #        Line()
+            #        ...
+            for LC, bs in code:
+                if isinstance(bs, Line):
+                    if slino is not None:
+                        a0, w0 = words[0] if words else ("    ", "  ")
+                        listing.append("%4s %-2s %-5s %s" % (
+                            slino, a0, w0, sline))
+                        for ai, wi, in words[1:]:
+                            listing.append("     %-2s %-5s" % (ai, wi))
+                            if bs.eos:
+                                break
+                    slino = "%04d" % bs.lino if bs.lino else "****"
+                    sline = bs.line
+                    if not (bs.text1 is None and bs.text2 is None):
+                        warg = ("    " if bs.text2 is None else
+                                bs.text2 if isinstance(bs.text2, str) else
+                                bs.text2.hex() if isinstance(bs.text2, Address) else
+                                "%04X" % bs.text2)
+                        words = [("%04X" % LC if bs.text1 is None else bs.text1, warg[0:2]),
+                                 (0, warg[2:4])]
+                        skip = True
+                    else:
+                        words = []
+                        skip = False
+                elif skip:
+                    pass
+                else:
+                    o = 0
+                    for b in bs:
+                        if isinstance(b, Address):
+                            words.append(("%04X" % (LC + o), b.hex()[0:2]))
+                            words.append(("%04X" % (LC + o + 1), b.hex()[2:4]))
+                            o += 2
+                        elif isinstance(b, Operand):
+                            for x in b.bytes:
+                                words.append(("%04X" % (LC + o), "%02X" % x))
+                                o += 1
+                        else:
+                            words.append(("%04X" % (LC + o), "%02X" % b))
+                            o += 1
+        symbols = self.genSymbols() if gensymbols else ""
+        return ("XGA99 CROSS-ASSEMBLER   VERSION " + VERSION + "\n" +
+                "\n".join(listing) + "\n\n" + symbols + "\n")
+
+    def genSymbols(self, equ=False):
+        """generate symbols"""
+        symbols = self.symbols.symbols
+        symlist = []
+        for s in sorted(symbols):
+            if s[0] == '$' or s[0] == "_":
+                continue  # skip registers, local and internal symbols
+            addr = symbols.get(s)
+            a = addr.addr if isinstance(addr, Address) else addr
+            symlist.append((s, a))
+        fmt = "{}:\n       equ  >{:04X}" if equ else "    {:.<20} >{:04X}"
+        return "\n".join([fmt.format(*s) for s in symlist])
+
 
 class Word:
     """auxiliary class for word arithmetic"""
@@ -406,6 +503,16 @@ class Word:
         self.value = val % 0x10000
 
 
+class Line:
+    """source code line"""
+
+    def __init__(self, lino, line, eos=False):
+        self.lino = lino
+        self.line = line
+        self.eos = eos
+        self.text1 = self.text2 = None
+
+        
 ### Directives
 
 class Directives:
@@ -445,13 +552,15 @@ class Directives:
 
     @staticmethod
     def GROM(parser, code, label, ops):
-        grom = trunc(parser.value(ops[0]), 0x2000)
+        grom = parser.value(ops[0]) & 0xe000
         code.segment(grom, 0x0000)
         code.processLabel(label, parser.passno)
 
     @staticmethod
     def AORG(parser, code, label, ops):
         base = parser.value(ops[0])
+        if not 0 <= base < 0x2000:
+            raise AsmError("AORG offset %04X out of range" % base)
         code.segment(code.grom, base)
         code.processLabel(label, parser.passno)
 
@@ -673,9 +782,10 @@ class Opcodes:
         """get assembly code for mnemonic"""
         code.processLabel(label, parser.passno)
         if mnemonic in Opcodes.pseudos:
-            mnemonic, os = Opcodes.pseudos[mnemonic]
-            operands = [re.sub(r"\$(\d+)", lambda m: operands[int(m.group(1)) - 1], o)
-                        for o in os]
+            mnemonic, opers = Opcodes.pseudos[mnemonic]
+            operands = [re.sub(r"\$(\d+)",
+                               lambda m: operands[int(m.group(1)) - 1], o)
+                        for o in opers]
         if parser.fmtmode:
             try:
                 opcode, parse = Opcodes.fmtcodes[mnemonic]
@@ -719,7 +829,6 @@ class Opcodes:
             code.emit(opcode | oo, ln, gd, gs)
         else:
             raise AsmError("Unsupported opcode format " + str(fmt))
-
 
 ### Parsing
 
@@ -774,7 +883,7 @@ class Syntax:
         )
 
     mizapf = SyntaxVariant(
-        ga=r"(?:(@|\*|VDP@|VDP\*|GR[OA]M@)|(VREG))([^(]+)(?:\(@?([^)]+)\))?$",
+        ga=r"(?:([@*]|VDP[@*]|GR[OA]M@)|(VREG))([^(]+)(?:\(@?([^)]+)\))?$",
         gprefix="GROM@",
         moveops=r"(.+)\s+BYTES\s+FROM\s+(.+)\s+TO\s+(.+)$",
         tdelim='"',
@@ -1075,6 +1184,7 @@ class Parser:
             for lino, label, mnemonic, operands, line, fn, stmt in source:
                 #print "<%d> %s [%04X] " % (self.passno, lino,
                 #        self.symbols.LC), label, mnemonic, operands
+                code.list(lino, line=line)
                 if not stmt:
                     continue
                 # process continuation label
@@ -1094,8 +1204,9 @@ class Parser:
                 except AsmError as e:
                     errors.append("%04d: %s\n***** <%d> %s\n" % (
                         lino, line, self.passno, e.message))
-            if self.fmtmode:
-                errors.append("Source ends with open FMT block, aborting.")
+            #TODO: interferes with disassembled blobs, make into warning
+            #if self.fmtmode:
+            #    errors.append("Source ends with open FMT block, aborting.")
             if errors and self.passno > 1 or not self.symbols.updated:
                 break
         return errors
@@ -1125,7 +1236,7 @@ class Parser:
         rbit = 0b10000 if not gd.grom else 0
         vbit = 0b01000 if gd.vreg or (gd.grom and gd.index) else 0
         cbit = 0b00100 if not gs.grom or gs.indirect else 0
-        ibit = 0b00010 if gs.grom and gs.index else 0
+        ibit = 0b00010 if gs.grom and (gs.index or gs.indirect) else 0
         nbit = 0b00001 if ln.immediate else 0
         oo = rbit | vbit | cbit | ibit | nbit
         return oo, ln, gd, gs
@@ -1160,11 +1271,11 @@ class Parser:
             elif index is not None and not 0x8300 <= index <= 0x83FF:
                 raise AsmError("Index out of range: >%04X" % index)
             if vreg and not (isMove and not isGs):
-                raise AsmError("Invalid VDP register address in operand")
+                raise AsmError("Invalid VDP register outside MOVE")
             if vreg and not 0 <= value <= 7:
                 raise AsmError("VDP register out of range: %d" % value)
             if grom and not isMove:
-                raise AsmError("Invalid GROM address in operand")
+                raise AsmError("Invalid GROM address outside MOVE")
             return Operand(value, vram=vram, grom=grom, vreg=vreg,
                            indirect=indirect, index=index)
         if isGs:
@@ -1329,6 +1440,12 @@ def main():
     args.add_argument("-D", "--define-symbol", nargs="+", dest="defs",
                       metavar="<sym=val>",
                       help="add symbol to symbol table")
+    args.add_argument("-L", "--list", dest="list", metavar="<file>",
+                      help="generate list file")
+    args.add_argument("-S", "--symbol-table", action="store_true", dest="symtab",
+                      help="add symbol table to list file")
+    args.add_argument("-E", "--symbol-file", dest="equs", metavar="<file>",
+                      help="put symbols in EQU file")
     args.add_argument("-o", "--output", dest="output", metavar="<file>",
                       help="set output file name")
     opts = args.parse_args()
@@ -1387,7 +1504,11 @@ def main():
                 fout.write(data)
         except IOError as e:
             sys.exit("File error: %s: %s." % (e.filename, e.strerror))
-
+    if opts.list:
+        listing = code.genList(opts.symtab)
+        writedata(opts.list, listing, "w")
+    if opts.equs:
+        writedata(opts.equs, code.genSymbols(equ=True))
     # return status
     return 1 if errors else 0
 

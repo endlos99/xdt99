@@ -1,0 +1,27 @@
+       grom >8000
+
+       all  >32
+       back >01
+
+       clr  @>8300
+       call subp
+       b    cont
+
+       data >1000
+t1     text 'ABCDEFGHI JKLMOPQ'
+       data >1000
+
+cont   dinc @>8301
+       call subp
+
+       b     cont
+
+       data >1000
+t2     text 'ABC,DEF.GHI?K(L)M!OPQ:RST'
+       data >1000
+
+subp:
+       inv  @>8300
+       rtnc
+       
+       end

@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import os
+import re
 
 from config import Dirs, Disks, Files
 from utils import xas, xdm, error, checkObjCodeEq, checkImageFilesEq, \
@@ -26,6 +27,43 @@ def checkExists(files):
                 x = f.read()[0]
         except (IOError, IndexError):
             error("Files", "File missing or empty: " + fn)
+
+
+def checkBinTextEqual(outfile, reffile):
+    with open(outfile, "r") as fout, open(reffile, "rb") as fref:
+        txt = " ".join(fout.readlines())
+        bin = fref.read()
+    if len(bin) % 2 == 1:
+        bin += "\x00"
+    bytes = [ord(x) for x in bin]
+    dirs = [int(m, 16) for m in re.findall(">([0-9A-Fa-f]{2})", txt)][1:]
+    if bytes != dirs:                                              # skip AORG
+        error("DATA", "DATA/word mismatch")
+
+
+def checkInstructions(outfile, instr):
+    with open(outfile, "r") as fout:
+        txt = fout.readline()
+    condensed = [line.replace(" ", "") for line in txt if line.strip()]
+    for i, line in enumerate(condensed):
+        if ((instr[i][0] == 'b' and (line[:4] != instr) or
+                     line != instr[i])):
+            error("text", "Malformed text file")
+
+
+def checkSymbols(outfile, symbols):
+    """check if all symbol/value pairs are in symfile"""
+    with open(outfile, "r") as fout:
+        source = fout.readlines()
+    equs = {}
+    for i in xrange(0, len(source), 2):
+        sym = source[i].split(':')[0]
+        val = source[i + 1].upper().split("EQU", 1)[1].strip().split()[0]
+        equs[sym] = val
+    for sym, val in symbols:
+        if equs.get(sym) != val:
+            error("symbols", "Symbol mismatch for %s=%s/%s" % (
+                sym, val, equs.get(sym)))
 
 
 ### Main test
@@ -88,6 +126,24 @@ def runtest():
     remove([Files.reference])
     xas(source, "-b", "-o", Files.output, "-L", Files.reference)
     checkExists([Files.reference])
+
+    # text data output
+    source = os.path.join(Dirs.sources, "ascart.asm")
+    xas(source, "-b", "-R", "-o", Files.reference)
+    xas(source, "-t", "-R", "-o", Files.output)
+    checkBinTextEqual(Files.output, Files.reference + "_0000")
+
+    source = os.path.join(Dirs.sources, "asmtext.asm")
+    xas(source, "-t", "-R", "-o", Files.output)
+    checkInstructions(Files.output,
+                      [";aorg>1000", "byte", ";aorg>2000", "byte"])
+
+    # symbols
+    source = os.path.join(Dirs.sources, "assyms.asm")
+    xas(source, "-b", "-R", "-o", Files.reference, "-E", Files.output)
+    checkSymbols(Files.output,
+                 (("START", ">0000"), ("S1", ">0001"), ("S2", ">0018"),
+                  ("VDPWA", ">8C02")))
 
     # cleanup
     os.remove(Files.output)
