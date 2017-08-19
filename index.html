@@ -41,18 +41,14 @@ modern computer systems.</p>
 <p>As of this release, the cross-development tools comprise</p>
 
 <ul>
-<li>
-<code>xas99</code>, a TMS9900 cross-assembler,</li>
-<li>
-<code>xga99</code>, a GPL cross-assembler,</li>
-<li>
-<code>xbas99</code>, a TI BASIC and TI Extended BASIC lister and encoder,</li>
-<li>
-<code>xdm99</code>, a disk manager for sector-based TI disk images,</li>
-<li>
-<code>xhm99</code>, a manager for HFE images used by HxC floppy emulators, and</li>
-<li>
-<code>xvm99</code>, a volume manager for nanoPEB/CF7+ Compact Flash cards.</li>
+<li><code>xas99</code>, a TMS9900 cross-assembler,</li>
+<li><code>xga99</code>, a GPL cross-assembler,</li>
+<li><code>xda99</code>, a TMS9900 disassembler,</li>
+<li><code>xdg99</code>, a GPL disassembler,</li>
+<li><code>xbas99</code>, a TI BASIC and TI Extended BASIC lister and encoder,</li>
+<li><code>xdm99</code>, a disk manager for sector-based TI disk images,</li>
+<li><code>xhm99</code>, a manager for HFE images used by HxC floppy emulators, and</li>
+<li><code>xvm99</code>, a volume manager for nanoPEB/CF7+ Compact Flash cards.</li>
 </ul>
 
 <p>All programs are written in Python and thus run on any platform that Python
@@ -62,10 +58,8 @@ supports, including Linux, Windows, and OS X.</p>
 available cross-platform development environments:</p>
 
 <ul>
-<li>
-<code>xdt99-mode</code>, a major mode for the GNU Emacs text editor, and</li>
-<li>
-<code>xdt99 IDEA</code>, a plugin for the IntelliJ IDEA development environment.</li>
+<li><code>xdt99-mode</code>, a major mode for the GNU Emacs text editor, and</li>
+<li><code>xdt99 IDEA</code>, a plugin for the IntelliJ IDEA development environment.</li>
 </ul>
 
 <p>The plugins offer syntax highlighting, navigation, and semantic renaming for
@@ -90,8 +84,7 @@ xdt99.</p>
 
 <p>The <a href="https://endlos99.github.io/xdt99">xdt99 homepage</a> always hosts the latest version of this document.</p>
 
-<h2>
-<a id="installation" class="anchor" href="#installation" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Installation</h2>
+<h2>Installation</h2>
 
 <p>Download the latest <a href="https://github.com/endlos99/xdt99/releases">binary release</a> from GitHub (recommended) or clone the
 <a href="https://github.com/endlos99/xdt99">xdt99 repository</a>.  Please note that the big download buttons on top of the
@@ -122,8 +115,7 @@ functions that you may use in your TI programs.</p>
 <p>The <code>example/</code> directory of the binary distribution contains some sample files
 that are referenced throughout this manual.</p>
 
-<h2>
-<a id="xas99-cross-assembler" class="anchor" href="#xas99-cross-assembler" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>xas99 Cross-Assembler</h2>
+<h2>xas99 Cross-Assembler</h2>
 
 <p>The <code>xas99</code> cross-assembler translates TMS9900 assembly code into executable
 programs for the TI 99 home computer equipped with the Editor/Assembler module
@@ -161,8 +153,7 @@ computer shares many similarities with that of other TMS9900-based systems, most
 notably the TI 990 mini computers, <code>xas99</code> currently targets the TI 99
 exclusively.</p>
 
-<h3>
-<a id="assembling-source-code" class="anchor" href="#assembling-source-code" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Assembling Source Code</h3>
+<h3>Assembling Source Code</h3>
 
 <p>The <code>xas99</code> cross-assembler reads an assembly source code file and generates an
 uncompressed object code file that is suitable for the original TI 99
@@ -188,8 +179,7 @@ package in the case of errors.  <code>xas99</code> is slightly more permissive t
 Editor/Assembler, but it should be able to assemble any source that the
 Editor/Assembler package can assemble.</p>
 
-<h3>
-<a id="creating-program-images" class="anchor" href="#creating-program-images" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Creating Program Images</h3>
+<h3>Creating Program Images</h3>
 
 <p>The image parameter <code>-i</code> tells <code>xas99</code> to generate image files that can be
 loaded using Editor/Assembler option 5.</p>
@@ -230,13 +220,12 @@ relocatable code.  If no base address is given, default address <code>&gt;A000</
 <p>All the usual restrictions for program images apply.  In particular, the first
 word of the first image file must be an executable instruction.</p>
 
-<h3>
-<a id="creating-mess-cartridges" class="anchor" href="#creating-mess-cartridges" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Creating MESS Cartridges</h3>
+<h3>Creating MESS Cartridges</h3>
 
 <p>The cartridge parameter <code>-c</code> tells <code>xas99</code> to create an RPK cartridge file that
 can be used with the MESS emulator.</p>
 
-<pre><code>$ xas99.py -R -c ascart.a99 -n "HELLO WORLD"
+<pre><code>$ xas99.py -c -R ascart.a99 -n "HELLO WORLD"
 </code></pre>
 
 <p>The optional name parameter <code>-n</code> overrides the default name of the program that
@@ -257,8 +246,7 @@ using VDP memory access routines apply.</p>
 
 <p>Note that cartridge files cannot be generated from split image files.</p>
 
-<h3>
-<a id="creating-raw-binaries" class="anchor" href="#creating-raw-binaries" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Creating Raw Binaries</h3>
+<h3>Creating Raw Binaries</h3>
 
 <p>Image files for the E/A loader option 5 contain the actual program code that is
 loaded verbatim into memory.  They also contain a small amount of metadata that
@@ -267,7 +255,7 @@ instructs the loader how many files to load and where to store the data.</p>
 <p>The binary parameter <code>-b</code> tells <code>xas99</code> to generate raw binary files without
 metadata that are suitable for burning EPROMs or supplying other devices.</p>
 
-<pre><code>$ xas99.py -R -b ascart.a99 --base 0x6000
+<pre><code>$ xas99.py -b -R ascart.a99 --base 0x6000
 </code></pre>
 
 <p>The assembler will generate one binary file per code segment.  For further
@@ -276,8 +264,27 @@ control, the <code>SAVE</code> directive may be used (see below).</p>
 <p>The optional <code>--base</code> argument sets the base address for relocatable segments;
 if no argument is given, <code>&gt;0000</code> is used.</p>
 
-<h3>
-<a id="jumpstarting" class="anchor" href="#jumpstarting" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Jumpstarting</h3>
+<h3>Creating Text Files</h3>
+
+<p>The text parameter <code>-t</code> generates a textual version of the raw binary generated
+by <code>-b</code>.</p>
+
+<pre><code>$ xas99.py -t -R ascart.a99
+</code></pre>
+
+<p>The resulting text file contains an <code>AORG</code> comment followed by many <code>BYTE</code>
+directives for each assembled segment.</p>
+
+<pre><code>;  aorg &gt;1000
+   byte &gt;04, &gt;c0, &gt;c0, &gt;81, &gt;04, &gt;60, &gt;20, &gt;00
+;  aorg &gt;2000
+   byte &gt;02, &gt;e0, &gt;83, &gt;e0, &gt;04, &gt;d0
+</code></pre>
+
+<p>The text format is useful for including the binary result of another program
+into some assembly or GPL source source.</p>
+
+<h3>Jumpstarting</h3>
 
 <p>To make the code, assemble, run cycle as fast as possible, <code>xas99</code> can
 generate so-called "jumpstart disks" that may be loaded and executed by the
@@ -299,13 +306,12 @@ is no longer required.</p>
 <p>Currently, jumpstarted programs may consist of up to 8 segments and must fit
 entirely into memory areas <code>&gt;2000</code>-<code>&gt;3EFF</code> and <code>&gt;A000</code>-<code>&gt;FFFF</code>.</p>
 
-<h3>
-<a id="other-formats" class="anchor" href="#other-formats" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Other Formats</h3>
+<h3>Other Formats</h3>
 
 <p>For relocatable code not larger than around 24 KB, <code>xas99</code> can generate an
 Extended BASIC program that invisibly contains the generated code within:</p>
 
-<pre><code>$ xas99.py --embed-xb ashello.a99 
+<pre><code>$ xas99.py --embed-xb ashello.a99
 </code></pre>
 
 <p>The resulting program is a regular Extended BASIC program in so-called "long"
@@ -329,8 +335,7 @@ do require the Editor/Assembler module for execution.</p>
 <p>But be careful: editing the generated program is likely to corrupt the embedded
 assembly code!</p>
 
-<h3>
-<a id="creating-list-files" class="anchor" href="#creating-list-files" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Creating List Files</h3>
+<h3>Creating List Files</h3>
 
 <p>The <code>-L</code> option instructs <code>xas99</code> to generate a list file for the assembled
 source code:</p>
@@ -345,8 +350,7 @@ of source code lines or the effective values of expressions.</p>
 Editor/Assembler module.  The most prominent difference is the listing of
 the <code>BYTE</code> directive, where individual byte values are grouped into words.</p>
 
-<h3>
-<a id="tms9900-assembly-support" class="anchor" href="#tms9900-assembly-support" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>TMS9900 Assembly Support</h3>
+<h3>TMS9900 Assembly Support</h3>
 
 <p>The <code>xas99</code> is a complete TMS9900 assembler supporting all documented TMS9900
 opcodes.  TMS9995 opcodes such as <code>MPYS</code> and <code>DIVS</code> are currently not supported
@@ -375,8 +379,7 @@ silently ignored by <code>xas99</code>:</p>
 
 <p>are also ignored.</p>
 
-<h4>
-<a id="source-code-organization" class="anchor" href="#source-code-organization" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Source Code Organization</h4>
+<h4>Source Code Organization</h4>
 
 <p>The <code>COPY</code> directive is used to break large assembly sources into individual
 files.</p>
@@ -408,10 +411,9 @@ comma-seperated list, e.g.,</p>
 
 <p><code>xas99</code> also provides a new directive <code>BCOPY</code> that includes an external binary
 file as a sequence of <code>BYTE</code>s.  Please refer to the section about <em>xdt99
-Extensions</em> for further information. </p>
+Extensions</em> for further information.</p>
 
-<h3>
-<a id="xdt99-extensions" class="anchor" href="#xdt99-extensions" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a><code>xdt99</code> Extensions</h3>
+<h3><code>xdt99</code> Extensions</h3>
 
 <p>The <code>xas99</code> cross-assembler offers various "modern" extensions to the original
 TI Assembler to improve the developer experience for writing assembly programs.
@@ -434,7 +436,7 @@ Label3 mov Label1(R1),Label2(r2)
 <p>Labels may be of arbitrary length and may contain arbitrary characters except
 for whitespace and operators such as <code>+</code>, <code>*</code>, <code>(</code>, <code>$</code>, etc.  An optional
 colon <code>:</code> may be appended to the label name.  The colon is not part of the
-name, but logically continues the current line to the next:  </p>
+name, but logically continues the current line to the next:</p>
 
 <pre><code>my_label_1:
     equ 1         ; assigns 1 to my_label_1
@@ -463,7 +465,7 @@ prefixed with a unary minus sign <code>-</code> are searched before the current 
 </code></pre>
 
 <p>Doubling, tripling, ... the number of <code>!</code>s before a reference refers to the
-second, third, ... match of the local label relative to the current position: </p>
+second, third, ... match of the local label relative to the current position:</p>
 
 <pre><code>!   dec  r1              &lt;-+
     jeq  !     --+         |
@@ -474,7 +476,7 @@ second, third, ... match of the local label relative to the current position: </
     jmp  -!!          |  --|
 !   inc  r1         &lt;-+    |
     jmp  -!!!            --+
-!   rt        
+!   rt
 </code></pre>
 
 <p>Note that labels <code>label</code> and <code>!label</code> are entirely different and can be used
@@ -565,7 +567,7 @@ by commas:</p>
 </code></pre>
 
 <p>Note that macro parameters are resolved by textual replacement.  Thus,
-when instantiating </p>
+when instantiating</p>
 
 <pre><code>    li   r0, 2 * #1
 </code></pre>
@@ -739,7 +741,7 @@ otherwise, it generates images for each segment individually.</p>
 RET
 PUSH &lt;gas&gt;
 POP  &lt;gad&gt;
-SLC  &lt;wa&gt;, &lt;count&gt;  
+SLC  &lt;wa&gt;, &lt;count&gt;
 PIC  &lt;gas&gt;, &lt;gad&gt;
 </code></pre>
 
@@ -749,8 +751,7 @@ constructed separately by hand.</p>
 <p>The <code>SPI</code> family of instructions is not supported; please use their equivalents
 <code>CKON</code>, ... instead.</p>
 
-<h4>
-<a id="compatibility" class="anchor" href="#compatibility" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Compatibility</h4>
+<h4>Compatibility</h4>
 
 <p>The strictness option <code>-s</code> disables all <code>xas99</code>-specific extensions to improve
 backwards compatibility for old sources:</p>
@@ -769,8 +770,7 @@ whitespace mode:</p>
 
 <p>Finally, note that case insensitivity cannot be disabled at the moment.</p>
 
-<h2>
-<a id="xga99-gpl-cross-assembler" class="anchor" href="#xga99-gpl-cross-assembler" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>xga99 GPL Cross-Assembler</h2>
+<h2>xga99 GPL Cross-Assembler</h2>
 
 <p>The <code>xga99</code> GPL cross-assembler translates programs written in TI's proprietary
 Graphics Programming Language into byte code that can be interpreted by the TI
@@ -837,8 +837,7 @@ Programmer's Guide</em> was considered too arcane for inclusion in <code>xga99</
 sources and relaxes the use of whitespace.  For details, please refer to the
 respective section of the <code>xas99</code> manual.</p>
 
-<h3>
-<a id="gpl-instructions" class="anchor" href="#gpl-instructions" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>GPL Instructions</h3>
+<h3>GPL Instructions</h3>
 
 <p><code>xga99</code> supports all GPL mnemonics described in the <em>GPL Programmer's Guide</em>.
 As is common practice, however, the operand order for the shift instructions
@@ -900,8 +899,7 @@ FOR &lt;n&gt; ... FEND [&lt;label&gt;]
 <p>Note that unlike the Ryte Data GPL Assembler, <code>xga99</code> also supports the optional
 address label for the <code>FEND</code> instruction.</p>
 
-<h3>
-<a id="gpl-directives" class="anchor" href="#gpl-directives" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>GPL Directives</h3>
+<h3>GPL Directives</h3>
 
 <p>The <code>xga99</code> GPL assembler supports the following directives:</p>
 
@@ -948,8 +946,7 @@ location of the final GPL byte code image may also be specified by command-line
 parameters <code>-G</code> and <code>-A</code>, respectively.  Note that cartridge parameter <code>-c</code>
 implies <code>-G 0x6000</code> and <code>-A 0x30</code>.</p>
 
-<h3>
-<a id="xdt99-extensions-1" class="anchor" href="#xdt99-extensions-1" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a><code>xdt99</code> Extensions</h3>
+<h3><code>xdt99</code> Extensions</h3>
 
 <p>The <code>xga99</code> GPL cross-assembler offers various "modern" extensions to the
 original TI GPL specification to improve the developer experience for writing
@@ -967,8 +964,255 @@ of <code>#1</code>, <code>#2</code>, ..., as the latter are used to denote VDP r
 <p>The predefined symbols set by <code>xga99</code> are <code>_xga99_image</code>, <code>_xga99_cart</code>, or
 <code>_xga99_gbc</code>, depending on the assembly command <code>-i</code>, <code>-c</code>, ... used.</p>
 
-<h2>
-<a id="xbas99-ti-basic-and-ti-extended-basic-tool" class="anchor" href="#xbas99-ti-basic-and-ti-extended-basic-tool" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>xbas99 TI BASIC and TI Extended BASIC Tool</h2>
+<h2>xda99 Disassembler</h2>
+
+<p>The cross-disassembler <code>xda99</code> is a command-line tool to convert machine code
+into assembly source code.</p>
+
+<p>To disassemble a binary machine code file, the disassembler needs to know the
+first address of the machine code as well as the starting address for the
+disassembly:</p>
+
+<pre><code>$ xda99.py ascart_6000.bin -a 6000 -f 600c
+</code></pre>
+
+<p>All command line values are interpreted as hexadecimal values.  They can
+optionally be prefixed by <code>&gt;</code> or <code>0x</code>.</p>
+
+<p>The resulting file has the same name as the binary file but ends in <code>.dis</code>.  It
+contains the disassembled instructions in a source-like list:</p>
+
+<pre><code>            AORG &gt;6000
+6000 4845?
+6002 4C4C?
+6004 4F20?
+6006 4341?
+6008 5254?
+600A 2100?
+600C 0300   LIMI  &gt;0000
+600E 0000
+6010 02E0   LWPI  PAD
+6012 8300
+6014 04C0   CLR   R0
+...
+</code></pre>
+
+<p>The output option <code>-o</code> redirects the output to a different file, or prints to
+stdout when using the special filename <code>-</code>.</p>
+
+<p>An optional to parameter <code>-t</code> will limit the disassembly to below that address.</p>
+
+<p>The from parameter <code>-f</code> starts the disassembler in "top-down mode", which
+disassembles the machine code sequentially word by word into.  This is often
+problematic, as programs consists of both code and data segments.  Disassembling
+data segments results in accurate, but meaningless statements, which can be seen
+if above command line is changed to <code>-f 6000</code>:</p>
+
+<pre><code>            AORG &gt;6000
+6000 4845   SZC   R5, @&gt;4C4C(R1)
+6002 4C4C
+6004 4F20   SZC   @&gt;4341, *R12+
+6006 4341
+6008 5254   SZCB  *R4, R9
+600A 2100   COC   R0, R4
+600C 0300   LIMI  &gt;0000
+600E 0000
+</code></pre>
+
+<p>If the data segments are known, those can be excluded from disassembly with the
+exclude <code>-e</code> option:</p>
+
+<pre><code>$ xda99.py ascart_6000.bin -a 6000 -f 6000 -e 6000-600c 70e0-7f00
+</code></pre>
+
+<p>The upper address <code>yyyy</code> of an exclude range <code>xxxx-yyyy</code> is not included in the
+range, so range <code>6000-6000</code> is an empty range.</p>
+
+<p>For unknown programs, exclusion of data segments is difficult.  Thus, <code>xdg99</code>
+offers an additional "run mode" <code>-r</code> that recognizes static branch, call, and
+return statements, and disassembles only along the program flow.</p>
+
+<pre><code>$ xda99.py ascart_6000.bin -a 6000 -r 600c
+</code></pre>
+
+<p>Note that for the <code>ascart</code> program, there won't be any differences between run
+mode and top-down mode, as code and data are seperate in that program.</p>
+
+<p>Run mode is not limited to one starting address:</p>
+
+<pre><code>$ xda99.py suprdupC.bin -a 6000 -r 6034 603c
+</code></pre>
+
+<p>For convenience, the special address <code>start</code> denotes all start addresses derived
+for the given machine code.  Thus, the above line becomes</p>
+
+<pre><code>$ xda99.py suprdupC.bin -a 6000 -r start
+</code></pre>
+
+<p>If the binary is not a cartridge image, <code>start</code> will currently default to the
+beginning given by <code>-a</code>.</p>
+
+<p>Run mode also includes jump markers as comments that show from where an
+instruction was branched to:</p>
+
+<pre><code>6058 D809   MOVB R9, @&gt;837C
+605A 837C
+605C D809   MOVB R9, @&gt;8374           ; &lt;- &gt;6068
+605E 8374
+6060 0420   BLWP @KSCAN
+6062 2108
+6064 9220   CB   @&gt;8375, R8
+6066 8375
+6068 13F9   JEQ  &gt;605C
+606A D020   MOVB @&gt;8375, R0
+606C 8375
+</code></pre>
+
+<p>The program option <code>-p</code> turns the disassembly into actual source code that can
+be re-assembled again:</p>
+
+<pre><code>       AORG &gt;6000
+VDPWD  EQU  &gt;8C00
+PAD    EQU  &gt;8300
+GPLLNK EQU  &gt;2100
+VDPWA  EQU  &gt;8C02
+L6000  DATA &gt;4845
+L6002  DATA &gt;4C4C
+L6004  DATA &gt;4F20
+L6006  DATA &gt;4341
+L6008  DATA &gt;5254
+L600A  DATA GPLLNK
+L600C  LIMI &gt;0000
+L600E
+L6010  LWPI PAD
+L6012
+L6014  CLR  R0
+...
+</code></pre>
+
+<p>The <code>-p</code> options will also include an <code>EQU</code> stanza of all symbols used, in this
+case all <code>xas99</code> internal symbols that were referred (<code>REF</code>) by the program.</p>
+
+<p>To use more symbols, a symbol file can be supplied with the <code>-S</code> parameter.  The
+symbol file can be generated with the EQU option <code>-E</code> of <code>xas99</code>, which is
+admittedly a rare case in practice, or written manually in fairly free form,
+e.g.,</p>
+
+<pre><code>S1 EQU &gt;10
+S2:
+        EQU 10
+S3 &gt;10
+S4: 0x10
+</code></pre>
+
+<p>Data segments often contain strings, that can be restored heuristically by using
+the string option <code>-n</code>, either with or without the <code>-p</code> option.</p>
+
+<pre><code>            AORG &gt;6000
+6000 4845   TEXT  'HELLO CART'
+6002 4C4C
+6004 4F20
+6006 4341
+6008 5254
+600A 2100?
+600C 0300   LIMI  &gt;0000
+600E 0000
+6010 02E0   LWPI  PAD
+</code></pre>
+
+<p>Option <code>-n</code> is only useful in run mode, as top-down mode will not leave behind
+any data segments, where strings could be found.</p>
+
+<p>Note that currently, <code>xda99</code> only disassembles even length strings.</p>
+
+<h3>Run Mode and Conflicts</h3>
+
+<p>When the run mode disassembler hits an address which has already been
+disassembled, it stops the current run.  This regularly happens for multiple
+calls to a subroutine, loops, or recursion.  The disassembler hitting an address
+where it has previously disassembled a statement is perfectly normal and
+correct.</p>
+
+<p>But run mode is not always 100% accurate, as <code>xda99</code> cannot follow indirect
+branches such as <code>B *R1</code>, and doesn't know if a condition for <code>JEQ LABEL</code> is
+always true and thus has no alternate path.  (The latter remark is more relevant
+for <code>xdg99</code>, where <code>BR</code> is often used as a shorter <code>B</code>.)  As a consequence, a
+run may "run off" (no pun indented), and worse, different runs may try to
+disassemble the same range differently:</p>
+
+<pre><code>               First run,              Second run,
+               starting @&gt;6000         starting @&gt;6002
+               AORG &gt;6000              AORG &gt;6000
+6000 C820      MOV  @PAD, @&gt;831C                           | disagree-
+6002 8300                              C    R0, R12        |      ment
+6004 831C                              C    *R12, R12      |
+6006 0A51      SLA  R1, 5              SLA  R1, 5
+6008 1620      JNE  &gt;604A              JNE  &gt;604A
+</code></pre>
+
+<p>Above, the second run hit an address that is only <em>part</em> of a previously
+disassembled address (i.e., an operator), which raises a conflict about which
+version is correct.</p>
+
+<p>The default behavior of <code>xda99</code> is to stop the run, leaving the previous
+disassembly untouched.  You can override the default with the force option <code>-F</code>,
+which will always overwrite previous results.  This is done cleanly, so that
+run 2 above will reset the overridden instruction at address <code>@&gt;6000</code>.</p>
+
+<p>There is no recommendation to disassemble with or without override.  The result
+of each disassembly may vary with each binary, and should be tried out.</p>
+
+<h2>xdg99 GPL Disassembler</h2>
+
+<p>The GPL disassembler <code>xdg99</code> is a command-line tool to convert GPL bytecode into
+GPL source code.</p>
+
+<p><code>xdg99</code> shares all options with <code>xda99</code>, and works very similar to this
+disassembler.  In fact, at some point in the furure, both programs might be
+merged into one.</p>
+
+<p>To show the similarities,</p>
+
+<pre><code>$ xdg99.py gacart.bin -a 6000 -f 6030
+</code></pre>
+
+<p>disassembles bytecode file <code>gacart.bin</code>, i.e., a GROM file, into GPL
+instructions:</p>
+
+<pre><code>          GROM &gt;6000
+          AORG &gt;0000
+6000 AA?
+...
+602F 00?
+6030 07   ALL   &gt;20
+6031 20
+6032 04   BACK  &gt;04
+6033 04
+6034 BE   ST    &gt;48, V@&gt;0021
+6035 A0
+6036 21
+6037 48
+...
+</code></pre>
+
+<p>The only option that <code>xdg99</code> features over <code>xda99</code> is the syntax selection
+option <code>-s</code>, which is already known from <code>xga99</code>:</p>
+
+<pre><code>$ xdg99.py gacart.bin -a 6000 -f 6030
+...
+6206 31   MOVE &gt;0010, G@&gt;6EC4, V@&gt;0033
+...
+</code></pre>
+
+<p>yields the standard syntax, but <code>-s</code> selects RAG, Ryte Data, or TIMT style:</p>
+
+<pre><code>$ xdg99.py gacart.bin -a 6000 -f 6030 -s mizapf
+...
+6206 31   MOVE &gt;0010 BYTES FROM GROM@&gt;6EC4 TO VDP@&gt;0033
+...
+</code></pre>
+
+<h2>xbas99 TI BASIC and TI Extended BASIC Tool</h2>
 
 <p><code>xbas99</code> is a command-line tool for converting TI BASIC and TI Extended BASIC
 programs from source format to internal format, and vice versa.  For brevity, we
@@ -996,7 +1240,7 @@ the line wrapping.</p>
 10 REM HELLO
 20 INPUT "YOUR NAME? ":NAME$
 30 PRINT "HELLO ";NAME$
-40 END 
+40 END
 </code></pre>
 
 <p>The similar decode command <code>-d</code> saves the program listing to a file instead:</p>
@@ -1067,7 +1311,7 @@ and the transfer to a disk image in one single step:</p>
 <code>stdin</code> or <code>stdout</code>, respectively.  You can also pipe from <code>xdm99</code> into <code>xbas99</code>
 to list BASIC programs quickly that are stored on a disk image:</p>
 
-<pre><code>$ xdm99.py basic.dsk -p HELLO | xbas99.py -l - 
+<pre><code>$ xdm99.py basic.dsk -p HELLO | xbas99.py -l -
 </code></pre>
 
 <p>Finally, <code>xbas99</code> does not distinguish between TI BASIC and TI Extended BASIC
@@ -1081,16 +1325,14 @@ always load with <code>OLD</code>, but it may not <code>RUN</code>.  A future ve
 contain more advanced checks to assist developers in creating new BASIC
 programs.</p>
 
-<h2>
-<a id="xdm99-disk-manager" class="anchor" href="#xdm99-disk-manager" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>xdm99 Disk Manager</h2>
+<h2>xdm99 Disk Manager</h2>
 
 <p><code>xdm99</code> is a command-line tool for cataloging and manipulating sector-based TI
 disk images used by most emulators, including MESS.  <code>xdm99</code> also supports the
 TIFiles file format that retains TI-specific meta data for files that originate
 from TI disk images.</p>
 
-<h3>
-<a id="cataloging-disks" class="anchor" href="#cataloging-disks" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Cataloging Disks</h3>
+<h3>Cataloging Disks</h3>
 
 <p>The default operation of <code>xdm99</code> when invoked without any options is to print
 the file catalog of the disk image to <code>stdout</code>:</p>
@@ -1117,8 +1359,7 @@ natively these inconsistencies happen more frequently than one would assume.
 Files affected by inconsistencies are flagged with <code>ERR</code> in the catalog.  You
 can try the <code>-R</code> option to automatically repair disks with inconsistencies.</p>
 
-<h3>
-<a id="extracting-files" class="anchor" href="#extracting-files" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Extracting Files</h3>
+<h3>Extracting Files</h3>
 
 <p>The extract parameter <code>-e</code> extracts one or more files from a disk image to the
 local file system.</p>
@@ -1155,8 +1396,7 @@ shell from expanding the pattern prematurely.</p>
 retain file meta data about file type and record length, use the
 TIFiles or v9t9 formats described below.</p>
 
-<h3>
-<a id="manipulating-disks" class="anchor" href="#manipulating-disks" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Manipulating Disks</h3>
+<h3>Manipulating Disks</h3>
 
 <p>The add parameter <code>-a</code> adds local files to the disk image.  <code>xdm99</code> will infer a
 suitable TI filename from the local filename unless an explicit filename is
@@ -1183,7 +1423,7 @@ specified filename will be incremented by one for each subsequent file, e.g.,</p
 </code></pre>
 
 <p>For each file to rename, provide the old filename. followed by a colon <code>:</code>,
-followed by the new filename. </p>
+followed by the new filename.</p>
 
 <p>The delete parameter <code>-d</code> deletes one or more files on the disk.</p>
 
@@ -1204,8 +1444,7 @@ cataloging the disk, however, will <em>not</em> modify the disk image.</p>
 To create an independent copy of the original disk image with the changes
 applied, the <code>-o</code> parameter may be used.</p>
 
-<h3>
-<a id="files-in-a-directory-fiad" class="anchor" href="#files-in-a-directory-fiad" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Files in a Directory (FIAD)</h3>
+<h3>Files in a Directory (FIAD)</h3>
 
 <p>Extracting files from a TI disk image to the local file system will lose certain
 TI-specific file information, such as the file type or the record length.  In
@@ -1272,15 +1511,14 @@ $ xdm99.py -T hello.a99 -f DIS/VAR80 -n HELLO-S -o hello-s.tfi
 <p>Note that creating a FIAD file using the <code>-T</code> option usually requires
 information about the TI filename and the TI file type, similar to adding plain
 files to a disk image using <code>-a</code>.  When converting multiple files to FIAD
-format, the TI filename supplied by <code>-n</code> is incremented automatically for each 
+format, the TI filename supplied by <code>-n</code> is incremented automatically for each
 file.</p>
 
 <p>FIAD file conversion <code>-T</code>, <code>-F</code> and information <code>-I</code> and <code>-P</code> infer the FIAD
 format used automatically, but detection may be overridden with the <code>-t</code> or
 <code>-9</code> options.</p>
 
-<h3>
-<a id="analyzing-disks" class="anchor" href="#analyzing-disks" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Analyzing Disks</h3>
+<h3>Analyzing Disks</h3>
 
 <p>The check parameter <code>-C</code> analyzes a disk image for errors and prints a summary
 to <code>stderr</code>.  While all disk operations, including cataloging, also check and
@@ -1367,15 +1605,13 @@ $ xdm99.py work.dsk -S 0x22 -o first-file-sector
 <p>For convenience, integer arguments of <code>-S</code>, <code>-X</code> and <code>-Z</code> may be specified in
 either decimal or hexadecimal notation.</p>
 
-<h2>
-<a id="xhm99-hfe-image-manager" class="anchor" href="#xhm99-hfe-image-manager" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>xhm99 HFE Image Manager</h2>
+<h2>xhm99 HFE Image Manager</h2>
 
 <p>The <code>xhm99</code> HFE image manager is an extension to the <code>xdm99</code> disk manager that
 is both a conversion tool and a manager for HFE images used by HxC floppy
 emulators.</p>
 
-<h3>
-<a id="converting-images" class="anchor" href="#converting-images" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Converting Images</h3>
+<h3>Converting Images</h3>
 
 <p>To convert an existing disk image to an HFE image that can be copied onto an SD
 card and used by the HxC floppy emulator, invoke <code>xhm99</code> with a single to HFE
@@ -1396,8 +1632,7 @@ image:</p>
 <p>This yields the file <code>image.dsk</code> by default.  Instead of <code>-F</code> you may also use
 the long formats <code>--from-hfe</code> or <code>--to-dsk</code>.</p>
 
-<h3>
-<a id="managing-image-contents" class="anchor" href="#managing-image-contents" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Managing Image Contents</h3>
+<h3>Managing Image Contents</h3>
 
 <p>All options other than <code>-F</code> and <code>-T</code> are similar to those of <code>xdm99</code> and operate
 directly on the disk image that is contained in the HFE image supplied.</p>
@@ -1408,7 +1643,7 @@ and no further arguments.</p>
 <pre><code>$ xhm99.py image.hfe
 SOMEDISK  :     4 used  356 free   90 KB  1S/1D 40T  9 S/T
 ----------------------------------------------------------------------------
-SOMEFILE       2  DIS/FIX 60      60 B    1 recs  2016-08-18 20:50:12    
+SOMEFILE       2  DIS/FIX 60      60 B    1 recs  2016-08-18 20:50:12
 </code></pre>
 
 <p>To show the contents of a file on the console, use the print argument <code>-P</code>.</p>
@@ -1447,15 +1682,13 @@ from DSDD with 40 tracks to DSSD with 80 tracks:</p>
 <p>For further information about available arguments please refer to the <code>xdm99</code>
 section above.</p>
 
-<h2>
-<a id="xvm99-nanopeb-volume-manager" class="anchor" href="#xvm99-nanopeb-volume-manager" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>xvm99 nanoPEB Volume Manager</h2>
+<h2>xvm99 nanoPEB Volume Manager</h2>
 
 <p>The <code>xvm99</code> volume manager is an extension to the <code>xdm99</code> disk manager that is
 both a conversion tool and a manager for CF card volumes used by nanoPEB/CF7+
 devices.</p>
 
-<h3>
-<a id="managing-volumes" class="anchor" href="#managing-volumes" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Managing Volumes</h3>
+<h3>Managing Volumes</h3>
 
 <p>The default operation of <code>xvm99</code> when invoked without any command arguments is
 to print a short summary of the disk images stored in the specified volumes.</p>
@@ -1496,8 +1729,7 @@ file system.</p>
 automatically.  <code>xvm99</code> trims disk images to match the sector count stored in
 the image, unless the <code>--keep-size</code> option is given.</p>
 
-<h3>
-<a id="manipulating-volumes" class="anchor" href="#manipulating-volumes" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Manipulating Volumes</h3>
+<h3>Manipulating Volumes</h3>
 
 <p>Most commands provided by <code>xdm99</code> are also available for <code>xvm99</code>.</p>
 
@@ -1517,8 +1749,7 @@ volumes.  For example,</p>
 
 <p>adds the local file README to all disk images in volumes 1 through 20.</p>
 
-<h2>
-<a id="example-usage" class="anchor" href="#example-usage" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Example Usage</h2>
+<h2>Example Usage</h2>
 
 <p>This section gives an example on how to assemble a TI 99 assembly program and
 run it on the MESS emulator.  The commands entered and the responses shown here
@@ -1632,7 +1863,7 @@ enter the name of the image file:</p>
 <p>The program will start automatically once loading has completed.</p>
 
 <p>If we want to learn more about the internals of our assembled program we can
-take a look at its list file: </p>
+take a look at its list file:</p>
 
 <pre><code>$ xas99.py -R ashello.a99 -L ashello.lst
 </code></pre>
@@ -1641,27 +1872,27 @@ take a look at its list file: </p>
 
 <pre><code>XAS99 CROSS-ASSEMBLER   VERSION 1.2.3
 0001            *  HELLO WORLD
-0002            
+0002
 0003                   IDT 'ASHELLO'
-0004            
+0004
 0005                   DEF SLOAD,SFIRST,SLAST,START
 0006                   REF VSBW,VMBW,VWTR
 0007                   REF KSCAN
-0008            
+0008
 0009            SLOAD
 0010 0000 100D  SFIRST JMP  START
-0011            
+0011
 0012      8300  WRKSP  EQU  &gt;8300
 0013      8374  KMODE  EQU  &gt;8374
 0014      8375  KCODE  EQU  &gt;8375
 0015      837C  GPLST  EQU  &gt;837C
-0016            
+0016
 0017 0002 ....  MESSG  TEXT 'HELLO WORLD'
 0018 000D ....         TEXT '   hit any key!'
 0019      001A  MESSGL EQU  $-MESSG
-0020            
+0020
 0021 001C 0300  START  LIMI 0
-     001E 0000 
+     001E 0000
 0022 0020 02E0         LWPI WRKSP
      0022 8300
 ...
@@ -1716,8 +1947,7 @@ file instead.</p>
 <p>Either way, <code>ashello.obj</code> will be available as <code>HELLO-O</code> in volume 2 and can
 loaded as <code>DSK2.HELLO-O</code> by the Editor/Assembler module.</p>
 
-<h3>
-<a id="building-cartridges-with-gpl" class="anchor" href="#building-cartridges-with-gpl" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Building Cartridges With GPL</h3>
+<h3>Building Cartridges With GPL</h3>
 
 <p>This subsection shows how we can use the <code>xga99</code> GPL cross-assembler to assemble
 GPL programs into virtual cartridges that run in any TI 99 emulator.  (With the
@@ -1751,14 +1981,14 @@ tell <code>xga99</code> that we want to place the byte code into a cartridge GRO
 and reset the virtual TI 99.  Again, you should find an entry for the program on
 the TI menu selection screen.</p>
 
-<h2>
-<a id="feedback-and-bug-reports" class="anchor" href="#feedback-and-bug-reports" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Feedback and Bug Reports</h2>
+<h2>Feedback and Bug Reports</h2>
 
 <p>The xdt99 tools are released under the GNU GPL, in the hope that TI 99
 enthusiasts may find them useful.</p>
 
-<p>Please email feedback and bug reports to the developer at <a href="mailto:xdt99dev@gmail.com">xdt99dev@gmail.com</a>
+<p>Please email feedback and bug reports to the developer at <a href="&#109;&#97;i&#x6C;&#x74;&#x6F;:&#x78;&#100;&#x74;9&#x39;&#x64;&#101;&#118;&#64;&#x67;&#109;&#x61;&#105;&#x6C;&#x2E;c&#111;&#x6D;">&#x78;&#100;&#x74;9&#x39;&#x64;&#101;&#118;&#64;&#x67;&#109;&#x61;&#105;&#x6C;&#x2E;c&#111;&#x6D;</a>
 or use the issue tracker on the project <a href="https://github.com/endlos99/xdt99">GitHub page</a>.</p>
+
       </section>
     </div>
 
@@ -1769,8 +1999,6 @@ or use the issue tracker on the project <a href="https://github.com/endlos99/xdt
         <p>Published with <a href="https://pages.github.com">GitHub Pages</a></p>
       </footer>
     </div>
-
-    
 
   </body>
 </html>
