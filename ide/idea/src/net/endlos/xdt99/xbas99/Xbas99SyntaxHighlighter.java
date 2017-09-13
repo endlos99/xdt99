@@ -18,15 +18,15 @@ import static com.intellij.openapi.editor.colors.TextAttributesKey.createTextAtt
 import static org.apache.commons.lang.ArrayUtils.contains;
 
 public class Xbas99SyntaxHighlighter extends SyntaxHighlighterBase {
-    public static final TextAttributesKey STATEMENT = createTextAttributesKey("XBASIC99_STMT", DefaultLanguageHighlighterColors.KEYWORD);
-    public static final TextAttributesKey FUNCTION = createTextAttributesKey("XBASIC99_FUNC", DefaultLanguageHighlighterColors.FUNCTION_CALL);
-    public static final TextAttributesKey IDENT = createTextAttributesKey("XBASIC99_IDENT", DefaultLanguageHighlighterColors.IDENTIFIER);
-    public static final TextAttributesKey VALUE = createTextAttributesKey("XBASIC99_VALUE", DefaultLanguageHighlighterColors.NUMBER);
-    public static final TextAttributesKey LINO = createTextAttributesKey("XBASIC99_LINO", DefaultLanguageHighlighterColors.CONSTANT);
-    public static final TextAttributesKey QSTRING = createTextAttributesKey("XBASIC99_QSTR", DefaultLanguageHighlighterColors.STRING);
-    public static final TextAttributesKey OPERATOR = createTextAttributesKey("XBASIC99_OPER", DefaultLanguageHighlighterColors.OPERATION_SIGN);
-    public static final TextAttributesKey SEPARATOR = createTextAttributesKey("XBASIC99_SEP", DefaultLanguageHighlighterColors.SEMICOLON);
-    public static final TextAttributesKey COMMENT = createTextAttributesKey("XBASIC99_COMMENT", DefaultLanguageHighlighterColors.LINE_COMMENT);
+    public static final TextAttributesKey STATEMENT = createTextAttributesKey("XDT99_STMT", DefaultLanguageHighlighterColors.KEYWORD);
+    public static final TextAttributesKey FUNCTION = createTextAttributesKey("XDT99_FUNC", DefaultLanguageHighlighterColors.FUNCTION_CALL);
+    public static final TextAttributesKey IDENT = createTextAttributesKey("XDT99_IDENT", DefaultLanguageHighlighterColors.IDENTIFIER);
+    public static final TextAttributesKey VALUE = createTextAttributesKey("XDT99_VALUE", DefaultLanguageHighlighterColors.NUMBER);
+    public static final TextAttributesKey LINO = createTextAttributesKey("XDT99_LINO", DefaultLanguageHighlighterColors.CONSTANT);
+    public static final TextAttributesKey QSTRING = createTextAttributesKey("XDT99_QSTR", DefaultLanguageHighlighterColors.STRING);
+    public static final TextAttributesKey OPERATOR = createTextAttributesKey("XDT99_OPER", DefaultLanguageHighlighterColors.OPERATION_SIGN);
+    public static final TextAttributesKey SEPARATOR = createTextAttributesKey("XDT99_SEP", DefaultLanguageHighlighterColors.SEMICOLON);
+    public static final TextAttributesKey COMMENT = createTextAttributesKey("XDT99_COMMENT", DefaultLanguageHighlighterColors.LINE_COMMENT);
 
     static final TextAttributesKey BAD_CHARACTER = createTextAttributesKey("SIMPLE_BAD_CHARACTER",
             new TextAttributes(Color.RED, null, null, null, Font.BOLD));

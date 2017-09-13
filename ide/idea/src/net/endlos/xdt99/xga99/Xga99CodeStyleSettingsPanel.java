@@ -1,4 +1,4 @@
-package net.endlos.xdt99.xas99;
+package net.endlos.xdt99.xga99;
 
 import com.intellij.application.options.CodeStyleAbstractPanel;
 import com.intellij.openapi.editor.colors.EditorColorsScheme;
@@ -13,7 +13,7 @@ import java.awt.*;
 import java.util.Arrays;
 import java.util.Enumeration;
 
-public class Xas99CodeStyleSettingsPanel extends CodeStyleAbstractPanel {
+public class Xga99CodeStyleSettingsPanel extends CodeStyleAbstractPanel {
     private static final String[] caseOptions = new String[]{"Lower", "Upper", "As-is"};
     private JPanel myPanel;
     private JTextField myMnemonicTabStop;
@@ -24,20 +24,20 @@ public class Xas99CodeStyleSettingsPanel extends CodeStyleAbstractPanel {
     private JCheckBox myRelaxedSpacing;
     private JCheckBox myColonLabels;
 
-    public Xas99CodeStyleSettingsPanel(CodeStyleSettings settings) {
+    public Xga99CodeStyleSettingsPanel(CodeStyleSettings settings) {
         super(settings);
         createUIComponents();
     }
 
     public void apply(CodeStyleSettings settings) {
-        Xas99CodeStyleSettings xasSettings = settings.getCustomSettings(Xas99CodeStyleSettings.class);
-        xasSettings.XAS99_MNEMONIC_TAB_STOP = getIntValue(myMnemonicTabStop);
-        xasSettings.XAS99_OPERANDS_TAB_STOP = getIntValue(myOperandsTabStop);
-        xasSettings.XAS99_COMMENT_TAB_STOP = getIntValue(myCommentsTabStop);
-        xasSettings.XAS99_CHAR_CASE = getRadioValue(myCharCase, caseOptions);
-        xasSettings.XAS99_INCR_IDENT = myIncrIndent.isSelected();
-        xasSettings.XAS99_RELAXED = myRelaxedSpacing.isSelected();
-        xasSettings.XAS99_COLONLABELS = myColonLabels.isSelected();
+        Xga99CodeStyleSettings xgaSettings = settings.getCustomSettings(Xga99CodeStyleSettings.class);
+        xgaSettings.XGA99_MNEMONIC_TAB_STOP = getIntValue(myMnemonicTabStop);
+        xgaSettings.XGA99_OPERANDS_TAB_STOP = getIntValue(myOperandsTabStop);
+        xgaSettings.XGA99_COMMENT_TAB_STOP = getIntValue(myCommentsTabStop);
+        xgaSettings.XGA99_CHAR_CASE = getRadioValue(myCharCase, caseOptions);
+        xgaSettings.XGA99_INCR_INDENT = myIncrIndent.isSelected();
+        xgaSettings.XGA99_RELAXED = myRelaxedSpacing.isSelected();
+        xgaSettings.XGA99_COLONLABELS = myColonLabels.isSelected();
     }
 
     private int getIntValue(JTextField field) {
@@ -59,31 +59,31 @@ public class Xas99CodeStyleSettingsPanel extends CodeStyleAbstractPanel {
     }
 
     protected void resetImpl(CodeStyleSettings settings) {
-        Xas99CodeStyleSettings xasSettings = settings.getCustomSettings(Xas99CodeStyleSettings.class);
-        this.myMnemonicTabStop.setText(String.valueOf(xasSettings.XAS99_MNEMONIC_TAB_STOP));
-        this.myOperandsTabStop.setText(String.valueOf(xasSettings.XAS99_OPERANDS_TAB_STOP));
-        this.myCommentsTabStop.setText(String.valueOf(xasSettings.XAS99_COMMENT_TAB_STOP));
+        Xga99CodeStyleSettings xgaSettings = settings.getCustomSettings(Xga99CodeStyleSettings.class);
+        this.myMnemonicTabStop.setText(String.valueOf(xgaSettings.XGA99_MNEMONIC_TAB_STOP));
+        this.myOperandsTabStop.setText(String.valueOf(xgaSettings.XGA99_OPERANDS_TAB_STOP));
+        this.myCommentsTabStop.setText(String.valueOf(xgaSettings.XGA99_COMMENT_TAB_STOP));
         for (Enumeration<AbstractButton> radios = myCharCase.getElements(); radios.hasMoreElements();) {
             AbstractButton radio = radios.nextElement();
-            if (radio.getText().equals(caseOptions[xasSettings.XAS99_CHAR_CASE])) {
+            if (radio.getText().equals(caseOptions[xgaSettings.XGA99_CHAR_CASE])) {
                 radio.setSelected(true);
                 break;
             }
         }
-        this.myIncrIndent.setSelected(xasSettings.XAS99_INCR_IDENT);
-        this.myRelaxedSpacing.setSelected(xasSettings.XAS99_RELAXED);
-        this.myColonLabels.setSelected(xasSettings.XAS99_COLONLABELS);
+        this.myIncrIndent.setSelected(xgaSettings.XGA99_INCR_INDENT);
+        this.myRelaxedSpacing.setSelected(xgaSettings.XGA99_RELAXED);
+        this.myColonLabels.setSelected(xgaSettings.XGA99_COLONLABELS);
     }
 
     public boolean isModified(CodeStyleSettings settings) {
-        Xas99CodeStyleSettings xasSettings = settings.getCustomSettings(Xas99CodeStyleSettings.class);
-        return xasSettings.XAS99_MNEMONIC_TAB_STOP != getIntValue(myMnemonicTabStop) ||
-                xasSettings.XAS99_OPERANDS_TAB_STOP != getIntValue(myOperandsTabStop) ||
-                xasSettings.XAS99_COMMENT_TAB_STOP != getIntValue(myCommentsTabStop) ||
-                xasSettings.XAS99_CHAR_CASE != getRadioValue(myCharCase, caseOptions) ||
-                xasSettings.XAS99_INCR_IDENT != myIncrIndent.isSelected() ||
-                xasSettings.XAS99_RELAXED != myRelaxedSpacing.isSelected() ||
-                xasSettings.XAS99_COLONLABELS != myColonLabels.isSelected();
+        Xga99CodeStyleSettings xgaSettings = settings.getCustomSettings(Xga99CodeStyleSettings.class);
+        return xgaSettings.XGA99_MNEMONIC_TAB_STOP != getIntValue(myMnemonicTabStop) ||
+                xgaSettings.XGA99_OPERANDS_TAB_STOP != getIntValue(myOperandsTabStop) ||
+                xgaSettings.XGA99_COMMENT_TAB_STOP != getIntValue(myCommentsTabStop) ||
+                xgaSettings.XGA99_CHAR_CASE != getRadioValue(myCharCase, caseOptions) ||
+                xgaSettings.XGA99_INCR_INDENT != myIncrIndent.isSelected() ||
+                xgaSettings.XGA99_RELAXED != myRelaxedSpacing.isSelected() ||
+                xgaSettings.XGA99_COLONLABELS != myColonLabels.isSelected();
     }
 
     @Override
@@ -111,7 +111,7 @@ public class Xas99CodeStyleSettingsPanel extends CodeStyleAbstractPanel {
 
     @NotNull
     protected FileType getFileType() {
-        return Xas99FileType.INSTANCE;
+        return Xga99FileType.INSTANCE;
     }
 
     private void createUIComponents() {

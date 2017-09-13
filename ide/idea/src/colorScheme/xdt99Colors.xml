@@ -1,0 +1,21 @@
+<?xml version='1.0'?>
+<list>
+    <option name="XDT99_FINSTR">
+        <value>
+            <option name="FOREGROUND" value="008080"/>
+            <option name="FONT_TYPE" value="1"/>
+        </value>
+    </option>
+    <option name="XDT99_XINSTR">
+        <value>
+            <option name="FOREGROUND" value="008080"/>
+            <option name="FONT_TYPE" value="1"/>
+        </value>
+    </option>
+    <option name="XDT99_LCOMMENT">
+        <value>
+            <option name="FOREGROUND" value="801010"/>
+            <option name="FONT_TYPE" value="1"/>
+        </value>
+    </option>
+</list>

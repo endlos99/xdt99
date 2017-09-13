@@ -11,6 +11,7 @@ public class Xas99CodeStyleSettings extends CustomCodeStyleSettings {
     public int XAS99_OPERANDS_TAB_STOP = 13;
     public int XAS99_COMMENT_TAB_STOP = 40;
     public int XAS99_CHAR_CASE = 0;  // 0=lower, 1=upper, 2=as-is
+    public boolean XAS99_INCR_IDENT = false;
     public boolean XAS99_RELAXED = true;
     public boolean XAS99_COLONLABELS = true;
 

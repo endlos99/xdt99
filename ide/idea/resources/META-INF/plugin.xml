@@ -1,11 +1,11 @@
 <idea-plugin version="2">
-  <name>xdt99 IntelliJ Plugin</name>
-  <id>xdt99.intellij</id>
-  <version>1.5.1</version>
+  <name>xdt99 IDEA Plugin</name>
+  <id>xdt99.idea</id>
+  <version>1.7.0</version>
   <vendor email="xdt99dev@gmail.com" url="http://endlos99.github.io/xdt99/"><![CDATA[
     TI 99 Cross-Development Tools (xdt99)
     <br>
-    Copyright (c) 2015 Ralph Benzinger
+    Copyright (c) 2015-2017 Ralph Benzinger
     <br>
     This program is free software; you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -23,11 +23,11 @@
 
   <description><![CDATA[
     The xdt99 IntelliJ Plugin provides code assistance for developing TMS 9900
-    assembly, TI BASIC, and TI Extended BASIC programs.
+    assembly, GPL, and TI (Extended) BASIC programs.
   ]]></description>
 
   <change-notes><![CDATA[
-    Updated for IDEA 15.
+    Developed for IDEA 2017, other versions may work.
   ]]></change-notes>
 
   <!-- https://confluence.jetbrains.com/display/IDEADEV/Build+Number+Ranges -->
@@ -53,6 +53,22 @@
     <fileIndentOptionsProvider implementation="net.endlos.xdt99.xas99.Xas99FileIndentOptionsProvider"/>
     <lang.formatter language="Xas99" implementationClass="net.endlos.xdt99.xas99.Xas99FormattingModelBuilder"/>
     <postFormatProcessor implementation="net.endlos.xdt99.xas99.Xas99PostFormatProcessor"/>
+    <!-- GPL -->
+    <fileTypeFactory implementation="net.endlos.xdt99.xga99.Xga99FileTypeFactory"/>
+    <lang.parserDefinition language="Xga99" implementationClass="net.endlos.xdt99.xga99.Xga99ParserDefinition"/>
+    <lang.syntaxHighlighterFactory key="Xga99" implementationClass="net.endlos.xdt99.xga99.Xga99SyntaxHighlighterFactory"/>
+    <colorSettingsPage implementation="net.endlos.xdt99.xga99.Xga99ColorSettingsPage"/>
+    <lang.refactoringSupport language="Xga99" implementationClass="net.endlos.xdt99.xga99.Xga99RefactoringSupportProvider"/>
+    <lang.findUsagesProvider language="Xga99" implementationClass="net.endlos.xdt99.xga99.Xga99FindUsagesProvider"/>
+    <lang.namesValidator language="Xga99" implementationClass="net.endlos.xdt99.xga99.Xga99NamesValidator"/>
+    <lang.foldingBuilder language="Xga99" implementationClass="net.endlos.xdt99.xga99.Xga99FoldingBuilder"/>
+    <lang.commenter language="Xga99" implementationClass="net.endlos.xdt99.xga99.Xga99Commenter"/>
+    <vetoRenameCondition implementation="net.endlos.xdt99.xga99.Xga99VetoRenameCondition"/>
+    <codeStyleSettingsProvider implementation="net.endlos.xdt99.xga99.Xga99CodeStyleSettingsProvider"/>
+    <fileIndentOptionsProvider implementation="net.endlos.xdt99.xga99.Xga99FileIndentOptionsProvider"/>
+    <lang.formatter language="Xga99" implementationClass="net.endlos.xdt99.xga99.Xga99FormattingModelBuilder"/>
+    <postFormatProcessor implementation="net.endlos.xdt99.xga99.Xga99PostFormatProcessor"/>
+      <gotoSymbolContributor implementation="net.endlos.xdt99.xas99.Xas99ChooseByNameContributor"/>
     <!-- TI Extended BASIC -->
     <fileTypeFactory implementation="net.endlos.xdt99.xbas99.Xbas99FileTypeFactory"/>
     <lang.parserDefinition language="Xbas99" implementationClass="net.endlos.xdt99.xbas99.Xbas99ParserDefinition"/>
@@ -61,10 +77,12 @@
     <lang.refactoringSupport language="Xbas99" implementationClass="net.endlos.xdt99.xbas99.Xbas99RefactoringSupportProvider"/>
     <lang.findUsagesProvider language="Xbas99" implementationClass="net.endlos.xdt99.xbas99.Xbas99FindUsagesProvider"/>
     <lang.namesValidator language="Xbas99" implementationClass="net.endlos.xdt99.xbas99.Xbas99NamesValidator"/>
+      <gotoSymbolContributor implementation="net.endlos.xdt99.xga99.Xga99ChooseByNameContributor"/>
     <!-- general -->
     <editorActionHandler action="EditorTab" implementationClass="net.endlos.xdt99.xas99.Xas99EditorWriteActionHandler"/>
     <renamePsiElementProcessor implementation="net.endlos.xdt99.xas99.Xas99RenamePsiElementProcessor"/>
-    <gotoSymbolContributor implementation="net.endlos.xdt99.xas99.Xas99ChooseByNameContributor"/>
+    <additionalTextAttributes scheme="Default" file="colorScheme/xdt99Colors.xml"/>
+    <additionalTextAttributes scheme="Darcula" file="colorScheme/xdt99Colors.xml"/>
   </extensions>
 
   <application-components>

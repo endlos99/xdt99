@@ -23,10 +23,10 @@ no prior experience with either project we recommend IntelliJ IDEA.
 GNU Emacs
 ---------
 
-The Emacs plugin `xdt99-mode` provides two major modes for editing assembly and
-TI Extended BASIC programs.  The assembly mode offers syntax highlighting and
-editing assistance, while the BASIC mode is currently limited to syntax
-highlighting.
+The Emacs plugin `xdt99-mode` provides two major modes for editing assembly,
+GPL and TI Extended BASIC programs.  The assembly mode offers syntax
+highlighting and editing assistance, while the BASIC mode is currently limited
+to syntax highlighting.
 
 Please note that stock Emacs uses relatively simple technology for analyzing
 source code, so the level of functionality that `xdt99-mode` can offer is
@@ -75,6 +75,15 @@ Both minor modes are active for `asm99-mode` by default but may be toggled by
 `M-x asm99-smart-tab-mode` or `M-x asm99-smart-backspace-mode`, respectively.
 
 
+### GPL Programs
+
+The GPL mode `gpl99-mode` is very similar to the Assembly mode, but uses
+a different set of instructions, of course.
+
+The settings for Smart Tab mode and the search functionality are reused from
+the Assembly mode.
+
+
 ### TI Extended BASIC Programs
 
 TI Extended BASIC support is provided by the `basic99-mode` major mode.  To
@@ -104,6 +113,7 @@ to add its location to your library path in your `.emacs` config file, e.g.,
 To activate the xdt99 extension for Emacs, add
 
     (autoload 'asm99-mode "xdt99-mode" "TMS9900 Assembly Mode" t)
+    (autoload 'gpl99-mode "xdt99-mode" "GPL Mode" t)
     (autoload 'basic99-mode "xdt99-mode" "TI Extended BASIC Mode" t)
 
 to your `.emacs` file.
@@ -120,12 +130,13 @@ xdt99:
     (setq auto-mode-alist
       (append '(("\\.a99$" . asm99-mode)    ; .a99 -> assembly
                 ("\\.asm$" . asm99-mode)    ; .asm -> assembly
+                ("\\.gpl$" . gpl99-mode)    ; .gpl -> GPL
                 ("\\.b99$" . basic99-mode)  ; .b99 -> TI BASIC
                 ("\\.xb$" . basic99-mode)   ; .xb  -> TI BASIC
                ) auto-mode-alist))
 
-Alternatively you can use `M-x asm99-mode` and `M-x basic99-mode` to activate or
-deactivate each mode for the active buffer.
+Alternatively you can use `M-x asm99-mode`, `M-x gpl99-mode`, and
+`M-x basic99-mode` to activate or deactivate each mode for the active buffer.
 
 It is recommended to use `electric-indent-mode` with smart tabs, but it may not
 be enabled by default.  To use `electric-indent-mode`, add
@@ -209,6 +220,12 @@ Keys settings, in partcular Enter > Smart Indent and Backspace.
 
 ### TI Extended BASIC Programs
 
+Again, the GPL support of very similar to the assembly support.  Currently,
+only the xdt99 syntax variant is supported.
+
+
+### TI Extended BASIC Programs
+
 The xdt99 IDEA plugin provides semantic syntax highlighting for TI BASIC and TI
 Extended BASIC programs.  The plugin understands most of the TI Extended BASIC
 syntax and reports many syntactic errors visually.  Note, however, that semantic
@@ -270,17 +287,19 @@ The xdt99 IDEA plugin provides two customization tabs for xdt99 on the general
 Settings dialog for IDEA.
 
 On the Settings > Editor > Colors & Fonts > xdt99 tabs, you can customize the
-color scheme used by the syntax highlighter for assembly and BASIC programs.
+color scheme used by the syntax highlighter for assembly, GPL, and BASIC
+programs.
 
 On the Settings > Editor > Code Style > xdt99 tab, you can customize the tab
-stop positions for assembly programs.
+stop positions for assembly and GPL programs.
 
 Note that IDEA also supports different keymaps, including Eclipse and Emacs key
 bindings.  You can also define your own key bindings.
 
-By default, the xdt99 IDEA plugin associates file extensions `.a99` and `.b99`
-with TMS9900 assembly and TI Extended BASIC, respectively.  To register
-additional extensions, add them in the Settings > Editor > File Types tab.
+By default, the xdt99 IDEA plugin associates file extensions `.a99`, `.gpl`,
+and `.b99` with TMS9900 assembly, GPL, and TI Extended BASIC, respectively.
+To register additional extensions, add them in the Settings > Editor > File
+Types tab.
 
 
 Contact Information

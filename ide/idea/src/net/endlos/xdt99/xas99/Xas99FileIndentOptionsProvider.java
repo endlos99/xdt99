@@ -16,8 +16,11 @@ public class Xas99FileIndentOptionsProvider extends FileIndentOptionsProvider {
         if (psiFile instanceof Xas99File) {
             CommonCodeStyleSettings.IndentOptions options = new CommonCodeStyleSettings.IndentOptions();
             Xas99CodeStyleSettings customSettings = codeStyleSettings.getCustomSettings(Xas99CodeStyleSettings.class);
-            options.INDENT_SIZE = options.CONTINUATION_INDENT_SIZE =
+            options.INDENT_SIZE =
                     customSettings != null ? customSettings.XAS99_MNEMONIC_TAB_STOP - 1 : Xas99CodeStyleSettings.XAS99_INDENT;
+            // sometimes, CONT_IDENT_SIZE is added on top of INDENT_SIZE (IDEA), sometimes not (PyCharm)
+            options.CONTINUATION_INDENT_SIZE =
+                    customSettings != null && customSettings.XAS99_INCR_IDENT ? options.INDENT_SIZE : 0;
             return options;
         }
         return null;

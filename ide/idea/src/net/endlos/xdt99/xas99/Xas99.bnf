@@ -138,6 +138,11 @@ expr ::=
     (OP_PLUS | OP_MINUS | OP_NOT) expr |
     term (xop expr)*
     {name="expression"}
+// simple expression: no parantheses
+sexpr ::=
+    (OP_PLUS | OP_MINUS | OP_NOT) sexpr |
+    atom (xop sexpr)*
+    {name="simple expressions"}
 private term ::=
     OP_LPAREN expr OP_RPAREN |
     atom
@@ -148,11 +153,6 @@ private xop ::=
 private atom ::=
     opAddress | INT | TEXT
     {name="value"}
-
-sexpr ::=
-    (OP_PLUS | OP_MINUS | OP_NOT) sexpr |
-    atom (xop sexpr)*
-    {name="simple expressions"}
 
 // keep for syntax highlighter
 dummy ::=
