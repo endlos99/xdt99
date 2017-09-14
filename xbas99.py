@@ -22,6 +22,7 @@
 import sys
 import re
 import os.path
+import traceback
 
 
 VERSION = "1.5.0"
@@ -169,15 +170,16 @@ class BasicProgram:
     # maximum number of bytes/tokens per BASIC line
     maxTokensPerLine = 254
     
-    def __init__(self, data=None, source=None, long_=False):
+    def __init__(self, data=None, source=None, long_=False, tifiles_=False):
         self.lines = {}
         self.textlits = []
         self.warnings = []
         if data:
             try:
-                self.load(data, long_)
+                self.load(data, long_, tifiles_)
             except IndexError:
                 self.warn("Program file is corrupted")
+#		print traceback.format_exc()
         elif source:
             self.parse(source)
 
@@ -188,16 +190,23 @@ class BasicProgram:
 
     # program -> source
 
-    def load(self, data, long_):
+    def load(self, data, long_, tifiles_):
         """load tokenized BASIC program"""
         if long_ or data[1:3] == "\xab\xcd":
             # convert long format INT/VAR 254 to PROGRAM
-            program, p = "", 11
+	    if tifiles_:
+	        p = 128
+	    else:
+		p = 11
+            program = ""
             while p < len(data):
                 l = ord(data[p]) + 1
                 program += data[p + 1:p + l]
-                p += l
+                p += l + 1
             data = "XX" + data[5:7] + data[3:5] + "XX" + program
+#	f = open("data", "wb")
+#	f.write(data)
+#	f.close()
         # extract line number table and token table
         ptrTokens = ordw(data[2:4]) + 1
         ptrLineNumbers = ordw(data[4:6])
@@ -257,6 +266,9 @@ class BasicProgram:
                     softspace = True
                 else:
                     lit, typ, n = Tokens.literal(tokens[p:])
+		    if not lit:
+			sys.stderr.write("Illegal token\n")
+			sys.exit(1)
                     istext = (lit[0] in "ABCDEFGHIJKLMNOPQRSTUVWXYZ" +
                                         Tokens.STMTSEP) and typ is None
                     if (((istext or lit == "#" or
@@ -412,8 +424,8 @@ class BasicProgram:
                       chrw(checksum) + chrw(lastAddr - 1))
             chunks = [(linoTable + tokenTable)[i:i + 254]
                       for i in xrange(0, len(linoTable + tokenTable), 254)]
-            return (chr(len(header)) + header +
-                    "".join([chr(len(c)) + c for c in chunks]))
+            return (chr(len(header)) + header + (chr(0x00)*(255-len(header))) +
+                    "".join([chr(len(c)) + c + chr(0xff) for c in chunks]))
         else:
             header = (chrw(checksum) + chrw(tokenTabAddr - 1) +
                       chrw(linoTabAddr) + chrw(lastAddr - 1))
@@ -468,6 +480,7 @@ class BasicProgram:
 
 def main():
     import argparse
+    tifiles = False
 
     args = argparse.ArgumentParser(
         version=VERSION,
@@ -493,6 +506,8 @@ def main():
                       help="join split source lines (for -e)")
     args.add_argument("-o", "--output", dest="output", metavar="<file>",
                       help="set output filename")
+    args.add_argument("-t", "--tifiles", action="store_true", dest="astifiles",
+                      help="assume TIFILES format program to list or decode")
     opts = args.parse_args()
 
     #setup
@@ -507,11 +522,24 @@ def main():
             else:
                 with open(opts.source, "rb") as fin:
                     image = fin.read()
+	    if image[1:8] == "TIFILES":
+		    opts.astifiles = True
+	    if opts.astifiles:
+		    flags = ord(image[0x0a])
+		    reclen = ord(image[0x0d])
+		    if (flags & 0x01) or ( (flags & 0x82) and reclen == 0xfe):
+		      image = image[128:]
+		      tifiles = True
+		    else:
+		      print "File is not in TIFILES PROGRAM or IV254 format."
+		      sys.exit(1)
+	    if image[1:3] == "\xab\xcd":
+		opts.long_ = True
             if opts.merge:
                 program = BasicProgram()
                 program.merge(image)
             else:
-                program = BasicProgram(data=image, long_=opts.long_)
+                program = BasicProgram(data=image, long_=opts.long_, tifiles_=tifiles)
             data = program.getSource()
             output = "-" if opts.list_ else opts.output or barename + ".b99"
         elif opts.dump:
@@ -535,6 +563,20 @@ def main():
                     raise BasicError("Invalid line delta for join")
             program = BasicProgram(source=lines)
             data = program.getImage(long_=opts.long_, protected=opts.protect)
+	    if opts.astifiles:
+		tifiles_header = chr(0x07) + "TIFILES" + chr(0x00)
+		print hex(len(data)), len(data), (len(data) // 256)
+		data += chr(0x00)*( (((len(data) // 256) + 1) * 256) - len(data))
+		tifiles_header += chr( (len(data) / 256) + 1)
+		if opts.long_:
+		    tifiles_header += chr(0x82) + chr(0x01)
+		    tifiles_header += chr(0xba) # wrong, placeholder
+		else:
+		    tifiles_header += chr(0x01) + chr(0x00)
+		    tifiles_header += chr(0xba) # wrong, placeholder
+		tifiles_header += chr(0x00)*(128-len(tifiles_header))
+		
+		data = tifiles_header + data
             output = opts.output or barename + ".prg"
 
         if program and program.warnings:
