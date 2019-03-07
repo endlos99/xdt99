@@ -65,7 +65,7 @@ installation, simply place the files `xas99.py`, `xga99.py`, `xbas99.py`,
 `xdm99.py`, `xhm99.py`, and `xvm99.py` somewhere in your `$PATH` or where your
 command-line interpreter will find them.  Windows users will find additional
 information about installation and how to get started in the
-[Windows Tutorial][6].
+[Windows Tutorial][4].
 
 The `ide/` directory contains the editor plugins for GNU Emacs and IntelliJ
 IDEA.  Please refer to the `EDITORS.md` file for further information about
@@ -229,13 +229,13 @@ if no argument is given, `>0000` is used.
 
 The text parameter `-t` generates a textual version of the raw binary generated
 by `-b`.  Followed by `a`, it creates `BYTE` or `DATA` instructions to use in
-assembler or GPL; by `b`, it creates `DATA` instructions to use in BASIC; by
+assembly or GPL; by `b`, it creates `DATA` instructions to use in BASIC; by
 `c`, it creates a list of hex values to use in C/C++ arrays.  Including `2` or
 `4` in the value generates bytes or words, respectively.  As an example,
 
     $ xas99.py -t a2 -R ascart.a99
 
-results in an assembly file with `AORG`s an `BYTE`:
+results in an assembly file with `AORG`s and `BYTE` directives:
 
     ;  aorg >1000
        byte >04, >c0, >c0, >81, >04, >60, >20, >00
@@ -599,8 +599,8 @@ In this example, the `B` instructions in segment `>7000` will branch to `L1`
 or `L2`, depending on which bank is active.
 
 To override the cross-bank check explicitly, e.g., because the caller will be
-relocated to different memory address during runtime before the call is
-executed, a hash `#` can be appended to the offending label.
+relocated to a different memory address during runtime, a hash `#` can be
+appended to the offending label.
 
           BANK 0
     CONT  CLR  R0
