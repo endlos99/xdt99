@@ -554,9 +554,6 @@ is equivalent to the conventional assembly statement sequence
 
     SPRITE  BYTE >18,>3C,>7E,>FF,>FF,>7E,>3C,>18
 
-The extended `AORG` directive allows for an optional second argument that
-specifies the memory bank for the following code segment.
-
 The `BANK` directive specifies the memory bank for the following code segment,
 or a shared code segment if the special value `ALL` is used.  Banks count from
 zero.
@@ -600,6 +597,16 @@ access from and to shared code segments are not checked.
 
 In this example, the `B` instructions in segment `>7000` will branch to `L1`
 or `L2`, depending on which bank is active.
+
+To override the cross-bank check explicitly, e.g., because the caller will be
+relocated to different memory address during runtime before the call is
+executed, a hash `#` can be appended to the offending label.
+
+          BANK 0
+    CONT  CLR  R0
+
+          BANK 1
+          B    @CONT#   ; OK, no error
 
 The new `XORG` directive sets the location counter to a new address but does
 not change the actual placement of the subsequent code segment.
