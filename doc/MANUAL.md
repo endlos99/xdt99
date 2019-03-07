@@ -25,9 +25,8 @@ available cross-platform development environments:
  * `xdt99-mode`, a major mode for the GNU Emacs text editor, and
  * `xdt99 IDEA`, a plugin for the IntelliJ IDEA development environment.
 
-The plugins offer syntax highlighting, navigation, and semantic renaming for
-assembly and TI Extended BASIC programs in addition to environment-specific
-functionality.
+The plugins offer syntax highlighting, navigation, searching and semantic
+renaming for assembly, GPL, and TI (Extended) BASIC programs.
 
 The major design goals of xdt99 and differentiators to similarly spirited
 projects such as the [TI Image Tool][6] or the [Winasm99 assembler][7] are
@@ -229,20 +228,21 @@ if no argument is given, `>0000` is used.
 ### Creating Text Files
 
 The text parameter `-t` generates a textual version of the raw binary generated
-by `-b`.
+by `-b`.  Followed by `a`, it creates `BYTE` or `DATA` instructions to use in
+assembler or GPL; by `b`, it creates `DATA` instructions to use in BASIC; by
+`c`, it creates a list of hex values to use in C/C++ arrays.  Including `2` or
+`4` in the value generates bytes or words, respectively.  As an example,
 
-    $ xas99.py -t -R ascart.a99
+    $ xas99.py -t a2 -R ascart.a99
 
-The resulting text file contains an `AORG` comment followed by many `BYTE`
-directives for each assembled segment.
+results in an assembly file with `AORG`s an `BYTE`:
 
     ;  aorg >1000
        byte >04, >c0, >c0, >81, >04, >60, >20, >00
     ;  aorg >2000
        byte >02, >e0, >83, >e0, >04, >d0
 
-The text format is useful for including the binary result of another program
-into some assembly or GPL source source.
+The result can be `COPY`ed, `#include`d, or just copy-and-pasted.
 
 
 ### Jumpstarting
@@ -557,13 +557,22 @@ is equivalent to the conventional assembly statement sequence
 The extended `AORG` directive allows for an optional second argument that
 specifies the memory bank for the following code segment.
 
+The `BANK` directive specifies the memory bank for the following code segment,
+or a shared code segment if the special value `ALL` is used.  Banks count from
+zero.
+
     * ASBANK.A99
-          AORG >6000,0
+          AORG >6000
+	      BANK ALL
     FUNC1 CLR R0
           ...
-          AORG >6000,1
+          BANK 1
     FUNC2 LI  R1,>1234
           ...
+
+Note that the optional second argument of the `AORG` directive to specify the
+current bank is now deprecated, and might be removed in a future version of
+`xas99`.
 
 Generating binary files with the `-b` command stores banked segments in
 separate files, e.g.,
@@ -572,23 +581,25 @@ separate files, e.g.,
     $ ls
     asbank.a99  asbank_6000_b0.bin  asbank_6000_b1.bin
 
-`xas99` warns about illegal cross-bank accesses, but it cannot guarantee that
-the correct bank is always active.
+`xas99` warns about illegal cross-bank accesses in address arguments, but
+access from and to shared code segments are not checked.
 
-          AORG >6000,0
+          AORG >6000
+          BANK 0
     L1    B    @L3      ; OK
           B    @L2      ; error: different bank
 
-          AORG >6000,1
+          BANK 1
     L2    B    @L3      ; OK
           B    @L1      ; error: different bank
 
-          AORG >A000
-    L3    B    @L1      ; OK, needs correct bank
-          B    @L2      ; OK, needs correct bank
+          AORG >7000
+          BANK ALL
+    L3    B    @L1      ; OK, implies correct bank is present
+          B    @L2      ; OK, implies correct bank is present
 
-In this example, the `B` instructions in segment `A000` will both branch to
-`L1` or `L2`, depending on which bank is active.
+In this example, the `B` instructions in segment `>7000` will branch to `L1`
+or `L2`, depending on which bank is active.
 
 The new `XORG` directive sets the location counter to a new address but does
 not change the actual placement of the subsequent code segment.
@@ -1067,8 +1078,8 @@ version is correct.
 
 The default behavior of `xda99` is to stop the run, leaving the previous
 disassembly untouched.  You can override the default with the force option `-F`,
-which will always overwrite previous results.  This is done cleanly, so that run
-#2 above will reset the overridden instruction at address `@>6000`.
+which will always overwrite previous results.  This is done cleanly, so that
+run 2 above will reset the overridden instruction at address `@>6000`.
 
 There is no recommendation to disassemble with or without override.  The result
 of each disassembly may vary with each binary, and should be tried out.
@@ -1590,6 +1601,9 @@ like `/dev/sdc` on Linux, `/dev/Disk3` on Mac OS X, or `\\.\PHYSICALDRIVE2` on
 Windows.  **Caution:** These are examples only; make sure to identify your CF
 card device correctly, *or you will lose data!* Also note that your user needs
 appropriate read and/or write permissions to access the device.
+
+On Linux, you can use `sudo fdisk -l` to find the correct device name of
+your memory card, on Windows you can use `wmic diskdrive list brief` instead.
 
 The second argument may be a single volume number or a combination of value
 ranges, e.g., `1,3-4,6-10`.  In general, if more than one volume is specified,
