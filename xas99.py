@@ -86,6 +86,10 @@ class BuildError(Exception):
     pass
 
 
+def warn(msg):
+    sys.stderr.write("Warning: %s\n" % msg)
+
+
 ### Symbol table
 
 class Address:
@@ -165,52 +169,56 @@ class Symbols:
         self.idt = "        "
         self.locations = []
         self.anonno = 0
-        self.resetLC()
+        self.reset_LC()
 
-    def resetLC(self):
+    def reset_LC(self):
         self.LC = 0
         self.bank = None
         self.relocLC = True
         self.xorgOffset = None
+        self.reset_banks()
 
-    def effectiveLC(self):
+    def reset_banks(self):
+        self.bankLC = {None: 0}  # next LC for each bank
+
+    def effective_LC(self):
         return self.LC + (self.xorgOffset or 0)
 
-    def addSymbol(self, name, value):
+    def add_symbol(self, name, value):
         if name in self.symbols:
             raise AsmError("Multiple symbols: " + name)
         self.symbols[name] = value
         return name
 
-    def addLabel(self, lidx, label, realLC=False):
-        addr = Address(self.LC if realLC else self.effectiveLC(),
+    def add_label(self, lidx, label, realLC=False):
+        addr = Address(self.LC if realLC else self.effective_LC(),
                        self.bank,
                        self.relocLC and (realLC or not self.xorgOffset))
-        name = self.addSymbol(label, addr)
+        name = self.add_symbol(label, addr)
         self.locations.append((lidx, name))
 
-    def addLocalLabel(self, lidx, label):
+    def add_local_label(self, lidx, label):
         self.anonno += 1
-        self.addLabel(lidx, label + "$" + str(self.anonno))
+        self.add_label(lidx, label + "$" + str(self.anonno))
 
-    def addDef(self, name):
+    def add_def(self, name):
         if name in self.refdefs:
             raise AsmError("Multiple symbols")
         self.refdefs.append(name)
 
-    def addRef(self, name):
+    def add_ref(self, name):
         if name in self.refdefs:
             return
         self.refdefs.append(name)
-        self.addSymbol(name, Reference(name))
+        self.add_symbol(name, Reference(name))
 
-    def addXop(self, name, mode):
+    def add_XOP(self, name, mode):
         self.xops[name] = mode
 
-    def getSymbol(self, name):
+    def get_symbol(self, name):
         return self.symbols.get(name)
 
-    def getLocal(self, name, lpos, distance):
+    def get_local(self, name, lpos, distance):
         targets = [(l, n) for (l, n) in self.locations
                    if n[:len(name) + 1] == name + "$"]
         try:
@@ -224,7 +232,19 @@ class Symbols:
             _, fullname = targets[i + distance]
         except IndexError:
             return None
-        return self.getSymbol(fullname)
+        return self.get_symbol(fullname)
+
+    def switch_bank(self, bank, addr=None):
+        if addr is None:
+            addr = 0
+        self.bankLC[self.bank] = self.LC
+        if bank is None:  # ALL
+            return max(addr, *self.bankLC.values())
+        else:
+            bankLC = self.bankLC.get(bank)
+            if bankLC is None:
+                bankLC = self.bankLC[bank] = self.bankLC[None]
+            return max(addr, bankLC, self.bankLC[None])
 
 
 ### Code generation
@@ -271,13 +291,13 @@ class Objdummy:
             2 if saddr is not None else 0) + (
             2 if daddr is not None else 0)
 
-    def processLabel(self, lidx, label, realLC=False):
+    def process_label(self, lidx, label, realLC=False):
         if not label:
             return
         if label[0] == "!":
-            self.symbols.addLocalLabel(lidx, label[1:])
+            self.symbols.add_local_label(lidx, label[1:])
         else:
-            self.symbols.addLabel(lidx, label, realLC)
+            self.symbols.add_label(lidx, label, realLC)
 
     def list(self, lino, line=None, eos=False, text1=None, text2=None):
         pass
@@ -292,11 +312,11 @@ class Objcode:
         self.segments = []
         self.saves = []
         self.savedLC = {True: 0x0000, False: 0x0000}
-        self.segment(0x0000, relocatable=True, init=True)
+        self.segment(0, relocatable=True, init=True)
         self.done = False
         self.strict = strict
 
-    def processLabel(self, lidx, label, realLC=False):
+    def process_label(self, lidx, label, realLC=False):
         pass
 
     def segment(self, base, relocatable=False, bank=None,
@@ -378,7 +398,7 @@ class Objcode:
             self.segment(None, relocatable=False, dummy=False)
             self.done = True
 
-    def genDump(self):
+    def generate_dump(self):
         """generate raw dump of internal data structures (debug)"""
         self.prepare()
         dump = ""
@@ -408,7 +428,7 @@ class Objcode:
                 i += 1
         return dump if dump[-1] == "\n" else dump + "\n"
 
-    def genObjCode(self, compressed=False):
+    def generate_object_code(self, compressed=False):
         """generate object code (E/A option 3)"""
         self.prepare()
         relocLCs = [finalLC for bank, finalLC, reloc, dummy, code
@@ -422,7 +442,7 @@ class Objcode:
                 raise BuildError("Cannot create banked object code")
             if dummy:
                 continue
-            tags.addLC()
+            tags.add_LC()
             for LC, w, _ in code:
                 if isinstance(w, Address):
                     tags.add("C" if w.relocatable else "B", w.addr, LC, reloc)
@@ -432,7 +452,7 @@ class Objcode:
                     refs[w.name] = (LC, reloc)
                 elif isinstance(w, Block):
                     tags.add("A" if reloc else "9", LC)
-                    tags.addLC()
+                    tags.add_LC()
                 elif isinstance(w, Line):
                     pass
                 else:
@@ -444,7 +464,7 @@ class Objcode:
             tags.flush()
         # add def and ref symbols section
         for s in self.symbols.refdefs:
-            symbol = self.symbols.getSymbol(s)
+            symbol = self.symbols.get_symbol(s)
             if isinstance(symbol, Reference):
                 prevLC, prevReloc = refs.get(s, (0, False))
                 tags.add("3" if prevReloc else "4", prevLC, sym=s[:6])
@@ -457,116 +477,168 @@ class Objcode:
         tags.append(":       xdt99 xas")
         return tags.dump()
 
-    def writeMem(self, mem, code, reloc, baseAddr):
+    def fill_memory(self, memory, code, relocatable, base_addr):
         """load object code into memory"""
-        offset = baseAddr if reloc else 0
+        offset = base_addr if relocatable else 0
         for LC, w, _ in code:
             addr = LC + offset
             if isinstance(w, Address):
-                mem[addr] = w.addr + baseAddr if w.relocatable else w.addr
+                memory[addr] = w.addr + base_addr if w.relocatable else w.addr
             elif isinstance(w, Reference):
                 if w.name not in self.symbols.exts:
                     raise BuildError("Unknown reference: " + w.name)
-                mem[addr] = self.symbols.exts.get(w.name, 0x0000)
+                memory[addr] = self.symbols.exts.get(w.name, 0x0000)
             elif isinstance(w, Block):
                 a, s = (addr, (w.size + 1) / 2) if addr % 2 == 0 else \
                        (addr + 1, w.size / 2)
                 for i in xrange(s / 2):
-                    mem[a + i] = 0x0000
+                    memory[a + i] = 0x0000
             elif isinstance(w, Line):
                 pass
             else:
-                mem[addr] = w
-        return mem
+                memory[addr] = w
 
-    def genBinaries(self, baseAddr, saves=None):
-        """generate raw memory images"""
+    def generate_binaries(self, base_addr, ext_saves=None):
+        """
+        generate raw memory images
+        """
         self.prepare()
-        words = []
-        if self.saves or saves:
-            # populate memory per bank and apply save intervals
-            mems = {}
-            for bank, finalLC, reloc, dummy, code in self.segments:
+
+        # get first and last address of binary
+        blobs = []
+        saves = self.saves or ext_saves
+        bank_count = max([bank for bank, _, _, _, _ in self.segments if bank is not None] or [0]) + 1
+
+        if self.saves or ext_saves:
+            # create one binary per bank
+            mems = {bank: {} for bank in xrange(bank_count)}
+            for bank, final_LC, relocatable, dummy, code in self.segments:
                 if dummy:
                     continue
-                mems[bank] = self.writeMem(mems.get(bank, {}),
-                                           code, reloc, baseAddr)
+                banks = range(bank_count) if bank is None else [bank]
+                for b in banks:
+                    self.fill_memory(mems[b], code, relocatable, base_addr)
+
+            # apply SAVE directive filter
             for bank in mems:
-                for minAddr, maxAddr in self.saves or saves:
+                for min_addr, max_addr in saves:
                     addrs = [a for a in mems[bank].keys()
-                             if minAddr <= a < maxAddr]
+                             if min_addr <= a < max_addr]
                     if addrs:
-                        words.append([minAddr, maxAddr, bank, mems[bank]])
+                        blobs.append([min_addr, max_addr, bank, mems[bank]])
+
         else:
             # create one blob per segment
-            for bank, finalLC, reloc, dummy, code in self.segments:
+            for bank, final_LC, relocatable, dummy, code in self.segments:
                 if dummy:
                     continue
-                mem = self.writeMem({}, code, reloc, baseAddr)
+                mem = {}
+                self.fill_memory(mem, code, relocatable, base_addr)
                 if mem:
                     addrs = mem.keys()
-                    words.append([min(addrs), max(addrs) + 2, bank, mem])
-            # merge consecutive segments (espc. for XORGs)
+                    blobs.append([min(addrs), max(addrs) + 2, bank, mem])
+
+            # merge adjoining segments (espc. for XORGs)
             i = 0
-            while i < len(words):
+            while i < len(blobs):
                 j = 0
-                while j < len(words):
-                    if i != j and (words[i][1] == words[j][0] and
-                                           words[i][2] == words[j][2]):
-                        words[i][1] = words[j][1]
-                        words[i][3].update(words[j][3])
-                        del words[j]
+                while j < len(blobs):
+                    if i != j and (blobs[i][1] == blobs[j][0] and
+                                   blobs[i][2] == blobs[j][2]):
+                        blobs[i][1] = blobs[j][1]
+                        blobs[i][3].update(blobs[j][3])
+                        del blobs[j]
                         i, j = 0, 0
                     else:
                         j += 1
                 i += 1
-        # create list of (addr, bank, blob)
-        binaries = [(minAddr, bank,
-                     "".join([chrw(mem[addr]) if addr in mem else "\x00\x00"
-                              for addr in xrange(minAddr, maxAddr, 2)]))
-                    for minAddr, maxAddr, bank, mem in words]
-        return binaries
 
-    def genImage(self, baseAddr, chunkSize=0x2000):
+        # fill unfilled memory locations with >0000
+        binaries = [(min_addr, bank,
+                     "".join([chrw(mem[addr]) if addr in mem else "\x00\x00"
+                              for addr in xrange(min_addr, max_addr, 2)]))
+                    for min_addr, max_addr, bank, mem in blobs]
+        return binaries, bank_count
+
+    def generate_text(self, data, mode):
+        """convert binary data into text presentation"""
+        text = lines = ""
+        for addr, bank, mem in data:
+            if 'r' in mode:
+                word = lambda i: ordw(mem[i + 1:((i - 1) if i > 0 else None):-1])  # byte-swapped
+            else:
+                word = lambda i: ordw(mem[i:i + 2])
+
+            if 'a' in mode:  # assembly
+                hex_prefix = ">"
+                data_prefix = ("       byte " if '2' in mode else
+                               "       data ")
+                suffix = "\n"
+                text += ";      aorg >%04x\n" % addr
+            elif 'b' in mode:  # BASIC
+                hex_prefix = ""
+                data_prefix = "DATA "
+                suffix = "\n"
+            elif 'c' in mode:  # C
+                hex_prefix = "0x"
+                data_prefix = "  "
+                suffix = ",\n"
+
+            if 'b' in mode:
+                bs = [str(ord(mem[i])) for i in xrange(0, len(mem))]
+                lines = [data_prefix + ", ".join(bs[i:i + 8]) + suffix
+                         for i in xrange(0, len(bs), 8)]
+            elif '4' in mode:  # words
+                ws = ["%s%04x" % (hex_prefix, word(i))
+                      for i in xrange(0, len(mem), 2)]
+                lines = [data_prefix + ", ".join(ws[i:i + 8]) + suffix
+                         for i in xrange(0, len(ws), 8)]
+            else:  # bytes (default)
+                bs = ["%s%02x" % (hex_prefix, ord(mem[i]))
+                      for i in xrange(0, len(mem))]
+                lines = [data_prefix + ", ".join(bs[i:i + 8]) + suffix
+                         for i in xrange(0, len(bs), 8)]
+            text += "".join(lines)
+        return text
+
+    def generate_image(self, base_addr, chunk_size=0x2000):
         """generate memory image (E/A option 5)"""
-        self.prepare()
         try:
-            sfirst = self.symbols.getSymbol("SFIRST")
-            slast = self.symbols.getSymbol("SLAST")
-            save = [(sfirst.addr + baseAddr if sfirst.relocatable else
+            sfirst = self.symbols.get_symbol("SFIRST")
+            slast = self.symbols.get_symbol("SLAST")
+            save = [(sfirst.addr + base_addr if sfirst.relocatable else
                      sfirst.addr,
-                     slast.addr + baseAddr if slast.relocatable else
+                     slast.addr + base_addr if slast.relocatable else
                      slast.addr)]
         except AttributeError:
             save = None
-        binaries = self.genBinaries(baseAddr, save)
-        for addr, bank, blob in binaries:
-            if bank:
-                raise BuildError("Cannot create banked program image")
+        binaries, bank_count = self.generate_binaries(base_addr, ext_saves=save)
+        if bank_count > 1:
+            raise BuildError("Cannot create banked program image")
         # split binaries into chunks for E/A 5 loader
-        chunks = [(addr + i, data[i:i + chunkSize - 6])
+        chunks = [(addr + i, data[i:i + chunk_size - 6])
                   for addr, bank, data in binaries
-                  for i in xrange(0, len(data), chunkSize - 6)]
+                  for i in xrange(0, len(data), chunk_size - 6)]
         # add meta data information to each chunk (next?, length, addr)
         images = [("\xff\xff" if i + 1 < len(chunks) else "\x00\x00") +
                   chrw(len(c) + 6) + chrw(a) + c
                   for i, (a, c) in enumerate(chunks)]
         return images
 
-    def genXbLoader(self):
+    def generate_XB_loader(self):
         """stash code in Extended BASIC program"""
         self.prepare()
         size = 0
-        for bank, finalLC, reloc, dummy, code in self.segments:
+        for bank, final_LC, reloc, dummy, code in self.segments:
             if bank:
                 raise BuildError("Cannot create banked object code")
             if not reloc:
                 raise BuildError(
                     "Cannot create BASIC program for non-relocatable code")
-            if finalLC > size:
-                size = finalLC
-        lastAddr = 0xFFE8  # end of token table
-        startAddr = lastAddr - 4 - size
+            if final_LC > size:
+                size = final_LC
+        last_addr = 0xFFE8  # end of token table
+        first_addr = last_addr - 4 - size
         loader = (
             # CALL INIT :: CALL LOAD(>3FF8,"XYZZY ")::
             # CALL LOAD(>2004,>FF,>E4):: CALL LINK("XYZZY")
@@ -579,25 +651,25 @@ class Objcode:
             "\x34\x38\xb6\x82\x9d\xc8\x04\x4c\x49\x4e\x4b\xb7\xc7\x05\x58" +
             "\x59\x5a\x5a\x59\xb6"
             )
-        payload = self.genImage(startAddr, 0x6000)[0][6:]
-        tokenTable = (chr(len(loader) + 1) + loader + "\x00" +
+        payload = self.generate_image(first_addr, 0x6000)[0][6:]
+        token_table = (chr(len(loader) + 1) + loader + "\x00" +
                       "\x00" * (256 - size) +
                       payload +
-                      "\x04\x60" + chrw(startAddr))
-        tokenTabAddr = lastAddr - len(tokenTable)
-        linoTabAddr = tokenTabAddr - 4
-        linoTable = "\x00\x01" + chrw(tokenTabAddr + 1)
-        checksum = (tokenTabAddr - 1) ^ linoTabAddr
-        header = ("\xab\xcd" + chrw(linoTabAddr) + chrw(tokenTabAddr - 1) +
-                  chrw(checksum) + chrw(lastAddr - 1))
-        chunks = [(linoTable + tokenTable)[i:i + 254]
-                  for i in xrange(0, len(linoTable + tokenTable), 254)]
+                      "\x04\x60" + chrw(first_addr))
+        token_tab_addr = last_addr - len(token_table)
+        lino_tab_addr = token_tab_addr - 4
+        lino_table = "\x00\x01" + chrw(token_tab_addr + 1)
+        checksum = (token_tab_addr - 1) ^ lino_tab_addr
+        header = ("\xab\xcd" + chrw(lino_tab_addr) + chrw(token_tab_addr - 1) +
+                  chrw(checksum) + chrw(last_addr - 1))
+        chunks = [(lino_table + token_table)[i:i + 254]
+                  for i in xrange(0, len(lino_table + token_table), 254)]
         return (chr(len(header)) + header +
                 "".join([chr(len(c)) + c for c in chunks]))
 
-    def genJumpstart(self):
+    def generate_jumpstart(self):
         """generate disk image for Jumpstart cartridge"""
-        segments = self.genImage(0xa000, 0x6000)
+        segments = self.generate_image(0xa000, 0x6000)
         if len(segments) > 32 / 4:
             raise BuildError(
                 "Cannot create jumpstart disk with more than 8 segments")
@@ -625,7 +697,7 @@ class Objcode:
         assert len(disk) % 256 == 0
         return disk + "\x00" * (360 * 256 - len(disk))
 
-    def genSymbols(self, equ=False):
+    def generate_symbols(self, equ=False):
         """generate symbols"""
         # merge all defined symbols
         symbols = self.symbols.symbols
@@ -656,7 +728,7 @@ class Objcode:
                    "    {:.<20} >{:04X} : {} {}")
         return "\n".join([fmt.format(*s) for s in symlist])
 
-    def genList(self, gensymbols):
+    def generate_list(self, gensymbols):
         """generate listing"""
         listing = []
         for bank, finalLC, reloc, dummy, code in self.segments:
@@ -695,11 +767,11 @@ class Objcode:
                     words.append(("%04X" % LC, "....", t))
                 else:
                     words.append(("%04X" % LC, "%04X" % w, t))
-        symbols = "\n" + self.genSymbols() + "\n" if gensymbols else ""
+        symbols = "\n" + self.generate_symbols() + "\n" if gensymbols else ""
         return ("XAS99 CROSS-ASSEMBLER   VERSION " + VERSION + "\n" +
                 "\n".join(listing) + "\n" + symbols)
 
-    def genCart(self, name):
+    def generate_cartridge(self, name):
         """generate RPK file for use as MESS rom cartridge"""
         self.prepare()
         send = self.entry or Address(0x6030)
@@ -707,7 +779,7 @@ class Objcode:
         gpl = "\xaa\x01\x00\x00\x00\x00\x60\x10" + "\x00" * 8
         proginfo = "\x00\x00%s%c%s" % (chrw(entry), len(name), name)
         pad = "\x00" * (27 - len(name))
-        images = self.genImage(0x6030, 0xFFFF)
+        images = self.generate_image(0x6030, 0xFFFF)
         if len(images) > 1:
             raise BuildError("Cannot create cartridge with multiple segments")
         code = images[0][6:]
@@ -727,6 +799,18 @@ class Objcode:
                          <name>%s</name>
                      </meta-inf>""" % name
         return gpl + proginfo + pad + code, layout, metainf
+
+
+class Optimizer:
+    """object code analysis and optimization"""
+
+    @staticmethod
+    def process(parser, code, mnemonic, opcode, fmt, arg1, arg2):
+        if mnemonic == "B":
+            if (arg1[0] == 0b10 and isinstance(arg1[2], int) and
+                    -128 <= arg1[2] - code.symbols.LC <= 127):
+                warn("Possible branch/jump optimization in line %d" %
+                     parser.lidx)
 
 
 class Records:
@@ -767,7 +851,7 @@ class Records:
             self.record += s
         self.needsLC = False
 
-    def addLC(self):
+    def add_LC(self):
         """add LC tag for next object code tag"""
         self.needsLC = True
 
@@ -782,7 +866,7 @@ class Records:
             self.record += "7%04X" % (~checksum + 1 & 0xFFFF)
         self.records.append(self.record + "F" + " " * (69 - len(self.record)))
         self.record = ""
-        self.addLC()
+        self.add_LC()
 
     def dump(self):
         """dump records as DIS/FIX80"""
@@ -836,44 +920,44 @@ class Directives:
     def DEF(parser, code, label, ops):
         if parser.passno != 1:
             return
-        code.processLabel(parser.lidx, label)
+        code.process_label(parser.lidx, label)
         for op in ops:
-            code.symbols.addDef(op[:6] if parser.strictMode else op)
+            code.symbols.add_def(op[:6] if parser.strict else op)
 
     @staticmethod
     def REF(parser, code, label, ops):
         if parser.passno != 1:
             return
         for op in ops:
-            code.symbols.addRef(op[:6] if parser.strictMode else op)
+            code.symbols.add_ref(op[:6] if parser.strict else op)
 
     @staticmethod
     def EQU(parser, code, label, ops):
         if parser.passno != 1:
-            value = code.symbols.getSymbol(label)
+            value = code.symbols.get_symbol(label)
             code.list(-1, text1="", text2=value)
             return
         value = parser.expression(ops[0], wellDefined=True)
-        code.symbols.addSymbol(label, value)
+        code.symbols.add_symbol(label, value)
 
     @staticmethod
     def DATA(parser, code, label, ops):
         code.even()
-        code.processLabel(parser.lidx, label)
+        code.process_label(parser.lidx, label)
         for op in ops:
             w = parser.expression(op)
             code.word(w)
 
     @staticmethod
     def BYTE(parser, code, label, ops):
-        code.processLabel(parser.lidx, label)
+        code.process_label(parser.lidx, label)
         for op in ops:
             b = parser.expression(op)
             code.byte(b)
 
     @staticmethod
     def TEXT(parser, code, label, ops):
-        code.processLabel(parser.lidx, label)
+        code.process_label(parser.lidx, label)
         code.list(-1, text2="....")
         for op in ops:
             text = parser.text(op)
@@ -882,7 +966,7 @@ class Directives:
 
     @staticmethod
     def BSS(parser, code, label, ops):
-        code.processLabel(parser.lidx, label)
+        code.process_label(parser.lidx, label)
         size = parser.value(ops[0])
         code.block(size)
 
@@ -890,63 +974,79 @@ class Directives:
     def BES(parser, code, label, ops):
         size = parser.value(ops[0])
         code.block(size)
-        code.processLabel(parser.lidx, label)
+        code.process_label(parser.lidx, label)
 
     @staticmethod
     def EVEN(parser, code, label, ops):
         code.even()
-        code.processLabel(parser.lidx, label)  # differs from E/A manual!
+        code.process_label(parser.lidx, label)  # differs from E/A manual!
 
     @staticmethod
     def AORG(parser, code, label, ops):
         base = parser.value(ops[0]) if ops else None
-        bank = parser.value(ops[1]) if len(ops) > 1 else None
+        if len(ops) > 1:  # keep for compatibility
+            bank = parser.value(ops[1])
+            warn("Warning: AORG with bank is obsolete, use BANK directive instead")
+        else:
+            bank = None
         code.list(0, eos=True)
         code.segment(base, relocatable=False, bank=bank)
-        code.processLabel(parser.lidx, label)
+        if base is not None:
+            code.symbols.reset_banks()
+        code.process_label(parser.lidx, label)
 
     @staticmethod
     def RORG(parser, code, label, ops):
         base = parser.value(ops[0]) if ops else None
         code.list(0, eos=True)
         code.segment(base, relocatable=True)
-        code.processLabel(parser.lidx, label)
+        code.process_label(parser.lidx, label)
 
     @staticmethod
     def DORG(parser, code, label, ops):
         base = parser.value(ops[0]) if ops else None
         code.list(0, eos=True)
         code.segment(base, dummy=True)
-        code.processLabel(parser.lidx, label)
+        code.process_label(parser.lidx, label)
 
     @staticmethod
     def XORG(parser, code, label, ops):
         if not ops:
             raise AsmError("Missing argument")
-        code.processLabel(parser.lidx, label, realLC=True)
+        code.process_label(parser.lidx, label, realLC=True)
         base = parser.value(ops[0])
         code.list(0, eos=True)
         code.segment(base, relocatable=False, xorg=True)
 
     @staticmethod
+    def BANK(parser, code, label, ops):
+        if not ops:
+            raise AsmError("Missing argument")
+        code.process_label(parser.lidx, label, realLC=True)
+        bank = parser.bank(ops[0])
+        code.list(0, eos=True)
+        base = code.symbols.switch_bank(bank)
+        code.segment(base, relocatable=False, bank=bank)
+
+    @staticmethod
     def COPY(parser, code, label, ops):
-        code.processLabel(parser.lidx, label)
+        code.process_label(parser.lidx, label)
         filename = parser.filename(ops[0])
         parser.open(filename=filename)
 
     @staticmethod
     def END(parser, code, label, ops):
-        code.processLabel(parser.lidx, label)
+        code.process_label(parser.lidx, label)
         if ops:
-            code.entry = code.symbols.getSymbol(
-                ops[0][:6] if parser.strictMode else ops[0])
+            code.entry = code.symbols.get_symbol(
+                ops[0][:6] if parser.strict else ops[0])
         parser.stop()
 
     @staticmethod
     def IDT(parser, code, label, ops):
         if parser.passno != 1:
             return
-        code.processLabel(parser.lidx, label)
+        code.process_label(parser.lidx, label)
         text = parser.text(ops[0]) if ops else "        "
         code.symbols.idt = text[:8]
 
@@ -964,17 +1064,17 @@ class Directives:
     def DXOP(parser, code, label, ops):
         if parser.passno != 1:
             return
-        code.processLabel(parser.lidx, label)
+        code.process_label(parser.lidx, label)
         try:
             mode = parser.expression(ops[1], wellDefined=True)
-            code.symbols.addXop(ops[0], str(mode))
+            code.symbols.add_XOP(ops[0], str(mode))
         except IndexError:
             raise AsmError("Invalid arguments")
 
     @staticmethod
     def BCOPY(parser, code, label, ops):
         """extension: include binary file as BYTE stream"""
-        code.processLabel(parser.lidx, label)
+        code.process_label(parser.lidx, label)
         filename = parser.filename(ops[0])
         path = parser.find(filename)
         try:
@@ -994,7 +1094,7 @@ class Directives:
     @staticmethod
     def process(parser, code, label, mnemonic, operands):
         if mnemonic in Directives.ignores:
-            code.processLabel(parser.lidx, label)
+            code.process_label(parser.lidx, label)
             return True
         try:
             fn = getattr(Directives, mnemonic)
@@ -1037,12 +1137,12 @@ class Preprocessor:
 
     def IFDEF(self, code, ops):
         self.parseBranches.append(self.parse)
-        self.parse = (code.symbols.getSymbol(ops[0]) is not None if self.parse
+        self.parse = (code.symbols.get_symbol(ops[0]) is not None if self.parse
                       else None)
 
     def IFNDEF(self, code, ops):
         self.parseBranches.append(self.parse)
-        self.parse = (code.symbols.getSymbol(ops[0]) is None if self.parse
+        self.parse = (code.symbols.get_symbol(ops[0]) is None if self.parse
                       else None)
 
     def IFEQ(self, code, ops):
@@ -1098,7 +1198,7 @@ class Preprocessor:
             operands = [self.instmargs(op) for op in operands]
             line = self.instline(line)
         if mnemonic and mnemonic[0] == '.':
-            code.processLabel(self.parser.lidx, label)
+            code.process_label(self.parser.lidx, label)
             name = mnemonic[1:]
             if name in self.macros:
                 if self.parse:
@@ -1256,7 +1356,7 @@ class Opcodes:
     def process(parser, code, label, mnemonic, operands):
         """get assembly code for mnemonic"""
         code.even()
-        code.processLabel(parser.lidx, label)
+        code.process_label(parser.lidx, label)
         if mnemonic in Opcodes.pseudos:
             m, os = Opcodes.pseudos[mnemonic]
             mnemonic, operands = m, os or operands
@@ -1268,6 +1368,7 @@ class Opcodes:
                 opcode, fmt, parse1, parse2, timing = Opcodes.opcodes[mnemonic]
                 arg1 = parse1(parser, operands[0]) if parse1 else None
                 arg2 = parse2(parser, operands[1]) if parse2 else None
+                Optimizer.process(parser, code, mnemonic, opcode, fmt, arg1, arg2)
                 Opcodes.generate(code, opcode, fmt, arg1, arg2, timing)
             except (IndexError, ValueError):
                 raise AsmError("Syntax error")
@@ -1346,15 +1447,15 @@ class Opcodes:
 class Parser:
     """scanner and parser class"""
 
-    def __init__(self, symbols, path=None, includePath=None, strictMode=False):
+    def __init__(self, symbols, path=None, includes=None, strict=False):
         self.prep = Preprocessor(self)
         self.symbols = symbols
         self.textlits = []
         self.fn, self.path = None, path
         self.source, self.margs, self.lino = None, [], -1
         self.suspendedFiles = []
-        self.includePath = includePath or ["."]
-        self.strictMode = strictMode
+        self.includes = includes or ["."]
+        self.strict = strict
         self.parseBranches = [True]
         self.passno = 0
         self.lidx = 0
@@ -1398,8 +1499,7 @@ class Parser:
 
     def find(self, filename):
         """locate file that matches native filename or TI filename"""
-        includePath = ([self.path] + self.includePath if self.path else
-                       self.includePath)
+        includePath = ([self.path] + self.includes if self.path else self.includes)
         tiname = re.match(r"DSK\d?\.(.*)", filename)
         if tiname:
             nativeName = tiname.group(1)
@@ -1432,7 +1532,7 @@ class Parser:
         """parse single source line"""
         if not line or line[0] == "*":
             return None, None, None, None, False
-        if self.strictMode:
+        if self.strict:
             # blanks separate fields
             fields = re.split("\s+", self.escape(line), maxsplit=3)
             label, mnemonic, optext, comment = fields + [""] * (4 - len(fields))
@@ -1470,7 +1570,7 @@ class Parser:
         # first pass: scan symbols
         self.passno = 1
         self.lidx = 0
-        self.symbols.resetLC()
+        self.symbols.reset_LC()
         prevlabel = None
         while True:
             # get next source line
@@ -1508,7 +1608,7 @@ class Parser:
         # second pass: generate code
         self.passno = 2
         self.lidx = 0
-        self.symbols.resetLC()
+        self.symbols.reset_LC()
         prevfile = None
         for lino, label, mnemonic, operands, line, filename, stmt in source:
             if filename != prevfile:
@@ -1531,11 +1631,14 @@ class Parser:
 
     def address(self, op):
         """parse general address into t-field, register, address value"""
+        cross_bank_access = op[-1] == '#'
         if op[0] == "@":
             i = op.find("(")
             if i >= 0 and op[-1] == ")":
-                return (0b10, self.register(op[i + 1:-1]),
-                        self.expression(op[1:i]))
+                register = self.register(op[i + 1:-1])
+                if register == 0:
+                    raise AsmError("Cannot index with register 0")
+                return 0b10, register, self.expression(op[1:i])
             else:
                 return 0b10, 0, self.expression(op[1:])
         elif op[0] == "*":
@@ -1555,19 +1658,19 @@ class Parser:
             if addr.relocatable != self.symbols.relocLC:
                 raise AsmError("Invalid relocatable address")
             addr = addr.addr
-        disp = (addr - self.symbols.effectiveLC()) / 2 - 1
+        disp = (addr - self.symbols.effective_LC()) / 2 - 1
         if disp < -128 or disp > 127:
             raise AsmError("Out of range: " + op + " +/- " + hex(disp))
         return disp
 
     def expression(self, expr,
-                   wellDefined=False, absolute=False, relaxed=False):
+                   wellDefined=False, absolute=False, relaxed=False, branch=False):
         """parse complex arithmetical expression"""
         if self.passno == 1 and not wellDefined:
             return 0
         value, reloccount = Word(0), 0
         terms = ["+"] + [tok.strip() for tok in
-                         re.split(r"([-+*/])" if self.strictMode else
+                         re.split(r"([-+*/])" if self.strict else
                                   r"([-+/%~&|^()]|\*\*?)", expr)]
         i, stack = 0, []
         while i < len(terms):
@@ -1589,11 +1692,11 @@ class Parser:
                         op, term, negate, corr = "+", terms[i + 1], False, 0
                         value, reloccount = Word(0), 0
                     i += 2
-                termval = self.term(term, wellDefined, relaxed)
+                termval, cross_bank_access = self.term(term, wellDefined, relaxed)
                 if isinstance(termval, Local):
                     dist = -termval.distance if negate else termval.distance
-                    termval = self.symbols.getLocal(termval.name,
-                                                    self.lidx, dist)
+                    termval = self.symbols.get_local(termval.name,
+                                                     self.lidx, dist)
                     negate = False
                 if termval is None:
                     raise AsmError("Invalid expression: " + term)
@@ -1603,8 +1706,10 @@ class Parser:
                     return termval
                 elif isinstance(termval, Address):
                     if (termval.bank is not None and self.symbols.bank is not None and
-                            termval.bank != self.symbols.bank):
+                            termval.bank != self.symbols.bank and not cross_bank_access):
                         raise AsmError("Invalid cross-bank access")
+                        # NOTE: Jumping from bank into shared is safe, but shared into bank in general isn't.
+                        #       But if we didn't allow shared to bank, we couldn't leave shared sections!
                     v, reloc = termval.addr, 1 if termval.relocatable else 0
                 else:
                     v, reloc = termval, 0
@@ -1638,39 +1743,44 @@ class Parser:
     def term(self, op, wellDefined=False, relaxed=False):
         """parse constant or symbol"""
         if op[0] == ">":
-            return int(op[1:], 16)
+            return int(op[1:], 16), False
         elif op == "$":
-            return Address(self.symbols.effectiveLC(),
+            return Address(self.symbols.effective_LC(),
                            self.symbols.bank,
-                           self.symbols.relocLC and not self.symbols.xorgOffset)
+                           self.symbols.relocLC and not self.symbols.xorgOffset), False
         elif op[0] == ":":
-            return int(op[1:], 2)
+            return int(op[1:], 2), False
         elif op.isdigit():
-            return int(op)
+            return int(op), False
         elif op[0] == op[-1] == "'":
             c = self.textlits[int(op[1:-1])]
             if len(c) == 1:
-                return ord(c[0])
+                return ord(c[0]), False
             elif len(c) == 2:
-                return ord(c[0]) << 8 | ord(c[1])
+                return ord(c[0]) << 8 | ord(c[1]), False
             elif len(c) == 0:
-                return 0
+                return 0, False
             else:
                 raise AsmError("Invalid text literal: " + c)
         elif op[0] == "!":
             m = re.match("(!+)(.*)", op)
-            return Local(m.group(2), len(m.group(1)))
+            return Local(m.group(2), len(m.group(1))), False
         elif op[0] == "#":
             # should have been eliminated by preprocessor
             raise AsmError("Invalid macro argument")
         else:
-            v = self.symbols.getSymbol(op[:6] if self.strictMode else op)
+            if op[-1] == '#' and not self.strict:
+                cross_bank_access = True
+                op = op[:-1]
+            else:
+                cross_bank_access = False
+            v = self.symbols.get_symbol(op[:6] if self.strict else op)
             if v is None and (self.passno > 1 or wellDefined):
                 if relaxed:
-                    return 0
+                    return 0, False
                 else:
                     raise AsmError("Unknown symbol: " + op)
-            return v
+            return v, cross_bank_access
 
     def value(self, op):
         """parse well-defined value"""
@@ -1680,7 +1790,7 @@ class Parser:
     def register(self, op):
         """parse register"""
         if self.passno == 1:
-            return 0
+            return 1  # don't return 0, as this is invalid for indexes @A(Rx)
         op = op.strip()
         if op[0] == ">":
             r = int(op[1:], 16)
@@ -1689,12 +1799,21 @@ class Parser:
         elif op.isdigit():
             r = int(op)
         else:
-            r = self.symbols.getSymbol(op[:6] if self.strictMode else op)
+            r = self.symbols.get_symbol(op[:6] if self.strict else op)
             if r is None:
                 raise AsmError("Unknown symbol: " + op)
         if not 0 <= r <= 15:
             raise AsmError("Invalid register: " + op)
         return r
+
+    def bank(self, op):
+        """parse bank: number or 'all'"""
+        if op.isdigit():
+            return int(op)
+        elif op.lower() == "all":
+            return None
+        else:
+            raise AsmError("Invalid bank value: " + op)
 
     def text(self, op):
         """parse single-quoted text literal or byte string"""
@@ -1734,20 +1853,19 @@ class Parser:
 class Assembler:
     """main driver class"""
 
-    def __init__(self, target="", addRegisters=False, strictMode=False,
-                 includePath=None, defs=None):
-        self.addRegisters = addRegisters
-        self.strictMode = strictMode
-        self.includePath = includePath
+    def __init__(self, target="", registers=False, defs=None, includes=None,
+                 strict=False):
+        self.registers = registers
         self.defs = ["_xas99_" + target] + defs
+        self.includes = includes
+        self.strict = strict
 
     def assemble(self, path, srcname):
-        symbols = Symbols(addRegisters=self.addRegisters, addDefs=self.defs)
+        symbols = Symbols(addRegisters=self.registers, addDefs=self.defs)
         dummy = Objdummy(symbols)
-        code = Objcode(symbols, self.strictMode)
-        parser = Parser(symbols,
-                        path=path, includePath=self.includePath,
-                        strictMode=self.strictMode)
+        code = Objcode(symbols, self.strict)
+        parser = Parser(symbols, path=path, includes=self.includes,
+                        strict=self.strict)
         try:
             parser.open(srcname)
         except AsmError as e:
@@ -1773,7 +1891,7 @@ def main():
                      help="create program image (E/A option 5)")
     cmd.add_argument("-c", "--cart", action="store_true", dest="cart",
                      help="create MESS cart image")
-    cmd.add_argument("-t", "--text", action="store_true", dest="text",
+    cmd.add_argument("-t", "--text", dest="text", nargs="?", metavar="<format>",
                      help="create text file with binary values")
     cmd.add_argument("--embed-xb", action="store_true", dest="embed",
                      help="create Extended BASIC program with embedded code")
@@ -1783,6 +1901,9 @@ def main():
                      help=argparse.SUPPRESS)  # debugging
     args.add_argument("-s", "--strict", action="store_true", dest="strict",
                       help="strict TI mode; disable xas99 extensions")
+    args.add_argument("-f", "--free-style-comments", dest="fsc", nargs="?",
+                      const="2", metavar="<blanks>",
+                      help="non-strict free-style comments introduces by blanks")
     args.add_argument("-n", "--name", dest="name", metavar="<name>",
                       help="set program name, e.g., for cartridge")
     args.add_argument("-R", "--register-symbols", action="store_true", dest="optr",
@@ -1792,7 +1913,7 @@ def main():
     args.add_argument("-L", "--list-file", dest="optl", metavar="<file>",
                       help="generate list file (TI Assembler option L)")
     args.add_argument("-S", "--symbol-table", action="store_true", dest="opts",
-                      help="add symbol table to listing (TI Assembler option S) (ignored)")
+                      help="add symbol table to listing (TI Assembler option S)")
     args.add_argument("-E", "--symbol-equs", dest="equs", metavar="<file>",
                       help="put symbols in EQU file")
     args.add_argument("--base", dest="base", metavar="<addr>",
@@ -1812,6 +1933,7 @@ def main():
     barename = "stdin" if opts.source == "-" else os.path.splitext(basename)[0]
     name = opts.name or barename[:10].upper()
     inclpath = [dirname] + (opts.inclpath.split(",") if opts.inclpath else [])
+    fscblanks = xint(opts.fsc) if opts.fsc else 0
 
     # assembly
     target = ("image" if opts.image else
@@ -1821,10 +1943,10 @@ def main():
               "js" if opts.jstart else
               "obj")
     asm = Assembler(target=target,
-                    addRegisters=opts.optr,
-                    strictMode=opts.strict,
-                    includePath=inclpath,
-                    defs=opts.defs or [])
+                    registers=opts.optr,
+                    defs=opts.defs or [],
+                    includes=inclpath,
+                    strict = opts.strict)
     try:
         code, errors = asm.assemble(dirname, basename)
     except IOError as e:
@@ -1836,26 +1958,28 @@ def main():
         if errors:
             sys.stderr.write("".join(errors))
         elif opts.dump:
-            sys.stdout.write(code.genDump())
+            sys.stdout.write(code.generate_dump())
         elif opts.cart:
-            data, layout, metainf = code.genCart(name)
+            data, layout, metainf = code.generate_cartridge(name)
             output = opts.output or barename + ".rpk"
             with zipfile.ZipFile(output, "w") as archive:
                 archive.writestr(name + ".bin", data)
                 archive.writestr("layout.xml", layout)
                 archive.writestr("meta-inf.xml", metainf)
         elif opts.bin:
-            data = code.genBinaries(xint(opts.base) if opts.base else 0x0000)
+            data, bank_count = code.generate_binaries(xint(opts.base) if opts.base else 0x0000)
+            mid = ""
             for addr, bank, mem in data:
-                mid = (("_%04x" % addr) +
-                       ("" if bank is None else "_b%d" % bank))
+                if len(data) > 1:
+                    mid = (("_%04x" % addr) +
+                           ("_b%d" % bank if bank_count > 1 and bank is not None else ""))
                 if opts.output:
                     name = "-" if opts.output == "-" else opts.output + mid
                 else:
                     name = barename + mid + ".bin"
                 out.append((name, mem))
         elif opts.image:
-            data = code.genImage(xint(opts.base) if opts.base else 0xa000)
+            data = code.generate_image(xint(opts.base) if opts.base else 0xa000)
             for i, image in enumerate(data):
                 if opts.output:
                     name = "-" if opts.output == "-" else sinc(opts.output, i)
@@ -1863,36 +1987,30 @@ def main():
                     name = sinc(barename, i) + ".img"
                 out.append((name, image))
         elif opts.text:
-            data = code.genBinaries(xint(opts.base) if opts.base else 0x0000)
+            data, bank_count = code.generate_binaries(xint(opts.base) if opts.base else 0x0000)
             name = opts.output or barename + ".dat"
-            text = ""
-            for addr, bank, mem in data:
-                text += "\n;      aorg >%04x\n" % addr
-                bytes = [">%02x" % ord(mem[i])
-                         for i in xrange(0, len(mem))]
-                lines = ["       byte " + ", ".join(bytes[i : i + 8]) + "\n"
-                         for i in xrange(0, len(bytes), 8)]
-                text += "".join(lines)
+            mode = opts.text.lower()
+            text = code.generate_text(data, mode)
             out.append((name, text))
         elif opts.embed:
-            prog = code.genXbLoader()
+            prog = code.generate_XB_loader()
             name = opts.output or barename + ".iv254"
             out.append((name, prog))
         elif opts.jstart:
-            disk = code.genJumpstart()
+            disk = code.generate_jumpstart()
             name = opts.output or barename + ".dsk"
             out.append((name, disk))
         else:
-            data = code.genObjCode(opts.optc)
+            data = code.generate_object_code(opts.optc)
             name = opts.output or barename + ".obj"
             out.append((name, data))
         for name, data in out:
             writedata(name, data, "wb")
         if opts.optl:
-            listing = code.genList(opts.opts)
+            listing = code.generate_list(opts.opts)
             writedata(opts.optl, listing, "w")
         if opts.equs:
-            writedata(opts.equs, code.genSymbols(equ=True))
+            writedata(opts.equs, code.generate_symbols(equ=True))
     except BuildError as e:
         sys.exit("Error: %s." % e)
     except IOError as e:
@@ -1900,6 +2018,7 @@ def main():
 
     # return status
     return 1 if errors else 0
+
 
 if __name__ == "__main__":
     status = main()

@@ -4,8 +4,8 @@ import os
 import re
 
 from config import Dirs, Disks, Files
-from utils import xas, xdm, error, checkObjCodeEq, checkImageFilesEq, \
-                  checkListFilesEq
+from utils import (xas, xdm, error, content, contentlen,
+                   checkObjCodeEq, checkImageFilesEq, checkListFilesEq)
 
 
 def ordw(word):
@@ -43,11 +43,11 @@ def checkBinTextEqual(outfile, reffile):
 
 def checkInstructions(outfile, instr):
     with open(outfile, "r") as fout:
-        txt = fout.readline()
-    condensed = [line.replace(" ", "") for line in txt if line.strip()]
+        txt = fout.readlines()
+    condensed = [line.replace(" ", "").strip() for line in txt if line.strip()]
     for i, line in enumerate(condensed):
-        if ((instr[i][0] == 'b' and (line[:4] != instr) or
-                     line != instr[i])):
+        if (not ((instr[i][0] == 'b' and (line[:4] == instr[i])) or
+                 line == instr[i])):
             error("text", "Malformed text file")
 
 
@@ -106,6 +106,13 @@ def runtest():
     if len(data[6:]) != 20:
         error("Include paths", "Incorrect image length")
 
+    # command-line definitions
+    source = os.path.join(Dirs.sources, "asdef.asm")
+    xas(source, "-b", "-D", "s1=1", "s3=3", "s2=4", "-o", Files.output)
+    assert content(Files.output) == "\x01\x03"
+    xas(source, "-b", "-D", "s1=2,s2=2,s3=3", "-o", Files.output)
+    assert content(Files.output) == "\x02\x03"
+
     # jumpstart disk
     source = os.path.join(Dirs.sources, "ashello.asm")
     xas(source, "-R", "--jumpstart", "-o", Files.output)
@@ -129,12 +136,12 @@ def runtest():
 
     # text data output
     source = os.path.join(Dirs.sources, "ascart.asm")
-    xas(source, "-b", "-R", "-o", Files.reference)
-    xas(source, "-t", "-R", "-o", Files.output)
-    checkBinTextEqual(Files.output, Files.reference + "_0000")
+    xas(source, "-b", "-R", "-f", "-o", Files.reference)
+    xas(source, "-t", "a2", "-R", "-f", "-o", Files.output)
+    checkBinTextEqual(Files.output, Files.reference)
 
     source = os.path.join(Dirs.sources, "asmtext.asm")
-    xas(source, "-t", "-R", "-o", Files.output)
+    xas(source, "-t", "a2", "-R", "-o", Files.output)
     checkInstructions(Files.output,
                       [";aorg>1000", "byte", ";aorg>2000", "byte"])
 

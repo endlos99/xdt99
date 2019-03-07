@@ -40,7 +40,7 @@ ws3     equ     >1  + 2 ignored
         clr @data1 (r6)
         inc @data1 + >2 (r4)
         mov  @text1 ( r7 ) , @ text1 (r9)  comment
-        mov @>10 , @>20(r0)
+        mov @>10 , @>20
         mov *r10+ , *r9  +
         mov *r0 , *r9+  comment
         mov  @2 + data1,@data1 + >2 - text1

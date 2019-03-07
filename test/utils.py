@@ -1,4 +1,5 @@
 import sys
+import os
 import re
 
 from subprocess import call
@@ -106,6 +107,25 @@ def xbas(*args, **kargs):
 def error(tid, msg):
     """report test error"""
     sys.exit("ERROR: " + tid + ": " + msg)
+
+
+### Common check functions
+
+def content(fn, mode="rb"):
+    """return contents of file"""
+    with open(fn, mode) as f:
+        data = f.read()
+    return data
+
+
+def contentlen(fn):
+    """return length of file"""
+    return os.path.getsize(fn)
+
+
+def checkFileExists(fn):
+    """check if given file exists"""
+    return os.path.isfile(fn)
 
 
 ### Common check functions: xdm99
@@ -217,6 +237,7 @@ def checkListFilesEq(genfile, reffile, ignoreLino=False):
                 rl = rl[:14] + "r" + rl[15:]
             if "ORG" in rl[16:] or "BES" in rl[16:]:
                 rl = rl[:5] + gl[5:9] + rl[9:]  # no address
+            gl = gl.replace("; ", "* ")  # unify comments
             # ignore list directives
             if ("TITL" in gl[16:] or "PAGE" in gl[16:] or "UNL" in gl[16:] or
                     "LIST" in gl[16:]):
@@ -335,3 +356,30 @@ def checkOrigins(fn, origins):
                     error("origin", "Origin mismatch @%04X" % addr)
     if ocnt != len(origins):
         error("origin", "Origin count mismatch: %d/%d" % (ocnt, len(origins)))
+
+
+def readstderr(fn, include_warnings=False):
+    """read stderr output"""
+    errors, lino = {}, "----"
+    with open(fn, "r") as f:
+        for line in f:
+            if not include_warnings and line[:8] == "Warning:":
+                continue
+            err = re.match(r">[ \w.]+<\d>\s+(\d+)", line)
+            if err:
+                lino = err.group(1)
+            else:
+                errors[lino] = line[6:].strip()
+    return errors
+
+
+def compareErrors(ref, actual):
+    """compare two dicts for key equality"""
+    for err in ref:
+        if err not in actual:
+            error("Error messages",
+                  "Missing error: " + str(err) + ": " + ref[err])
+    for err in actual:
+        if err not in ref:
+            error("Error messages",
+                  "Extraneous error: " + str(err) + ": " + actual[err])

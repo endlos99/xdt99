@@ -1,9 +1,23 @@
 #!/usr/bin/env python
 
 import os
+import re
 
 from config import Dirs, Disks, Files
-from utils import xas, xdm, checkObjCodeEq, error
+from utils import xas, xdm, checkFileExists, checkObjCodeEq, readstderr,  compareErrors, error
+
+
+def referrrors(source):
+    referrors = {}
+    with open(source, "r") as f:
+        for i, line in enumerate(f):
+            m = re.search(r";ERROR(:....)?", line)
+            if m:
+                if m.group(1):
+                    referrors[m.group(1)[1:]] = line
+                else:
+                    referrors["%04d" % (i + 1)] = line
+    return referrors
 
 
 ### Check functions
@@ -61,16 +75,16 @@ def runtest():
 
     # xdt99 extensions
     source = os.path.join(Dirs.sources, "asxext.asm")
-    xas(source, "-R", "-o", Files.output)
+    xas(source, "-R", "-f", "-o", Files.output)
     xdm(Disks.asmsrcs, "-e", "ASXEXT0-O", "-o", Files.reference)
     checkObjCodeEq(Files.output, Files.reference)
-    xas(source, "-R", "-D", "sym2", "-o", Files.output)
+    xas(source, "-R", "-D", "sym2", "-f", "-o", Files.output)
     xdm(Disks.asmsrcs, "-e", "ASXEXT1-O", "-o", Files.reference)
     checkObjCodeEq(Files.output, Files.reference)
-    xas(source, "-R", "-D", "sym2=2", "sym3=2", "-o", Files.output)
+    xas(source, "-R", "-D", "sym2=2", "sym3=2", "-f", "-o", Files.output)
     xdm(Disks.asmsrcs, "-e", "ASXEXT2-O", "-o", Files.reference)
     checkObjCodeEq(Files.output, Files.reference)
-    xas(source, "-R", "-D", "sym2=2,sym3=2", "-o", Files.output)
+    xas(source, "-R", "-D", "sym2=2,sym3=2", "-f", "-o", Files.output)
     xdm(Disks.asmsrcs, "-e", "ASXEXT2-O", "-o", Files.reference)
     checkObjCodeEq(Files.output, Files.reference)
 
@@ -96,23 +110,22 @@ def runtest():
     checkConcatEq(save1s, os.path.join(Dirs.refs, "save1"))
     checkNoFiles([Files.output + "_b080"])
 
-    # bank switching
+    # bank switching: obsolete AORG addr, bank
     source = os.path.join(Dirs.sources, "asxbank1.asm")
     xas(source, "-b", "-o", Files.output)
-    save2s = [Files.output + "_" + ext
-              for ext in ["0000", "6000_b0", "6000_b1", "6100_b0",
-                          "6200_b1", "6200_b2"]]
+    save2s =[Files.output + "_" + ext
+              for ext in ["0000", "6000_b0", "6000_b1", "6100_b0", "6200_b1",
+                          "6200_b2"]]
     checkConcatEq(save2s, os.path.join(Dirs.refs, "save2"))
-    checkNoFiles([Files.output + "_" + ext
-                  for ext in ["0000_b0", "6000", "6100_b1", "6200_b0"]])
+    checkNoFiles([Files.output + "_0000_b0", Files.output + "_6100_b1"])
 
     source = os.path.join(Dirs.sources, "asxbank2.asm")
     xas(source, "-b", "-o", Files.output)
     save3s = [Files.output + "_" + ext
-              for ext in ["c000", "c000_b0", "c000_b1", "d000_b0", "e000_b1"]]
+              for ext in ["c000_b0", "c000_b1", "d000_b0", "e000_b1"]]
     checkConcatEq(save3s, os.path.join(Dirs.refs, "save3"))
     checkNoFiles([Files.output + "_" + ext
-                  for ext in ["d000", "d000_b1", "e000", "e000_b0"]])
+                  for ext in ["c000", "d000", "d000_b1", "e000", "e000_b0"]])
 
     source = os.path.join(Dirs.sources, "asxsegm.asm")
     xas(source, "-b", "-o", Files.output)
@@ -120,16 +133,53 @@ def runtest():
                     for ext, size in [("0000", 20), ("b000_b1", 14),
                                       ("b010_b1", 2), ("b012_b2", 6)]])
 
+    # BANK directive
+    source = os.path.join(Dirs.sources, "asdbank.asm")
+    xas(source, "-b", "-R", "-o", Files.output)
+    save4s = [Files.output + ext for ext in ["_6000_b0", "_6000_b1"]]
+    checkConcatEq(save4s, os.path.join(Dirs.refs, "asdbank"))
+
+    # cross-bank access
+    source = os.path.join(Dirs.sources, "asxbank.asm")
+    with open(Files.error, "w") as ferr:
+        xas(source, "-b", "-R", "-o", Files.output, stderr=ferr, rc=0)  # no error
+
+    source = os.path.join(Dirs.sources, "asnxbank.asm")
+    with open(Files.error, "w") as ferr:
+        xas(source, "-b", "-R", "-o", Files.output, stderr=ferr, rc=1)  # with errors
+
+    # sections shared across banks
+    source = os.path.join(Dirs.sources, "asshbank.asm")
+    with open(Files.error, "w") as ferr:
+        xas(source, "-b", "-R", "-o", Files.output, stderr=ferr, rc=1)  # with errors
+    act_errors = readstderr(Files.error)
+    exp_errors = referrrors(source)
+    compareErrors(exp_errors, act_errors)
+
+    source = os.path.join(Dirs.sources, "asshbankx.asm")
+    with open(Files.error, "w") as ferr:
+        xas(source, "-b", "-R", "-o", Files.output, stderr=ferr, rc=0)  # no error
+
     # data output (-t)
     source = os.path.join(Dirs.sources, "ashexdat.asm")
-    xas(source, "-t", "-R", "-o", Files.output)
+    xas(source, "-t", "a2", "-R", "-o", Files.output)
     xas(source, "-b", "-R", "-o", Files.reference)
-    checkNumericalEqual(Files.output, Files.reference + "_a000")
+    checkNumericalEqual(Files.output, Files.reference)
+
+    source = os.path.join(Dirs.sources, "asxtext.asm")
+    xas(source, "-t", "a2", "-o", Files.output + "1")
+    xas(source, "-t", "c4", "-o", Files.output + "2")
+    xas(source, "-t", "b", "-o", Files.output + "3")
+    xas(source, "-t", "a4", "-o", Files.output + "4")
+    xas(source, "-t", "c", "-o", Files.output + "5")
+    save5s = [Files.output + ext
+              for ext in ["1", "2", "3", "4", "5"]]
+    checkConcatEq(save5s, os.path.join(Dirs.refs, "asxtext"))
 
     # cleanup
     os.remove(Files.output)
     os.remove(Files.reference)
-    for fn in save1s + save2s + save3s:
+    for fn in set(save1s + save2s + save3s + save4s + save5s):
         os.remove(fn)
 
 
