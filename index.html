@@ -103,7 +103,7 @@ installation, simply place the files <code>xas99.py</code>, <code>xga99.py</code
 <code>xdm99.py</code>, <code>xhm99.py</code>, and <code>xvm99.py</code> somewhere in your <code>$PATH</code> or where your
 command-line interpreter will find them.  Windows users will find additional
 information about installation and how to get started in the
-<a href="http://www.mizapf.de/ti99/tiimagetool.html">Windows Tutorial</a>.</p>
+<a href="https://github.com/endlos99/xdt99/blob/master/doc/WINDOWS.md">Windows Tutorial</a>.</p>
 
 <p>The <code>ide/</code> directory contains the editor plugins for GNU Emacs and IntelliJ
 IDEA.  Please refer to the <code>EDITORS.md</code> file for further information about
@@ -267,13 +267,16 @@ if no argument is given, <code>&gt;0000</code> is used.</p>
 <h3>Creating Text Files</h3>
 
 <p>The text parameter <code>-t</code> generates a textual version of the raw binary generated
-by <code>-b</code>.</p>
+by <code>-b</code>.  Followed by <code>a</code>, it creates <code>BYTE</code> or <code>DATA</code>
+instructions to use in assembly or GPL; by <code>b</code>, it creates <code>DATA</code>
+instructions to use in BASIC; by <code>c</code>, it creates a list of hex values to use in C/C++
+arrays.  Including <code>2</code> or <code>4</code> in the value generates bytes or words,
+respectively.  As an example,
 
-<pre><code>$ xas99.py -t -R ascart.a99
+<pre><code>$ xas99.py -t a2 -R ascart.a99
 </code></pre>
 
-<p>The resulting text file contains an <code>AORG</code> comment followed by many <code>BYTE</code>
-directives for each assembled segment.</p>
+<p>results in an assembly file with <code>AORG</code> and <code>BYTE</code> directives:</p>
 
 <pre><code>;  aorg &gt;1000
    byte &gt;04, &gt;c0, &gt;c0, &gt;81, &gt;04, &gt;60, &gt;20, &gt;00
@@ -281,8 +284,7 @@ directives for each assembled segment.</p>
    byte &gt;02, &gt;e0, &gt;83, &gt;e0, &gt;04, &gt;d0
 </code></pre>
 
-<p>The text format is useful for including the binary result of another program
-into some assembly or GPL source source.</p>
+<p>The result can be <code>COPY</code>'ed, <code>#include</code>'d, or just copy-and-pasted.</p>
 
 <h3>Jumpstarting</h3>
 
@@ -614,17 +616,24 @@ containing some sprite pattern</p>
 <pre><code>SPRITE  BYTE &gt;18,&gt;3C,&gt;7E,&gt;FF,&gt;FF,&gt;7E,&gt;3C,&gt;18
 </code></pre>
 
-<p>The extended <code>AORG</code> directive allows for an optional second argument that
-specifies the memory bank for the following code segment.</p>
+<p>The <code>BANK</code> directive specifies the memory bank for the following code segment,
+or a shared code segment if the special value <code>ALL</code> is used.  Banks count from
+zero.</p>
 
 <pre><code>* ASBANK.A99
-      AORG &gt;6000,0
+      AORG &gt;6000
+      BANK ALL
 FUNC1 CLR R0
       ...
-      AORG &gt;6000,1
+      AORG &gt;6000
+      BANK 1
 FUNC2 LI  R1,&gt;1234
       ...
 </code></pre>
+
+<p>Note that the optional second argument of the <code>AORG</code> directive to specify the
+current bank is now deprecated, and might be removed in a future version of
+<code>xas99</code>.</p>
 
 <p>Generating binary files with the <code>-b</code> command stores banked segments in
 separate files, e.g.,</p>
@@ -637,21 +646,34 @@ asbank.a99  asbank_6000_b0.bin  asbank_6000_b1.bin
 <p><code>xas99</code> warns about illegal cross-bank accesses, but it cannot guarantee that
 the correct bank is always active.</p>
 
-<pre><code>      AORG &gt;6000,0
+<pre><code>      AORG &gt;6000
+      BANK 0
 L1    B    @L3      ; OK
       B    @L2      ; error: different bank
 
-      AORG &gt;6000,1
+      AORG &gt;6000
+      BANK 1
 L2    B    @L3      ; OK
       B    @L1      ; error: different bank
 
-      AORG &gt;A000
+      AORG &gt;7000
+      BANK ALL
 L3    B    @L1      ; OK, needs correct bank
       B    @L2      ; OK, needs correct bank
 </code></pre>
 
-<p>In this example, the <code>B</code> instructions in segment <code>A000</code> will both branch to
+<p>In this example, the <code>B</code> instructions in segment <code>7000</code> will both branch to
 <code>L1</code> or <code>L2</code>, depending on which bank is active.</p>
+
+<p>To override the cross-bank check explicitly, e.g., because the caller will be relocated to a
+different memory address during runtime, a hash <code>#</code> can be appended to the offending
+label.</p>
+<pre><code>      BANK 0
+CONT  CLR  R0
+
+      BANK 1
+      B    @CONT#   ; OK, no error
+</code></pre>
 
 <p>The new <code>XORG</code> directive sets the location counter to a new address but does
 not change the actual placement of the subsequent code segment.</p>
