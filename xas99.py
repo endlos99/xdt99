@@ -1345,7 +1345,7 @@ class Opcodes:
     pseudos = {
         # 13. pseudo instructions
         "NOP": ("JMP", ["$+2"]),
-        "RT": ("B", ["*11"]),
+        "RT": ("B", ["*<R>11"]),
         "PIX": ("XOP", None)
     }
 
@@ -1355,8 +1355,11 @@ class Opcodes:
         code.even()
         code.process_label(parser.lidx, label)
         if mnemonic in Opcodes.pseudos:
-            m, os = Opcodes.pseudos[mnemonic]
-            mnemonic, operands = m, os or operands
+            m, ops = Opcodes.pseudos[mnemonic]
+            if ops is not None:
+                ops = [o.replace("<R>", "R" if parser.use_R else "")
+                       for o in ops]
+            mnemonic, operands = m, ops or operands
         elif mnemonic in parser.symbols.xops:
             mode = parser.symbols.xops[mnemonic]
             mnemonic, operands = "XOP", [operands[0], mode]
