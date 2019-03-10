@@ -7,7 +7,7 @@ from config import Dirs, Files
 from utils import xas, error
 
 
-### Setup
+# Setup
 
 prolog = """
          AORG >A000
@@ -20,14 +20,14 @@ SLAST    END
 """
 
 
-### Utility functions
+# Utility functions
 
-def processSource(source):
-    lines = [processLine(line) for line in source]
+def process_source(source):
+    lines = [process_line(line) for line in source]
     return prolog + "".join(lines) + epilog
 
 
-def processLine(line):
+def process_line(line):
     mnemonic = line[10:13] if line[13] == " " else line[10:14]
     if mnemonic in ["LST", "MPYS", "DIVS"]:
         data = [">" + v for v in line[58:].split()]
@@ -36,13 +36,13 @@ def processLine(line):
         return "L" + line[:4] + "  " + line[5:]
 
 
-### Check function
+# Check function
 
-def checkImageFilesEq(name, origPath, imagePaths):
-    with open(origPath, "rb") as f:
+def check_image_files_eq(name, orig_path, image_paths):
+    with open(orig_path, "rb") as f:
         orig = f.read()[6:]
-    with open(imagePaths[0], "rb") as f1, open(imagePaths[1], "rb") as f2, \
-         open(imagePaths[2], "rb") as f3:
+    with open(image_paths[0], "rb") as f1, open(image_paths[1], "rb") as f2, \
+            open(image_paths[2], "rb") as f3:
         image = f1.read()[6:] + f2.read()[6:] + f3.read()[6:]
     if not len(orig) <= len(image) <= len(orig) + 4:
         error("Image dumps", "Incorrect image length: " + name)
@@ -50,7 +50,7 @@ def checkImageFilesEq(name, origPath, imagePaths):
         error("Image dumps", "Image mismatch: " + name)
 
 
-### Main test
+# Main test
 
 def runtest():
     """check cross-generated images files from disassembled data blobs"""
@@ -73,11 +73,11 @@ def runtest():
             ]:
         archive = os.path.join(Dirs.sources, "dis", n + ".dis.gz")
         with gzip.open(archive, "rb") as fin, open(Files.input, "w") as fout:
-            srccode = processSource(fin.readlines())
-            fout.write(srccode)
-        xas(Files.input, "-i", "-R", "-o", Files.output)
-        checkImageFilesEq(n, os.path.join(Dirs.sources, "dis", n + ".img"),
-                          Files.outputff)
+            src_code = process_source(fin.readlines())
+            fout.write(src_code)
+        xas(Files.input, "-i", "-R", "-w", "-o", Files.output)
+        check_image_files_eq(n, os.path.join(Dirs.sources, "dis", n + ".img"),
+                             Files.outputff)
 
     # cleanup
     os.remove(Files.input)
@@ -85,7 +85,7 @@ def runtest():
     for fn in Files.outputff:
         try:
             os.remove(fn)
-        except:
+        except OSError:
             pass
 
 

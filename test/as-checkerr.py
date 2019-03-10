@@ -4,7 +4,7 @@ import os
 import re
 
 from config import Dirs, Disks, Files
-from utils import xas, xdm, readstderr,  compareErrors
+from utils import xas, xdm, read_stderr, get_source_markers, check_errors
 
 
 def runtest():
@@ -14,59 +14,49 @@ def runtest():
     source = os.path.join(Dirs.sources, "aserrs.asm")
     with open(Files.error, "w") as ferr:
         xas(source, "-s", "-o", Files.output, stderr=ferr, rc=1)
-    xaserrors = readstderr(Files.error)
+    xas_errors = read_stderr(Files.error)
 
     # TI assembler error messages
-    tierrors = {}
+    ti_errors = {}
     xdm(Disks.asmsrcs, "-e", "ASERRS-L", "-o", Files.reference)
     with open(Files.reference, "r") as f:
         for line in f:
             err = re.match(r"\*{5}\s+([A-Z ]*) - (\d+)", line)
             if err:
-                lino, errmsg = err.group(2), err.group(1)
-                tierrors[lino] = errmsg
+                lino, err_msg = err.group(2), err.group(1)
+                ti_errors[lino] = err_msg
 
     # compare
-    compareErrors(tierrors, xaserrors)
+    check_errors(ti_errors, xas_errors)
 
     # xdt99-specific errors
     source = os.path.join(Dirs.sources, "asxerrs.asm")
     with open(Files.error, "w") as ferr:
         xas(source, "-R", "-o", Files.output, stderr=ferr, rc=1)
-    xaserrors = readstderr(Files.error)
-    referrors = {}
-    with open(source, "r") as f:
-        for i, line in enumerate(f):
-            m = re.search(r";ERROR(:....)?", line)
-            if m:
-                if m.group(1):
-                    referrors[m.group(1)[1:]] = line
-                else:
-                    referrors["%04d" % (i + 1)] = line
-
-    compareErrors(referrors, xaserrors)
+    xas_errors = read_stderr(Files.error)
+    ref_errors = get_source_markers(source, r";ERROR(:....)?")
+    check_errors(ref_errors, xas_errors)
 
     # xdt99-specific errors (image generation)
     source = os.path.join(Dirs.sources, "asxerrsb.asm")
     with open(Files.error, "w") as ferr:
         xas(source, "-R", "-b", "-o", Files.output, stderr=ferr, rc=1)
-    xaserrors = readstderr(Files.error)
-    referrors = {}
-    with open(source, "r") as f:
-        for i, line in enumerate(f):
-            m = re.search(r";ERROR(:....)?", line)
-            if m:
-                if m.group(1):
-                    referrors[m.group(1)[1:]] = line
-                else:
-                    referrors["%04d" % (i + 1)] = line
-
-    compareErrors(referrors, xaserrors)
+    xas_errors = read_stderr(Files.error)
+    ref_errors = get_source_markers(source, tag=r";ERROR(:....)?")
+    check_errors(ref_errors, xas_errors)
 
     # files not found
     source = os.path.join(Dirs.sources, "ascopyi.asm")
     with open(Files.error, "w") as ferr:
         xas(source, "-o", Files.output, stderr=ferr, rc=1)
+
+    # warnings
+    source = os.path.join(Dirs.sources, "aswarn.asm")
+    with open(Files.error, "w") as ferr:
+        xas(source, "-b", "-R", "-o", Files.output, stderr=ferr, rc=0)  # no error
+    act_errors = read_stderr(Files.error, include_warnings=True)
+    exp_errors = get_source_markers(source, tag=r";WARN")
+    check_errors(exp_errors, act_errors)
 
     # cleanup
     os.remove(Files.error)

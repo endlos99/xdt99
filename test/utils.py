@@ -6,7 +6,7 @@ from subprocess import call
 from config import xdmPy, xhmPy, xvmPy, xasPy, xdaPy, xgaPy, xdgPy, xbasPy
 
 
-### Utility functions
+# Utility functions
 
 def chrw(word):
     return chr(word >> 8) + chr(word & 0xFF)
@@ -21,7 +21,7 @@ def xint(s):
     return int(s.lstrip(">"), 16 if s[:2] == "0x" or s[:1] == ">" else 10)
 
 
-### Test management functions
+# Test management functions
 
 def xdm(*args, **kargs):
     """invoke Disk Manager"""
@@ -109,7 +109,7 @@ def error(tid, msg):
     sys.exit("ERROR: " + tid + ": " + msg)
 
 
-### Common check functions
+# Common check functions
 
 def content(fn, mode="rb"):
     """return contents of file"""
@@ -118,36 +118,36 @@ def content(fn, mode="rb"):
     return data
 
 
-def contentlen(fn):
+def content_len(fn):
     """return length of file"""
     return os.path.getsize(fn)
 
 
-def checkFileExists(fn):
+def check_file_exists(fn):
     """check if given file exists"""
     return os.path.isfile(fn)
 
 
-### Common check functions: xdm99
+# Common check functions: xdm99
 
-def checkFilesEq(tid, infile, reffile, fmt, mask=None):
+def check_files_eq(tid, infile, reffile, fmt, mask=None):
     if fmt[0] == "D":
         if "V" in fmt:
-            checkTextFilesEq(tid, infile, reffile)
+            check_text_files_eq(tid, infile, reffile)
         else:
-            checkBinaryFilesEq(tid, infile, reffile, [])
+            check_binary_files_eq(tid, infile, reffile, [])
     else:
-        checkBinaryFilesEq(tid, infile, reffile, mask or [])
+        check_binary_files_eq(tid, infile, reffile, mask or [])
 
 
-def checkTextFilesEq(tid, infile, reffile):
+def check_text_files_eq(tid, infile, reffile):
     """check if file matches reference file"""
     with open(infile, "r") as fin, open(reffile, "r") as fref:
         if fin.readlines() != fref.readlines():
             error(tid, "%s: File contents mismatch" % infile)
 
 
-def checkTextLinesEq(tid, infile, reffile, fmt):
+def check_text_lines_eq(tid, infile, reffile, fmt):
     """check if text files are equal modulo trailing spaces"""
     reclen = int(re.search("\d+", fmt).group(0))
     with open(infile, "r") as fin, open(reffile, "r") as fref:
@@ -157,7 +157,7 @@ def checkTextLinesEq(tid, infile, reffile, fmt):
             error(tid, "%s: File contents mismatch" % infile)
 
 
-def checkBinaryFilesEq(tid, infile, reffile, mask):
+def check_binary_files_eq(tid, infile, reffile, mask):
     """check if binary files are equal modulo mask"""
     with open(infile, "rb") as fin, open(reffile, "rb") as fref:
         indata = fin.read()
@@ -172,7 +172,7 @@ def checkBinaryFilesEq(tid, infile, reffile, mask):
             error(tid, "%s: File contents mismatch" % infile)
 
 
-def checkFileMatches(infile, matches):
+def check_file_matches(infile, matches):
     """check if text file contents match regular expressions"""
     try:
         with open(infile, "r") as f:
@@ -188,9 +188,9 @@ def checkFileMatches(infile, matches):
             error("CLI", "%s: Line %d missing" % (infile, line))
 
 
-### Common check functions: xas99
+# Common check functions: xas99
 
-def checkObjCodeEq(infile, reffile):
+def check_obj_code_eq(infile, reffile):
     """check if object code files are equal modulo id tag"""
     with open(infile, "rb") as fin, open(reffile, "rb") as fref:
         indata = fin.read()
@@ -201,7 +201,7 @@ def checkObjCodeEq(infile, reffile):
             error("Object code", "File contents mismatch")
 
 
-def checkImageFilesEq(genfile, reffile):
+def check_image_files_eq(genfile, reffile):
     """check if non-zero bytes in binary files are equal"""
     with open(genfile, "rb") as fg, open(reffile, "rb") as fr:
         genimage = fg.read()
@@ -211,7 +211,7 @@ def checkImageFilesEq(genfile, reffile):
         error("Object code", "Image length mismatch")
     if (genimage[:2] != refimage[:2] or
         not (0 <= ordw(genimage[2:4]) - ordw(refimage[2:4]) <= 1) or
-        genimage[4:6] != refimage[4:6]):
+            genimage[4:6] != refimage[4:6]):
         error("Object code", "Image header mismatch")
     # TI-generated images may contain arbitrary bytes in BSS segments
     for i in xrange(4, len(refimage)):
@@ -219,7 +219,7 @@ def checkImageFilesEq(genfile, reffile):
             error("Image file", "Image contents mismatch @ " + hex(i))
 
 
-def checkListFilesEq(genfile, reffile, ignoreLino=False):
+def check_list_files_eq(genfile, reffile, ignoreLino=False):
     """check if list files are equivalent"""
     with open(genfile, "rb") as fg, open(reffile, "rb") as fr:
         genlist = [(l[:16] + l[19:]).rstrip() for l in fg.readlines()
@@ -261,7 +261,7 @@ def checkListFilesEq(genfile, reffile, ignoreLino=False):
 
 # common check functions: xda99/xdg99
 
-def checkIndent(fn, blocks):
+def check_indent(fn, blocks):
     """check if first lines are indented correctly"""
     with open(fn, "r") as fin:
         source = fin.readlines()
@@ -283,7 +283,7 @@ def checkIndent(fn, blocks):
     return all([i == indents[0] for i in indents[1:]])
 
 
-def countMnemonics(fn, offset=0, wanted=None):
+def count_mnemonics(fn, offset=0, wanted=None):
     """build dict of all ocurring mnemonics"""
     with open(fn, "r") as fin:
         source = [l[offset:] for l in fin.readlines()]
@@ -300,7 +300,7 @@ def countMnemonics(fn, offset=0, wanted=None):
     return mnems.get(wanted, 0) if wanted is not None else mnems
 
 
-def checkSource(outfile, reffile):
+def check_source(outfile, reffile):
     """compare sources"""
     with open(outfile, "r") as fout, open(reffile, "r") as fref:
         out = fout.readlines()
@@ -339,7 +339,7 @@ def checkSource(outfile, reffile):
                 i, rline, oline))
 
 
-def checkOrigins(fn, origins):
+def check_origins(fn, origins):
     """check origins in source"""
     with open(fn, "r") as fin:
         source = fin.readlines()
@@ -358,13 +358,18 @@ def checkOrigins(fn, origins):
         error("origin", "Origin count mismatch: %d/%d" % (ocnt, len(origins)))
 
 
-def readstderr(fn, include_warnings=False):
+def read_stderr(fn, include_warnings=False):
     """read stderr output"""
     errors, lino = {}, "----"
     with open(fn, "r") as f:
         for line in f:
-            if not include_warnings and line[:8] == "Warning:":
-                continue
+            if "Warning:" in line:
+                if include_warnings:
+                    warn = re.search(r"<\d>\s+(\d+)\s+-\s+Warning:\s+(.*)", line)
+                    if warn:
+                        errors[warn.group(1)] = warn.group(2)
+                else:
+                    continue  # ignore warnings
             err = re.match(r">[ \w.]+<\d>\s+(\d+)", line)
             if err:
                 lino = err.group(1)
@@ -373,7 +378,23 @@ def readstderr(fn, include_warnings=False):
     return errors
 
 
-def compareErrors(ref, actual):
+def get_source_markers(source, tag):
+    ref_errors = {}
+    with open(source, "r") as f:
+        for i, line in enumerate(f):
+            m = re.search(tag, line)
+            if m:
+                try:
+                    if m.group(1):
+                        ref_errors[m.group(1)[1:]] = line
+                        continue
+                except IndexError:
+                    pass
+                ref_errors["%04d" % (i + 1)] = line
+    return ref_errors
+
+
+def check_errors(ref, actual):
     """compare two dicts for key equality"""
     for err in ref:
         if err not in actual:

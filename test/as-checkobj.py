@@ -3,7 +3,9 @@
 import os
 
 from config import Dirs, Disks, Files
-from utils import xas, xdm, checkFilesEq, checkObjCodeEq, checkImageFilesEq
+from utils import (xas, xdm, check_files_eq, check_obj_code_eq,
+                   check_image_files_eq, read_stderr, get_source_markers,
+                   check_errors)
 
 
 ### Main test
@@ -12,7 +14,7 @@ def runtest():
     """check cross-generated output against native reference files"""
 
     # object code
-    for infile, opts, reffile, cprfile in [
+    for inp_file, opts, ref_file, compr_file in [
             ("asdirs.asm", [], "ASDIRS-O", "ASDIRS-C"),
             ("asorgs.asm", [], "ASORGS-O", "ASORGS-C"),
             ("asopcs.asm", [], "ASOPCS-O", "ASOPCS-C"),
@@ -34,42 +36,50 @@ def runtest():
             ("asxorg.asm", [], "ASXORG-O", None),
             ("ascart.asm", ["-R"], "ASCART-O", "ASCART-C")
             ]:
-        source = os.path.join(Dirs.sources, infile)
-        xdm(Disks.asmsrcs, "-e", reffile, "-o", Files.reference)
+        source = os.path.join(Dirs.sources, inp_file)
+        xdm(Disks.asmsrcs, "-e", ref_file, "-o", Files.reference)
         xas(*[source] + opts + ["-o", Files.output])
-        checkObjCodeEq(Files.output, Files.reference)
+        check_obj_code_eq(Files.output, Files.reference)
         xas(*[source] + opts + ["--strict", "-o", Files.output])
-        checkObjCodeEq(Files.output, Files.reference)
-        if cprfile:
+        check_obj_code_eq(Files.output, Files.reference)
+        if compr_file:
             # compressed object code
             xas(*[source] + opts + ["-C", "-o", Files.output])
-            xdm(Disks.asmsrcs, "-e", cprfile, "-o", Files.reference)
-            checkObjCodeEq(Files.output, Files.reference)
+            xdm(Disks.asmsrcs, "-e", compr_file, "-o", Files.reference)
+            check_obj_code_eq(Files.output, Files.reference)
 
     # image files
-    for infile, opts, reffile in [
+    for inp_file, opts, ref_file in [
             ("ashello.asm", ["-R"], "ASHELLO-I"),
             ("astisym.asm", [], "ASTISYM-I"),
             ("asimg1.asm", [], "ASIMG1-I"),
             ("asimg2.asm", [], "ASIMG2-I")
             #("asimg3.asm", [], "ASIMG3-I")
             ]:
-        source = os.path.join(Dirs.sources, infile)
+        source = os.path.join(Dirs.sources, inp_file)
         xas(*[source] + opts + ["-i", "-o", Files.output])
-        xdm(Disks.asmsrcs, "-e", reffile, "-o", Files.reference)
-        checkImageFilesEq(Files.output, Files.reference)
+        xdm(Disks.asmsrcs, "-e", ref_file, "-o", Files.reference)
+        check_image_files_eq(Files.output, Files.reference)
 
-    for infile, reffiles in [
+    for inp_file, reffiles in [
             ("aslimg.asm", ["ASLIMG-I", "ASLIMG-J", "ASLIMG-K"]),
             ("assimg.asm", ["ASSIMG-I", "ASSIMG-J", "ASSIMG-K", "ASSIMG-L"]),
             ("asreloc.asm", ["ASRELOC-I"])
             ]:
-        source = os.path.join(Dirs.sources, infile)
+        source = os.path.join(Dirs.sources, inp_file)
         xas(source, "-R", "-i", "-o", Files.output)
-        for i, reffile in enumerate(reffiles):
-            xdm(Disks.asmimgs, "-e", reffile, "-o", Files.reference)
-            checkFilesEq("Image file",
-                         Files.outputff[i], Files.reference, fmt="P")
+        for i, ref_file in enumerate(reffiles):
+            xdm(Disks.asmimgs, "-e", ref_file, "-o", Files.reference)
+            check_files_eq("Image file",
+                           Files.outputff[i], Files.reference, fmt="P")
+
+    # JMP instruction
+    source = os.path.join(Dirs.sources, "asjmp.asm")
+    with open(Files.error, "w") as ferr:
+        xas(source, "-o", Files.output, stderr=ferr, rc=1)
+    xaserrors = read_stderr(Files.error)
+    referrors = get_source_markers(source, r";ERROR(:....)?")
+    check_errors(referrors, xaserrors)
 
     # cleanup
     for i in xrange(4):

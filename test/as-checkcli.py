@@ -4,8 +4,8 @@ import os
 import re
 
 from config import Dirs, Disks, Files
-from utils import (xas, xdm, error, content, contentlen,
-                   checkObjCodeEq, checkImageFilesEq, checkListFilesEq)
+from utils import (xas, xdm, error, content, content_len, check_obj_code_eq,
+                   check_image_files_eq, check_list_files_eq)
 
 
 def ordw(word):
@@ -18,9 +18,9 @@ def remove(files):
             os.remove(fn)
 
 
-### Check functions
+# Check functions
 
-def checkExists(files):
+def check_exists(files):
     for fn in files:
         try:
             with open(fn, "rb") as f:
@@ -29,7 +29,7 @@ def checkExists(files):
             error("Files", "File missing or empty: " + fn)
 
 
-def checkBinTextEqual(outfile, reffile):
+def check_bin_text_equal(outfile, reffile):
     with open(outfile, "r") as fout, open(reffile, "rb") as fref:
         txt = " ".join(fout.readlines())
         bin = fref.read()
@@ -41,7 +41,7 @@ def checkBinTextEqual(outfile, reffile):
         error("DATA", "DATA/word mismatch")
 
 
-def checkInstructions(outfile, instr):
+def check_instructions(outfile, instr):
     with open(outfile, "r") as fout:
         txt = fout.readlines()
     condensed = [line.replace(" ", "").strip() for line in txt if line.strip()]
@@ -51,7 +51,7 @@ def checkInstructions(outfile, instr):
             error("text", "Malformed text file")
 
 
-def checkSymbols(outfile, symbols):
+def check_symbols(outfile, symbols):
     """check if all symbol/value pairs are in symfile"""
     with open(outfile, "r") as fout:
         source = fout.readlines()
@@ -66,7 +66,7 @@ def checkSymbols(outfile, symbols):
                 sym, val, equs.get(sym)))
 
 
-### Main test
+# Main test
 
 def runtest():
     """check command line interface"""
@@ -76,17 +76,17 @@ def runtest():
     with open(Files.output, "wb") as f:
         xas(source, "-R", "-o", "-", stdout=f)
     xdm(Disks.asmsrcs, "-e", "ASHELLO-O", "-o", Files.reference)
-    checkObjCodeEq(Files.output, Files.reference)
+    check_obj_code_eq(Files.output, Files.reference)
 
     with open(Files.output, "wb") as f:
         xas(source, "-R", "-i", "-o", "-", stdout=f)
     xdm(Disks.asmsrcs, "-e", "ASHELLO-I", "-o", Files.reference)
-    checkImageFilesEq(Files.output, Files.reference)
+    check_image_files_eq(Files.output, Files.reference)
 
     with open(Files.output, "w") as f:
         xas(source, "-R", "-o", Files.output, "-L", "-", stdout=f)
     xdm(Disks.asmsrcs, "-e", "ASHELLO-L", "-o", Files.reference)
-    checkListFilesEq(Files.output, Files.reference)
+    check_list_files_eq(Files.output, Files.reference)
 
     source = os.path.join(Dirs.sources, "nonexisting")
     with open(Files.error, "w") as ferr:
@@ -132,25 +132,32 @@ def runtest():
     source = os.path.join(Dirs.sources, "asxbank1.asm")
     remove([Files.reference])
     xas(source, "-b", "-o", Files.output, "-L", Files.reference)
-    checkExists([Files.reference])
+    check_exists([Files.reference])
 
     # text data output
     source = os.path.join(Dirs.sources, "ascart.asm")
-    xas(source, "-b", "-R", "-f", "-o", Files.reference)
-    xas(source, "-t", "a2", "-R", "-f", "-o", Files.output)
-    checkBinTextEqual(Files.output, Files.reference)
+    xas(source, "-b", "-R", "-o", Files.reference)
+    xas(source, "-t", "a2", "-R", "-o", Files.output)
+    check_bin_text_equal(Files.output, Files.reference)
 
     source = os.path.join(Dirs.sources, "asmtext.asm")
     xas(source, "-t", "a2", "-R", "-o", Files.output)
-    checkInstructions(Files.output,
-                      [";aorg>1000", "byte", ";aorg>2000", "byte"])
+    check_instructions(Files.output,
+                       [";aorg>1000", "byte", ";aorg>2000", "byte"])
 
     # symbols
     source = os.path.join(Dirs.sources, "assyms.asm")
     xas(source, "-b", "-R", "-o", Files.reference, "-E", Files.output)
-    checkSymbols(Files.output,
-                 (("START", ">0000"), ("S1", ">0001"), ("S2", ">0018"),
+    check_symbols(Files.output,
+                  (("START", ">0000"), ("S1", ">0001"), ("S2", ">0018"),
                   ("VDPWA", ">8C02")))
+
+    # disable warnings
+    source = os.path.join(Dirs.sources, "aswarn.asm")
+    with open(Files.error, "w") as ferr:
+        xas(source, "-b", "-R", "-w", "-o", Files.output, stderr=ferr, rc=0)
+    if content_len(Files.error) > 0:
+        error("warn", "warnings, even though disabled")
 
     # cleanup
     os.remove(Files.output)

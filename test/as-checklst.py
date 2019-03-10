@@ -3,12 +3,12 @@
 import os
 
 from config import Dirs, Disks, Files
-from utils import xas, xdm, error, checkListFilesEq
+from utils import xas, xdm, error, check_list_files_eq
 
 
-### Check functions
+# Check functions
 
-def checkEndEqual(outfile, reffile):
+def check_end_equal(outfile, reffile):
     with open(outfile, "r") as fout, open(reffile, "r") as fref:
         otxt = [l.strip() for l in fout.readlines()]
         rtxt = [l.strip() for l in fref.readlines()]
@@ -17,7 +17,7 @@ def checkEndEqual(outfile, reffile):
             error("symbols", "Symbols not as expected in line %d" % i)
 
 
-def checkSymEquEquiv(outfile, reffile):
+def check_sym_equ_equiv(outfile, reffile):
     with open(outfile, "r") as fout, open(reffile, "r") as fref:
         otxt = fout.readlines()
         rtxt = [l for l in fref.readlines() if "..." in l]
@@ -25,7 +25,7 @@ def checkSymEquEquiv(outfile, reffile):
         error("EQUs", "Symbols/EQUs count mismatch")
 
 
-### Main test
+# Main test
 
 def runtest():
     """check cross-generated output against native reference files"""
@@ -46,12 +46,12 @@ def runtest():
             ("asimg1.asm", [], "ASIMG1-L"),
             ("asimg2.asm", [], "ASIMG2-L"),
             ("asimg3.asm", [], "ASIMG3-L"),
-            ("ascart.asm", ["-R"], "ASCART-L")
+            ("ascart.asm", ["-R", "-s"], "ASCART-L")
             ]:
         source = os.path.join(Dirs.sources, infile)
         xas(*[source] + opts + ["-L", Files.output, "-o", Files.reference])
         xdm(Disks.asmsrcs, "-e", reffile, "-o", Files.reference)
-        checkListFilesEq(Files.output, Files.reference)
+        check_list_files_eq(Files.output, Files.reference)
 
     for infile, opts, reffile in [
             ("ascopy.asm", [], "ASCOPY-L")
@@ -60,19 +60,19 @@ def runtest():
         source = os.path.join(Dirs.sources, infile)
         xas(*[source] + opts + ["-L", Files.output, "-o", Files.reference])
         xdm(Disks.asmsrcs, "-e", reffile, "-o", Files.reference)
-        checkListFilesEq(Files.output, Files.reference, ignoreLino=True)
+        check_list_files_eq(Files.output, Files.reference, ignoreLino=True)
 
     # symbols
     source = os.path.join(Dirs.sources, "ashello.asm")
     xas(source, "-R", "-L", Files.output, "-S", "-o", Files.input)
     reffile = os.path.join(Dirs.refs, "ashello.sym")
-    checkEndEqual(Files.output, reffile)
+    check_end_equal(Files.output, reffile)
 
     # EQUs
     source = os.path.join(Dirs.sources, "ashello.asm")
     xas(source, "-R", "-E", Files.output, "-o", Files.input)
     reffile = os.path.join(Dirs.refs, "ashello.sym")
-    checkSymEquEquiv(Files.output, reffile)
+    check_sym_equ_equiv(Files.output, reffile)
 
     # cleanup
     os.remove(Files.output)
