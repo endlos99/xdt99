@@ -3,20 +3,20 @@ import os.path
 
 ### Executables
 
-xasPy = ["../xas99.py"]
-#xasPy = ["python.exe", "..\\xas99.py"]
+#xasPy = ["../xas99.py"]
+xasPy = ["python.exe", "..\\xas99.py"]
 
-xdaPy = ["../xda99.py"]
-#xasPy = ["python.exe", "..\\xda99.py"]
+#xdaPy = ["../xda99.py"]
+xdaPy = ["python.exe", "..\\xda99.py"]
 
-xgaPy = ["../xga99.py"]
-#xgaPy = ["python.exe", "..\\xga99.py"]
+#xgaPy = ["../xga99.py"]
+xgaPy = ["python.exe", "..\\xga99.py"]
 
-xdgPy = ["../xdg99.py"]
-#xgaPy = ["python.exe", "..\\xdg99.py"]
+#xdgPy = ["../xdg99.py"]
+xdgPy = ["python.exe", "..\\xdg99.py"]
 
-xdmPy = ["../xdm99.py"]
-#xdmPy = ["python.exe", "..\\xdm99.py"]
+#xdmPy = ["../xdm99.py"]
+xdmPy = ["python.exe", "..\\xdm99.py"]
 
 xhmPy = ["../xhm99.py"]
 #xhmPy = ["python.exe", "..\\xhm99.py"]

@@ -23,7 +23,7 @@ import sys
 import re
 import os.path
 
-VERSION = "1.7.2"
+VERSION = "1.8.1"
 
 
 # Utility functions
@@ -133,38 +133,34 @@ class Line:
 
 
 class Symbols:
-    """symbol table and line counter"""
+    """symbol table and line counter
+       Each symbol entry is a tuple (value, weak, used)
+       Weak symbols may be redefined if they have the same value.
+       Used tracks if a symbol has been used (True/False).  If set to None, usage is not tracked.
+    """
 
-    def __init__(self, add_registers=False, add_defs=None):
-        self.registers = {
-            "R" + str(i): i for i in xrange(16)
-            } if add_registers else {}
-        self.symbols = self.registers.copy()  # registers are just symbols
+    def __init__(self, add_registers=False, add_defs=()):
+        self.registers = {"R" + str(i): i for i in xrange(16)} if add_registers else {}
+        self.symbols = {n: (v, False, None) for n, v in self.registers.iteritems()}  # registers are just non-weak symbols
         self.exts = {
-            "VSBW": 0x210C, "VMBW": 0x2110,
-            "VSBR": 0x2114, "VMBR": 0x2118,
-            "VWTR": 0x211C, "KSCAN": 0x2108,
-            "GPLLNK": 0x2100, "XMLLNK": 0x2104,
-            "DSRLNK": 0x2120, "LOADER": 0x2124,
-            "UTLTAB": 0x2022, "SCAN": 0x000E,
-            "PAD": 0x8300, "GPLWS": 0x83E0,
-            "SOUND": 0x8400,
-            "VDPRD": 0x8800, "VDPSTA": 0x8802,
-            "VDPWD": 0x8C00, "VDPWA": 0x8C02,
-            "SPCHRD": 0x9000, "SPCHWT": 0x9400,
-            "GRMRD": 0x9800, "GRMRA": 0x9802,
+            "VSBW": 0x210C, "VMBW": 0x2110, "VSBR": 0x2114, "VMBR": 0x2118,
+            "VWTR": 0x211C, "KSCAN": 0x2108, "GPLLNK": 0x2100, "XMLLNK": 0x2104,
+            "DSRLNK": 0x2120, "LOADER": 0x2124, "UTLTAB": 0x2022, "SCAN": 0x000E,
+            "PAD": 0x8300, "GPLWS": 0x83E0, "SOUND": 0x8400,
+            "VDPRD": 0x8800, "VDPSTA": 0x8802, "VDPWD": 0x8C00, "VDPWA": 0x8C02,
+            "SPCHRD": 0x9000, "SPCHWT": 0x9400, "GRMRD": 0x9800, "GRMRA": 0x9802,
             "GRMWD": 0x9C00, "GRMWA": 0x9C02
             }
-        for d in add_defs or []:
-            for g in d.upper().split(","):
-                parts = g.split("=")
+        for defs in add_defs:
+            for d in defs.upper().split(","):
+                parts = d.split("=")
                 val = Parser.symconst(parts[1]) if len(parts) > 1 else 1
-                self.symbols[parts[0]] = val
+                self.symbols[parts[0]] = val, True, None  # predefined symbols are weak
         self.refdefs = []
         self.xops = {}
         self.idt = "        "
         self.locations = []
-        self.anonno = 0
+        self.local_lid = 0
         self.reset_LC()
 
     def reset_LC(self):
@@ -180,22 +176,31 @@ class Symbols:
     def effective_LC(self):
         return self.LC + (self.xorg_offset or 0)
 
-    def add_symbol(self, name, value):
-        if name in self.symbols:
-            raise AsmError("Multiple symbols: " + name)
-        self.symbols[name] = value
+    def add_symbol(self, name, value, weak=False, tracked=False):
+        try:
+            defined_value, defined_weak, unused = self.symbols[name]
+            # existing definition
+            if not defined_weak:
+                raise AsmError("Multiple symbols: " + name)
+            if value != defined_value:
+                raise AsmError("Values of symbol and weak symbol %s don't match" % name)
+            # reset weak value
+        except KeyError:
+            # new definition
+            unused = True if tracked else None
+        self.symbols[name] = value, weak, unused
         return name
 
-    def add_label(self, lidx, label, real_LC=False):
+    def add_label(self, lidx, label, real_LC=False, tracked=False):
         addr = Address(self.LC if real_LC else self.effective_LC(),
                        self.bank,
                        self.reloc_LC and (real_LC or not self.xorg_offset))
-        name = self.add_symbol(label, addr)
+        name = self.add_symbol(label, addr, tracked=tracked)  # labels are never weak
         self.locations.append((lidx, name))
 
     def add_local_label(self, lidx, label):
-        self.anonno += 1
-        self.add_label(lidx, label + "$" + str(self.anonno))
+        self.local_lid += 1
+        self.add_label(lidx, label + "$" + str(self.local_lid))
 
     def add_def(self, name):
         if name in self.refdefs:
@@ -212,7 +217,13 @@ class Symbols:
         self.xops[name] = mode
 
     def get_symbol(self, name):
-        return self.symbols.get(name)
+        try:
+            value, weak, unused = self.symbols[name]
+            if unused:
+                self.symbols[name] = (value, name, False)  # symbol has been used
+        except KeyError:
+            value = None
+        return value
 
     def get_local(self, name, lpos, distance):
         targets = [(l, n) for (l, n) in self.locations
@@ -237,10 +248,14 @@ class Symbols:
         if bank is None:  # ALL
             return max(addr, *self.bank_LC.values())
         else:
-            bankLC = self.bank_LC.get(bank)
-            if bankLC is None:
-                bankLC = self.bank_LC[bank] = self.bank_LC[None]
-            return max(addr, bankLC, self.bank_LC[None])
+            bank_LC = self.bank_LC.get(bank)
+            if bank_LC is None:
+                bank_LC = self.bank_LC[bank] = self.bank_LC[None]
+            return max(addr, bank_LC, self.bank_LC[None])
+
+    def get_unused(self):
+        """return all symbol names that have not been used"""
+        return [name for name, (_, _, unused) in self.symbols.iteritems() if unused]
 
 
 # Code generation
@@ -287,13 +302,13 @@ class Objdummy:
             2 if saddr is not None else 0) + (
             2 if daddr is not None else 0)
 
-    def process_label(self, lidx, label, real_LC=False):
+    def process_label(self, lidx, label, real_LC=False, tracked=False):
         if not label:
             return
         if label[0] == "!":
             self.symbols.add_local_label(lidx, label[1:])
         else:
-            self.symbols.add_label(lidx, label, real_LC)
+            self.symbols.add_label(lidx, label, real_LC, tracked=tracked)
 
     def list(self, lino, line=None, eos=False, text1=None, text2=None):
         pass
@@ -311,8 +326,9 @@ class Objcode:
         self.segment(0, relocatable=True, init=True)
         self.done = False
         self.strict = strict
+        self.unused_symbols = []
 
-    def process_label(self, lidx, label, real_LC=False):
+    def process_label(self, lidx, label, real_LC=False, tracked=False):
         pass
 
     def segment(self, base, relocatable=False, bank=None,
@@ -703,7 +719,7 @@ class Objcode:
         for s in sorted(symbols):
             if s in regs or s[0] == '$' or s[0] == "_":
                 continue  # skip registers, local and internal symbols
-            addr = symbols.get(s)
+            addr, weak = symbols.get(s)
             if isinstance(addr, Address):
                 # add extra information to addresses
                 a, r, b = (addr.addr,
@@ -938,23 +954,32 @@ class Directives:
         code.symbols.add_symbol(label, value)
 
     @staticmethod
+    def WEQU(parser, code, label, ops):
+        if parser.pass_no != 1:
+            value = code.symbols.get_symbol(label)
+            code.list(-1, text1="", text2=value)
+            return
+        value = parser.expression(ops[0], well_defined=True)
+        code.symbols.add_symbol(label, value, weak=True)
+
+    @staticmethod
     def DATA(parser, code, label, ops):
         code.even()
-        code.process_label(parser.lidx, label)
+        code.process_label(parser.lidx, label, tracked=True)
         for op in ops:
             w = parser.expression(op)
             code.word(w)
 
     @staticmethod
     def BYTE(parser, code, label, ops):
-        code.process_label(parser.lidx, label)
+        code.process_label(parser.lidx, label, tracked=True)
         for op in ops:
             b = parser.expression(op)
             code.byte(b)
 
     @staticmethod
     def TEXT(parser, code, label, ops):
-        code.process_label(parser.lidx, label)
+        code.process_label(parser.lidx, label, tracked=True)
         code.list(-1, text2="....")
         for op in ops:
             text = parser.text(op)
@@ -962,8 +987,18 @@ class Directives:
                 code.byte(ord(c))
 
     @staticmethod
+    def STRI(parser, code, label, ops):
+        code.process_label(parser.lidx, label, tracked=True)
+        code.list(-1, text2="....")
+        for op in ops:
+            text = parser.text(op)
+            code.byte(len(text))
+            for c in text:
+                code.byte(ord(c))
+
+    @staticmethod
     def BSS(parser, code, label, ops):
-        code.process_label(parser.lidx, label)
+        code.process_label(parser.lidx, label, tracked=True)
         size = parser.value(ops[0])
         code.block(size)
 
@@ -971,7 +1006,7 @@ class Directives:
     def BES(parser, code, label, ops):
         size = parser.value(ops[0])
         code.block(size)
-        code.process_label(parser.lidx, label)
+        code.process_label(parser.lidx, label, tracked=True)
 
     @staticmethod
     def EVEN(parser, code, label, ops):
@@ -1105,21 +1140,27 @@ class Directives:
 
 
 class Preprocessor:
-    """xdt99-specific preprocessor extensions"""
+    """xdt99-specific preprocessor extensions
+       NOTE: The preprocessor is only called for pass 1, in pass 2 all
+             dot-commands have been eliminated!
+    """
 
     def __init__(self, parser):
         self.parser = parser
         self.parse = True
-        self.parseBranches = []
+        self.parse_branches = []
         self.parse_macro = None
         self.macros = {}
 
     def args(self, ops):
-        lhs = self.parser.expression(
-            ops[0], well_defined=True, relaxed=True)
-        rhs = self.parser.expression(
-            ops[1], well_defined=True, relaxed=True) if len(ops) > 1 else 0
+        lhs = self.parser.expression(ops[0], well_defined=True, relaxed=True)
+        rhs = self.parser.expression(ops[1], well_defined=True, relaxed=True) if len(ops) > 1 else 0
         return lhs, rhs
+
+    def str_args(self, ops):
+        return [self.parser.text(op) if self.parser.is_literal(op) else
+                str(self.parser.expression(op, well_defined=True))
+                for op in ops]
 
     def DEFM(self, code, ops):
         if len(ops) != 1:
@@ -1133,36 +1174,40 @@ class Preprocessor:
         raise AsmError("Found .ENDM without .DEFM")
 
     def IFDEF(self, code, ops):
-        self.parseBranches.append(self.parse)
+        self.parse_branches.append(self.parse)
         self.parse = (code.symbols.get_symbol(ops[0]) is not None if self.parse
                       else None)
 
     def IFNDEF(self, code, ops):
-        self.parseBranches.append(self.parse)
+        self.parse_branches.append(self.parse)
         self.parse = (code.symbols.get_symbol(ops[0]) is None if self.parse
                       else None)
 
     def IFEQ(self, code, ops):
-        self.parseBranches.append(self.parse)
+        self.parse_branches.append(self.parse)
         self.parse = cmp(*self.args(ops)) == 0 if self.parse else None
 
     def IFNE(self, code, ops):
-        self.parseBranches.append(self.parse)
+        self.parse_branches.append(self.parse)
         self.parse = cmp(*self.args(ops)) != 0 if self.parse else None
 
     def IFGT(self, code, ops):
-        self.parseBranches.append(self.parse)
+        self.parse_branches.append(self.parse)
         self.parse = cmp(*self.args(ops)) > 0 if self.parse else None
 
     def IFGE(self, code, ops):
-        self.parseBranches.append(self.parse)
+        self.parse_branches.append(self.parse)
         self.parse = cmp(*self.args(ops)) >= 0 if self.parse else None
 
     def ELSE(self, code, ops):
         self.parse = not self.parse if self.parse is not None else None
 
     def ENDIF(self, code, ops):
-        self.parse = self.parseBranches.pop()
+        self.parse = self.parse_branches.pop()
+
+    def PRINT(self, code, ops):
+        res = " ".join(self.str_args(ops))
+        sys.stdout.write(res + "\n")
 
     def ERROR(self, code, ops):
         if self.parse:
@@ -1249,12 +1294,12 @@ class Timing:
 class Opcodes:
     op_ga = lambda parser, x: parser.address(x)  # [0x0000 .. 0xFFFF]
     op_wa = lambda parser, x: parser.register(x)  # [0 .. 15]
-    op_iop = lambda parser, x: parser.expression(x)  # [0x0000 .. 0xFFFF]
-    op_cru = lambda parser, x: parser.expression(x)  # [-128 .. 127]
+    op_iop = lambda parser, x: parser.expression(x, iop=True)  # [0x0000 .. 0xFFFF]
+    op_cru = lambda parser, x: parser.expression(x, iop=True)  # [-128 .. 127]
     op_disp = lambda parser, x: parser.relative(x)  # [-254 .. 256]
-    op_cnt = lambda parser, x: parser.expression(x)  # [0 .. 15]
-    op_scnt = lambda parser, x: parser.expression(x)  # [0 .. 15]
-    op_xop = lambda parser, x: parser.expression(x)  # [1 .. 2]
+    op_cnt = lambda parser, x: parser.expression(x, iop=True)  # [0 .. 15]
+    op_scnt = lambda parser, x: parser.expression(x, iop=True)  # [0 .. 15]
+    op_xop = lambda parser, x: parser.expression(x, iop=True)  # [1 .. 2]
 
     opcodes = {
         # 6. arithmetic
@@ -1455,11 +1500,13 @@ class Parser:
         self.text_literals = []
         self.fn = None
         self.path = path
-        self.source, self.margs, self.lino = None, [], -1
+        self.source = None
+        self.margs = []
+        self.lino = -1
         self.suspended_files = []
         self.includes = includes or ["."]
         self.strict = strict
-        self.warnings_en = warnings
+        self.warnings_enabled = warnings
         self.parse_branches = [True]
         self.pass_no = 0
         self.lidx = 0
@@ -1467,7 +1514,7 @@ class Parser:
 
     def warn(self, message):
         # warn in pass 2 to avoid duplicates and to prevent false expr values 0
-        if self.warnings_en and self.pass_no == 2:
+        if self.warnings_enabled and self.pass_no == 2:
             self.warnings.append(message)
 
     def open(self, filename=None, macro=None, ops=None):
@@ -1561,10 +1608,9 @@ class Parser:
 
     def escape(self, text):
         """remove and save text literals from line"""
-        parts = re.split(r"('(?:[^']|'')*'|\"[^\"]*\")", text)
-        literals = [s[1:-1].replace("''", "'") for s in parts[1::2]]
-        parts[1::2] = ["'%s'" % (len(self.text_literals) + i)
-                       for i in xrange(len(literals))]
+        parts = re.split(r"('(?:[^']|'')*'|\"[^\"]*\")", text)  # not-lit, lit, not-lit, lit, ...
+        literals = [s[1:-1].replace("''", "'") for s in parts[1::2]]  # '' is ' within 'string'
+        parts[1::2] = ["'%s'" % (len(self.text_literals) + i) for i in xrange(len(literals))]  # 'n' lit placeholder
         self.text_literals.extend(literals)
         return "".join(parts).upper()
 
@@ -1619,11 +1665,11 @@ class Parser:
         self.pass_no = 2
         self.lidx = 0
         self.symbols.reset_LC()
-        prevfile = None
+        prev_file = None
         for lino, label, mnemonic, operands, line, filename, stmt in source:
-            if filename != prevfile:
+            if filename != prev_file:
                 code.list(0, line=filename)
-                prevfile = filename
+                prev_file = filename
             code.list(lino, line=line)
             if not stmt:
                 continue
@@ -1641,6 +1687,10 @@ class Parser:
                     filename, lino, msg))
             self.warnings = []  # warnings per line
         code.list(0, eos=True)
+        if self.warnings_enabled:
+            unused = sorted(self.symbols.get_unused())
+            if unused:
+                sys.stderr.write("Warning: Unreferenced constants: " + " ".join(unused) + "\n")
         return errors
 
     def address(self, op):
@@ -1682,7 +1732,7 @@ class Parser:
         return disp
 
     def expression(self, expr, well_defined=False, absolute=False,
-                   relaxed=False, branch=False):
+                   relaxed=False, iop=False):
         """parse complex arithmetical expression"""
         if self.pass_no == 1 and not well_defined:
             return 0
@@ -1710,7 +1760,8 @@ class Parser:
                         op, term, negate, corr = "+", terms[i + 1], False, 0
                         value, reloc_count = Word(0), 0
                     i += 2
-                term_val, cross_bank_access = self.term(term, well_defined, relaxed)
+                term_val, cross_bank_access = self.term(term, well_defined=well_defined,
+                                                        iop=iop, relaxed=relaxed)
                 if isinstance(term_val, Local):
                     dist = -term_val.distance if negate else term_val.distance
                     term_val = self.symbols.get_local(term_val.name,
@@ -1758,7 +1809,7 @@ class Parser:
         return Address(value.value, self.symbols.bank,
                        True) if reloc_count else value.value
 
-    def term(self, op, well_defined=False, relaxed=False):
+    def term(self, op, well_defined=False, iop=False, relaxed=False):
         """parse constant or symbol"""
         cross_bank_access = False
         if op[0] == ">":
@@ -1791,6 +1842,8 @@ class Parser:
             if op[-1] == '#' and not self.strict:
                 cross_bank_access = True
                 op = op[:-1]
+            if iop and op in self.symbols.registers:
+                self.warn("Register %s used as immediate operand" % op)
             v = self.symbols.get_symbol(op[:6] if self.strict else op)
             if v is None and (self.pass_no > 1 or well_defined):
                 if relaxed:
@@ -1810,7 +1863,7 @@ class Parser:
             return 1  # don't return 0, as this is invalid for indexes @A(Rx)
         op = op.strip()
         if self.use_R and op[0].upper() != 'R':
-            self.warn("Treating as register, did you intend an address?")
+            self.warn("Treating as register, did you intend an @address?")
         if op[0] == ">":
             r = int(op[1:], 16)
         elif op[0] == ":":
@@ -1858,6 +1911,10 @@ class Parser:
             raise AsmError("Invalid filename: " + op)
         return self.text_literals[int(op[1:-1])]
 
+    def is_literal(self, op):
+        """check if operand is literal"""
+        return op[0] == op[-1] == "'"
+
     @staticmethod
     def symconst(op):
         """parse symbol constant (-D option)"""
@@ -1882,11 +1939,12 @@ class Assembler:
 
     def assemble(self, path, srcname):
         symbols = Symbols(add_registers=self.optr, add_defs=self.defs)
-        dummy = Objdummy(symbols)
         code = Objcode(symbols, self.strict)
+        dummy = Objdummy(symbols)
         parser = Parser(symbols, path=path, includes=self.includes,
                         strict=self.strict, warnings=self.warnings,
                         use_R=self.optr)
+
         try:
             parser.open(srcname)
         except AsmError as e:

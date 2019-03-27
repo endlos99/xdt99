@@ -1,6 +1,7 @@
 * warnings
 
 n      equ 0
+val    equ 2
 
        aorg >3000
 
@@ -29,5 +30,13 @@ l2     nop
        b @l2        ;WARN
        b @l2
 
-       end
+       ; Rn as immediate value
+       ci r1, 1
+       ci r1, r1    ;WARN
+       andi r1, r2  ;WARN
+       sla r1, r2   ;WARN
+       sla r1, val
+       tb r2        ;WARN
+       tb val
 
+       end

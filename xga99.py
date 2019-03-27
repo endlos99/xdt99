@@ -23,10 +23,10 @@ import sys
 import re
 import os.path
 
-VERSION = "1.7.0"
+VERSION = "1.8.0"
 
 
-### Utility functions
+# Utility functions
 
 def ordw(word):
     """word ord"""
@@ -66,13 +66,13 @@ def writedata(n, d, m="wb"):
             f.write(d)
 
 
-### Error handling
+# Error handling
 
 class AsmError(Exception):
     pass
 
 
-### Symbol table
+# Symbol table
 
 class Address:
     """absolute GROM address"""
@@ -96,6 +96,14 @@ class Address:
 
     def __ne__(self, other):
         return not self == other
+
+
+class Local:
+    """local label reference"""
+
+    def __init__(self, name, distance):
+        self.name = name
+        self.distance = distance
 
 
 class Operand:
@@ -158,7 +166,7 @@ class Operand:
 class Symbols:
     """symbol table and line counter"""
 
-    def __init__(self, addDefs=None):
+    def __init__(self, add_defs=None):
         self.symbols = {}
         self.predefs = {
             # CPU RAM
@@ -189,43 +197,67 @@ class Symbols:
             "VPAB": 0x8356,
             "VSTACK": 0x836E
             }
-        for d in addDefs or []:
+        for d in add_defs or []:
             parts = d.upper().split("=")
             val = Parser.symconst(parts[1]) if len(parts) > 1 else 1
             self.symbols[parts[0]] = val
-        self.resetLC()
+        self.locations = []
+        self.local_lid = 0
+        self.reset_LC()
 
-    def resetLC(self):
+    def reset_LC(self):
         self.LC = 0
         self.updated = False
 
-    def addSymbol(self, name, value, passno):
+    def add_symbol(self, name, value, pass_no):
         """add symbol to symbol table or update existing symbol"""
         prev = self.symbols.get(name)
-        if passno == 0:
+        if pass_no == 0:
             if not re.match(r"[^\W\d]\w*$", name):
                 raise AsmError("Invalid symbol name: " + name)
             if prev is not None:
                 raise AsmError("Multiple symbols: " + name)
             self.symbols[name] = value
         elif value != prev:
-            #if passno > 1:
+            #if pass_no > 1:
             #    print "Value changed for:", name, value
             self.symbols[name] = value
             self.updated = True
+        return name
 
-    def addLabel(self, label, passno):
-        self.addSymbol(label, Address(self.LC), passno)
+    def add_label(self, lidx, label, pass_no):
+        name = self.add_symbol(label, Address(self.LC), pass_no)
+        self.locations.append((lidx, name))
 
-    def getSymbol(self, name, passno=0):
+    def add_local_label(self, lidx, label, pass_no):
+        self.local_lid += 1
+        self.add_label(lidx, label + "$" + str(self.local_lid), pass_no)
+
+    def get_symbol(self, name, pass_no=0):
         value = self.symbols.get(name)
         if value is None:
             value = self.predefs.get(name)
-            if value is None and passno > 0:
+            if value is None and pass_no > 0:
                 raise AsmError("Unknown symbol: " + name)
         return value or 0
 
-    def isSymbol(self, name):
+    def get_local(self, name, lpos, distance):
+        targets = [(l, n) for (l, n) in self.locations
+                   if n[:len(name) + 1] == name + "$"]
+        try:
+            i, lidx = next((j, l) for j, (l, n) in enumerate(targets)
+                           if l >= lpos)
+            if distance > 0 and lidx > lpos:
+                distance -= 1  # i points to +! unless lidx == lpos
+        except StopIteration:
+            i = len(targets)  # beyond last label
+        try:
+            _, fullname = targets[i + distance]
+        except IndexError:
+            return None
+        return self.get_symbol(fullname)
+
+    def is_symbol(self, name):
         return name in self.symbols
 
 
@@ -234,17 +266,17 @@ class Objcode:
 
     def __init__(self, symbols, grom, aorg):
         self.symbols = symbols
-        self.basegrom = grom
-        self.baseaorg = aorg
+        self.base_grom = grom
+        self.base_aorg = aorg
         self.code = []
         self.entry = None
-        self.resetGen()
+        self.reset_gen()
 
-    def resetGen(self):
+    def reset_gen(self):
         """prepare new assembly pass"""
         self.segments = []
-        self.symbols.resetLC()
-        self.segment(self.basegrom, self.baseaorg, init=True)
+        self.symbols.reset_LC()
+        self.segment(self.base_grom, self.base_aorg, init=True)
 
     def segment(self, grom, base, init=False):
         """create new code segment"""
@@ -256,9 +288,13 @@ class Objcode:
         self.symbols.LC = self.grom + self.base
         self.code = []
 
-    def processLabel(self, label, passno):
-        if label:
-            self.symbols.addLabel(label, passno)
+    def process_label(self, lidx, label, passno):
+        if not label:
+            return
+        if label[0] == "!":
+            self.symbols.add_local_label(lidx, label[1:], passno)
+        else:
+            self.symbols.add_label(lidx, label, passno)
 
     def emit(self, *args):
         """generate byte code"""
@@ -281,20 +317,20 @@ class Objcode:
             self.code.append((self.symbols.LC, Line(lino, line, eos)))
         else:
             # followup lines to statement
-            lastline = self.code[-1][1]
-            assert isinstance(lastline, Line)
-            lastline.text1, lastline.text2 = text1, text2
+            last_line = self.code[-1][1]
+            assert isinstance(last_line, Line)
+            last_line.text1, last_line.text2 = text1, text2
         
     def wrapup(self):
         """wrap-up code generation"""
         self.segments.append(
             (self.grom, self.base, self.symbols.LC, self.code))
 
-    def genDump(self):
+    def gen_dump(self):
         """generate raw dump of internal data structures (debug)"""
         self.wrapup()
         dump, i = "", 0
-        for grom, base, finalLC, code in self.segments:
+        for grom, base, final_LC, code in self.segments:
             dump += "%sGROM >%04X AORG >%04X:" % (
                 "\n" if dump and dump[-1] != "\n" else "", grom, base)
             for LC, bs in code:
@@ -312,18 +348,18 @@ class Objcode:
                     i += 1
         dump += "\n"
         for i, s in enumerate(self.symbols.symbols):
-            v = self.symbols.getSymbol(s)
+            v = self.symbols.get_symbol(s)
             dump += "%-8s>%04X %c" % (
                 s, v.addr if isinstance(v, Address) else v,
                 "\n" if i % 5 == 4 else " ")
         return dump if dump[-1] == "\n" else dump + "\n"
 
-    def genByteCode(self):
+    def gen_byte_code(self):
         """generate GPL byte code"""
         self.wrapup()
         mems = {}
         # put bytes into memory
-        for grom, base, finalLC, code in self.segments:
+        for grom, base, final_LC, code in self.segments:
             mem = mems.setdefault(grom, {})
             for LC, bs in code:
                 if isinstance(bs, Line):
@@ -359,32 +395,32 @@ class Objcode:
                 groms.append((grom, sfirst, bs))
         return groms
 
-    def genHeader(self, grom, base, name):
+    def gen_header(self, grom, base, name):
         """generate GPL header"""
         offset = base - grom
         if offset < 0x16:
             raise AsmError("No space for GROM header")
-        entry = self.entry or self.symbols.getSymbol("START") or base
-        gplhdr = "\xaa\x01\x00\x00\x00\x00%s" % chrw(grom + 0x10) + "\x00" * 8
-        menuname = name[:offset - 0x15]
+        entry = self.entry or self.symbols.get_symbol("START") or base
+        gpl_header = "\xaa\x01\x00\x00\x00\x00%s" % chrw(grom + 0x10) + "\x00" * 8
+        menu_name = name[:offset - 0x15]
         info = "\x00\x00%s%c%s" % (
             chrw(entry.addr if isinstance(entry, Address) else entry),
-            len(menuname), menuname)
-        return gplhdr + info
+            len(menu_name), menu_name)
+        return gpl_header + info
 
-    def genImage(self, name):
+    def gen_image(self, name):
         """generate memory image for GROM"""
-        groms = self.genByteCode()
+        groms = self.gen_byte_code()
         if len(groms) > 1:
             raise AsmError("Multiple GROMs currently not supported")
         grom, base, image = groms[0]
-        header = self.genHeader(grom, base, name)
+        header = self.gen_header(grom, base, name)
         padding = "\x00" * (base - grom - len(header))
         return header + padding + image
 
-    def genCart(self, name):
+    def gen_cart(self, name):
         """generate RPK file for use as MESS rom cartridge"""
-        image = self.genImage(name)
+        image = self.gen_image(name)
         layout = """<?xml version="1.0" encoding="utf-8"?>
                     <romset version="1.0">
                         <resources>
@@ -402,10 +438,10 @@ class Objcode:
                      </meta-inf>""" % name
         return image, layout, metainf
 
-    def genList(self, gensymbols):
+    def gen_list(self, gensymbols):
         """generate listing file"""
         listing = []
-        for grom, base, finalLC, code in self.segments:
+        for grom, base, final_LC, code in self.segments:
             words, slino, sline, skip = [], None, None, False
             # code:  Line()             <-
             #        (LC, [byte, ...])  <-  belongs together
@@ -451,11 +487,11 @@ class Objcode:
                         else:
                             words.append(("%04X" % (LC + o), "%02X" % b))
                             o += 1
-        symbols = self.genSymbols() if gensymbols else ""
+        symbols = self.gen_symbols() if gensymbols else ""
         return ("XGA99 CROSS-ASSEMBLER   VERSION " + VERSION + "\n" +
                 "\n".join(listing) + "\n\n" + symbols + "\n")
 
-    def genSymbols(self, equ=False):
+    def gen_symbols(self, equ=False):
         """generate symbols"""
         symbols = self.symbols.symbols
         symlist = []
@@ -513,40 +549,40 @@ class Line:
         self.text1 = self.text2 = None
 
         
-### Directives
+# Directives
 
 class Directives:
     @staticmethod
     def EQU(parser, code, label, ops):
         value = parser.expression(ops[0])
-        code.symbols.addSymbol(label, value, parser.passno)
+        code.symbols.add_symbol(label, value, parser.passno)
 
     @staticmethod
     def DATA(parser, code, label, ops):
-        code.processLabel(label, parser.passno)
+        code.process_label(label, parser.passno)
         code.emit(*[Address(parser.expression(op)) for op in ops])
 
     @staticmethod
     def BYTE(parser, code, label, ops):
-        code.processLabel(label, parser.passno)
+        code.process_label(label, parser.passno)
         code.emit(*[parser.expression(op) & 0xff for op in ops])
 
     @staticmethod
     def TEXT(parser, code, label, ops):
-        code.processLabel(label, parser.passno)
+        code.process_label(label, parser.passno)
         for op in ops:
             text = parser.text(op)
             code.emit(*[ord(c) for c in text])
 
     @staticmethod
     def STRI(parser, code, label, ops):
-        code.processLabel(label, parser.passno)
+        code.process_label(label, parser.passno)
         text = "".join([parser.text(op) for op in ops])
         code.emit(len(text), *[ord(c) for c in text])
 
     @staticmethod
     def BSS(parser, code, label, ops):
-        code.processLabel(label, parser.passno)
+        code.process_label(label, parser.passno)
         size = parser.expression(ops[0])
         code.emit(*[0x00 for _ in range(size)])
 
@@ -554,7 +590,7 @@ class Directives:
     def GROM(parser, code, label, ops):
         grom = parser.value(ops[0]) & 0xe000
         code.segment(grom, 0x0000)
-        code.processLabel(label, parser.passno)
+        code.process_label(label, parser.passno)
 
     @staticmethod
     def AORG(parser, code, label, ops):
@@ -562,30 +598,30 @@ class Directives:
         if not 0 <= base < 0x2000:
             raise AsmError("AORG offset %04X out of range" % base)
         code.segment(code.grom, base)
-        code.processLabel(label, parser.passno)
+        code.process_label(label, parser.passno)
 
     @staticmethod
     def TITLE(parser, code, label, ops):
-        code.processLabel(label, parser.passno)
+        code.process_label(label, parser.passno)
         text = parser.text(ops[0])
         code.symbols.title = text[:12]
 
     @staticmethod
     def FMT(parser, code, label, ops):
-        code.processLabel(label, parser.passno)
+        code.process_label(label, parser.passno)
         parser.fmtmode = True
         code.emit(0x08)
 
     @staticmethod
     def FOR(parser, code, label, ops):
-        code.processLabel(label, parser.passno)
+        code.process_label(label, parser.passno)
         parser.forloop.append(Address(code.symbols.LC + 1))
         count = parser.expression(ops[0])
         code.emit(0xC0 + count - 1)
 
     @staticmethod
     def FEND(parser, code, label, ops):
-        code.processLabel(label, parser.passno)
+        code.process_label(label, parser.passno)
         if parser.forloop:
             addr = parser.forloop.pop()
             if ops:
@@ -599,15 +635,15 @@ class Directives:
 
     @staticmethod
     def COPY(parser, code, label, ops):
-        code.processLabel(label, parser.passno)
+        code.process_label(label, parser.passno)
         filename = parser.filename(ops[0])
         parser.open(filename=filename)
 
     @staticmethod
     def END(parser, code, label, ops):
-        code.processLabel(label, parser.passno)
+        code.process_label(label, parser.passno)
         if ops:
-            code.entry = code.symbols.getSymbol(ops[0])
+            code.entry = code.symbols.get_symbol(ops[0])
         parser.stop()
 
     ignores = [
@@ -618,7 +654,7 @@ class Directives:
     def process(parser, code, label, mnemonic, operands):
         """process directives"""
         if mnemonic in Directives.ignores:
-            code.processLabel(label, parser.passno)
+            code.process_label(label, parser.passno)
             return True
         try:
             fn = getattr(Directives, mnemonic)
@@ -631,18 +667,18 @@ class Directives:
         return True
 
 
-### Opcodes
+# Opcodes
 
 class Opcodes:
     opImm = lambda parser, x: (parser.expression(x[0]),)
     opImmGs = lambda parser, x: (parser.expression(x[0]),
-                                 parser.gaddress(x[1], isGs=True))
+                                 parser.gaddress(x[1], is_gs=True))
     opOpt = lambda d: lambda parser, x: (parser.expression(x[0]) if x else d,)
-    opGd = lambda parser, x: (parser.gaddress(x[0], isGs=False),)
-    opGsGd = lambda parser, x: (parser.gaddress(x[0], isGs=True),
-                                parser.gaddress(x[1], isGs=False))
-    opGsDGd = lambda parser, x: (parser.gaddress(x[0], isGs=True, isD=True),
-                                 parser.gaddress(x[1], isGs=False))
+    opGd = lambda parser, x: (parser.gaddress(x[0], is_gs=False),)
+    opGsGd = lambda parser, x: (parser.gaddress(x[0], is_gs=True),
+                                parser.gaddress(x[1], is_gs=False))
+    opGsDGd = lambda parser, x: (parser.gaddress(x[0], is_gs=True, is_d=True),
+                                 parser.gaddress(x[1], is_gs=False))
     opLab = lambda parser, x: (parser.label(x[0]),)
     opMove = lambda parser, x: parser.move(x)
 
@@ -753,34 +789,34 @@ class Opcodes:
         "POP": ("ST", ["*STATUS", "$1"])
     }
 
-    opText = lambda parser, x: parser.fmttext(x)
-    opChar = lambda parser, x: (parser.expression(x[0]),
-                                parser.expression(x[1]))
-    opChars = lambda parser, x: (parser.expression(x[0]),
-                                 parser.gaddress(x[1], isGs=False, isMove=True))
-    opIncr = lambda parser, x: (parser.expression(x[0]),)
-    opValue = lambda parser, x: (1, parser.expression(x[0]))
-    opBias = lambda parser, x: parser.fmtbias(x)
+    op_text = lambda parser, x: parser.fmttext(x)
+    op_char = lambda parser, x: (parser.expression(x[0]),
+                                 parser.expression(x[1]))
+    op_chars = lambda parser, x: (parser.expression(x[0]),
+                                  parser.gaddress(x[1], is_gs=False, is_move=True))
+    op_incr = lambda parser, x: (parser.expression(x[0]),)
+    op_value = lambda parser, x: (1, parser.expression(x[0]))
+    op_bias = lambda parser, x: parser.fmtbias(x)
 
-    fmtcodes = {
-        "HTEXT": (0x00, opText),
-        "VTEXT": (0x20, opText),
-        "HCHAR": (0x40, opChar),
-        "VCHAR": (0x60, opChar),
-        "COL+": (0x80, opIncr),
-        "ROW+": (0xA0, opIncr),
-        "HMOVE": (0xE0, opChars),
-        #"FOR": (0xC0, opValue),  # -> directive
+    fmt_codes = {
+        "HTEXT": (0x00, op_text),
+        "VTEXT": (0x20, op_text),
+        "HCHAR": (0x40, op_char),
+        "VCHAR": (0x60, op_char),
+        "COL+": (0x80, op_incr),
+        "ROW+": (0xA0, op_incr),
+        "HMOVE": (0xE0, op_chars),
+        #"FOR": (0xC0, op_value),  # -> directive
         #"FEND": (0xFB, None),  # -> directive
-        "BIAS": (0xFC, opBias),
-        "ROW": (0xFE, opValue),
-        "COL": (0xFF, opValue)
+        "BIAS": (0xFC, op_bias),
+        "ROW": (0xFE, op_value),
+        "COL": (0xFF, op_value)
     }
 
     @staticmethod
     def process(parser, code, label, mnemonic, operands):
         """get assembly code for mnemonic"""
-        code.processLabel(label, parser.passno)
+        code.process_label(label, parser.passno)
         if mnemonic in Opcodes.pseudos:
             mnemonic, opers = Opcodes.pseudos[mnemonic]
             operands = [re.sub(r"\$(\d+)",
@@ -788,7 +824,7 @@ class Opcodes:
                         for o in opers]
         if parser.fmtmode:
             try:
-                opcode, parse = Opcodes.fmtcodes[mnemonic]
+                opcode, parse = Opcodes.fmt_codes[mnemonic]
                 args = parse(parser, operands) if parse else []
             except (KeyError, ValueError, IndexError):
                 raise AsmError("Syntax error in FMT mode")
@@ -830,7 +866,7 @@ class Opcodes:
         else:
             raise AsmError("Unsupported opcode format " + str(fmt))
 
-### Parsing
+# Parsing
 
 class SyntaxVariant:
     def __init__(self, **entries):
@@ -909,7 +945,7 @@ class Preprocessor:
         self.parser = parser
         self.parse = True
         self.parseBranches = []
-        self.parseMacro = None
+        self.parse_macro = None
         self.macros = {}
 
     def args(self, ops):
@@ -920,21 +956,21 @@ class Preprocessor:
     def DEFM(self, code, ops):
         if len(ops) != 1:
             raise AsmError("Invalid syntax")
-        self.parseMacro = ops[0]
-        if self.parseMacro in self.macros:
+        self.parse_macro = ops[0]
+        if self.parse_macro in self.macros:
             raise AsmError("Duplicate macro name")
-        self.macros[self.parseMacro] = []
+        self.macros[self.parse_macro] = []
     
     def ENDM(self, code, ops):
         raise AsmError("Found .ENDM without .DEFM")
 
     def IFDEF(self, code, ops):
         self.parseBranches.append(self.parse)
-        self.parse = code.symbols.isSymbol(ops[0]) if self.parse else None
+        self.parse = code.symbols.is_symbol(ops[0]) if self.parse else None
 
     def IFNDEF(self, code, ops):
         self.parseBranches.append(self.parse)
-        self.parse = not code.symbols.isSymbol(ops[0]) if self.parse else None
+        self.parse = not code.symbols.is_symbol(ops[0]) if self.parse else None
 
     def IFEQ(self, code, ops):
         self.parseBranches.append(self.parse)
@@ -958,7 +994,11 @@ class Preprocessor:
     def ENDIF(self, code, ops):
         self.parse = self.parseBranches.pop()
 
-    def instmargs(self, text):
+    def ERROR(self, code, ops):
+        if self.parse:
+            raise AsmError("Error state")
+
+    def inst_margs(self, text):
         try:
             return re.sub(r"\$(\d+)",
                           lambda m: self.parser.margs[int(m.group(1)) - 1],
@@ -969,24 +1009,24 @@ class Preprocessor:
     def instline(self, line):
         # temporary kludge, breaks comments
         parts = re.split(r"('(?:[^']|'')*'|\"[^\"]*\")", line)
-        parts[::2] = [self.instmargs(p) for p in parts[::2]]
+        parts[::2] = [self.inst_margs(p) for p in parts[::2]]
         return "".join(parts)
 
     def process(self, code, label, mnemonic, operands, line):
         """process preprocessor directive"""
-        if self.parseMacro:
+        if self.parse_macro:
             if mnemonic == ".ENDM":
-                self.parseMacro = None
+                self.parse_macro = None
             elif mnemonic == ".DEFM":
                 raise AsmError("Cannot define macro within macro")
             else:
-                self.macros[self.parseMacro].append(line)
+                self.macros[self.parse_macro].append(line)
             return False, None, None
         if self.parse and operands and '$' in line:
-            operands = [self.instmargs(op) for op in operands]
+            operands = [self.inst_margs(op) for op in operands]
             line = self.instline(line)
         if mnemonic and mnemonic[0] == '.':
-            code.processLabel(label, 0)
+            code.process_label(label, 0)
             name = mnemonic[1:]
             if name in self.macros:
                 if self.parse:
@@ -1008,25 +1048,35 @@ class Preprocessor:
 class Parser:
     """scanner and parser class"""
 
-    def __init__(self, symbols, syntax, includePath=None):
+    def __init__(self, symbols, syntax, include_path=None, warnings=True):
         self.prep = Preprocessor(self)
         self.symbols = symbols
         self.syntax = Syntax.get(syntax)
         self.textlits = []
         self.path = None
-        self.source, self.margs, self.lino = None, [], -1
+        self.source = None
+        self.margs = []
+        self.lino = -1
         self.suspendedFiles = []
-        self.includePath = includePath or ["."]
-        self.passno = 0
+        self.includePath = include_path or ["."]
+        self.pass_no = 0
         self.lidx = 0
-        self.fmtmode = False
+        self.fmt_mode = False
         self.forloop = []
+        self.warnings = []
+        self.warnings_enabled = warnings
 
     def reset(self, code):
         """reset state for new assembly pass"""
-        self.fmtmode = False
+        self.fmt_mode = False
         self.forloop = []
-        code.resetGen()
+        code.reset_gen()
+
+    def warn(self, message):
+        # warn in pass 2 to avoid duplicates and to prevent false expr values 0
+        if (self.warnings_enabled and self.pass_no == 2 and
+                message not in self.warnings):
+            self.warnings.append(message)
 
     def open(self, filename=None, macro=None, ops=None):
         """open new source file or macro buffer"""
@@ -1134,9 +1184,9 @@ class Parser:
         """parse source code and generate object code"""
         source, errors = [], []
         # prepare source (pass 0)
-        self.passno = 0
+        self.pass_no = 0
         self.lidx = 0
-        prevlabel = None
+        prev_label = None
         # pass 0
         while True:
             # get next source line
@@ -1156,12 +1206,12 @@ class Parser:
                     continue
                 self.lidx += 1
                 # process continuation label
-                if prevlabel:
+                if prev_label:
                     if label:
                         raise AsmError("Invalid continuation for label")
-                    label, prevlabel = prevlabel, None
+                    label, prev_label = prev_label, None
                 elif label[-1:] == ":" and not mnemonic:
-                    prevlabel = label
+                    prev_label = label
                     continue
                 if label[-1:] == ":":
                     label = label[:-1]
@@ -1175,25 +1225,25 @@ class Parser:
             return errors
         # code generation (passes 1+)
         while True:
-            self.passno += 1
-            if self.passno > 32:
+            self.pass_no += 1
+            if self.pass_no > 32:
                 errors.append("Too many assembly passes, aborting. :-(\n")
                 break
             self.reset(code)
+            self.lidx = 0
             errors = []
-            for lino, label, mnemonic, operands, line, fn, stmt in source:
-                #print "<%d> %s [%04X] " % (self.passno, lino,
-                #        self.symbols.LC), label, mnemonic, operands
+            for lino, label, mnemonic, operands, line, filename, stmt in source:
                 code.list(lino, line=line)
                 if not stmt:
                     continue
+                self.lidx += 1
                 # process continuation label
-                if prevlabel:
+                if prev_label:
                     if label:
                         raise AsmError("Invalid continuation for label")
-                    label, prevlabel = prevlabel, None
+                    label, prev_label = prev_label, None
                 elif label[-1:] == ":" and not mnemonic:
-                    prevlabel = label
+                    prev_label = label
                     continue
                 if label[-1:] == ":":
                     label = label[:-1]
@@ -1203,14 +1253,12 @@ class Parser:
                         Opcodes.process(self, code, label, mnemonic, operands)
                 except AsmError as e:
                     errors.append("%04d: %s\n***** <%d> %s\n" % (
-                        lino, line, self.passno, e.message))
-            #TODO: interferes with disassembled blobs, make into warning
-            #if self.fmtmode:
-            #    errors.append("Source ends with open FMT block, aborting.")
-            if errors and self.passno > 1 or not self.symbols.updated:
+                        lino, line, self.pass_no, e.message))
+            if self.fmt_mode:
+                self.warn("Source ends with open FMT block")
+            if errors and self.pass_no > 1 or not self.symbols.updated:
                 break
         return errors
-
 
     def value(self, op):
         """parse well-defined value"""
@@ -1230,9 +1278,9 @@ class Parser:
         if not m:
             raise AsmError("Syntax error")
         parts = m.groups()
-        ln = self.gaddress(parts[0].strip(), isGs=True, isD=True)
-        gs = self.gaddress(parts[1].strip(), isGs=True, isD=True, isMove=True)
-        gd = self.gaddress(parts[2].strip(), isGs=False, isD=True, isMove=True)
+        ln = self.gaddress(parts[0].strip(), is_gs=True, is_d=True)
+        gs = self.gaddress(parts[1].strip(), is_gs=True, is_d=True, is_move=True)
+        gd = self.gaddress(parts[2].strip(), is_gs=False, is_d=True, is_move=True)
         rbit = 0b10000 if not gd.grom else 0
         vbit = 0b01000 if gd.vreg or (gd.grom and gd.index) else 0
         cbit = 0b00100 if not gs.grom or gs.indirect else 0
@@ -1249,13 +1297,13 @@ class Parser:
 
     def fmtbias(self, ops):
         """parse FMT BIAS"""
-        bias = self.gaddress(ops[0], isGs=True)
+        bias = self.gaddress(ops[0], is_gs=True)
         if bias.immediate:
             return 1, bias.addr & 0xff
         else:
             return 2, bias
 
-    def gaddress(self, op, isGs, isD=False, isMove=False):
+    def gaddress(self, op, is_gs, is_d=False, is_move=False):
         """parse general source or destination address operand"""
         m = re.match(self.syntax.ga, op)
         if m:
@@ -1270,20 +1318,20 @@ class Parser:
                 index += 0x8300
             elif index is not None and not 0x8300 <= index <= 0x83FF:
                 raise AsmError("Index out of range: >%04X" % index)
-            if vreg and not (isMove and not isGs):
+            if vreg and not (is_move and not is_gs):
                 raise AsmError("Invalid VDP register outside MOVE")
             if vreg and not 0 <= value <= 7:
                 raise AsmError("VDP register out of range: %d" % value)
-            if grom and not isMove:
+            if grom and not is_move:
                 raise AsmError("Invalid GROM address outside MOVE")
             return Operand(value, vram=vram, grom=grom, vreg=vreg,
                            indirect=indirect, index=index)
-        if isGs:
+        if is_gs:
             value = self.expression(op)
             # NOTE: enable optional G@ for GROM addresses G@LABEL here
-            return Operand(value, imm=2 if isD else 1)
+            return Operand(value, imm=2 if is_d else 1)
         raise AsmError("Invalid G%c address operand: %s" % (
-            "s" if isGs else "d", op))
+            "s" if is_gs else "d", op))
 
     def expression(self, expr):
         """parse complex arithmetical expression"""
@@ -1313,6 +1361,11 @@ class Parser:
                 termval = self.term(term)
                 if termval is None:
                     raise AsmError("Invalid expression: " + term)
+                if isinstance(termval, Local):
+                    dist = -termval.distance if negate else termval.distance
+                    termval = self.symbols.get_local(termval.name,
+                                                      self.lidx, dist)
+                    negate = False
                 v = termval.addr if isinstance(termval, Address) else termval
             w = Word((-v if negate else v) + corr)
             if op == "+":
@@ -1342,6 +1395,9 @@ class Parser:
             return int(op)
         elif op == "$":
             return Address(self.symbols.LC)
+        elif op[0] == "!":
+            m = re.match("(!+)(.*)", op)
+            return Local(m.group(2), len(m.group(1))), False
         elif op[0] == op[-1] == self.syntax.tdelim:
             c = self.textlits[int(op[1:-1])]
             if len(c) == 1:
@@ -1353,7 +1409,7 @@ class Parser:
             else:
                 raise AsmError("Invalid text literal: " + c)
         else:
-            v = self.symbols.getSymbol(op, self.passno)
+            v = self.symbols.get_symbol(op, self.pass_no)
             return v
 
     def text(self, op):
@@ -1386,31 +1442,31 @@ class Parser:
             return op
 
 
-### Main assembler
+# Main assembler
 
 class Assembler:
     """main driver class"""
 
-    def __init__(self, syntax, grom, aorg, target="", includePath=None,
+    def __init__(self, syntax, grom, aorg, target="", include_path=None,
                  defs=None):
         self.syntax = syntax
         self.grom = grom
         self.aorg = aorg
-        self.includePath = includePath
+        self.include_path = include_path
         self.defs = ["_xga99_" + target] + defs
 
     def assemble(self, srcname):
-        symbols = Symbols(addDefs=self.defs)
+        symbols = Symbols(add_defs=self.defs)
         code = Objcode(symbols, self.grom, self.aorg)
         parser = Parser(symbols,
                         syntax=self.syntax,
-                        includePath=self.includePath)
+                        include_path=self.include_path)
         parser.open(srcname)
         errors = parser.parse(code)
         return code, errors
 
 
-### Command line processing
+# Command line processing
 
 def main():
     import argparse, zipfile
@@ -1473,7 +1529,7 @@ def main():
     asm = Assembler(target=target,
                     syntax=opts.syntax or "xdt99",
                     grom=grom, aorg=aorg,
-                    includePath=inclpath,
+                    include_path=inclpath,
                     defs=opts.defs or [])
     try:
         code, errors = asm.assemble(basename)
@@ -1484,9 +1540,9 @@ def main():
     if errors:
         sys.stderr.write("".join(errors))
     elif opts.dump:
-        sys.stdout.write(code.genDump())
+        sys.stdout.write(code.gen_dump())
     elif opts.cart:
-        data, layout, metainf = code.genCart(name)
+        data, layout, metainf = code.gen_cart(name)
         try:
             with zipfile.ZipFile(output, "w") as archive:
                 archive.writestr(name + ".bin", data)
@@ -1496,21 +1552,23 @@ def main():
             sys.exit("File error: %s: %s." % (e.filename, e.strerror))
     else:
         if opts.image:
-            data = code.genImage(name)
+            data = code.gen_image(name)
         else:
-            (grom, base, data), = code.genByteCode()
+            (grom, base, data), = code.gen_byte_code()
         try:
             with open(output, "wb") as fout:
                 fout.write(data)
         except IOError as e:
             sys.exit("File error: %s: %s." % (e.filename, e.strerror))
     if opts.list:
-        listing = code.genList(opts.symtab)
+        listing = code.gen_list(opts.symtab)
         writedata(opts.list, listing, "w")
     if opts.equs:
-        writedata(opts.equs, code.genSymbols(equ=True))
+        writedata(opts.equs, code.gen_symbols(equ=True))
+
     # return status
     return 1 if errors else 0
+
 
 if __name__ == "__main__":
     status = main()

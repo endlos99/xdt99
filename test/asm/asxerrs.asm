@@ -44,6 +44,18 @@ label4:
        .defm mac4             ;ERROR
        .endm
 
+       ; weak symbols
+w1:
+       wequ 1
+s2:
+       equ 2
+w1:
+       equ 2                  ;ERROR
+w1:
+       equ 1                  ;OK
+w1:
+       equ 1                  ;ERROR
+
 * NO ERRORS
 
 good1:

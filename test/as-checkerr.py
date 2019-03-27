@@ -4,7 +4,7 @@ import os
 import re
 
 from config import Dirs, Disks, Files
-from utils import xas, xdm, read_stderr, get_source_markers, check_errors
+from utils import xas, xdm, read_stderr, get_source_markers, error, check_errors
 
 
 def runtest():
@@ -57,6 +57,30 @@ def runtest():
     act_errors = read_stderr(Files.error, include_warnings=True)
     exp_errors = get_source_markers(source, tag=r";WARN")
     check_errors(exp_errors, act_errors)
+
+    source = os.path.join(Dirs.sources, "asuusym.asm")  # undefined symbols
+    with open(Files.error, "w") as ferr:
+        xas(source, "-R", "-o", Files.output, stderr=ferr, rc=0)  # no error
+    with open(Files.error, "r") as fin:
+        output = fin.read()
+    if output.strip()[-14:] != "U1 U2 U3 U4 U5":
+        error("stdout", "Bad list of unreferenced symbols")
+
+    with open(Files.error, "w") as ferr:
+        xas(source, "-R", "-w", "-o", Files.output, stderr=ferr, rc=0)  # no error
+    with open(Files.error, "r") as fin:
+        output = fin.read()
+    if output.strip():
+        error("stdout", "Unwanted  list of unreferenced symbols")
+
+    # STDOUT
+    source = os.path.join(Dirs.sources, "asstdout.asm")
+    with open(Files.error, "w") as fout:
+        xas(source, "-b", "-R", "-o", Files.output, stdout=fout, rc=0)  # no error
+    with open(Files.error, "r") as fin:
+        output = fin.read()
+    if output.strip() != "hello 42 world!":
+        error("stdout", "Invalid STDOUT output: " + output)
 
     # cleanup
     os.remove(Files.error)
