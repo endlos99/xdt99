@@ -3,7 +3,7 @@
 import os
 
 from config import Dirs, Disks, Files
-from utils import xas, xdm, error, check_list_files_eq
+from utils import xas, xdm, error, check_list_files_eq, check_files_eq
 
 
 # Check functions
@@ -74,9 +74,19 @@ def runtest():
     reffile = os.path.join(Dirs.refs, "ashello.sym")
     check_sym_equ_equiv(Files.output, reffile)
 
+    # auto-generated constants
+    source = os.path.join(Dirs.sources, "asautogen.asm")
+    xas(source, "-R", "-o", Files.error, "-S", "-L", Files.input)
+    with open(Files.input, "r") as fin, open(Files.output, "w") as fout:
+        lines = fin.readlines()[-17:]
+        fout.writelines(lines)
+    reffile = os.path.join(Dirs.refs, "asautogen.lst")
+    check_files_eq("autogen", Files.output, reffile, "P")
+
     # cleanup
     os.remove(Files.output)
     os.remove(Files.reference)
+    os.remove(Files.error)
 
 
 if __name__ == "__main__":

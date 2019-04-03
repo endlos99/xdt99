@@ -10,15 +10,15 @@ l_all
 
        bank 1
        data >1111
-       b    @l_all#            ;x
+       b    @x#l_all           ;x
        b    @l_1
-       b    @l_0# + 2          ;x
+       b    @x#l_0 + 2         ;x
 
        bank 0
        data >0000
        b    @l_all
        b    @l_0
-       b    @l_1#(r1)          ;x
+       b    @x#l_1(r1)         ;x
 
        bank all
 l_b    data >bbbb

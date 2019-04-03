@@ -3,7 +3,7 @@
 import os
 
 from config import Dirs, Disks, Files
-from utils import (xas, xdm, check_obj_code_eq, read_stderr, check_errors,
+from utils import (xas, xdm, check_obj_code_eq, check_binary_files_eq, read_stderr, check_errors,
                    get_source_markers, error)
 
 
@@ -162,6 +162,34 @@ def runtest():
     save5s = [Files.output + ext
               for ext in ["1", "2", "3", "4", "5"]]
     check_concat_eq(save5s, os.path.join(Dirs.refs, "asxtext"))
+
+    # auto-generated constants (b#, w#)
+    source = os.path.join(Dirs.sources, "asautogen.asm")
+    xas(source, "-b", "-R", "-o", Files.output)
+    source = os.path.join(Dirs.sources, "asautoman.asm")
+    xas(source, "-b", "-R", "-o", Files.reference)
+    check_binary_files_eq("autogen", Files.output, Files.reference)
+
+    source = os.path.join(Dirs.sources, "asautorel.asm")
+    xas(source, "-b", "-R", "-o", Files.output)  # address is now >00xx instead of >a0xx
+    with open(Files.reference, "rb+") as f:
+        data = f.read()
+        data = data.replace("\xa0", "\x00")
+        f.seek(0)
+        f.write(data)
+    check_binary_files_eq("autogen", Files.output, Files.reference)
+
+    # register LSB access (l#)
+    source = os.path.join(Dirs.sources, "asxrlb.asm")
+    with open(Files.error, "w") as ferr:
+        xas(source, "-b", "-R", "-o", Files.output, stderr=ferr, rc=0)
+    ref = os.path.join(Dirs.sources, "asxrlbn.asm")
+    xas(ref, "-b", "-R", "-o", Files.reference)
+    check_binary_files_eq("rlb", Files.output, Files.reference)
+
+    act_errors = read_stderr(Files.error, include_warnings=True)
+    exp_errors = get_source_markers(source, tag=r";WARN")
+    check_errors(exp_errors, act_errors)
 
     # cleanup
     os.remove(Files.output)

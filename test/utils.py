@@ -157,7 +157,7 @@ def check_text_lines_eq(tid, infile, reffile, fmt):
             error(tid, "%s: File contents mismatch" % infile)
 
 
-def check_binary_files_eq(tid, infile, reffile, mask):
+def check_binary_files_eq(tid, infile, reffile, mask=()):
     """check if binary files are equal modulo mask"""
     with open(infile, "rb") as fin, open(reffile, "rb") as fref:
         indata = fin.read()

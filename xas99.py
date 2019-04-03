@@ -100,6 +100,18 @@ class Address:
         return "%04X%c" % (self.addr, "r" if self.relocatable else " ")
 
 
+class DelayedAddress:
+
+    def __init__(self, name, size, value):
+        self.name = name
+        self.size = size
+        self.value = value
+        self.addr = 0
+
+    def patch(self, addr):
+        self.addr = addr
+
+
 class Reference:
     """external reference"""
 
@@ -156,6 +168,7 @@ class Symbols:
                 parts = d.split("=")
                 val = Parser.symconst(parts[1]) if len(parts) > 1 else 1
                 self.symbols[parts[0]] = val, True, None  # predefined symbols are weak
+        self.autogens = []  # unique list of auto-generated constants
         self.refdefs = []
         self.xops = {}
         self.idt = "        "
@@ -165,6 +178,7 @@ class Symbols:
 
     def reset_LC(self):
         self.LC = 0
+        self.wp = 0x83e0
         self.bank = None
         self.reloc_LC = True
         self.xorg_offset = None
@@ -183,7 +197,8 @@ class Symbols:
             if not defined_weak:
                 raise AsmError("Multiple symbols: " + name)
             if value != defined_value:
-                raise AsmError("Values of symbol and weak symbol %s don't match" % name)
+                print value, defined_value
+                raise AsmError("Value of weak symbol %s and new value don't match" % name)
             # reset weak value
         except KeyError:
             # new definition
@@ -201,6 +216,12 @@ class Symbols:
     def add_local_label(self, lidx, label):
         self.local_lid += 1
         self.add_label(lidx, label + "$" + str(self.local_lid))
+
+    def add_autogen(self, name):
+        size, value = name[0], str(xint(name[2:]))  # equalize 16 and >10
+        if (value, size) not in self.autogens:
+            self.autogens.append((value, size))
+        return DelayedAddress(size + "#" + value, size, value)
 
     def add_def(self, name):
         if name in self.refdefs:
@@ -390,7 +411,11 @@ class Objcode:
 
     def list(self, lino, line=None, eos=False, text1=None, text2=None):
         """create list file entry"""
-        if lino == 0:
+        if lino is None:
+            # custom line without lino and LC == lino
+            l = Line(None, line, eos)
+            self.code.append((0, l, 0))  # LC, value, timing
+        elif lino == 0:
             # change of source
             l = Line(lino, line, eos)
             l.text1 = l.text2 = "****"
@@ -409,6 +434,17 @@ class Objcode:
         if not self.done:
             self.segment(None, relocatable=False, dummy=False)
             self.done = True
+        self.resolve_delayed()
+
+    def resolve_delayed(self):
+        """patch DelayedAddresses in code"""
+        for _, _, _, _, code in self.segments:
+            for i, (LC, word, cycles) in enumerate(code):
+                if isinstance(word, DelayedAddress):
+                    addr = self.symbols.get_symbol(word.name)
+                    if addr is None:
+                        assert False, "bad symbol " + word.name
+                    code[i] = LC, addr, cycles  # update word part
 
     def generate_dump(self):
         """generate raw dump of internal data structures (debug)"""
@@ -719,7 +755,7 @@ class Objcode:
         for s in sorted(symbols):
             if s in regs or s[0] == '$' or s[0] == "_":
                 continue  # skip registers, local and internal symbols
-            addr, weak = symbols.get(s)
+            addr, _, _ = symbols.get(s)
             if isinstance(addr, Address):
                 # add extra information to addresses
                 a, r, b = (addr.addr,
@@ -1295,6 +1331,7 @@ class Opcodes:
     op_ga = lambda parser, x: parser.address(x)  # [0x0000 .. 0xFFFF]
     op_wa = lambda parser, x: parser.register(x)  # [0 .. 15]
     op_iop = lambda parser, x: parser.expression(x, iop=True)  # [0x0000 .. 0xFFFF]
+    op_lwpi = lambda parser, x: parser.lwpi(x)  # [0x0000 .. 0xFFFF]
     op_cru = lambda parser, x: parser.expression(x, iop=True)  # [-128 .. 127]
     op_disp = lambda parser, x: parser.relative(x)  # [-254 .. 256]
     op_cnt = lambda parser, x: parser.expression(x, iop=True)  # [0 .. 15]
@@ -1356,7 +1393,7 @@ class Opcodes:
         # 10. load and move instructions
         "LI": (0x0200, 8, op_wa, op_iop, Timing(12, 2)),
         "LIMI": (0x0300, 81, op_iop, None, Timing(16, 2)),
-        "LWPI": (0x02E0, 81, op_iop, None, Timing(10, 2)),
+        "LWPI": (0x02E0, 81, op_lwpi, None, Timing(10, 2)),
         "MOV": (0xC000, 1, op_ga, op_ga, Timing(14, 1)),
         "MOVB": (0xD000, 1, op_ga, op_ga, Timing(14, 1, byte=True)),
         "STST": (0x02C0, 8, op_wa, None, Timing(8, 1)),
@@ -1622,6 +1659,13 @@ class Parser:
 
     def parse(self, dummy, code):
         """parse source code and generate object code"""
+        source, errors = self.pass_1(dummy, code)
+        errors = self.pass_2(source, code, errors)
+        self.autogens(code)
+        return errors
+
+    def pass_1(self, dummy, code):
+        "pass 1: gather symbols, apply preprocessor"
         source, errors = [], []
         # first pass: scan symbols
         self.pass_no = 1
@@ -1661,7 +1705,10 @@ class Parser:
             except AsmError as e:
                 errors.append("%s <1> %04d - %s\n***** %s\n" % (
                     filename, lino, line, e.message))
-        # second pass: generate code
+        return source, errors
+
+    def pass_2(self, source, code, errors):
+        """second pass: generate code"""
         self.pass_no = 2
         self.lidx = 0
         self.symbols.reset_LC()
@@ -1693,10 +1740,52 @@ class Parser:
                 sys.stderr.write("Warning: Unreferenced constants: " + " ".join(unused) + "\n")
         return errors
 
+    def autogens(self, code):
+        """append code stanza for autogen constants"""
+
+        def list_autogen(value, size, local_lc):
+            label = size + "#" + value + ":"
+            code.list(None, line=label.lower())
+            code.list(None,
+                      line="    %s %-5s   ; >%X" % (("data" if size == "W" else "byte"), value, int(value)),
+                      text1=local_lc, text2=hex(int(value)).upper())
+
+        if not self.symbols.autogens:
+            return
+        autogen_LC = code.symbols.LC
+        code.segment(autogen_LC)
+        code.list(0, line="> auto-generated constants")
+        stashed_byte = None
+        for value, size in self.symbols.autogens + [("-0", "B")]:  # add dummy element to flush stashed byte
+            name = size + "#" + value
+            if size == "B" and stashed_byte is None:
+                stashed_byte = (name, value)  # can only generate words
+                continue
+            if size == "W":
+                list_autogen(value, size, autogen_LC)
+                code.code.append((autogen_LC, int(value), 0))
+                self.symbols.add_symbol(name, autogen_LC)  # added once, since autogens elems are unique
+            else:
+                stashed_symbol, stashed_value = stashed_byte
+                list_autogen(stashed_value, size, autogen_LC)
+                self.symbols.add_symbol(stashed_symbol, autogen_LC)
+                code.code.append((autogen_LC, (int(stashed_value) << 8) | int(value), 0))
+                if value != "-0":  # ignore sentinel except for emitting
+                    list_autogen(value, size, autogen_LC + 1)
+                    self.symbols.add_symbol(name, autogen_LC + 1)
+                stashed_byte = None
+            autogen_LC += 2
+        code.list(0, eos=True)
+
+    def lwpi(self, op):
+        """parse as iop, then set new WP in symbol table"""
+        wp = self.expression(op, iop=True)
+        self.symbols.wp = wp
+        return wp
+
     def address(self, op):
         """parse general address into t-field, register, address value"""
-        op[-1] == '#'
-        if op[0] == "@":
+        if op[0] == "@":  # memory addressing
             i = op.find("(")
             if i >= 0 and op[-1] == ")":
                 register = self.register(op[i + 1:-1])
@@ -1708,11 +1797,16 @@ class Parser:
                 return 0b10, register, offset
             else:
                 return 0b10, 0, self.expression(op[1:])
-        elif op[0] == "*":
+        elif op[0] == "*":  # indirect addressing
             if op[-1] == "+":
                 return 0b11, self.register(op[1:-1]), None
             else:
                 return 0b01, self.register(op[1:]), None
+        elif op[:2] == "L#":  # LSB register access
+            reg = self.register(op[2:])
+            return 0b10, 0, self.symbols.wp + 2 * reg + 1
+        elif op[:2] in ("B#", "W#"):  # auto-generated constant
+            return 0b10, 0, self.expression(op)
         else:
             return 0b00, self.register(op), None
 
@@ -1740,6 +1834,7 @@ class Parser:
         terms = ["+"] + [tok.strip() for tok in
                          re.split(r"([-+*/])" if self.strict else
                                   r"([-+/%~&|^()]|\*\*?)", expr)]
+
         i, stack = 0, []
         while i < len(terms):
             op, term, negate, corr = terms[i], terms[i + 1], False, 0
@@ -1764,8 +1859,7 @@ class Parser:
                                                         iop=iop, relaxed=relaxed)
                 if isinstance(term_val, Local):
                     dist = -term_val.distance if negate else term_val.distance
-                    term_val = self.symbols.get_local(term_val.name,
-                                                     self.lidx, dist)
+                    term_val = self.symbols.get_local(term_val.name, self.lidx, dist)
                     negate = False
                 if term_val is None:
                     raise AsmError("Invalid expression: " + term)
@@ -1782,6 +1876,12 @@ class Parser:
                     v, reloc = term_val.addr, 1 if term_val.relocatable else 0
                 else:
                     v, reloc = term_val, 0
+
+            if isinstance(v, DelayedAddress):
+                if len(terms) > 2:
+                    raise AsmError("Cannot use auto-generated constants in expressions")
+                return v  # short cut for autogens
+
             w = Word((-v if negate else v) + corr)
             if op == "+":
                 value.add(w)
@@ -1835,13 +1935,16 @@ class Parser:
         elif op[0] == "!":
             m = re.match("(!+)(.*)", op)
             return Local(m.group(2), len(m.group(1))), False
+        elif op[:2] == "W#" or op[:2] == "B#":
+            v = self.symbols.add_autogen(op)
+            return v, False
         elif op[0] == "#":
             # should have been eliminated by preprocessor
             raise AsmError("Invalid macro argument")
         else:
-            if op[-1] == '#' and not self.strict:
+            if op[:2] == 'X#' and not self.strict:
                 cross_bank_access = True
-                op = op[:-1]
+                op = op[2:]
             if iop and op in self.symbols.registers:
                 self.warn("Register %s used as immediate operand" % op)
             v = self.symbols.get_symbol(op[:6] if self.strict else op)

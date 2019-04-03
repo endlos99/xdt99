@@ -32,11 +32,11 @@ start:
        li   r0, '1 '
        movb r0, @vdpwd
 
-       b    @bank2#
+       b    @x#bank2
 
        aorg >6000,1
 
-       b    @start#
+       b    @x#start
 bank2:
        li   r0, >4158
        swpb r0

@@ -85,7 +85,7 @@ The `xas99` cross-assembler translates TMS9900 assembly code into executable
 programs for the TI 99 home computer equipped with the Editor/Assembler module
 or the Mini Memory module.
 
-Invoking `xas99` in standard mode will assemble a TMS9900 assembly source code
+Invoking `xas99` in standard mode will assemble a TMS9900 assembly source code 
 file into an object code file that may be loaded using the Editor/Assembler
 module option 3.
 
@@ -138,7 +138,8 @@ package in the case of errors.  `xas99` is slightly more permissive than the
 Editor/Assembler, but it should be able to assemble any source that the
 Editor/Assembler package can assemble.
 
-The assembler may also issue a number of warnings, as shown in this example:
+The assembler may also issue a number of __warnings__, as shown in this 
+example:
 
     val  equ 0
          mov  r0, >000a    ; Treating as register, did you intent an @address?
@@ -336,13 +337,7 @@ not do so.
 The following directives are not supported by the TI 99 loader and are thus
 silently ignored by `xas99`:
 
-    PSEG PEND CSEG CEND DSEG DEND LOAD SREF
-
-Listing generation is currently not supported, so directives
-
-    LIST UNL PAGE TITL
-
-are also ignored.
+    PSEG PEND CSEG CEND DSEG DEND LOAD SREF LIST UNL PAGE TITL
 
 
 #### Source Code Organization
@@ -366,7 +361,7 @@ include files
 and its corresponding lower-case variants.
 
 Additional search paths may be specified with the `-I` option as a
-comma-seperated list, e.g.,
+comma-separated list, e.g.,
 
     $ xas99.by -I lib/,disk2/ ashello.asm
 
@@ -381,12 +376,12 @@ Extensions* for further information.
 
 The `xas99` cross-assembler offers various "modern" extensions to the original
 TI Assembler to improve the developer experience for writing assembly programs.
-All extensions are backwards compatible in virtually all situations of practical
-relevance so that any existing source code should compile as-is.
+All extensions are backwards compatible in virtually all situations of
+practical relevance so that any existing source code should compile as-is.
 
-Comments may be included anywhere in the source code by prepending them with a
-semicolon `;`.  A `;` character inside a text literal `'...'` or filename
-`"..."` does *not* introduce a comment.
+__Comments__ may be included anywhere in the source code by prepending them
+with a semicolon `;`.  A `;` character inside a text literal `'...'` or 
+filename `"..."` does *not* introduce a comment.
 
 Source code is processed case insensitively so that all labels, expressions, and
 instructions may be written in upper case, lower case, or any mixture.  Text
@@ -396,10 +391,10 @@ literals are still case sensitive, though.
     LABEL2 TEXT 'Hello World'
     Label3 mov Label1(R1),Label2(r2)
 
-Labels may be of arbitrary length and may contain arbitrary characters except
-for whitespace and operators such as `+`, `*`, `(`, `$`, etc.  An optional
-colon `:` may be appended to the label name.  The colon is not part of the
-name, but logically continues the current line to the next:
+__Labels__ may be of arbitrary length and may contain arbitrary characters
+except for whitespace and operators such as `+`, `*`, `(`, `$`, etc.  An 
+optional colon `:` may be appended to the label name.  The colon is not part 
+of the name, but logically continues the current line to the next:
 
     my_label_1:
         equ 1         ; assigns 1 to my_label_1
@@ -408,7 +403,7 @@ name, but logically continues the current line to the next:
     my_label_3        ; assigns >a000 to my_label_3  \  standard E/A
         aorg >b000    ; no label to assign >b000 to  /  behavior
 
-Local labels simplify the implementation of small loops.  A local label is
+__Local labels__ simplify the implementation of small loops.  A local label is
 introduced by an exclamation mark `!` and an optional name.  Thus, the simplest
 local label is just a single `!`.  Local labels need not be unique within the
 program.
@@ -442,9 +437,9 @@ second, third, ... match of the local label relative to the current position:
 Note that labels `label` and `!label` are entirely different and can be used
 without conflict in the same program.
 
-The use of whitespace has been relaxed.  Single spaces may be used judiciously
-within the operand field to increase the legibility of expressions.  Two or more
-spaces as well as tabs introduce the comment field.
+The use of __whitespace__ has been relaxed.  Single spaces may be used
+judiciously within the operand field to increase the legibility of expressions.
+Two or more spaces as well as tabs introduce the comment field.
 
     label  data addr + len - 1  comment
            movb @addr + 2(r1), *r2+ ; comment
@@ -454,7 +449,7 @@ field based on the current instruction, as the example `LABEL EQU 1 * 2` shows.
 The original TI Assembler parses `* 2` as comment, even though `1 * 2` is a
 valid `EQU` expression.)
 
-The extended expression syntax supports parentheses `(`, `)`, the modulo
+The __extended expression__ syntax supports parentheses `(`, `)`, the modulo
 operator `%`, and binary operators bit-and `&`, bit-or `|`, bit-xor `^`, and
 bit-not `~` as well as binary literals introduced by `:`.
 
@@ -469,103 +464,90 @@ This may sound annoying, but changing the established order of evaluation would
 break the compatibility of `xas99` for existing sources.  To adjust the order of
 evaluation, parentheses can be used: `1 + (2 * 3) - (4 & 5)`.
 
-The source code preprocessor allows for conditional assembly based on well-defined
-conditional expressions.  The preprocessor commands `.ifdef` and `.ifndef` check
-if a given symbol is defined or not.
+`xas99` features a number of so-called __modifiers__ that apply to symbols,
+literals, or registers.
 
-           .ifdef lang_de
-    msg    text 'Hallo Welt'
-           .else
-    msg    text 'Hello World'
-           .endif
+Many programs use byte or word constants, e.g., for `MOV`/`MOVB` or `C`/`CB` 
+instructions when immediate values are not available or feasible.  A common
+problem then is to keep track of all used constants.  `xas99` assists the
+developer here by warning about unused constants (see Warnings).
 
-The commands `.ifeq`, `.ifne`, `.ifgt`, and `.ifge` test if two arguments are
-equal, not equal, greater than, or greater than or equal, resp.  If the second
-argument is missing, the first argument is compared against value `0`.
+A convenient alternative is to use __auto-generated constants__.  The regular
+code segment 
 
-The `.print` preprocessor command prints its arguments to STDOUT.
+        mov  @h_ff01, @status
+        cb   @keycode, @b_48
+    h_ff01:
+        data >ff01
+    b_48:
+        byte 48
 
-    val    equ 42
-           .print 'Selected answer is', value 
+can be written with auto-generated constants `b#` and `w#` like this:
 
-The `.error` command prints a message and aborts the assembly.
+        mov  w#>ff01, @status
+        cb   @keycode, b#48
 
-           aorg >6000
-           
-           ...
-           
-           .ifgt $, >7fff
-           .error 'Catridge program too large'
-           .endif
+Please note that the constants must be literals, i.e., constructs like
 
-In addition to symbols defined by labels, `xas99` also sets exactly one of
-`_xas99_image`, `_xas99_cart`, `_xas99_obj`, `_xas99_xb`, or `_xas99_js`,
-depending on the assembly command `-i`, `-c`, ... used.
+    msk equ >5555
+        xor w#msk, r0
 
-Additional symbols may be supplied on the command line.
+are not valid.  For these case, use regular named constants instead.
+      
+The assembler logically appends all auto-generated constants to the end of the
+source code.  So if we need to place some data after the code
 
-    $ xas99.py ashello.a99 -D symbol1 symbol2=2
+        save >2000->2fff
 
-If no value is given, the symbol is set to value `1`.
+        aorg >2000
+    start:
+        movb b#1, @acc
+        ...
+        
+        aorg >2ffc
+    start_vector:
+        data >8300
+        data start
+    
+using auto-generated constants, we simply reverse the order of our sections
 
-Conditional assembly preprocessor commands may be nested.  Valid conditional
-expressions and their rules of evaluation correspond to those of the `EQU`
-directive.
+        save >2000->2fff
+        aorg >2ffc
+        ...
 
-`xas99` supports macros.  The `.defm` preprocessor command introduces a new
-macro.  The `.endm` command concludes the macro definition.  Inside the macro
-body the macro parameters `#1`, `#2`, ... refer to the actual arguments that
-are supplied when instantiating the macro:
+        aorg >2000
+        ...
+        ; auto-generated constants follow
+        
+so that the constants are appended to the `>2000` chunk now.        
 
-    * fill top <#1> rows with char <#2>
-        .defm fill
-        li   r0, >0040
-        li   r1, #1
-        li   r2, #2 * 32
-        movb @vdpwa
-        swpb r0
-        movb @vdpwa
-    !   movb r1, @vdpwd
-        dec  r2
-        jne  -!
-        .endm
+All auto-generated constants will also appear in the list file.
 
-Macros are used like preprocessor commands, with any arguments separated
-by commas:
+The new __register LSB__ modifier `l#` represents the address of the LSB of the
+modified register.  In this code example,
 
-        .fill 10, '* '
+        lwpi >8300
+        ...
+        movb l#r0, @vdpwa
+        movb r0, @vdpwa
+ 
+the expression `l#r0` simply stands for `@>8301`, i.e., the LSB of register 0.
+The modifier is always relative to the workspace pointer (WP) so that
 
-Note that macro parameters are resolved by textual replacement.  Thus,
-when instantiating
+        lwpi >8300
+        movb l#r1, r0
+        lwpi >2000
+        movb l#r1, r0
+        lwpi >83e0
+        movb l#r1, r0
+        
+reads `>8303`, `>2003`, and `>83E3`, respectively.
 
-        li   r0, 2 * #1
+For the cross-bank access modifier `x#`, see the paragraphs on bank switching.
 
-inside some macro body with argument `1 + 2`, the resulting code will assign
-the value 4 instead of 6 to `R0`.
-
-Labels are allowed inside macro definitions.  To avoid duplicate symbols, all
-labels should be local.
-
-Macro definitions cannot be nested.  Macro uses may be nested, but
-instantiations must not be circular.
-
-Preprocessor commands are always executed, even inside inactive `#ifdef` ...
-`#endif` blocks.  The correct way to define environment-dependent macros is
-thus
-
-    .defm mymacro
-    .ifdef symbol
-    clr r0
-    .else
-    clr r1
-    .endif
-    .endm
-
-instead of the other way around.
-
-`xas99` also provides a new directive `BCOPY` that includes an external binary
-file as a sequence of `BYTE`s.  For example, if `sprite.raw` is a raw data file
-containing some sprite pattern
+`xas99` also provides __new directives__.  The `BCOPY` directive includes an
+external binary file as a sequence of `BYTE`s.  For example, if `sprite.raw`
+is a raw data file containing some sprite pattern
 
     $ hexdump -C sprite.raw
     00000000  18 3c 7e ff ff 7e 3c 18                           |.<~..~<.|
@@ -577,6 +559,15 @@ then including this file with `BCOPY`
 is equivalent to the conventional assembly statement sequence
 
     SPRITE  BYTE >18,>3C,>7E,>FF,>FF,>7E,>3C,>18
+
+The `STRI` directive is similar to `TEXT`, but prepends the length of the
+string.  In other words,
+
+    STRI 'HELLO WORLD'
+    
+is equivalent to
+
+    TEXT >0b, 'HELLO WORLD'
 
 The `BANK` directive specifies the memory bank for the following code segment,
 or a shared code segment if the special value `ALL` is used.  Banks count from
@@ -623,14 +614,14 @@ In this example, the `B` instructions in segment `>7000` will branch to `L1`
 or `L2`, depending on which bank is active.
 
 To override the cross-bank check explicitly, e.g., because the caller will be
-relocated to a different memory address during runtime, a hash `#` can be
-appended to the offending label.
+relocated to a different memory address during runtime, the __cross-bank
+modifier__ `x#` can be prepended to the offending label.
 
           BANK 0
     CONT  CLR  R0
 
           BANK 1
-          B    @CONT#   ; OK, no error
+          B    @X#CONT  ; OK, no error
 
 The new `XORG` directive sets the location counter to a new address but does
 not change the actual placement of the subsequent code segment.
@@ -710,7 +701,101 @@ otherwise, it generates images for each segment individually.
 The use of `SAVE` is recommended to reduce the number of generated files if
 `XORG` is employed.
 
-`xas99` supports the F18A GPU instruction set.
+The source code __preprocessor__ allows for conditional assembly based on 
+well-defined conditional expressions.  The preprocessor commands `.ifdef` and 
+`.ifndef` check if a given symbol is defined or not.
+
+           .ifdef lang_de
+    msg    text 'Hallo Welt'
+           .else
+    msg    text 'Hello World'
+           .endif
+
+The commands `.ifeq`, `.ifne`, `.ifgt`, and `.ifge` test if two arguments are
+equal, not equal, greater than, or greater than or equal, resp.  If the second
+argument is missing, the first argument is compared against value `0`.
+
+The `.print` preprocessor command prints its arguments to STDOUT.
+
+    val    equ 42
+           .print 'Selected answer is', value 
+
+The `.error` command prints a message and aborts the assembly.
+
+           aorg >6000
+           
+           ...
+           
+           .ifgt $, >7fff
+           .error 'Catridge program too large'
+           .endif
+
+In addition to symbols defined by labels, `xas99` also sets exactly one of
+`_xas99_image`, `_xas99_cart`, `_xas99_obj`, `_xas99_xb`, or `_xas99_js`,
+depending on the assembly command `-i`, `-c`, ... used.
+
+__Additional symbols__ may be supplied on the command line.
+
+    $ xas99.py ashello.a99 -D symbol1 symbol2=2
+
+If no value is given, the symbol is set to value `1`.
+
+Conditional assembly preprocessor commands may be nested.  Valid conditional
+expressions and their rules of evaluation correspond to those of the `EQU`
+directive.
+
+`xas99` supports __macros__.  The `.defm` preprocessor command introduces a new
+macro.  The `.endm` command concludes the macro definition.  Inside the macro
+body the macro parameters `#1`, `#2`, ... refer to the actual arguments that
+are supplied when instantiating the macro:
+
+    * fill top <#1> rows with char <#2>
+        .defm fill
+        li   r0, >0040
+        li   r1, #1
+        li   r2, #2 * 32
+        movb @vdpwa
+        swpb r0
+        movb @vdpwa
+    !   movb r1, @vdpwd
+        dec  r2
+        jne  -!
+        .endm
+
+Macros are used like preprocessor commands, with any arguments separated
+by commas:
+
+        .fill 10, '* '
+
+Note that macro parameters are resolved by textual replacement.  Thus,
+when instantiating
+
+        li   r0, 2 * #1
+
+inside some macro body with argument `1 + 2`, the resulting code will assign
+the value 4 instead of 6 to `R0`.
+
+Labels are allowed inside macro definitions.  To avoid duplicate symbols, all
+labels should be local.
+
+Macro definitions cannot be nested.  Macro uses may be nested, but
+instantiations must not be circular.
+
+Preprocessor commands are always executed, even inside inactive `#ifdef` ...
+`#endif` blocks.  The correct way to define environment-dependent macros is
+thus
+
+    .defm mymacro
+    .ifdef symbol
+    clr r0
+    .else
+    clr r1
+    .endif
+    .endm
+
+instead of the other way around.
+
+`xas99` supports the __F18A GPU instruction set__.
 
     CALL <gas>
     RET
@@ -725,7 +810,8 @@ constructed separately by hand.
 The `SPI` family of instructions is not supported; please use their equivalents
 `CKON`, ... instead.
 
-#### Compatibility
+
+### Compatibility
 
 The strictness option `-s` disables all `xas99`-specific extensions to improve
 backwards compatibility for old sources:
@@ -734,7 +820,7 @@ backwards compatibility for old sources:
 
 Strictness is required, for example, to compile the *Tombstone City* sample
 source code shipped with the original TI Editor/Assembler module.  Some of the
-comments do not adher to the two-space separator rule of the relaxed xdt99
+comments do not adhere to the two-space separator rule of the relaxed xdt99
 whitespace mode:
 
     R5LB   EQU SUBWS+11 * REGISTER 5 LOW BYTE.
@@ -843,14 +929,14 @@ numbers prefixed by `:`, and text literals enclosed in single quotes `'`.
 
     BYTE 10, >10, :10, '1'
 
-Expressions are built using arithmeical operators `+`, `-`, `*`, `/`, `%`, and
-`**` and bit operators `&`, `|`, `^`, and `~`.  Expressions are evaluated
+__Expressions__ are built using arithmetical operators `+`, `-`, `*`, `/`, `%`,
+and `**` and bit operators `&`, `|`, `^`, and `~`.  Expressions are evaluated
 left-to-right with equal operator precedence; parentheses may be used to change
 the order of evaluation.  For further details please refer to the `xas99`
 section on expressions.
 
-By default, `xga99` uses the following mnemonics for the `FMT` sub-language, but
-other syntax styles are available with the `-s` option:
+By default, `xga99` uses the following mnemonics for the __`FMT` sub-language__,
+but other syntax styles are available with the `-s` option:
 
     HTEXT/VTEXT <text>
     HCHAR/VCHAR <len>, <char>
@@ -916,14 +1002,14 @@ GPL programs.  All extensions are backwards compatible in virtually all
 situations of practical relevance so that any existing source code should
 compile as-is.
 
-The source code preprocessor supports conditional assembly `.ifdef` and macros
-`.defm`.  For a description of both features please refer to the respective
-section in the `xas99` manual.
+The source code __preprocessor__ supports conditional assembly `.ifdef` and
+macros `.defm`.  For a description of both features please refer to the 
+respective section in the `xas99` manual.
 
 Note, however, that GPL macros use macro parameters `$1`, `$2`, ... instead
 of `#1`, `#2`, ..., as the latter are used to denote VDP registers in GPL.
 
-The predefined symbols set by `xga99` are `_xga99_image`, `_xga99_cart`, or
+The __predefined symbols__ set by `xga99` are `_xga99_image`, `_xga99_cart`, or
 `_xga99_gbc`, depending on the assembly command `-i`, `-c`, ... used.
 
 
@@ -995,7 +1081,7 @@ return statements, and disassembles only along the program flow.
 	$ xda99.py ascart_6000.bin -a 6000 -r 600c
 
 Note that for the `ascart` program, there won't be any differences between run
-mode and top-down mode, as code and data are seperate in that program.
+mode and top-down mode, as code and data are separate in that program.
 
 Run mode is not limited to one starting address:
 
@@ -1123,7 +1209,7 @@ The GPL disassembler `xdg99` is a command-line tool to convert GPL bytecode into
 GPL source code.
 
 `xdg99` shares all options with `xda99`, and works very similar to this
-disassembler.  In fact, at some point in the furure, both programs might be
+disassembler.  In fact, at some point in the future, both programs might be
 merged into one.
 
 To show the similarities,
