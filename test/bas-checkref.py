@@ -4,43 +4,43 @@ import os
 import re
 
 from config import Disks, Files, Dirs
-from utils import xdm, xbas, error, checkFilesEq
+from utils import xdm, xbas, error, check_files_eq
 
 
-### Check functions
+# Check functions
 
-def checkListingEq(infile, reffile):
+def check_listing_eq(infile, reffile):
     """check if TI BASIC listings are equal"""
-    reflist, prevlino = [], 0
+    ref_list, prev_lino = [], 0
     with open(reffile, "r") as f:
-        for l in f:
-            if not l.strip():
+        for line in f:
+            if not line.strip():
                 continue
-            m = re.match("(\d+)\s+", l)
-            currlino = int(m.group(1)) if m else -1
-            if 0 <= currlino - prevlino < 3:
-                reflist.append(l)
-                prevlino = currlino
+            m = re.match("(\d+)\s+", line)
+            curr_lino = int(m.group(1)) if m else -1
+            if 0 <= curr_lino - prev_lino < 3:
+                ref_list.append(line)
+                prev_lino = curr_lino
             else:
                 # continuation of previous source line
-                reflist[-1] = reflist[-1][:-1] + l
+                ref_list[-1] = ref_list[-1][:-1] + line
     with open(infile, "r") as f:
-        for i, l in enumerate(f):
-            if l.rstrip() != reflist[i].rstrip():
+        for i, line in enumerate(f):
+            if line.rstrip() != ref_list[i].rstrip():
                 error("Listing", "Source mismatch on line %d:\nexpected: %sactual: %s" % (
-                    i + 1, reflist[i], l))
+                    i + 1, ref_list[i], line))
 
 
-def genListing(infile, outfile):
+def gen_listing(infile, outfile):
     lino = 1
     with open(infile, "r") as fin, open(outfile, "w") as fout:
-        for l in fin:
-            if l.strip():
-                fout.write("%d %s" % (lino, l))
+        for line in fin:
+            if line.strip():
+                fout.write("%d %s" % (lino, line))
                 lino += 1
 
 
-### Main test
+# Main test
 
 def runtest():
     """compare xbas99 generation to TI references"""
@@ -53,25 +53,25 @@ def runtest():
         xdm(Disks.basic1, "-e", fn, "-o", Files.input)
         xdm(Disks.basic1, "-e", fn + "-L", "-o", Files.reference)
         xbas(Files.input, "-d", "-o", Files.output)
-        checkListingEq(Files.output, Files.reference)
+        check_listing_eq(Files.output, Files.reference)
 
         # ditto with MERGE format
         xdm(Disks.basic1, "-e", fn + "-M", "-o", Files.input)
         xbas(Files.input, "-d", "--merge", "-o", Files.output)
         if os.name != "nt":
-            checkListingEq(Files.output, Files.reference)
+            check_listing_eq(Files.output, Files.reference)
 
         # compare generated xbas99 basic program with TI BASIC reference
         xdm(Disks.basic1, "-e", fn + "-L", "-o", Files.input)
         xdm(Disks.basic1, "-e", fn, "-o", Files.reference)
         xbas(Files.input, "-c", "-j", "3", "-o", Files.output)
-        checkFilesEq("Tokenization", Files.output, Files.reference, "P")
+        check_files_eq("Tokenization", Files.output, Files.reference, "P")
 
         # ditto with non-canonically formatted original source
         rawlist = os.path.join(Dirs.basic, fn.lower() + ".txt")
-        genListing(rawlist, Files.input)
+        gen_listing(rawlist, Files.input)
         xbas(Files.input, "-c", "-o", Files.output)
-        checkFilesEq("Tokenization", Files.output, Files.reference, "P")
+        check_files_eq("Tokenization", Files.output, Files.reference, "P")
 
     # check using randomized listings
     for i in xrange(8):
@@ -81,24 +81,24 @@ def runtest():
 
         # compare generated xbas99 listing with TI BASIC reference
         xbas(Files.input, "-d", "-o", Files.output)
-        checkListingEq(Files.output, Files.reference)
+        check_listing_eq(Files.output, Files.reference)
 
         # compare generated xbas99 basic program with TI BASIC reference
         xbas(Files.reference, "-c", "-j", "3", "-o", Files.output)
-        checkFilesEq("Tokenization", Files.output, Files.input, "P")
+        check_files_eq("Tokenization", Files.output, Files.input, "P")
 
     # check long format
     path = os.path.join(Dirs.basic, "sample-l.bin")
     xbas(path, "-d", "-o", Files.output)
     path = os.path.join(Dirs.basic, "sample-n.bin")
     xbas(path, "-d", "-o", Files.reference)
-    checkFilesEq("Long Format", Files.output, Files.reference, "P")
+    check_files_eq("Long Format", Files.output, Files.reference, "P")
 
     # check listing protection
     xdm(Disks.basic1, "-e", "STATMNTS-L", "-o", Files.input)
     xbas(Files.input, "-c", "-j", "3", "--protect", "-o", Files.output)
     xbas(Files.input, "-c", "-j", "3", "-o", Files.reference)
-    checkFilesEq("Protection", Files.output, Files.reference, "P",
+    check_files_eq("Protection", Files.output, Files.reference, "P",
                  mask=[(0, 2)])
 
     # cleanup

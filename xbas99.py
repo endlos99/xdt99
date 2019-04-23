@@ -27,7 +27,7 @@ import os.path
 VERSION = "1.5.0"
 
 
-### Utility functions
+# Utility functions
 
 def ordw(word):
     """word ord"""
@@ -54,13 +54,13 @@ def sinc(s, i):
     return s[:-1] + chr(ord(s[-1]) + i)
 
 
-### Error handling
+# Error handling
 
 class BasicError(Exception):
     pass
 
 
-### Tokens
+# Tokens
 
 class Tokens:
     """TI BASIC and TI Extended BASIC tokens"""
@@ -71,25 +71,25 @@ class Tokens:
     USTR = 2  # unquoted string
     LINO = 3  # line number
     LINEVAR = 4  # variable line (for comments)
-    LINESTR = 5  # quoted or unquoted string line (for IMAGE stmts)
-    DATASTR = 6  # special case: DATA operands
+    LINE_STR = 5  # quoted or unquoted string line (for IMAGE stmts)
+    DATA_STR = 6  # special case: DATA operands
     KEEP = 7  # keep previous follow token type
 
     # unused token code for escaping statement separator "::"
-    STMTSEP = "\xaf"
+    STMT_SEP = "\xaf"
 
     # token list
     tokenlist = [
-        ("ELSE ", LINO), (STMTSEP + " ", VAR), ("!", LINEVAR), ("IF ", VAR),
+        ("ELSE ", LINO), (STMT_SEP + " ", VAR), ("!", LINEVAR), ("IF ", VAR),
         ("GO ", LINO), ("GOTO ", LINO), ("GOSUB ", LINO), ("RETURN ", LINO),
         ("DEF ", VAR), ("DIM ", VAR), ("END ", VAR), ("FOR ", VAR),
         ("LET ", VAR), ("BREAK ", LINO), ("UNBREAK ", LINO), ("TRACE ", VAR),
-        ("UNTRACE ", VAR), ("INPUT ", VAR), ("DATA ", DATASTR),
+        ("UNTRACE ", VAR), ("INPUT ", VAR), ("DATA ", DATA_STR),
         ("RESTORE ", LINO), ("RANDOMIZE ", VAR), ("NEXT ", VAR),
         ("READ ", VAR), ("STOP ", VAR), ("DELETE ", VAR), ("REM", LINEVAR),
         ("ON ", VAR), ("PRINT ", VAR), ("CALL ", USTR), ("OPTION ", VAR),
         ("OPEN ", VAR), ("CLOSE ", VAR), ("SUB ", USTR), ("DISPLAY ", VAR),
-        ("IMAGE ", LINESTR), ("ACCEPT ", VAR), ("ERROR ", LINO),
+        ("IMAGE ", LINE_STR), ("ACCEPT ", VAR), ("ERROR ", LINO),
         ("WARNING ", VAR), ("SUBEXIT ", VAR), ("SUBEND ", VAR), ("RUN ", LINO),
         ("LINPUT ", VAR), (None, None), (None, None), (None, None),
         (None, None), (None, None), ("THEN ", LINO), ("TO ", KEEP),
@@ -126,17 +126,17 @@ class Tokens:
             return None, None
 
     @classmethod
-    def qstrToken(cls, s):
+    def qstr_token(cls, s):
         """return quoted string token"""
         return "\xc7" + chr(len(s)) + s
 
     @classmethod
-    def ustrToken(cls, s):
+    def ustr_token(cls, s):
         """return unquoted string token"""
         return "\xc8" + chr(len(s)) + s
 
     @classmethod
-    def linoToken(cls, s):
+    def lino_token(cls, s):
         """return line number token"""
         try:
             lino = int(s)
@@ -147,37 +147,37 @@ class Tokens:
         return "\xc9" + chrw(lino)
 
     @classmethod
-    def literal(cls, toks):
+    def literal(cls, tokens):
         """return textual representation of BASIC token(s)"""
-        lit, _ = cls.literals[toks[0]]
-        if lit == "qs":
-            l = ord(toks[1])
-            return '"' + toks[2:2 + l].replace('"', '""') + '"', lit, l + 2
-        elif lit == "us":
-            l = ord(toks[1])
-            return toks[2:2 + l], lit, l + 2
-        elif lit == "ln":
-            return str(ordw(toks[1:3])), lit, 3
+        lit_type, _ = cls.literals[tokens[0]]
+        if lit_type == "qs":
+            lit_value = ord(tokens[1])
+            return '"' + tokens[2:2 + lit_value].replace('"', '""') + '"', lit_type, lit_value + 2
+        elif lit_type == "us":
+            lit_value = ord(tokens[1])
+            return tokens[2:2 + lit_value], lit_type, lit_value + 2
+        elif lit_type == "ln":
+            return str(ordw(tokens[1:3])), lit_type, 3
         else:
-            return lit, None, 1
+            return lit_type, None, 1
 
 
-### BASIC Program
+# BASIC Program
 
 class BasicProgram:
 
     # maximum number of bytes/tokens per BASIC line
-    maxTokensPerLine = 254
+    max_tokens_per_line = 254
     
-    def __init__(self, data=None, source=None, long_=False):
+    def __init__(self, data=None, source=None, long_fmt=False):
         self.lines = {}
         self.textlits = []
         self.warnings = []
         if data:
             try:
-                self.load(data, long_)
+                self.load(data, long_fmt)
             except IndexError:
-                self.warn("Program file is corrupted")
+                self.warn("Cannot read program file")
         elif source:
             self.parse(source)
 
@@ -186,40 +186,40 @@ class BasicProgram:
         if text not in self.warnings:
             self.warnings.append(text)
 
-    # program -> source
-
-    def load(self, data, long_):
+    # convert program to source
+    def load(self, data, long_fmt):
         """load tokenized BASIC program"""
-        if long_ or data[1:3] == "\xab\xcd":
+        if long_fmt or data[1:3] == "\xab\xcd":
             # convert long format INT/VAR 254 to PROGRAM
-            program, p = "", 11
-            while p < len(data):
-                l = ord(data[p]) + 1
-                program += data[p + 1:p + l]
-                p += l
+            program, idx = "", 11
+            while idx < len(data):
+                n = ord(data[idx]) + 1
+                program += data[idx + 1:idx + n]
+                idx += n
             data = "XX" + data[5:7] + data[3:5] + "XX" + program
+
         # extract line number table and token table
-        ptrTokens = ordw(data[2:4]) + 1
-        ptrLineNumbers = ordw(data[4:6])
-        noLines = (ptrTokens - ptrLineNumbers) / 4
-        lineNumbers = data[8:8 + noLines * 4]
-        tokens = data[8 + noLines * 4:]
+        ptr_tokens = ordw(data[2:4]) + 1
+        ptr_line_numbers = ordw(data[4:6])
+        no_lines = (ptr_tokens - ptr_line_numbers) / 4
+        line_numbers = data[8:8 + no_lines * 4]
+        tokens = data[8 + no_lines * 4:]
         # process line token table
-        for i in xrange(noLines):
-            lino = ordw(lineNumbers[4 * i:4 * i + 2])
-            ptr = ordw(lineNumbers[4 * i + 2:4 * i + 4])
-            j = ptr - 1 - ptrTokens
-            lineLen = ord(tokens[j])
-            if tokens[j + lineLen] != "\x00":
+        for i in xrange(no_lines):
+            lino = ordw(line_numbers[4 * i:4 * i + 2])
+            ptr = ordw(line_numbers[4 * i + 2:4 * i + 4])
+            j = ptr - 1 - ptr_tokens
+            line_Len = ord(tokens[j])
+            if tokens[j + line_Len] != "\x00":
                 self.warn("Missing line termination")
-            self.lines[lino] = tokens[j + 1:j + lineLen]
+            self.lines[lino] = tokens[j + 1:j + line_Len]
 
     def merge(self, data):
         """load tokenized BASIC program in merge format"""
-        qs, _ = Tokens.tokens["qs"]
-        us, _ = Tokens.tokens["us"]
-        ln, _ = Tokens.tokens["ln"]
-        eollen = len(os.linesep)
+        qstr, _ = Tokens.tokens["qs"]
+        ustr, _ = Tokens.tokens["us"]
+        line, _ = Tokens.tokens["ln"]
+        eol_len = len(os.linesep)
         p = 0
         while p < len(data):
             lino = ordw(data[p:p + 2])
@@ -227,21 +227,21 @@ class BasicProgram:
                 break
             q = p = p + 2
             while data[p] != "\x00":
-                if data[p] == qs or data[p] == us:
+                if data[p] == qstr or data[p] == ustr:
                     p += 1 + ord(data[p + 1]) + 1
-                elif data[p] == ln:
+                elif data[p] == line:
                     p += 3
                 else:
                     p += 1
-            if data[p + 1:p + 1 + eollen] != os.linesep:
+            if data[p + 1:p + 1 + eol_len] != os.linesep:
                 # NOTE: BASIC programs in MERGE format are stored as DIS/VAR,
                 # even though they contain binary data -> read in "rb" mode
                 # and check for end-of-line char sequence
                 self.warn("Missing line termination")
             self.lines[lino] = data[q:p]
-            p += 1 + eollen
+            p += 1 + eol_len
 
-    def getSource(self):
+    def get_source(self):
         """return textual representation of token sequence"""
         text = [" "]  # dummy element
         for lino in sorted(self.lines):
@@ -256,40 +256,39 @@ class BasicProgram:
                                 tokens[q:p])
                     softspace = True
                 else:
-                    lit, typ, n = Tokens.literal(tokens[p:])
-                    istext = (lit[0] in "ABCDEFGHIJKLMNOPQRSTUVWXYZ" +
-                                        Tokens.STMTSEP) and typ is None
-                    if (((istext or lit == "#" or
-                            typ == "us" or typ == "ln") and softspace) or
+                    lit, lit_type, n = Tokens.literal(tokens[p:])
+                    is_text = lit[0] in ("ABCDEFGHIJKLMNOPQRSTUVWXYZ" + Tokens.STMT_SEP) and lit_type is None
+                    if (((is_text or lit == "#" or
+                            lit_type == "us" or lit_type == "ln") and softspace) or
                             (lit == ":" and text[-1][-1] == ":") or
                             (lit == "!" and text[-1][-1] != " ")):
                         text.append(" " + lit)
                     else:
                         text.append(lit)
-                    softspace = (
-                        istext and lit[-1] != " " and lit != "REM") or (
-                        typ == "us" or typ == "qs" or typ == "ln")
+                    softspace = (is_text and lit[-1] != " " and lit != "REM") or (
+                                 lit_type == "us" or lit_type == "qs" or lit_type == "ln")
                     p += n
             text.append("\n")
-        return self.fixcolons("".join(text[1:]))
+        return self.fix_colons("".join(text[1:]))
 
-    def fixcolons(self, text):
+    def fix_colons(self, text):
         """fix spacing of : and :: tokens"""
-        s1 = text.replace(":" + Tokens.STMTSEP, ": ::")
-        s2 = s1.replace(Tokens.STMTSEP, "::")
+        s1 = text.replace(":" + Tokens.STMT_SEP, ": ::")
+        s2 = s1.replace(Tokens.STMT_SEP, "::")
         return s2
 
     # source -> program
 
     def parse(self, lines):
         """parse and tokenize BASIC source code"""
-        for i, l in enumerate(lines):
-            if l.strip():
-                try:
-                    lino, tokens = self.line(l)
-                    self.lines[lino] = tokens
-                except BasicError as e:
-                    self.warn("%s: [%d] %s" % (str(e), i, l[:-1]))
+        for i, line in enumerate(lines):
+            if not line.strip():
+                continue
+            try:
+                lino, tokens = self.line(line)
+                self.lines[lino] = tokens
+            except BasicError as e:
+                self.warn("%s: [%d] %s" % (str(e), i, line[:-1]))
 
     def line(self, line):
         """parse single BASIC line"""
@@ -298,7 +297,7 @@ class BasicProgram:
         if not m:
             raise BasicError("Missing line number")
         lino, tokens = int(m.group(1)), self.stmts(m.group(2))
-        if len(tokens) > BasicProgram.maxTokensPerLine:
+        if len(tokens) > BasicProgram.max_tokens_per_line:
             raise BasicError("Line too long")
         return lino, tokens
     
@@ -308,39 +307,37 @@ class BasicProgram:
         tokens = []
         # poorest man imaginable's lexer
         parts = re.split(r'(\s+|"\d+"|[0-9.]+E-[0-9]+|[!,;:()&=<>+\-*/^#' +
-                         Tokens.STMTSEP + r'])',
+                         Tokens.STMT_SEP + r'])',
                          text)
-        toktype = Tokens.VAR
+        tok_type = Tokens.VAR
         for i, word in enumerate(parts):
-            if toktype == Tokens.LINEVAR:
+            if tok_type == Tokens.LINEVAR:
                 tokens.extend(self.unescape("".join(parts[i:])))
                 break
             if not word.strip():
                 continue
-            if (toktype == Tokens.LINO or toktype == Tokens.USTR) and (
-                    word.isdigit()):  # USTR covers "GO SUB"
-                tokens.extend(Tokens.linoToken(word))
-                toktype = Tokens.LINO
-            elif toktype == Tokens.LINESTR:
+            if (tok_type == Tokens.LINO or tok_type == Tokens.USTR) and word.isdigit():  # USTR covers "GO SUB"
+                tokens.extend(Tokens.lino_token(word))
+                tok_type = Tokens.LINO
+            elif tok_type == Tokens.LINE_STR:
                 remaining = "".join(parts[i:]).strip()
                 if remaining:
-                    tokens.extend(
-                        self.qstr(remaining) if remaining[0] == '"' else
-                        self.ustr(remaining))
+                    tokens.extend(self.qstr(remaining) if remaining[0] == '"' else
+                                  self.ustr(remaining))
                 break
-            elif toktype == Tokens.DATASTR:
+            elif tok_type == Tokens.DATA_STR:
                 remaining = [s.strip() for s in "".join(parts[i:]).split(",")]
-                dats = [(self.qstr(s) if s[0] == '"' else self.ustr(s))
+                data = [(self.qstr(s) if s[0] == '"' else self.ustr(s))
                         if s else "" for s in remaining]
-                tokens.extend(sep.join(dats))
+                tokens.extend(sep.join(data))
                 break
-            elif toktype == Tokens.QSTR or word[0] == '"':  # keep before USTR!
+            elif tok_type == Tokens.QSTR or word[0] == '"':  # keep before USTR!
                 # NOTE: there is actually no token with follow token QSTR
                 tokens.extend(self.qstr(word))
-                toktype = Tokens.VAR
-            elif toktype == Tokens.USTR:
+                tok_type = Tokens.VAR
+            elif tok_type == Tokens.USTR:
                 tokens.extend(self.ustr(word.upper()))
-                toktype = Tokens.VAR
+                tok_type = Tokens.VAR
             else:
                 token, follow = Tokens.token(word)
                 if token:  # keywords and operators
@@ -350,7 +347,7 @@ class BasicProgram:
                 else:
                     tokens.extend(word.upper())  # plain VARs
                 if follow != Tokens.KEEP:
-                    toktype = follow
+                    tok_type = follow
         return tokens
 
     def escape(self, text):
@@ -360,118 +357,116 @@ class BasicProgram:
         parts[1::2] = ['"' + str(len(self.textlits) + i) + '"'
                        for i in xrange(len(lits))]
         self.textlits.extend(lits)
-        return "".join(parts).replace("::", Tokens.STMTSEP)
+        return "".join(parts).replace("::", Tokens.STMT_SEP)
 
     def unescape(self, s):
         """rebuild original text from escaped string"""
         text = re.sub(r'"(\d+)"',
                       lambda m: '"' + self.textlits[int(m.group(1))] + '"',
-                      self.fixcolons(s))
+                      self.fix_colons(s))
         return text
 
     def qstr(self, lit):
         """build quoted string token sequence"""
         try:
             s = self.textlits[int(lit[1:-1])]
-            return Tokens.qstrToken(s)
+            return Tokens.qstr_token(s)
         except (ValueError, IndexError):
             raise RuntimeError("Invalid text literal id %s" % lit[1:-1])
 
     def ustr(self, lit):
         """build unquoted string token sequence"""
-        return Tokens.ustrToken(self.unescape(lit))
+        return Tokens.ustr_token(self.unescape(lit))
 
-    def getImage(self, long_=False, protected=False):
+    def get_image(self, long_fmt=False, protected=False):
         """create PROGRAM image from tokens"""
-        lastAddr = 0xffe8 if long_ else 0x37d8
+        last_addr = 0xffe8 if long_fmt else 0x37d8
         prog, p = [], 0
-        if long_:
-            size = (sum([len(self.lines[i]) for i in self.lines]) +
-                    2 * len(self.lines))
+        if long_fmt:
+            size = sum([len(self.lines[i]) for i in self.lines]) + 2 * len(self.lines)
             if size < 254:
                 self.warn("Program too short, will pad")
-                padlen = 254 - size
-                prog.append((0, 32767, chr(padlen - 1) + "\x83" +
-                             "\x21" * (padlen - 3) + "\x00"))
-                p = padlen
+                pad_len = 254 - size
+                prog.append((0, 32767, chr(pad_len - 1) + "\x83" +
+                             "\x21" * (pad_len - 3) + "\x00"))
+                p = pad_len
         for lino in sorted(self.lines, reverse=True):
-            l = self.lines[lino]
-            prog.append((p, lino, chr(len(l) + 1) + "".join(l) + "\x00"))
-            p += len(l) + 2
-        tokenTabAddr = lastAddr - p
-        linoTabAddr = tokenTabAddr - 4 * len(prog)
-        tokenTable = "".join([tokens for p, lino, tokens in prog])
-        linoTable = "".join([chrw(lino) + chrw(tokenTabAddr + p + 1)
+            line = self.lines[lino]
+            prog.append((p, lino, chr(len(line) + 1) + "".join(line) + "\x00"))
+            p += len(line) + 2
+        token_tab_addr = last_addr - p
+        lino_tab_addr = token_tab_addr - 4 * len(prog)
+        token_table = "".join([tokens for p, lino, tokens in prog])
+        lino_table = "".join([chrw(lino) + chrw(token_tab_addr + p + 1)
                              for p, lino, tokens in prog])
-        checksum = (tokenTabAddr - 1) ^ linoTabAddr
-        assert linoTabAddr + len(linoTable) + len(tokenTable) == lastAddr
+        checksum = (token_tab_addr - 1) ^ lino_tab_addr
+        assert lino_tab_addr + len(lino_table) + len(token_table) == last_addr
         if protected:
             checksum = -checksum % 0x10000
-        if long_:
-            header = ("\xab\xcd" + chrw(linoTabAddr) + chrw(tokenTabAddr - 1) +
-                      chrw(checksum) + chrw(lastAddr - 1))
-            chunks = [(linoTable + tokenTable)[i:i + 254]
-                      for i in xrange(0, len(linoTable + tokenTable), 254)]
+        if long_fmt:
+            header = ("\xab\xcd" + chrw(lino_tab_addr) + chrw(token_tab_addr - 1) +
+                      chrw(checksum) + chrw(last_addr - 1))
+            chunks = [(lino_table + token_table)[i:i + 254]
+                      for i in xrange(0, len(lino_table + token_table), 254)]
             return (chr(len(header)) + header +
                     "".join([chr(len(c)) + c for c in chunks]))
         else:
-            header = (chrw(checksum) + chrw(tokenTabAddr - 1) +
-                      chrw(linoTabAddr) + chrw(lastAddr - 1))
-            return header + linoTable + tokenTable
+            header = (chrw(checksum) + chrw(token_tab_addr - 1) +
+                      chrw(lino_tab_addr) + chrw(last_addr - 1))
+            return header + lino_table + token_table
 
-    def dumpTokens(self):
+    def dump_tokens(self):
         """dump pretty-printed token stream sorted by line number"""
         lines = []
-        ln, _ = Tokens.tokens["ln"]
-        ss, _ = Tokens.tokens[Tokens.STMTSEP]
+        line, _ = Tokens.tokens["ln"]
+        ssep, _ = Tokens.tokens[Tokens.STMT_SEP]
         for lino in sorted(self.lines):
             tokens = self.lines[lino]
-            p, res = 0, []
+            p, result = 0, []
             while p < len(tokens):
                 t = tokens[p]
                 if t < " ":
-                    res.append("#%d" % ord(t))
+                    result.append("#%d" % ord(t))
                 elif t <= "\x80":
-                    res.append(t)
-                elif t == ln:
-                    res.append("^" + str(ordw(tokens[p + 1:p + 3])))
+                    result.append(t)
+                elif t == line:
+                    result.append("^" + str(ordw(tokens[p + 1:p + 3])))
                     p += 2
-                elif t == ss:
-                    res.append("::")
+                elif t == ssep:
+                    result.append("::")
                 else:
-                    res.append(Tokens.literals[t][0].rstrip())
+                    result.append(Tokens.literals[t][0].rstrip())
                 p += 1
-            lines.append("%d: %s\n" % (lino, " ".join(res)))
+            lines.append("%d: %s\n" % (lino, " ".join(result)))
         return "".join(lines)
 
     @staticmethod
-    def join(lines, minLinoDelta=1, maxLinoDelta=3):
+    def join(lines, min_lino_delta=1, max_lino_delta=3):
         """join split source lines heuristically"""
         joined = []
-        prevlino = None
-        for l in lines:
-            if not l.strip():
-                prevlino = None
+        prev_lino = None
+        for line in lines:
+            if not line.strip():
+                prev_lino = None
                 continue
-            m = re.match("(\d+)\s+", l)
-            nextlino = int(m.group(1)) if m else -1
-            if (prevlino and
-                    not minLinoDelta <= nextlino - prevlino <= maxLinoDelta):
-                joined[-1] = joined[-1][:-1] + l
+            m = re.match("(\d+)\s+", line)
+            next_lino = int(m.group(1)) if m else -1
+            if (prev_lino and
+                    not min_lino_delta <= next_lino - prev_lino <= max_lino_delta):
+                joined[-1] = joined[-1][:-1] + line
             else:
-                joined.append(l)
-                prevlino = nextlino
+                joined.append(line)
+                prev_lino = next_lino
         return joined
 
 
-### Command line processing
+# Command line processing
 
 def main():
     import argparse
 
     args = argparse.ArgumentParser(
-        version=VERSION,
-        description="TI BASIC and TI Extended BASIC tool")
+        description="TI BASIC and TI Extended BASIC tool, v" + VERSION)
     args.add_argument("source", metavar="<source>",
                       help="TI BASIC or TI Extended BASIC program")
     cmd = args.add_mutually_exclusive_group()
@@ -495,7 +490,6 @@ def main():
                       help="set output filename")
     opts = args.parse_args()
 
-    #setup
     basename = os.path.basename(opts.source)
     barename, ext = os.path.splitext(basename)
 
@@ -511,14 +505,14 @@ def main():
                 program = BasicProgram()
                 program.merge(image)
             else:
-                program = BasicProgram(data=image, long_=opts.long_)
-            data = program.getSource()
+                program = BasicProgram(data=image, long_fmt=opts.long_)
+            data = program.get_source()
             output = "-" if opts.list_ else opts.output or barename + ".b99"
         elif opts.dump:
             with open(opts.source, "rb") as fin:
                 image = fin.read()
             program = BasicProgram(data=image)
-            data = program.dumpTokens()
+            data = program.dump_tokens()
             output = opts.output or "-"
         else:
             # create program
@@ -530,11 +524,11 @@ def main():
             if opts.join:
                 try:
                     delta = xint(opts.join)
-                    lines = BasicProgram.join(lines, maxLinoDelta=delta)
+                    lines = BasicProgram.join(lines, max_lino_delta=delta)
                 except ValueError:
                     raise BasicError("Invalid line delta for join")
             program = BasicProgram(source=lines)
-            data = program.getImage(long_=opts.long_, protected=opts.protect)
+            data = program.get_image(long_fmt=opts.long_, protected=opts.protect)
             output = opts.output or barename + ".prg"
 
         if program and program.warnings:
@@ -553,6 +547,7 @@ def main():
 
     # return status
     return 0
+
 
 if __name__ == "__main__":
     status = main()
