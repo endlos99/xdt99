@@ -1,0 +1,10 @@
+* xga errors
+
+    grom >10000         ;ERR
+
+    clr  @>8300
+    copy "nonexisting"  ;ERR
+    inc  @>8300
+
+    end
+

@@ -1,0 +1,20 @@
+       grom >6000
+
+       data l2
+       data l3
+
+       clr  @>8300
+l1     ceq  @>8300, v@0(>04)
+       bs   l3
+       ceq  @>8300, v@10(>08)
+       br   l2
+       inc  @>8300
+       bs   l1
+l2      st   1, @>8301
+l3      st   2, @>8302
+       b    l1
+
+       data l3
+       data l1
+
+       end

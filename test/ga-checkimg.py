@@ -1,8 +1,8 @@
 #!/usr/bin/env python
 
-# How to update the gplsrcs.dsk:
+# How to update the gplsrcs.dsk_id:
 # - replace source file DIS/VAR 80 (no ext)
-# - start ti99 gpl gplsrcs.dsk
+# - start ti99 gpl gplsrcs.dsk_id
 # - enter source name, then -O, then -L, options G3
 # - start DSK2.LINK
 # - enter -O, -P, options G3
@@ -11,21 +11,10 @@
 import os
 
 from config import Dirs, Disks, Files
-from utils import xga, xdm, error, checkFilesEq
+from utils import xga, xdm, error, check_files_eq, check_gbc_files_eq
 
 
-### Check function
-
-def checkGbcFilesEq(name, genfile, reffile):
-    """check if non-zero bytes in binary files are equal"""
-    with open(genfile, "rb") as fg, open(reffile, "rb") as fr:
-        genimage = fg.read()
-        refimage = fr.read()[6:]
-    if genimage != refimage and genimage != refimage[:-1]:
-        error("GPL image", "Image mismatch: " + name)
-
-
-### Main test
+# Main test
 
 def runtest():
     """check cross-generated output against native reference files"""
@@ -45,21 +34,15 @@ def runtest():
         source = os.path.join(Dirs.gplsources, infile)
         xdm(Disks.gplsrcs, "-e", reffile, "-o", Files.reference)
         xga(*[source] + opts + ["-o", Files.output])
-        checkGbcFilesEq(infile, Files.output, Files.reference)
+        check_gbc_files_eq(infile, Files.output, Files.reference)
 
     # cart generation
     for name in ["gacart", "gahello"]:
         source = os.path.join(Dirs.gplsources, name + ".gpl")
         ref = os.path.join(Dirs.refs, name + ".rpk")
         xga(source, "-c", "-o", Files.output)
-        checkFilesEq("GPL cart", Files.output, ref, "P",
+        check_files_eq("GPL cart", Files.output, ref, "P",
                      mask=((0x8, 0x1e), (0x188, 0xfff)))
-
-    # extensions
-    source = os.path.join(Dirs.gplsources, "gaxprep.gpl")
-    xga(source, "-D", "isdef=2", "-o", Files.output)
-    xdm(Disks.gplsrcs, "-e", "GAXPREP-Q", "-o", Files.reference)
-    checkGbcFilesEq(source, Files.output, Files.reference)
 
     # error messages
     for s in ["gaerrs0.gpl", "gaerrs1.gpl"]:

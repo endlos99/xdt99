@@ -60,9 +60,9 @@ start
         .endif
         .endif
 
-        .ifeq e1, e99
-        data 17
-        .endif
+;       .ifeq e1, e99    <--- unknown symbol
+;       data 17
+;       .endif
 
         .ifdef e99
         COPY "FOOBAR"
@@ -73,10 +73,12 @@ e88     equ 88
         data 18
         .endif
 
+        .ifdef isdef
         .ifeq isdef, 2
         data 19
         .else
         data 20
+        .endif
         .endif
 
         .ifdef _xga99_gbc

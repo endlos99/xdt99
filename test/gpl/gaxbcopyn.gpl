@@ -1,0 +1,11 @@
+       grom >a000
+
+l1     dclr @>83e0
+       ;bcopy "gpl/gaxbcpyd"
+       text >123456789a
+       text >ffffdeadbeef
+       byte >99
+       b    l1
+
+       end
+

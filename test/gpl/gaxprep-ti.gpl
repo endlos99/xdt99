@@ -62,9 +62,9 @@ START
 *       .ENDIF
 *       .ENDIF
 
-*       .IFEQ E1, E99
-*       DATA 17
-*       .ENDIF
+**       .IFEQ E1, E99
+**       DATA 17
+**       .ENDIF
 
 *       .IFDEF E99
 *       COPY "FOOBAR"

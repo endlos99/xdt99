@@ -1,0 +1,8 @@
+       grom >a000
+
+l1     dclr @>83e0
+       bcopy "gaxbcpyd"
+       b    l1
+
+       end
+
