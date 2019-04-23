@@ -5,7 +5,7 @@ import shutil
 import datetime
 
 from config import Dirs, Disks, Files, Masks
-from utils import xdm, checkFilesEq, checkFileMatches
+from utils import xdm, check_files_eq, check_file_matches
 
 
 def tiname(s):
@@ -13,7 +13,7 @@ def tiname(s):
     return os.path.splitext(os.path.basename(s))[0][:10].upper()
 
 
-### Main test
+# Main test
 
 def runtest():
     """compare extracted files to reference files"""
@@ -27,7 +27,7 @@ def runtest():
             "F16", "F127", "F128", "F129", "F254", "F255", "F64V", "F10R"
             ]:
         xdm(Disks.work, "-e", fn, "-t", "-o", Files.output)
-        checkFilesEq("TIFiles", Files.output,
+        check_files_eq("TIFiles", Files.output,
                      os.path.join(Dirs.refs, fn + ".tfi"), "PROGRAM",
                      Masks.TIFile)
 
@@ -36,27 +36,27 @@ def runtest():
             "V16", "V127", "V64V", "V10R", "F129", "F64V", "F10R"
             ]:
         xdm(Disks.work, "-e", fn, "-9", "-o", Files.output)
-        checkFilesEq("v9t9", Files.output,
+        check_files_eq("v9t9", Files.output,
                      os.path.join(Dirs.refs, fn + ".v9t9"), "PROGRAM",
                      Masks.v9t9)
         xdm("-F", Files.output, "-9", "-o", Files.output)
         xdm(Disks.work, "-e", fn, "-o", Files.reference)
-        checkFilesEq("v9t9", Files.output, Files.reference, "DV")
+        check_files_eq("v9t9", Files.output, Files.reference, "DV")
 
     # compare files extracted from fragmented image
     shutil.copyfile(Disks.frag, Disks.work)
     for fn in ["F1", "F6"]:
         xdm(Disks.work, "-e", fn, "-o", Files.output)
-        checkFilesEq("Frag Disk", Files.output,
+        check_files_eq("Frag Disk", Files.output,
                      os.path.join(Dirs.refs, "FRAG" + fn), "DIS/VAR127")
     xdm(Disks.work, "-d", "F1")
     xdm(Disks.work, "-e", "F6", "-o", Files.output)
-    checkFilesEq("Frag Disk", Files.output, os.path.join(Dirs.refs, "FRAGF6"),
+    check_files_eq("Frag Disk", Files.output, os.path.join(Dirs.refs, "FRAGF6"),
                  "DIS/VAR127")
     shutil.copyfile(Disks.frag, Disks.work)
     xdm(Disks.work, "-a", Files.output, "-n", "COPY", "-f", "DIS/VAR127")
     xdm(Disks.work, "-e", "F1", "-o", Files.output)
-    checkFilesEq("Frag Disk", Files.output, os.path.join(Dirs.refs, "FRAGF1"),
+    check_files_eq("Frag Disk", Files.output, os.path.join(Dirs.refs, "FRAGF1"),
                  "DIS/VAR127")
 
     # compare short and long TIFiles
@@ -64,14 +64,14 @@ def runtest():
     shutil.copyfile(rfile, Files.reference)
     with open(Files.output, "w") as f:
         xdm(Disks.work, "-I", Files.reference, stdout=f)
-    checkFileMatches(Files.output,
+    check_file_matches(Files.output,
                      [(0, "^%-10s" % tiname(Files.reference) +
                           r"\s+4  DIS/VAR 64\s+575 B\s+9 recs\s+" +
                           str(datetime.date.today()))])
     xdm(Disks.work, "-X", "sssd", "-t", "-a", rfile)
     xdm(Disks.work, "-e", "V64V", "-o", Files.output)
     xdm("-F", rfile, "-o", Files.reference)
-    checkFilesEq("Short TIFiles", Files.output, Files.reference, "DIS/VAR64")
+    check_files_eq("Short TIFiles", Files.output, Files.reference, "DIS/VAR64")
 
     # cleanup
     os.remove(Files.output)
@@ -80,3 +80,4 @@ def runtest():
 
 if __name__ == "__main__":
     runtest()
+    print "OK"
