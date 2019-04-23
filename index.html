@@ -102,7 +102,7 @@ installation, simply place the files <code>xas99.py</code>, <code>xga99.py</code
 <code>xdm99.py</code>, <code>xhm99.py</code>, and <code>xvm99.py</code> somewhere in your <code>$PATH</code> or where your
 command-line interpreter will find them.  Windows users will find additional
 information about installation and how to get started in the
-<a href="https://github.com/endlos99/xdt99/releases">Windows Tutorial</a>.</p>
+<a href="https://github.com/endlos99/xdt99/blob/master/doc/WINDOWS.md">Windows Tutorial</a>.</p>
 
 <p>The <code>ide/</code> directory contains the editor plugins for GNU Emacs and IntelliJ
 IDEA.  Please refer to the <code>EDITORS.md</code> file for further information about
@@ -120,7 +120,7 @@ that are referenced throughout this manual.</p>
 programs for the TI 99 home computer equipped with the Editor/Assembler module
 or the Mini Memory module.</p>
 
-<p>Invoking <code>xas99</code> in standard mode will assemble a TMS9900 assembly source code 
+<p>Invoking <code>xas99</code> in standard mode will assemble a TMS9900 assembly source code
 file into an object code file that may be loaded using the Editor/Assembler
 module option 3.</p>
 
@@ -175,7 +175,7 @@ package in the case of errors.  <code>xas99</code> is slightly more permissive t
 Editor/Assembler, but it should be able to assemble any source that the
 Editor/Assembler package can assemble.</p>
 
-<p>The assembler may also issue a number of <strong>warnings</strong>, as shown in this 
+<p>The assembler may also issue a number of <strong>warnings</strong>, as shown in this
 example:</p>
 
 <pre><code>val  equ 0
@@ -183,7 +183,7 @@ example:</p>
      ci   r1, r2       ; Register used as immediate operand
      b    @lab         ; Possible B/JMP optimization
      data 0
-lab  mov  @val(r1)     ; Using indexed address @0, could use *r1 instead 
+lab  mov  @val(r1)     ; Using indexed address @0, could use *r1 instead
 cons data 1            ; Unreferenced symbol (summary at end of assembly)
 </code></pre>
 
@@ -280,9 +280,11 @@ if no argument is given, <code>&gt;0000</code> is used.</p>
 by <code>-b</code>.  Followed by <code>a</code>, it creates <code>BYTE</code> or <code>DATA</code> instructions to use in
 assembly or GPL; by <code>b</code>, it creates <code>DATA</code> instructions to use in BASIC; by
 <code>c</code>, it creates a list of hex values to use in C/C++ arrays.  Including <code>2</code> or
-<code>4</code> in the value generates bytes or words, respectively.  As an example,</p>
+<code>4</code> in the value generates bytes or words, respectively.  For target platforms
+with different endianness, include <code>r</code> to swap the bytes in words.  As an
+example,</p>
 
-<pre><code>$ xas99.py -t a2 -R ascart.a99
+<pre><code>$ xas99.py -t a2 -R example.a99
 </code></pre>
 
 <p>results in an assembly file with <code>AORG</code>s and <code>BYTE</code> directives:</p>
@@ -425,7 +427,7 @@ All extensions are backwards compatible in virtually all situations of
 practical relevance so that any existing source code should compile as-is.</p>
 
 <p><strong>Comments</strong> may be included anywhere in the source code by prepending them
-with a semicolon <code>;</code>.  A <code>;</code> character inside a text literal <code>'...'</code> or 
+with a semicolon <code>;</code>.  A <code>;</code> character inside a text literal <code>'...'</code> or
 filename <code>"..."</code> does <em>not</em> introduce a comment.</p>
 
 <p>Source code is processed case insensitively so that all labels, expressions, and
@@ -438,8 +440,8 @@ Label3 mov Label1(R1),Label2(r2)
 </code></pre>
 
 <p><strong>Labels</strong> may be of arbitrary length and may contain arbitrary characters
-except for whitespace and operators such as <code>+</code>, <code>*</code>, <code>(</code>, <code>$</code>, etc.  An 
-optional colon <code>:</code> may be appended to the label name.  The colon is not part 
+except for whitespace and operators such as <code>+</code>, <code>*</code>, <code>(</code>, <code>$</code>, etc.  An
+optional colon <code>:</code> may be appended to the label name.  The colon is not part
 of the name, but logically continues the current line to the next:</p>
 
 <pre><code>my_label_1:
@@ -518,27 +520,35 @@ evaluation, parentheses can be used: <code>1 + (2 * 3) - (4 &amp; 5)</code>.</p>
 <p><code>xas99</code> features a number of so-called <strong>modifiers</strong> that apply to symbols,
 literals, or registers.</p>
 
-<p>Many programs use byte or word constants, e.g., for <code>MOV</code>/<code>MOVB</code> or <code>C</code>/<code>CB</code> 
+<p>Many programs use byte or word constants, e.g., for <code>MOV</code>/<code>MOVB</code> or <code>C</code>/<code>CB</code>
 instructions when immediate values are not available or feasible.  A common
 problem then is to keep track of all used constants.  <code>xas99</code> assists the
 developer here by warning about unused constants (see Warnings).</p>
 
-<p>A convenient alternative is to use <strong>auto-generated constants</strong>.  The regular
-code segment </p>
-
-<pre><code>    mov  @h_ff01, @status
-    cb   @keycode, @b_48
-h_ff01:
-    data &gt;ff01
-b_48:
-    byte 48
-</code></pre>
-
-<p>can be written with auto-generated constants <code>b#</code> and <code>w#</code> like this:</p>
+<p>A convenient alternative is to use <strong>auto-generated constants</strong> with modifiers
+<code>b#</code> and <code>w#</code>.  As an example,  </p>
 
 <pre><code>    mov  w#&gt;ff01, @status
-    cb   @keycode, b#48
+    socb b#81, r1
+    cb   @keycode, b#Q
 </code></pre>
+
+<p>is equivalent to this code without modifiers:</p>
+
+<pre><code>    mov  @h_ff01, @status
+    socb b_81, r1
+    cb   @keycode, @b_81
+h_ff01:
+    data &gt;ff01
+b_81:
+    byte 81   ; note that 'Q' == 81
+</code></pre>
+
+<p>For a word character constant such as 'w#A', a zero byte is appended to the
+generated byte, e.g., <code>&gt;4100</code>.</p>
+
+<p>The assembler ensures that each value is added only once, so for constants
+<code>b#&gt;41</code>, <code>b#65</code>, and <code>b#A</code>, it will add only one byte to the code.</p>
 
 <p>Please note that the constants must be literals, i.e., constructs like</p>
 
@@ -549,7 +559,7 @@ b_48:
 <p>are not valid.  For these case, use regular named constants instead.</p>
 
 <p>The assembler logically appends all auto-generated constants to the end of the
-source code.  So if we need to place some data after the code</p>
+<em>source</em> code.  So if we need to place some data after the code</p>
 
 <pre><code>    save &gt;2000-&gt;2fff
 
@@ -772,8 +782,8 @@ otherwise, it generates images for each segment individually.</p>
 <p>The use of <code>SAVE</code> is recommended to reduce the number of generated files if
 <code>XORG</code> is employed.</p>
 
-<p>The source code <strong>preprocessor</strong> allows for conditional assembly based on 
-well-defined conditional expressions.  The preprocessor commands <code>.ifdef</code> and 
+<p>The source code <strong>preprocessor</strong> allows for conditional assembly based on
+well-defined conditional expressions.  The preprocessor commands <code>.ifdef</code> and
 <code>.ifndef</code> check if a given symbol is defined or not.</p>
 
 <pre><code>       .ifdef lang_de
@@ -787,7 +797,11 @@ msg    text 'Hello World'
 equal, not equal, greater than, or greater than or equal, resp.  If the second
 argument is missing, the first argument is compared against value <code>0</code>.</p>
 
-<p>The <code>.print</code> preprocessor command prints its arguments to STDOUT.</p>
+<p>Conditional assembly preprocessor commands may be nested.  Valid conditional
+expressions and their rules of evaluation correspond to those of the <code>EQU</code>
+directive.</p>
+
+<p>The <code>.print</code> preprocessor command prints its arguments to <code>stdout</code>.</p>
 
 <pre><code>val    equ 42
        .print 'Selected answer is', value
@@ -815,9 +829,24 @@ depending on the assembly command <code>-i</code>, <code>-c</code>, ... used.</p
 
 <p>If no value is given, the symbol is set to value <code>1</code>.</p>
 
-<p>Conditional assembly preprocessor commands may be nested.  Valid conditional
-expressions and their rules of evaluation correspond to those of the <code>EQU</code>
-directive.</p>
+<p>The symbol option <code>-E</code> dumps all symbols in EQU-like syntax to an external
+file <code>sym.a99</code>:</p>
+
+<pre><code>$ xas99.py ashello.a99 -E sym.a99
+</code></pre>
+
+<p>which then reads:</p>
+
+<pre><code>CLS:
+       equ  &gt;002E  ; REL    &lt;-- was relocatable address
+GPLST:
+       equ  &gt;837C  ;
+KCODE:
+       equ  &gt;8375  ;
+KEYSC:
+       equ  &gt;005C  ; REL
+...
+</code></pre>
 
 <p><code>xas99</code> supports <strong>macros</strong>.  The <code>.defm</code> preprocessor command introduces a new
 macro.  The <code>.endm</code> command concludes the macro definition.  Inside the macro
@@ -958,6 +987,15 @@ shows up in the TI 99 menu selection screen.</p>
 <pre><code>$ xga99.py -c gahello.gpl -n "HELLO GPL WORLD"
 </code></pre>
 
+<p>The optional list file parameter <code>-L</code> creates a list file of the source that
+shows the addresses and their byte values for each source line.</p>
+
+<pre><code>$ xga99.oy gahello.gpl -L gahello.lst
+</code></pre>
+
+<p>When <code>-L</code> is given, the symbol dump parameter <code>-S</code> includes the symbol table in
+the list file.</p>
+
 <p>As the Graphics Programming Language was never intended for public release,
 existing native tools for assembling GPL source code differ substantially in the
 language syntax they support.  <code>xga99</code> adopts a variation of the Ryte Data GPL
@@ -1042,7 +1080,7 @@ address label for the <code>FEND</code> instruction.</p>
 
 <p>The <code>xga99</code> GPL assembler supports the following directives:</p>
 
-<pre><code>GROM AORG EQU DATA BYTE TEXT STRI BSS TITLE COPY
+<pre><code>GROM AORG EQU DATA BYTE TEXT STRI BSS TITLE COPY BCOPY
 </code></pre>
 
 <p>Directives affecting listing generation are currently ignored:</p>
@@ -1069,7 +1107,7 @@ extended hexadecimal literal.</p>
 <p>Note that the second instruction is equivalent to <code>BYTE &gt;18,&gt;3C,&gt;7E,...</code>.</p>
 
 <p>The <code>STRI</code> directive works similar to the <code>TEXT</code> directive but prepends the
-generated byte sequence with a length byte.</p>
+a length byte to the generated byte sequence.</p>
 
 <p>The <code>GROM</code> directive sets the GROM base address for the code that follows.
 Currently only one <code>GROM</code> directive per source file is supported.  Note that the
@@ -1085,6 +1123,10 @@ location of the final GPL byte code image may also be specified by command-line
 parameters <code>-G</code> and <code>-A</code>, respectively.  Note that cartridge parameter <code>-c</code>
 implies <code>-G 0x6000</code> and <code>-A 0x30</code>.</p>
 
+<p>The <code>COPY</code> and <code>BCOPY</code> directives include text files or binary files,
+respectively.  A text file becomes part of the assembly source, whereas a
+binary is included verbatim into the byte code.</p>
+
 <h3><code>xdt99</code> Extensions</h3>
 
 <p>The <code>xga99</code> GPL cross-assembler offers various "modern" extensions to the
@@ -1093,24 +1135,36 @@ GPL programs.  All extensions are backwards compatible in virtually all
 situations of practical relevance so that any existing source code should
 compile as-is.</p>
 
+<p>The <code>xas99</code> extensions regarding <strong>comments</strong>, <strong>labels</strong>, <strong>whitespace</strong>, and
+<strong>expressions</strong> also apply to <code>xga99</code>.</p>
+
 <p>The source code <strong>preprocessor</strong> supports conditional assembly <code>.ifdef</code> and
-macros <code>.defm</code>.  For a description of both features please refer to the 
+macros <code>.defm</code>.  For a description of both features please refer to the
 respective section in the <code>xas99</code> manual.</p>
 
-<p>Note, however, that GPL macros use macro parameters <code>$1</code>, <code>$2</code>, ... instead
-of <code>#1</code>, <code>#2</code>, ..., as the latter are used to denote VDP registers in GPL.</p>
+<p><code>xga99</code> supports <strong>macros</strong>.  Note, however, that GPL macros use macro
+parameters <code>$1</code>, <code>$2</code>, ... instead of <code>#1</code>, <code>#2</code>, ..., as the <code>#</code> sign is used
+to denote VDP registers in GPL.</p>
 
 <p>The <strong>predefined symbols</strong> set by <code>xga99</code> are <code>_xga99_image</code>, <code>_xga99_cart</code>, or
 <code>_xga99_gbc</code>, depending on the assembly command <code>-i</code>, <code>-c</code>, ... used.</p>
+
+<p><strong>Local labels</strong> are non-unique source-relative labels that begin with an
+exclamation mark <code>!</code>.  For details about local labels, please refer to the
+Local labels section of the <code>xas99</code> cross-assembler manual.</p>
+
+<p>The <strong>command line options</strong> <code>-D</code> to define additional symbols and <code>-E</code> to dump
+all symbols in EQU format to an external file work similar to their
+counterparts in <code>xas99</code>.</p>
 
 <h2>xda99 Disassembler</h2>
 
 <p>The cross-disassembler <code>xda99</code> is a command-line tool to convert machine code
 into assembly source code.</p>
 
-<p>To disassemble a binary machine code file, the disassembler needs to know the
-first address of the machine code as well as the starting address for the
-disassembly:</p>
+<p>To disassemble a binary machine code file, we need to tell the disassembler the
+first address of the machine code with parameter <code>-a</code> and the starting address
+for the disassembly with <code>-f</code>:</p>
 
 <pre><code>$ xda99.py ascart_6000.bin -a 6000 -f 600c
 </code></pre>
@@ -1119,7 +1173,7 @@ disassembly:</p>
 optionally be prefixed by <code>&gt;</code> or <code>0x</code>.</p>
 
 <p>The resulting file has the same name as the binary file but ends in <code>.dis</code>.  It
-contains the disassembled instructions in a source-like list:</p>
+contains the disassembled instructions in a list file-like list:</p>
 
 <pre><code>            AORG &gt;6000
 6000 4845?
@@ -1137,26 +1191,31 @@ contains the disassembled instructions in a source-like list:</p>
 </code></pre>
 
 <p>The output option <code>-o</code> redirects the output to a different file, or prints to
-stdout when using the special filename <code>-</code>.</p>
+<code>stdout</code> when using the special filename <code>-</code>.</p>
 
-<p>An optional to parameter <code>-t</code> will limit the disassembly to below that address.</p>
+<p>The area to disassemble can be specified with the <em>from</em> parameter <code>-f</code> and the
+optional <em>to</em> parameter <code>-t</code>.</p>
 
-<p>The from parameter <code>-f</code> starts the disassembler in "top-down mode", which
-disassembles the machine code sequentially word by word into.  This is often
-problematic, as programs consists of both code and data segments.  Disassembling
-data segments results in accurate, but meaningless statements, which can be seen
-if above command line is changed to <code>-f 6000</code>:</p>
+<p>Machine code consists of both code and data segments.  Supplying the <em>from</em>
+parameter <code>-f</code> will start the disassembly in "top-down mode", which
+disassembles the machine code sequentially word by word.  In general, this mode
+yields bad results, as the data segments in the machine code will be translated
+into accurate, but meaningless statements.  This can be seen by chanding above
+command line parameter to <code>-f 6000</code>:</p>
 
 <pre><code>            AORG &gt;6000
-6000 4845   SZC   R5, @&gt;4C4C(R1)
-6002 4C4C
-6004 4F20   SZC   @&gt;4341, *R12+
-6006 4341
-6008 5254   SZCB  *R4, R9
-600A 2100   COC   R0, R4
+6000 4845   SZC   R5, @&gt;4C4C(R1)        |
+6002 4C4C                               |
+6004 4F20   SZC   @&gt;4341, *R12+         |  data erroneously
+6006 4341                               |  disassembled into
+6008 5254   SZCB  *R4, R9               |  source code
+600A 2100   COC   R0, R4                |
 600C 0300   LIMI  &gt;0000
 600E 0000
 </code></pre>
+
+<p>Even worse, disassembling data into nonsense can spill over to the actual code
+if the alignment happend to be incorrect.</p>
 
 <p>If the data segments are known, those can be excluded from disassembly with the
 exclude <code>-e</code> option:</p>
@@ -1274,9 +1333,9 @@ correct.</p>
 
 <p>But run mode is not always 100% accurate, as <code>xda99</code> cannot follow indirect
 branches such as <code>B *R1</code>, and doesn't know if a condition for <code>JEQ LABEL</code> is
-always true and thus has no alternate path.  (The latter remark is more relevant
-for <code>xdg99</code>, where <code>BR</code> is often used as a shorter <code>B</code>.)  As a consequence, a
-run may "run off" (no pun indented), and worse, different runs may try to
+always true and thus has no alternate path.  (The latter remark is more
+relevant for <code>xdg99</code>, where <code>BR</code> is often used as a shorter <code>B</code>.)  As a
+consequence, a run may "run off", and worse, different runs may try to
 disassemble the same range differently:</p>
 
 <pre><code>               First run,              Second run,
@@ -1294,9 +1353,9 @@ disassembled address (i.e., an operator), which raises a conflict about which
 version is correct.</p>
 
 <p>The default behavior of <code>xda99</code> is to stop the run, leaving the previous
-disassembly untouched.  You can override the default with the force option <code>-F</code>,
-which will always overwrite previous results.  This is done cleanly, so that
-run 2 above will reset the overridden instruction at address <code>@&gt;6000</code>.</p>
+disassembly untouched.  You can override the default with the force option
+<code>-F</code>, which will always overwrite previous results.  This is done cleanly, so
+that run 2 above will reset the overridden instruction at address <code>@&gt;6000</code>.</p>
 
 <p>There is no recommendation to disassemble with or without override.  The result
 of each disassembly may vary with each binary, and should be tried out.</p>
@@ -1479,18 +1538,18 @@ the file catalog of the disk image to <code>stdout</code>:</p>
 <pre><code>$ xdm99.py ed-asm.dsk
 ED-ASSM   :     97 used  263 free   90 KB  1S/1D  40 TpS
 ----------------------------------------------------------------------------
-ASSM1         33  PROGRAM       8192 B
-ASSM2         18  PROGRAM       4102 B
-EDIT1         25  PROGRAM       5894 B
-SAVE          13  DIS/FIX 80    3072 B   36 recs
-SFIRST/O       3  DIS/FIX 80     512 B    5 recs
-SLAST/O        3  DIS/FIX 80     512 B    4 recs
+ASSM1         33  PROGRAM       8192 B            P
+ASSM2         18  PROGRAM       4102 B            P
+EDIT1         25  PROGRAM       5894 B            P
+SAVE          13  DIS/FIX 80    3072 B   36 recs  P
+SFIRST/O       3  DIS/FIX 80     512 B    5 recs  P
+SLAST/O        3  DIS/FIX 80     512 B    4 recs  P
 </code></pre>
 
 <p>The top line shows the name of the disk, the number of used and free sectors as
 well as the disk geometry.  For each file, the number of used sectors, the file
-type, the file length, and the actual number of records is shown.  If present,
-the file modification time is also shown.</p>
+type, the file length, the actual number of records, and the protection status
+is shown.  If present, the file modification time is also shown.</p>
 
 <p><code>xdm99</code> will warn about any inconsistencies it may find, e.g., blocks claimed by
 files but not allocated in the allocation map.  When assembling programs
@@ -1507,10 +1566,18 @@ local file system.</p>
 </code></pre>
 
 <p>The local output filename is derived automatically from the TI filename but
-may be overridden with the <code>-o</code> parameter if only one file is extracted.</p>
+may be overridden with the <code>-o</code> parameter.</p>
 
 <pre><code>$ xdm99.py work.dsk -e HELLO-S -o hello.a99
 </code></pre>
+
+<p>If <code>-o</code> specifies a directory, the output is placed into that directory.</p>
+
+<pre><code>$ xdm99.py work.dsk -e HELLO-O HELLO-S -o hello/
+</code></pre>
+
+<p>When extracting two or more files, <code>-o</code> may only be used with a directory
+argument.</p>
 
 <p>To print the contents of a file to <code>stdout</code>, the print parameter <code>-p</code> may also
 be used:</p>
@@ -1528,12 +1595,16 @@ and <code>?</code>.  This will extract all files matching the given pattern.</p>
 <pre><code>$ xdm99.py work.dsk -e "HELLO-*"
 </code></pre>
 
-<p>Note that you may have to quote your glob pattern to prevent your
-shell from expanding the pattern prematurely.</p>
+<p>Note that you may have to quote your glob pattern to prevent your shell from
+expanding the pattern prematurely.</p>
 
-<p>Extracting files will yield the file contents only.  In order to
-retain file meta data about file type and record length, use the
-TIFiles or v9t9 formats described below.</p>
+<p>By default, <code>xdm99</code> will convert between upper and lower case when moving
+PC files to and from disk images.  To keep extracted filenames like they
+were on the disk image, use the <code>--ti-names</code> option.</p>
+
+<p>Extracting files will yield the file contents only.  In order to retain file
+meta data about file type and record length, use the TIFiles or v9t9 formats
+described below.</p>
 
 <h3>Manipulating Disks</h3>
 
@@ -1561,8 +1632,14 @@ specified filename will be incremented by one for each subsequent file, e.g.,</p
 <pre><code>$ xdm99.py work.dsk -r HELLO-S:HELLO/S
 </code></pre>
 
-<p>For each file to rename, provide the old filename. followed by a colon <code>:</code>,
+<p>For each file to rename, provide the old filename, followed by a colon <code>:</code>,
 followed by the new filename.</p>
+
+<p>To rename the disk itself, use the <code>-n</code> options without any additional
+arguments.</p>
+
+<pre><code>$ xdm99.py work.dsk -n WORK-2
+</code></pre>
 
 <p>The delete parameter <code>-d</code> deletes one or more files on the disk.</p>
 
@@ -1570,9 +1647,18 @@ followed by the new filename.</p>
 $ xdm99.py work.dsk -d "*-O"
 </code></pre>
 
-<p>Note that the current implementation of <code>xdm99</code> does not perform a "secure
-erase", i.e., parts of the file contents may remain hidden in the sectors of the
+<p>Note that the current implementation of <code>xdm99</code> will actually perform a "secure
+erase", i.e., the entire contents of the deleted file will be removed from the
 disk image.</p>
+
+<p>The write protection parameter <code>-w</code> toggles the current protection status of
+the given files.</p>
+
+<pre><code>$ xdm99.py work.dsk -w HELLO HELLO-CPY
+</code></pre>
+
+<p>Note that file protection is solely for TI 99 systems and emulators but will be
+ignored by <code>xdm99</code>.</p>
 
 <p>File operations do not retain the overall sector structure of the disk.  In
 particular, all files will be defragmented whenever files are added or deleted
@@ -1633,8 +1719,7 @@ Classic 99, the <code>--ti-names</code> option will use the uppercase name witho
 extension.</p>
 
 <p>The info parameter <code>-I</code> displays the meta file information contained in FIAD
-files, while the print parameter <code>-P</code> dumps the file contents to
-<code>stdout</code>:</p>
+files, while the print parameter <code>-P</code> dumps the file contents to <code>stdout</code>:</p>
 
 <pre><code>$ xdm99.py -I hello-s.tfi
 $ xdm99.py -P hello-s.v9t9
@@ -1730,8 +1815,10 @@ density, and the track information of the disk image.</p>
 <pre><code>$ xdm99.py work.dsk --set-geometry 2S1D80T
 </code></pre>
 
-<p>Note that the <code>--set-geometry</code> command is rarely required for regular images
-but may be helpful for experimenting with non-standard disk image formats.</p>
+<p>The <code>--set-geometry</code> command is rarely required for regular images but may be
+helpful for experimenting with non-standard disk image formats.</p>
+
+<p>Note that the 80-track DSDD format is currently not supported.</p>
 
 <p>The sector dump parameter <code>-S</code> prints the hexadecimal contents of individual
 sectors to <code>stdout</code>.  This can be used to further analyze disk errors or to save
@@ -1935,7 +2022,7 @@ alternatively with the TI Extended BASIC module using the <code>CALL LOAD</code>
 statement.</p>
 
 <p>Uncompressed object code is not an efficient program format, though.  If
-compatibility with Extended BASIC is not required compressed object code
+compatibility with Extended BASIC is not required, compressed object code
 reduces both size and loading time:</p>
 
 <pre><code>$ xas99.py -R -C ashello.a99 - ashello-c.obj
@@ -2128,7 +2215,7 @@ the TI menu selection screen.</p>
 <p>The xdt99 tools are released under the GNU GPL, in the hope that TI 99
 enthusiasts may find them useful.</p>
 
-<p>Please email feedback and bug reports to the developer at <a href="&#x6D;&#97;&#105;&#108;&#x74;&#x6F;:&#x78;d&#116;&#x39;&#x39;&#100;&#101;&#118;&#64;&#103;&#109;&#x61;&#105;&#x6C;&#x2E;c&#111;&#109;">&#x78;d&#116;&#x39;&#x39;&#100;&#101;&#118;&#64;&#103;&#109;&#x61;&#105;&#x6C;&#x2E;c&#111;&#109;</a>
+<p>Please email feedback and bug reports to the developer at <a href="&#x6D;&#x61;&#105;&#x6C;&#x74;&#x6F;:&#x78;&#100;&#x74;&#x39;&#57;&#x64;&#101;&#118;&#64;&#103;&#109;&#97;&#105;&#108;&#46;&#x63;&#111;&#109;">&#x78;&#100;&#x74;&#x39;&#57;&#x64;&#101;&#118;&#64;&#103;&#109;&#97;&#105;&#108;&#46;&#x63;&#111;&#109;</a>
 or use the issue tracker on the project <a href="https://github.com/endlos99/xdt99">GitHub page</a>.</p>
 
     <!-- FOOTER  -->
