@@ -24,8 +24,8 @@ xhmPy = ["../xhm99.py"]
 xvmPy = ["../xvm99.py"]
 #xvmPy = ["python.exe", "..\\xvm99.py"]
 
-xbasPy = ["../xbas99.py"]
-#xbasPy = ["python.exe", "..\\xbas99.py"]
+#xbasPy = ["../xbas99.py"]
+xbasPy = ["python.exe", "..\\xbas99.py"]
 
 
 ### Paths

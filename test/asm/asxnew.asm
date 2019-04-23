@@ -10,7 +10,7 @@ binval  equ  :1010
         data :01011010,:11110000
         byte binval
 
-; binary includes
+; binary include_path
 
 bininc  byte >AA
         bcopy "asxnew.bin"

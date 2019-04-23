@@ -94,7 +94,7 @@ def runtest():
     with open(Files.error, "r") as ferr:
         errs = ferr.readlines()
     if len(errs) != 1 or errs[0][:10] != "File error":
-        error("File errors", "Incorrect file error message")
+        error("File error", "Incorrect file error message")
 
     # include path
     source = os.path.join(Dirs.sources, "ascopyi.asm")

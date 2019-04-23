@@ -60,7 +60,7 @@ def runtest():
         source = os.path.join(Dirs.sources, infile)
         xas(*[source] + opts + ["-L", Files.output, "-o", Files.reference])
         xdm(Disks.asmsrcs, "-e", reffile, "-o", Files.reference)
-        check_list_files_eq(Files.output, Files.reference, ignoreLino=True)
+        check_list_files_eq(Files.output, Files.reference, ignore_lino=True)
 
     # symbols
     source = os.path.join(Dirs.sources, "ashello.asm")
@@ -78,7 +78,7 @@ def runtest():
     source = os.path.join(Dirs.sources, "asautogen.asm")
     xas(source, "-R", "-o", Files.error, "-S", "-L", Files.input)
     with open(Files.input, "r") as fin, open(Files.output, "w") as fout:
-        lines = fin.readlines()[-17:]
+        lines = fin.readlines()[-20:]
         fout.writelines(lines)
     reffile = os.path.join(Dirs.refs, "asautogen.lst")
     check_files_eq("autogen", Files.output, reffile, "P")

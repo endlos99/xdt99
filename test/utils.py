@@ -219,14 +219,14 @@ def check_image_files_eq(genfile, reffile):
             error("Image file", "Image contents mismatch @ " + hex(i))
 
 
-def check_list_files_eq(genfile, reffile, ignoreLino=False):
+def check_list_files_eq(genfile, reffile, ignore_lino=False):
     """check if list files are equivalent"""
-    with open(genfile, "rb") as fg, open(reffile, "rb") as fr:
+    with open(genfile, "r") as fg, open(reffile, "r") as fr:
         genlist = [(l[:16] + l[19:]).rstrip() for l in fg.readlines()
                    if l[:4] != "****"]
         reflist = [l[2:].rstrip() for l in fr.readlines() if l[:2] == "  "]
-    gi, ri = 1, 0
-    mincol, maxcol = 4 if ignoreLino else 0, 74
+    gi, ri = 1, 0  # skip assembler header note
+    min_col, max_col = 4 if ignore_lino else 0, 74
     while gi < len(genlist):
         gl, rl = genlist[gi], reflist[ri]
         # ignore deliberate changes
@@ -239,8 +239,7 @@ def check_list_files_eq(genfile, reffile, ignoreLino=False):
                 rl = rl[:5] + gl[5:9] + rl[9:]  # no address
             gl = gl.replace("; ", "* ")  # unify comments
             # ignore list directives
-            if ("TITL" in gl[16:] or "PAGE" in gl[16:] or "UNL" in gl[16:] or
-                    "LIST" in gl[16:]):
+            if "TITL" in gl[16:] or "PAGE" in gl[16:] or "UNL" in gl[16:] or "LIST" in gl[16:]:
                 gi += 1
                 continue
             # ignore BYTE sections
@@ -254,7 +253,7 @@ def check_list_files_eq(genfile, reffile, ignoreLino=False):
                 continue
         except IndexError:
             pass
-        if gl[mincol:maxcol] != rl[mincol:maxcol]:
+        if gl[min_col:max_col] != rl[min_col:max_col]:
             error("List file", "Line mismatch in %d/%d" % (gi, ri))
         gi, ri = gi + 1, ri + 1
 
@@ -404,3 +403,14 @@ def check_errors(ref, actual):
         if err not in ref:
             error("Error messages",
                   "Extraneous error: " + str(err) + ": " + actual[err])
+
+
+# common check functions xga99
+
+def check_gbc_files_eq(name, genfile, reffile):
+    """check if non-zero bytes in binary files are equal"""
+    with open(genfile, "rb") as fgen, open(reffile, "rb") as fref:
+        genimage = fgen.read()
+        refimage = fref.read()[6:]
+    if genimage != refimage and genimage != refimage[:-1]:
+        error("GPL image", "Image mismatch: " + name)

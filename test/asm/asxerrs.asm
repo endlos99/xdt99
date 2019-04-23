@@ -2,7 +2,7 @@
 
        idt 'ASXERRS'
 
-       ; includes and binary includes
+       ; include_path and binary include_path
 
 txtinc copy  "nonexisting"    ;ERROR
 bininc bcopy "nonexisting"    ;ERROR

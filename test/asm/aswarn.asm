@@ -39,4 +39,9 @@ l2     nop
        tb r2        ;WARN
        tb val
 
+       ; for shifts, r0 is OK instead of 0
+       sla r1, 0
+       sla r2, r0
+       sla r3, r1   ;WARN
+
        end

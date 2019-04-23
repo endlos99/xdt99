@@ -23,7 +23,7 @@ import sys
 import re
 import os.path
 
-VERSION = "1.8.1"
+VERSION = "1.8.2"
 
 
 # Utility functions
@@ -74,6 +74,16 @@ def readlines(n, m="r"):
     else:
         with open(n, m) as f:
             return f.readlines()
+
+
+def outname(basename, extension, output=None, addition=None, count=1):
+    if basename == "-":
+        return "-"
+    if count == 1:
+        return output or basename + extension
+    if output is not None:
+        basename, extension = os.path.splitext(output)
+    return basename + "_" + addition + extension
 
 
 # Error handling
@@ -218,7 +228,13 @@ class Symbols:
         self.add_label(lidx, label + "$" + str(self.local_lid))
 
     def add_autogen(self, name):
-        size, value = name[0], str(xint(name[2:]))  # equalize 16 and >10
+        size = name[0]
+        try:
+            value = str(xint(name[2:]))  # equalize 16 and >10
+        except ValueError:
+            if len(name) != 3:
+                raise AsmError("Bad value for auto-generated constant: " + name)
+            value = str(ord(name[2]) if size == "B" else ord(name[2]) << 8)
         if (value, size) not in self.autogens:
             self.autogens.append((value, size))
         return DelayedAddress(size + "#" + value, size, value)
@@ -609,13 +625,16 @@ class Objcode:
         return binaries, bank_count
 
     def generate_text(self, data, mode):
-        """convert binary data into text presentation"""
+        """convert binary data into text representation"""
         text = lines = ""
         for addr, bank, mem in data:
             if 'r' in mode:
                 word = lambda i: ordw(mem[i + 1:((i - 1) if i > 0 else None):-1])  # byte-swapped
             else:
                 word = lambda i: ordw(mem[i:i + 2])
+
+            fmt = "%s%04x" if '4' in mode else "%s%02x"
+            tf = lambda x: x  # use value as-is
 
             if 'a' in mode:  # assembly
                 hex_prefix = ">"
@@ -627,22 +646,22 @@ class Objcode:
                 hex_prefix = ""
                 data_prefix = "DATA "
                 suffix = "\n"
+                fmt = "%s%d"
+                tf = lambda x: x - 0x10000 if x > 32767 else x  # hex to dec
             elif 'c' in mode:  # C
                 hex_prefix = "0x"
                 data_prefix = "  "
                 suffix = ",\n"
+            else:
+                raise AsmError("Bad text format: " + mode)
 
-            if 'b' in mode:
-                bs = [str(ord(mem[i])) for i in xrange(0, len(mem))]
-                lines = [data_prefix + ", ".join(bs[i:i + 8]) + suffix
-                         for i in xrange(0, len(bs), 8)]
-            elif '4' in mode:  # words
-                ws = ["%s%04x" % (hex_prefix, word(i))
+            if '4' in mode:  # words
+                ws = [fmt % (hex_prefix, tf(word(i)))
                       for i in xrange(0, len(mem), 2)]
-                lines = [data_prefix + ", ".join(ws[i:i + 8]) + suffix
-                         for i in xrange(0, len(ws), 8)]
+                lines = [data_prefix + ", ".join(ws[i:i + 4]) + suffix
+                         for i in xrange(0, len(ws), 4)]
             else:  # bytes (default)
-                bs = ["%s%02x" % (hex_prefix, ord(mem[i]))
+                bs = [fmt % (hex_prefix, ord(mem[i]))
                       for i in xrange(0, len(mem))]
                 lines = [data_prefix + ", ".join(bs[i:i + 8]) + suffix
                          for i in xrange(0, len(bs), 8)]
@@ -1335,7 +1354,7 @@ class Opcodes:
     op_cru = lambda parser, x: parser.expression(x, iop=True)  # [-128 .. 127]
     op_disp = lambda parser, x: parser.relative(x)  # [-254 .. 256]
     op_cnt = lambda parser, x: parser.expression(x, iop=True)  # [0 .. 15]
-    op_scnt = lambda parser, x: parser.expression(x, iop=True)  # [0 .. 15]
+    op_scnt = lambda parser, x: parser.expression(x, iop=True, allow_r0=True)  # [0 .. 15]
     op_xop = lambda parser, x: parser.expression(x, iop=True)  # [1 .. 2]
 
     opcodes = {
@@ -1541,7 +1560,7 @@ class Parser:
         self.margs = []
         self.lino = -1
         self.suspended_files = []
-        self.includes = includes or ["."]
+        self.include_path = includes or ["."]
         self.strict = strict
         self.warnings_enabled = warnings
         self.parse_branches = [True]
@@ -1593,7 +1612,7 @@ class Parser:
 
     def find(self, filename):
         """locate file that matches native filename or TI filename"""
-        include_path = ([self.path] + self.includes if self.path else self.includes)
+        include_path = [self.path] + self.include_path if self.path else self.include_path
         ti_name = re.match(r"DSK\d?\.(.*)", filename)
         if ti_name:
             native_name = ti_name.group(1)
@@ -1826,7 +1845,7 @@ class Parser:
         return disp
 
     def expression(self, expr, well_defined=False, absolute=False,
-                   relaxed=False, iop=False):
+                   relaxed=False, iop=False, allow_r0=False):
         """parse complex arithmetical expression"""
         if self.pass_no == 1 and not well_defined:
             return 0
@@ -1856,7 +1875,7 @@ class Parser:
                         value, reloc_count = Word(0), 0
                     i += 2
                 term_val, cross_bank_access = self.term(term, well_defined=well_defined,
-                                                        iop=iop, relaxed=relaxed)
+                                                        iop=iop, relaxed=relaxed, allow_r0=allow_r0)
                 if isinstance(term_val, Local):
                     dist = -term_val.distance if negate else term_val.distance
                     term_val = self.symbols.get_local(term_val.name, self.lidx, dist)
@@ -1906,10 +1925,9 @@ class Parser:
                 raise AsmError("Invalid operator: " + op)
         if not 0 <= reloc_count <= (0 if absolute else 1):
             raise AsmError("Invalid address: " + expr)
-        return Address(value.value, self.symbols.bank,
-                       True) if reloc_count else value.value
+        return Address(value.value, self.symbols.bank, True) if reloc_count else value.value
 
-    def term(self, op, well_defined=False, iop=False, relaxed=False):
+    def term(self, op, well_defined=False, iop=False, relaxed=False, allow_r0=False):
         """parse constant or symbol"""
         cross_bank_access = False
         if op[0] == ">":
@@ -1945,7 +1963,7 @@ class Parser:
             if op[:2] == 'X#' and not self.strict:
                 cross_bank_access = True
                 op = op[2:]
-            if iop and op in self.symbols.registers:
+            if iop and op in self.symbols.registers and not (op == "R0" and allow_r0):
                 self.warn("Register %s used as immediate operand" % op)
             v = self.symbols.get_symbol(op[:6] if self.strict else op)
             if v is None and (self.pass_no > 1 or well_defined):
@@ -2062,8 +2080,7 @@ def main():
     import argparse, zipfile
 
     args = argparse.ArgumentParser(
-        version=VERSION,
-        description="TMS9900 cross-assembler")
+        description="TMS9900 cross-assembler, v" + VERSION)
     args.add_argument("source", metavar="<source>",
                       help="assembly source code")
     cmd = args.add_mutually_exclusive_group()
@@ -2179,7 +2196,7 @@ def main():
             out.append((name, prog))
         elif opts.jstart:
             disk = code.generate_jumpstart()
-            name = opts.output or barename + ".dsk"
+            name = opts.output or barename + ".dsk_id"
             out.append((name, disk))
         else:
             data = code.generate_object_code(opts.optc)

@@ -11,7 +11,8 @@
      mov  w#>aa01, @>af00
      xor  w#12345, r3
 
-     ab   b#99, @>8300
+     movb b#R, r1
+     szc  w#X, r3
 
      data >ffff
 
