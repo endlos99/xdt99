@@ -571,8 +571,9 @@ class Objcode:
 class Word:
     """auxiliary class for word arithmetic"""
 
-    def __init__(self, value):
+    def __init__(self, value, pass_no=None):
         self.value = value % 0x10000
+        self.pass_no = pass_no
 
     def sign(self):
         return -1 if self.value & 0x8000 else +1
@@ -588,7 +589,10 @@ class Word:
 
     def mul(self, op, arg):
         if op in "/%" and arg.value == 0:
-            raise AsmError("Division by zero")
+            if self.pass_no == 0:
+                return 0  # temporary value
+            else:
+                raise AsmError("Division by zero")
         sign = arg.sign() if op == "%" else self.sign() * arg.sign()
         val = (self.abs() * arg.abs() if op == "*" else
                self.abs() / arg.abs() if op == "/" else
@@ -1381,26 +1385,24 @@ class Parser:
             index = self.expression(m.group(4)) if m.group(4) else None
             if index is not None and 0x00 <= index <= 0xff:
                 index += 0x8300
-            elif index is not None and not 0x8300 <= index <= 0x83ff:
+            elif self.pass_no > 0 and index is not None and not 0x8300 <= index <= 0x83ff:
                 raise AsmError("Index out of range: >%04X" % index)
             if vreg and not (is_move and not is_gs):
                 raise AsmError("Invalid VDP register outside MOVE")
-            if vreg and not 0 <= value <= 7:
+            if self.pass_no > 0 and vreg and not 0 <= value <= 7:
                 raise AsmError("VDP register out of range: %d" % value)
             if grom and not is_move:
                 raise AsmError("Invalid GROM address outside MOVE")
-            return Operand(value, vram=vram, grom=grom, vreg=vreg,
-                           indirect=indirect, index=index)
+            return Operand(value, vram=vram, grom=grom, vreg=vreg, indirect=indirect, index=index)
         if is_gs:
             value = self.expression(op)
             # NOTE: enable optional G@ for GROM addresses G@LABEL here
             return Operand(value, imm=2 if is_d else 1)
-        raise AsmError("Invalid G%c address operand: %s" % (
-            "s" if is_gs else "d", op))
+        raise AsmError("Invalid G%c address operand: %s" % ("s" if is_gs else "d", op))
 
     def expression(self, expr, needed=False):
         """parse complex arithmetical expression"""
-        value = Word(0)
+        value = Word(0, pass_no=self.pass_no)
         terms = ["+"] + [tok.strip() for tok in
                          re.split(r"([-+/%~&|^()]|\*\*?)", expr)]
         i, stack = 0, []

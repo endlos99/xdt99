@@ -54,8 +54,8 @@ INVLIT  DATA 1A          * SHADOWED
 
 * INVALID OPERANDS
 
-INVOP   CLR @1(@>9000)   * ERROR
-        MOVE 1,@0,#8     * ERROR
+INVOP   CLR @1(@>9000)   * pass 1 error
+        MOVE 1,@0,#8     * pass 1 error
         MOVE 1,#1,@0     * ERROR
 
         ST 1,1           * ERROR

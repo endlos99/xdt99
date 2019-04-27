@@ -260,6 +260,44 @@ def check_list_files_eq(genfile, reffile, ignore_lino=False):
 
 # common check functions: xda99/xdg99
 
+def check_bytes(outfile, reffile):
+    """check that outfile has not more data than reffile"""
+    outbytes, cntbytes = count_bytes(outfile), count_bytes(reffile)
+    if outbytes > cntbytes:
+        error("BYTEs", "Too many BYTEs/DATAs: %d instead of %d" % (outbytes, cntbytes))
+
+
+def count_bytes(fn):
+    """count bytes declared by directives in source"""
+    byte_count = 0
+    with open(fn, "r") as fin:
+        source = fin.readlines()
+    for line in source:
+        # get rid of quoted single quotes ''
+        line = re.sub(r"'(?:[^']|'')*'",
+                      lambda x: ",".join(["z"] *
+                                         (len(x.group(0)) - 2 -
+                                          x.group(0)[1:-1].count("''"))),
+                      line)
+        # get instruction parts
+        parts = re.split(r"\s+", line, maxsplit=2)
+        if len(parts) > 2 and parts[1].lower() in ("byte", "data", "stri", "text"):
+            # get all args
+            args = [x.strip() for x in parts[2].split(",") if x.strip()]
+            # know what you count
+            if parts[1].lower() == "data":
+                byte_count += len(args) * 2
+            elif parts[1].lower() == "text":
+                byte_count += sum([len(a) / 2 if a[0] == '>' else 1
+                                   for a in args])
+            elif parts[1].lower() == "stri":
+                byte_count += sum([len(a) / 2 if a[0] == '>' else 1
+                                   for a in args]) + 1  # len byte
+            else:
+                byte_count += len(args)
+    return byte_count
+
+
 def check_indent(fn, blocks):
     """check if first lines are indented correctly"""
     with open(fn, "r") as fin:

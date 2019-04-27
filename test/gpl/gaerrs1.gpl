@@ -8,4 +8,7 @@ INVLIT  DATA 1A          * ERROR
         ST 1!2,@1        * ERROR
         ST 1+@1,@1       * ERROR
 
+        CLR @1(@>9000)   * ERROR
+        MOVE 1,@0,#8     * ERROR
+
         END

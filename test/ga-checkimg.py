@@ -48,8 +48,7 @@ def runtest():
     for s in ["gaerrs0.gpl", "gaerrs1.gpl"]:
         source = os.path.join(Dirs.gplsources, s)
         with open(source, "r") as fin:
-            expect = [lino + 1 for lino, line in enumerate(fin)
-                      if "* ERROR" in line]
+            expect = [lino + 1 for lino, line in enumerate(fin) if "* ERROR" in line]
         with open(Files.error, "w") as ferr:
             xga(source, "-o", Files.output, stderr=ferr, rc=1)
         with open(Files.error, "r") as fin:
@@ -59,10 +58,8 @@ def runtest():
                 error("Error messages", "Unexpected error message")
         if found != expect:
             error("Error messages",
-                  "Error mismatch, extra: " +
-                  str([x for x in found if x not in expect]) +
-                  " missing: " +
-                  str([x for x in expect if x not in found]))
+                  "Error mismatch, extra: " + str([x for x in found if x not in expect]) +
+                  " missing: " + str([x for x in expect if x not in found]))
 
     # cleanup
     os.remove(Files.output)
