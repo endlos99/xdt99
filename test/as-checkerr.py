@@ -4,8 +4,10 @@ import os
 import re
 
 from config import Dirs, Disks, Files
-from utils import xas, xdm, read_stderr, get_source_markers, error, check_errors
+from utils import xas, xdm, error, read_stderr, get_source_markers, check_errors
 
+
+# Main test
 
 def runtest():
     """check error messages against native assembler listing"""

@@ -191,6 +191,24 @@ def runtest():
     exp_errors = get_source_markers(source, tag=r";WARN")
     check_errors(exp_errors, act_errors)
 
+    # size modifier (s#)
+    source = os.path.join(Dirs.sources, "assmod.asm")
+    with open(Files.error, "w") as ferr:
+        xas(source, "-b", "-R", "-o", Files.output, stderr=ferr, rc=0)
+    ref = os.path.join(Dirs.sources, "assmodn.asm")
+    xas(ref, "-b", "-R", "-o", Files.reference)
+    check_binary_files_eq("s#", Files.output, Files.reference)
+    with open(Files.error, "r") as ferr:
+        if "TEXT4" not in ferr.read():
+            error("s#", "Missing warning about TEXT4")
+
+    source = os.path.join(Dirs.sources, "assmode.asm")
+    with open(Files.error, "w") as ferr:
+        xas(source, "-b", "-R", "-o", Files.output, stderr=ferr, rc=1)
+    act_errors = read_stderr(Files.error)
+    exp_errors = get_source_markers(source, tag=r";ERROR")
+    check_errors(exp_errors, act_errors)
+
     # cleanup
     os.remove(Files.output)
     os.remove(Files.reference)

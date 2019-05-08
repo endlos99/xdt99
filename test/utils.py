@@ -321,7 +321,7 @@ def check_indent(fn, blocks):
 
 
 def count_mnemonics(fn, offset=0, wanted=None):
-    """build dict of all ocurring mnemonics"""
+    """build dict of all occurring mnemonics"""
     with open(fn, "r") as fin:
         source = [l[offset:] for l in fin.readlines()]
     mnems = {}

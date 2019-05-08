@@ -23,7 +23,7 @@ import sys
 import re
 import os.path
 
-VERSION = "1.8.2"
+VERSION = "1.8.3"
 
 
 # Utility functions
@@ -165,13 +165,13 @@ class Symbols:
         self.registers = {"R" + str(i): i for i in xrange(16)} if add_registers else {}
         self.symbols = {n: (v, False, None) for n, v in self.registers.iteritems()}  # registers are just non-weak symbols
         self.exts = {
-            "VSBW": 0x210C, "VMBW": 0x2110, "VSBR": 0x2114, "VMBR": 0x2118,
-            "VWTR": 0x211C, "KSCAN": 0x2108, "GPLLNK": 0x2100, "XMLLNK": 0x2104,
-            "DSRLNK": 0x2120, "LOADER": 0x2124, "UTLTAB": 0x2022, "SCAN": 0x000E,
-            "PAD": 0x8300, "GPLWS": 0x83E0, "SOUND": 0x8400,
-            "VDPRD": 0x8800, "VDPSTA": 0x8802, "VDPWD": 0x8C00, "VDPWA": 0x8C02,
+            "VSBW": 0x210c, "VMBW": 0x2110, "VSBR": 0x2114, "VMBR": 0x2118,
+            "VWTR": 0x211c, "KSCAN": 0x2108, "GPLLNK": 0x2100, "XMLLNK": 0x2104,
+            "DSRLNK": 0x2120, "LOADER": 0x2124, "UTLTAB": 0x2022, "SCAN": 0x000e,
+            "PAD": 0x8300, "GPLWS": 0x83e0, "SOUND": 0x8400,
+            "VDPRD": 0x8800, "VDPSTA": 0x8802, "VDPWD": 0x8c00, "VDPWA": 0x8c02,
             "SPCHRD": 0x9000, "SPCHWT": 0x9400, "GRMRD": 0x9800, "GRMRA": 0x9802,
-            "GRMWD": 0x9C00, "GRMWA": 0x9C02
+            "GRMWD": 0x9c00, "GRMWA": 0x9c02
             }
         for defs in add_defs:
             for d in defs.upper().split(","):
@@ -192,6 +192,7 @@ class Symbols:
         self.bank = None
         self.reloc_LC = True
         self.xorg_offset = None
+        self.pad_idx = 0
         self.reset_banks()
 
     def reset_banks(self):
@@ -253,6 +254,11 @@ class Symbols:
     def add_XOP(self, name, mode):
         self.xops[name] = mode
 
+    def pad(self, lidx):
+        """add padding to symbol table for correct size computations"""
+        self.add_label(lidx, "_%%pad%d" % self.pad_idx)
+        self.pad_idx += 1
+
     def get_symbol(self, name):
         try:
             value, weak, unused = self.symbols[name]
@@ -263,11 +269,12 @@ class Symbols:
         return value
 
     def get_local(self, name, lpos, distance):
-        targets = [(l, n) for (l, n) in self.locations
-                   if n[:len(name) + 1] == name + "$"]
+        """return local label specified by position and distance +/-n"""
+        targets = [(loc, sym) for (loc, sym) in self.locations
+                   if sym[:len(name) + 1] == name + "$"]
         try:
-            i, lidx = next((j, l) for j, (l, n) in enumerate(targets)
-                           if l >= lpos)
+            i, lidx = next((j, loc) for j, (loc, name) in enumerate(targets)
+                           if loc >= lpos)
             if distance > 0 and lidx > lpos:
                 distance -= 1  # i points to +! unless lidx == lpos
         except StopIteration:
@@ -278,7 +285,22 @@ class Symbols:
             return None
         return self.get_symbol(fullname)
 
+    def get_size(self, name):
+        """return byte distance of given symbol to next defined symbol"""
+        try:
+            lpos = next(loc for (loc, sym) in self.locations if sym == name)
+        except StopIteration:
+            raise AsmError("Unknown label %s" % name)
+        try:
+            _, next_name = min([(loc - lpos, sym) for (loc, sym) in self.locations if loc > lpos], key=lambda x: x[0])
+        except ValueError:
+            raise AsmError("Cannot determine size of symbol %s" % name)
+        sym_addr, next_addr = self.get_symbol(name), self.get_symbol(next_name)
+        return ((next_addr.addr if isinstance(next_addr, Address) else next_addr) -
+                (sym_addr.addr if isinstance(sym_addr, Address) else sym_addr))
+
     def switch_bank(self, bank, addr=None):
+        """update current active bank for corss"""
         if addr is None:
             addr = 0
         self.bank_LC[self.bank] = self.LC
@@ -300,8 +322,9 @@ class Symbols:
 class Objdummy:
     """dummy code generation for keeping track of line counter"""
 
-    def __init__(self, symbols):
+    def __init__(self, symbols, parser):
         self.symbols = symbols
+        self.parser = parser
         self.saved_LC = {True: 0x0000, False: 0x0000}
         self.segment(0x0000, relocatable=True, init=True)
 
@@ -321,6 +344,7 @@ class Objdummy:
 
     def even(self):
         if self.symbols.LC % 2 == 1:
+            self.symbols.pad(self.parser.lidx)
             self.symbols.LC += 1
 
     def byte(self, byte):
@@ -1578,8 +1602,7 @@ class Parser:
         if len(self.suspended_files) > 100:
             raise AsmError("Too many nested files or macros")
         if self.source is not None:
-            self.suspended_files.append((self.fn, self.path, self.source,
-                                         self.margs, self.lino))
+            self.suspended_files.append((self.fn, self.path, self.source, self.margs, self.lino))
         if filename:
             newfile = "-" if filename == "-" else self.find(filename)
             self.path, fn = os.path.split(newfile)
@@ -1597,12 +1620,10 @@ class Parser:
     def resume(self):
         """close current source file and resume previous one"""
         try:
-            self.fn, self.path, self.source, self.margs, self.lino = \
-                self.suspended_files.pop()
+            self.fn, self.path, self.source, self.margs, self.lino = self.suspended_files.pop()
             return True
         except IndexError:
-            self.fn, self.path, self.source, self.margs, self.lino = \
-                None, None, None, None, -1
+            self.fn, self.path, self.source, self.margs, self.lino = None, None, None, None, -1
             return False
 
     def stop(self):
@@ -1956,6 +1977,9 @@ class Parser:
         elif op[:2] == "W#" or op[:2] == "B#":
             v = self.symbols.add_autogen(op)
             return v, False
+        elif op[:2] == "S#":
+            v = self.symbols.get_size(op[2:])
+            return v, False
         elif op[0] == "#":
             # should have been eliminated by preprocessor
             raise AsmError("Invalid macro argument")
@@ -2060,11 +2084,10 @@ class Assembler:
 
     def assemble(self, path, srcname):
         symbols = Symbols(add_registers=self.optr, add_defs=self.defs)
-        code = Objcode(symbols, self.strict)
-        dummy = Objdummy(symbols)
-        parser = Parser(symbols, path=path, includes=self.includes,
-                        strict=self.strict, warnings=self.warnings,
+        parser = Parser(symbols, path=path, includes=self.includes, strict=self.strict, warnings=self.warnings,
                         use_R=self.optr)
+        code = Objcode(symbols, self.strict)
+        dummy = Objdummy(symbols, parser)
 
         try:
             parser.open(srcname)
