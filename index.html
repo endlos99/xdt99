@@ -598,8 +598,8 @@ modified register.  In this code example,</p>
     movb r0, @vdpwa
 </code></pre>
 
-<p>the expression <code>l#r0</code> simply stands for <code>@&gt;8301</code>, i.e., the LSB of register 0.
-The modifier is always relative to the workspace pointer (WP) so that</p>
+<p>the expression <code>l#r0</code> resolved to <code>@&gt;8301</code>, i.e., the LSB of register 0.  The
+modifier is relative to the workspace pointer (WP) so that</p>
 
 <pre><code>    lwpi &gt;8300
     movb l#r1, r0
@@ -611,7 +611,43 @@ The modifier is always relative to the workspace pointer (WP) so that</p>
 
 <p>reads <code>&gt;8303</code>, <code>&gt;2003</code>, and <code>&gt;83E3</code>, respectively.</p>
 
-<p>For the cross-bank access modifier <code>x#</code>, see the paragraphs on bank switching.</p>
+<p><em>Caution!</em> <code>l#</code> uses the syntactically most recent <code>LWPI</code> statement.  When
+using multiple workspaces or inside <code>BLWP</code> subroutines, make sure that the
+workspace is still set correctly, or don't use 'l#' at all.</p>
+
+<p>Finally, the <strong>symbol size</strong> modifier <code>s#</code> returns the size of the label it is
+attached to.  Size here means the number of bytes from this symbol to the
+subsequent symbol in the source code.</p>
+
+<pre><code>     li   r0, 320
+     li   r1, text1
+     li   r2, s#text1   ; s#text1 == 12
+     bl   @vmbw
+     ...
+text1:
+    text 'HELLO WORLD!'
+text2:
+    text 'GOOD BYE!'
+</code></pre>
+
+<p>In this example, <code>s#text1</code> equals 12, since there are 12 bytes from <code>text1</code> to
+<code>text2</code>.</p>
+
+<p>The size modifier detects if the last byte of the range is a padding byte and
+subtracts it from the size.</p>
+
+<pre><code>text1:
+    text 'HELLO WORLD'
+text2:
+    text 'GOOD BYE!'
+</code></pre>
+
+<p>Here, <code>s#text1</code> equals 11, even though there are still 12 bytes from <code>text1</code> to
+<code>text2</code>.  Please note that <code>s#</code> only applies to labels; symbols created by
+<code>EQU</code>s are not supported.</p>
+
+<p>The <strong>cross-bank access</strong> modifier <code>x#</code> enables cross-bank symbol access.  For
+a detailed description on <code>x#</code>, see the paragraphs on bank switching.</p>
 
 <p><code>xas99</code> also provides <strong>new directives</strong>.  The <code>BCOPY</code> directive includes an
 external binary file as a sequence of <code>BYTE</code>s.  For example, if <code>sprite.raw</code>
@@ -1172,21 +1208,24 @@ for the disassembly with <code>-f</code>:</p>
 <p>All command line values are interpreted as hexadecimal values.  They can
 optionally be prefixed by <code>&gt;</code> or <code>0x</code>.</p>
 
+<p>The strict option <code>-s</code> generates all output files in legacy Editor/Assembler
+format.</p>
+
 <p>The resulting file has the same name as the binary file but ends in <code>.dis</code>.  It
 contains the disassembled instructions in a list file-like list:</p>
 
-<pre><code>            AORG &gt;6000
+<pre><code>            aorg &gt;6000
 6000 4845?
-6002 4C4C?
-6004 4F20?
+6002 4c4c?
+6004 4f20?
 6006 4341?
 6008 5254?
-600A 2100?
-600C 0300   LIMI  &gt;0000
-600E 0000
-6010 02E0   LWPI  PAD
+600a 2100?
+600c 0300   limi  &gt;0000
+600e 0000
+6010 02e0   lwpi  pad
 6012 8300
-6014 04C0   CLR   R0
+6014 04c0   clr   r0
 ...
 </code></pre>
 
@@ -1196,26 +1235,55 @@ contains the disassembled instructions in a list file-like list:</p>
 <p>The area to disassemble can be specified with the <em>from</em> parameter <code>-f</code> and the
 optional <em>to</em> parameter <code>-t</code>.</p>
 
-<p>Machine code consists of both code and data segments.  Supplying the <em>from</em>
-parameter <code>-f</code> will start the disassembly in "top-down mode", which
-disassembles the machine code sequentially word by word.  In general, this mode
-yields bad results, as the data segments in the machine code will be translated
-into accurate, but meaningless statements.  This can be seen by chanding above
-command line parameter to <code>-f 6000</code>:</p>
+<p>The skip option <code>-k</code> skips some prefix of the binary to disassemble.  For
+example, when disassembling an E/A option 5 binary, use <code>-k</code> to skip the 6-byte
+header:</p>
 
-<pre><code>            AORG &gt;6000
-6000 4845   SZC   R5, @&gt;4C4C(R1)        |
-6002 4C4C                               |
-6004 4F20   SZC   @&gt;4341, *R12+         |  data erroneously
-6006 4341                               |  disassembled into
-6008 5254   SZCB  *R4, R9               |  source code
-600A 2100   COC   R0, R4                |
-600C 0300   LIMI  &gt;0000
-600E 0000
+<pre><code>$ xda99.py program5.bin -k 6 -a a000 -r a000
 </code></pre>
 
-<p>Even worse, disassembling data into nonsense can spill over to the actual code
-if the alignment happend to be incorrect.</p>
+<p>Machine code consists of both code and data segments, which are often
+intermingled.  Without context information, however, a disassembler cannot tell
+data from code.</p>
+
+<p>Using <code>xda99</code> with the <em>from</em> parameter <code>-f</code> will start the disassembly in
+<em>top-down mode</em>, which disassembles the machine code sequentially word by word.
+As stated above, this mode generally yields bad results, as data segments will
+be translated into accurate, but meaningless statements.  This can be seen with
+above example by changing the from parameter to <code>-f 6000</code>:</p>
+
+<pre><code>            aorg &gt;6000
+6000 4845   szc   r5, @&gt;4c4c(r1)     |
+6002 4c4c                            |  data erroneously
+6004 4f20   szc   @&gt;4341, *r12+      |  disassembled into
+6006 4341                            |  source code
+6008 5254   szcb  *r4, r9            |
+600a 2100   coc   r0, r4             |
+600c 0300   limi  &gt;0000
+600e 0000
+</code></pre>
+
+<p>Even worse, disassembling data into nonsense statements can spill over to the
+real code if the last data word is assembled into a two-word instruction:</p>
+
+<pre><code>    aorg &gt;a000
+    byte 4, 224
+start:
+    lwpi &gt;8300
+    limi 0
+    ...
+</code></pre>
+
+<p>Disassembling the machine code generated by above program with <code>-f a000</code> yields</p>
+
+<pre><code>            aorg &gt;a000
+a000 04e0   clr  @&gt;02e0        |  disassembled data
+a002 02e0                      |  swallowed the LWPI
+a004 8300   c    r0, r12       |  instruction
+a006 0300   limi &gt;0000
+a008 0000
+...
+</code></pre>
 
 <p>If the data segments are known, those can be excluded from disassembly with the
 exclude <code>-e</code> option:</p>
@@ -1226,8 +1294,8 @@ exclude <code>-e</code> option:</p>
 <p>The upper address <code>yyyy</code> of an exclude range <code>xxxx-yyyy</code> is not included in the
 range, so range <code>6000-6000</code> is an empty range.</p>
 
-<p>For unknown programs, exclusion of data segments is difficult.  Thus, <code>xdg99</code>
-offers an additional "run mode" <code>-r</code> that recognizes static branch, call, and
+<p>For unknown programs, exclusion of data segments is difficult.  Thus, <code>xda99</code>
+offers an additional <em>run mode</em> <code>-r</code> that recognizes static branch, call, and
 return statements, and disassembles only along the program flow.</p>
 
 <pre><code>$ xda99.py ascart_6000.bin -a 6000 -r 600c
@@ -1253,38 +1321,38 @@ beginning given by <code>-a</code>.</p>
 <p>Run mode also includes jump markers as comments that show from where an
 instruction was branched to:</p>
 
-<pre><code>6058 D809   MOVB R9, @&gt;837C
-605A 837C
-605C D809   MOVB R9, @&gt;8374           ; &lt;- &gt;6068
-605E 8374
-6060 0420   BLWP @KSCAN
+<pre><code>6058 d809   movb r9, @&gt;837c
+605a 837c
+605c d809   movb r9, @&gt;8374           ; &lt;- &gt;6068
+605e 8374
+6060 0420   blwp @kscan
 6062 2108
-6064 9220   CB   @&gt;8375, R8
+6064 9220   cb   @&gt;8375, r8
 6066 8375
-6068 13F9   JEQ  &gt;605C
-606A D020   MOVB @&gt;8375, R0
-606C 8375
+6068 13f9   jeq  &gt;605c
+606a d020   movb @&gt;8375, r0
+606c 8375
 </code></pre>
 
 <p>The program option <code>-p</code> turns the disassembly into actual source code that can
 be re-assembled again:</p>
 
-<pre><code>       AORG &gt;6000
-VDPWD  EQU  &gt;8C00
-PAD    EQU  &gt;8300
-GPLLNK EQU  &gt;2100
-VDPWA  EQU  &gt;8C02
-L6000  DATA &gt;4845
-L6002  DATA &gt;4C4C
-L6004  DATA &gt;4F20
-L6006  DATA &gt;4341
-L6008  DATA &gt;5254
-L600A  DATA GPLLNK
-L600C  LIMI &gt;0000
-L600E
-L6010  LWPI PAD
-L6012
-L6014  CLR  R0
+<pre><code>       aorg &gt;6000
+vdpwd  equ  &gt;8c00
+pad    equ  &gt;8300
+gpllnk equ  &gt;2100
+vdpwa  equ  &gt;8c02
+l6000  data &gt;4845
+l6002  data &gt;4c4c
+l6004  data &gt;4f20
+l6006  data &gt;4341
+l6008  data &gt;5254
+l600a  data gpllnk
+l600c  limi &gt;0000
+l600e
+l6010  lwpi pad
+l6012
+l6014  clr  r0
 ...
 </code></pre>
 
@@ -1296,32 +1364,38 @@ symbol file can be generated with the EQU option <code>-E</code> of <code>xas99<
 admittedly a rare case in practice, or written manually in fairly free form,
 e.g.,</p>
 
-<pre><code>S1 EQU &gt;10
-S2:
-        EQU 10
-S3 &gt;10
-S4: 0x10
+<pre><code>s1 equ &gt;10
+s2:
+        equ 10
+s3 &gt;10
+s4: 0x10
 </code></pre>
 
 <p>Data segments often contain strings, that can be restored heuristically by using
 the string option <code>-n</code>, either with or without the <code>-p</code> option.</p>
 
-<pre><code>            AORG &gt;6000
-6000 4845   TEXT  'HELLO CART'
-6002 4C4C
-6004 4F20
+<pre><code>            aorg &gt;6000
+6000 4845   text  'hello cart'
+6002 4c4c
+6004 4f20
 6006 4341
 6008 5254
-600A 2100?
-600C 0300   LIMI  &gt;0000
-600E 0000
-6010 02E0   LWPI  PAD
+600a 2100?
+600c 0300   limi  &gt;0000
+600e 0000
+6010 02e0   lwpi  pad
 </code></pre>
 
 <p>Option <code>-n</code> is only useful in run mode, as top-down mode will not leave behind
 any data segments, where strings could be found.</p>
 
 <p>Note that currently, <code>xda99</code> only disassembles even length strings.</p>
+
+<p>The strict option <code>-s</code> generates output files in legacy Editor/Assembler
+format, in particular upper-case.</p>
+
+<p>The register option <code>-R</code> tells the disassembler to use plain integers for
+registers, i.e., to <em>not</em> prepend registers with <code>R</code>.</p>
 
 <h3>Run Mode and Conflicts</h3>
 
@@ -1340,12 +1414,13 @@ disassemble the same range differently:</p>
 
 <pre><code>               First run,              Second run,
                starting @&gt;6000         starting @&gt;6002
-               AORG &gt;6000              AORG &gt;6000
-6000 C820      MOV  @PAD, @&gt;831C                           | disagree-
-6002 8300                              C    R0, R12        |      ment
-6004 831C                              C    *R12, R12      |
-6006 0A51      SLA  R1, 5              SLA  R1, 5
-6008 1620      JNE  &gt;604A              JNE  &gt;604A
+
+               aorg &gt;6000              aorg &gt;6000
+6000 c820      mov  @pad, @&gt;831c                         |
+6002 8300                              c    r0, r12      | disagreement
+6004 831c                              c    *r12, r12    |
+6006 0a51      sla  r1, 5              sla  r1, 5
+6008 1620      jne  &gt;604a              jne  &gt;604a
 </code></pre>
 
 <p>Above, the second run hit an address that is only <em>part</em> of a previously
@@ -1362,12 +1437,11 @@ of each disassembly may vary with each binary, and should be tried out.</p>
 
 <h2>xdg99 GPL Disassembler</h2>
 
-<p>The GPL disassembler <code>xdg99</code> is a command-line tool to convert GPL bytecode into
-GPL source code.</p>
+<p>The GPL disassembler <code>xdg99</code> is a command-line tool to convert GPL bytecode
+into GPL source code.</p>
 
-<p><code>xdg99</code> shares all options with <code>xda99</code>, and works very similar to this
-disassembler.  In fact, at some point in the future, both programs might be
-merged into one.</p>
+<p><code>xdg99</code> shares almost all options with <code>xda99</code>, and works very similar.  In
+fact, at some point in the future, both programs might be merged into one.</p>
 
 <p>To show the similarities,</p>
 
@@ -1377,38 +1451,38 @@ merged into one.</p>
 <p>disassembles bytecode file <code>gacart.bin</code>, i.e., a GROM file, into GPL
 instructions:</p>
 
-<pre><code>          GROM &gt;6000
-          AORG &gt;0000
-6000 AA?
+<pre><code>          grom &gt;6000
+          aorg &gt;0000
+6000 aa?
 ...
-602F 00?
-6030 07   ALL   &gt;20
+602f 00?
+6030 07   all   &gt;20
 6031 20
-6032 04   BACK  &gt;04
+6032 04   back  &gt;04
 6033 04
-6034 BE   ST    &gt;48, V@&gt;0021
-6035 A0
+6034 be   st    &gt;48, v@&gt;0021
+6035 a0
 6036 21
 6037 48
 ...
 </code></pre>
 
 <p>The only option that <code>xdg99</code> features over <code>xda99</code> is the syntax selection
-option <code>-s</code>, which is already known from <code>xga99</code>:</p>
+option <code>-y</code>, which is already known from <code>xga99</code>:</p>
 
 <pre><code>$ xdg99.py gacart.bin -a 6000 -f 6030
 ...
-6206 31   MOVE &gt;0010, G@&gt;6EC4, V@&gt;0033
+6206 31   move &gt;0010, g@&gt;6ec4, v@&gt;0033
+...
+
+$ xdg99.py gacart.bin -a 6000 -f 6030 -y mizapf
+...
+6206 31   move &gt;0010 bytes from grom@&gt;6ec4 to vdp@&gt;0033
 ...
 </code></pre>
 
-<p>yields the standard syntax, but <code>-s</code> selects RAG, Ryte Data, or TIMT style:</p>
-
-<pre><code>$ xdg99.py gacart.bin -a 6000 -f 6030 -s mizapf
-...
-6206 31   MOVE &gt;0010 BYTES FROM GROM@&gt;6EC4 TO VDP@&gt;0033
-...
-</code></pre>
+<p>At the same time, the <code>-R</code> option of <code>xda99</code> has no meaning for GPL, and thus
+is not supported by <code>xdg99</code>.</p>
 
 <h2>xbas99 TI BASIC and TI Extended BASIC Tool</h2>
 
@@ -2215,14 +2289,14 @@ the TI menu selection screen.</p>
 <p>The xdt99 tools are released under the GNU GPL, in the hope that TI 99
 enthusiasts may find them useful.</p>
 
-<p>Please email feedback and bug reports to the developer at <a href="&#x6D;&#x61;&#105;&#x6C;&#x74;&#x6F;:&#x78;&#100;&#x74;&#x39;&#57;&#x64;&#101;&#118;&#64;&#103;&#109;&#97;&#105;&#108;&#46;&#x63;&#111;&#109;">&#x78;&#100;&#x74;&#x39;&#57;&#x64;&#101;&#118;&#64;&#103;&#109;&#97;&#105;&#108;&#46;&#x63;&#111;&#109;</a>
+<p>Please email feedback and bug reports to the developer at <a href="&#x6D;&#x61;&#x69;&#108;&#116;&#111;:&#x78;&#100;&#116;&#57;9&#100;&#x65;&#x76;&#64;&#103;&#109;ail&#46;&#99;&#x6F;&#109;">&#x78;&#100;&#116;&#57;9&#100;&#x65;&#x76;&#64;&#103;&#109;ail&#46;&#99;&#x6F;&#109;</a>
 or use the issue tracker on the project <a href="https://github.com/endlos99/xdt99">GitHub page</a>.</p>
+
 
     <!-- FOOTER  -->
     <div id="footer_wrap" class="outer">
       <footer class="inner">
-        <p class="copyright">xdt99 maintained by <a href="https://github.com/endlos99">endlos99</a></p>
-        <p>Published with <a href="https://pages.github.com">GitHub Pages</a></p>
+        <p class="copyright">xdt99  Copyright (C) 2015-2019 R. Benzinger</a></p>
       </footer>
     </div>
 
