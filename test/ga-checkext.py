@@ -17,7 +17,7 @@ def runtest():
     xdm(Disks.gplsrcs, "-e", "GAXPREP-Q", "-o", Files.reference)
     check_gbc_files_eq(source, Files.output, Files.reference)
 
-    # disrectives
+    # directives
     source = os.path.join(Dirs.gplsources, "gaxbcopy.gpl")
     xga(source, "-I", "gpl", "-o", Files.output)
     source = os.path.join(Dirs.gplsources, "gaxbcopyn.gpl")

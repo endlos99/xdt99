@@ -1127,6 +1127,7 @@ class Parser:
         self.symbols = symbols
         self.syntax = Syntax.get(syntax)
         self.text_literals = []
+        self.fn = None
         self.path = None
         self.source = None
         self.macro_args = []
@@ -1157,12 +1158,13 @@ class Parser:
         if len(self.suspended_files) > 100:
             raise AsmError("Too many nested files or macros")
         if self.source is not None:
-            self.suspended_files.append((self.path, self.source, self.macro_args, self.lino))
+            self.suspended_files.append((self.fn, self.path, self.source, self.macro_args, self.lino))
         if filename:
             newfile = "-" if filename == "-" else self.find(filename)
             if newfile is None:
                 raise AsmError("Could not find file " + filename)
-            self.path = os.path.dirname(newfile)
+            self.path, fn = os.path.split(newfile)
+            self.fn = "> " + fn
             try:
                 self.source = readlines(newfile, "r")
             except IOError as e:
@@ -1176,12 +1178,10 @@ class Parser:
     def resume(self):
         """close current source file and resume previous one"""
         try:
-            self.path, self.source, self.macro_args, self.lino = \
-                self.suspended_files.pop()
+            self.fn, self.path, self.source, self.macro_args, self.lino = self.suspended_files.pop()
             return True
         except IndexError:
-            self.path, self.source, self.macro_args, self.lino = \
-                None, None, None, -1
+            self.fn, self.path, self.source, self.macro_args, self.lino = None, None, None, None, -1
             return False
 
     def stop(self):
@@ -1215,7 +1215,7 @@ class Parser:
             try:
                 line = self.source[self.lino]
                 self.lino += 1
-                return self.lino, line.rstrip(), "n/a"
+                return self.lino, line.rstrip(), self.fn
             except IndexError:
                 self.resume()
         return None, None, None
@@ -1289,8 +1289,8 @@ class Parser:
                 Directives.process(self, code, label, mnemonic, operands) or \
                     Opcodes.process(self, code, label, mnemonic, operands)
             except AsmError as e:
-                errors.append("%04d: %s\n***** <0> %s\n" % (
-                    lino, line, e.message))
+                errors.append("%s <1> %04d - %s\n***** %s\n" % (
+                    filename, lino, line, e.message))
         if errors:
             return errors
         # code generation (passes 1+)
@@ -1322,8 +1322,8 @@ class Parser:
                     Directives.process(self, code, label, mnemonic, operands) or \
                         Opcodes.process(self, code, label, mnemonic, operands)
                 except AsmError as e:
-                    errors.append("%04d: %s\n***** <%d> %s\n" % (
-                        lino, line, self.pass_no, e.message))
+                    errors.append("%s <%d> %04d - %s\n***** %s\n" % (
+                        filename, self.pass_no, lino, line, e.message))
             if self.fmt_mode:
                 self.warn("Source ends with open FMT block")
             if errors and self.pass_no > 1 or not self.symbols.updated:
@@ -1361,6 +1361,8 @@ class Parser:
     def fmttext(self, ops):
         """parse FMT text"""
         ts = [self.text(op) for op in ops]
+        if any([len(t) > 32 for t in ts]):
+            raise AsmError("Text length cannot exceed 32 characters")
         vs = [ord(c) for t in ts for c in t]
         return [len(vs)] + vs
 
@@ -1555,7 +1557,7 @@ def main():
                       help="set GROM base address")
     args.add_argument("-A", "--aorg", dest="aorg", metavar="<origin>",
                       help="set AORG origin in GROM for byte code")
-    args.add_argument("-s", "--syntax", dest="syntax", metavar="<style>",
+    args.add_argument("-y", "--syntax", dest="syntax", metavar="<style>",
                       help="set syntax style (xdt99, rag, mizapf)")
     args.add_argument("-I", "--include", dest="inclpath", metavar="<paths>",
                       help="list of include search paths")

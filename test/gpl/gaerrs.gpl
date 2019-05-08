@@ -1,10 +1,14 @@
 * xga errors
 
-    grom >10000         ;ERR
+    grom >10000          ;not checked
 
     clr  @>8300
-    copy "nonexisting"  ;ERR
+    copy "nonexisting"   ;ERROR
     inc  @>8300
+
+    fmt
+    htext '123456789012345678901234567890123'  ;ERROR
+    fend
 
     end
 
