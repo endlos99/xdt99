@@ -239,7 +239,7 @@ class Symbols:
             # found label s, EQU, and value v
             symbol, value = m.group(1), xhex(m.group(2))
             if self.symbols.get(value) is not None:
-                XdgLogger.warn("symbol for %04X already defined, overwritten" % value)
+                XdgLogger.warn("Symbol for >%04X already defined, overwritten" % value)
             self.symbols[value] = symbol
 
     def resolve(self, value, d=True):
@@ -447,11 +447,11 @@ class Opcodes:
                                            prog.symbols, instr_format, fmt_level)
         except IndexError as e:
             # last instruction stepped beyond last index of program
-            XdgLogger.warn("incomplete program")
+            XdgLogger.warn("Incomplete program")
             return Literal(addr, byte, byte), fmt_level
         except Invalid as e:
             # disassembly was incorrect
-            XdgLogger.warn("invalid disassembly: " + str(e))
+            XdgLogger.warn("Invalid disassembly: " + str(e))
             return Literal(addr, byte, byte), fmt_level
         # update domain
         fmt_level += toggle_fmt
@@ -638,21 +638,29 @@ class Entry:
         self.origins = []  # addresses this entry was jumped at from
         self.indicator = indicator  # status indicator
 
-    def _list(self, is_prog, mnemonic="", ops=""):
+    def _list(self, as_prog, strict, mnemonic="", ops=""):
         """pretty print current entry"""
         if self.origins:
             text_origin = "; <- " + ", ".join([">%04X" % o for o in sorted(self.origins)])
         else:
             text_origin = ""
-        if is_prog:  # program format, can be re-assembled
-            return "L%04X  %-5s %-20s %s" % (self.addr, mnemonic, ops, text_origin)
+        if strict:
+            prog_fmt = "L%04X  %-5s %-20s %s"
+            list_fmt = "%04X %02X%c  %-5s %-20s %s"
+        else:
+            prog_fmt = "l%04x  %-5s %-20s %s"
+            list_fmt = "%04x %02x%c  %-5s %-20s %s"
+            mnemonic = mnemonic.lower()
+            ops = ",".join([op if "'" in op else op.lower() for op in ops.split(",")])  # keeps spacing
+            text_origin = text_origin.lower()
+        if as_prog:  # program format, can be re-assembled
+            return prog_fmt % (self.addr, mnemonic, ops, text_origin)
         else:  # list format
-            return "%04X %02X%c  %-5s %-20s %s" % (
-                self.addr, self.byte, self.indicator, mnemonic, ops, text_origin)
+            return list_fmt % (self.addr, self.byte, self.indicator, mnemonic, ops, text_origin)
 
-    def list(self, is_prog=False):
+    def list(self, as_prog=False, strict=False):
         """pretty print current entry"""
-        return self._list(is_prog)
+        return self._list(as_prog, strict)
 
 
 class Unknown(Entry):
@@ -686,9 +694,9 @@ class Literal(Entry):
             self.mnemonic = "BYTE"
             self.value = ">%02X" % value  # bytes are not resolved
 
-    def list(self, is_prog=False):
+    def list(self, as_prog=False, strict=False):
         """return textual representation of literal"""
-        return Entry._list(self, is_prog, self.mnemonic, self.value)
+        return Entry._list(self, as_prog, strict, self.mnemonic, self.value)
 
 
 class Instruction(Entry):
@@ -704,18 +712,21 @@ class Instruction(Entry):
         self.fmt_level = fmt_level  # current FMT level (0=normal, 1+=FMT mode)
         self.syntax = syntax  # syntax variant used
 
-    def list(self, is_prog=False):
+    def list(self, as_prog=False, strict=False):
         """pretty print current instruction"""
         op_texts = [op.text for op in self.operands]
         try:
             # adjust for requested syntax variant
             mnemonic, op_format = self.syntax.replacements[self.mnemonic]
-            ops = op_format.format(*op_texts) if op_format else ", ".join(op_texts)
+            if op_format:
+                ops = op_format.format(*op_texts)
+            else:
+                ops = ("," if strict else ", ").join(op_texts)
         except KeyError:
             # keep original
             mnemonic = self.mnemonic
-            ops = ", ".join(op_texts)
-        return Entry._list(self, is_prog, mnemonic, ops)
+            ops = ("," if strict else ", ").join(op_texts)
+        return Entry._list(self, as_prog, strict, mnemonic, ops)
  
 
 class Operand:
@@ -777,15 +788,17 @@ class Program:
             entry = self.code[idx + i]
             self.code[idx + i] = Unknown(entry.addr, entry.byte)
         
-    def list(self, start=None, end=None, is_prog=False):
+    def list(self, start=None, end=None, as_prog=False, strict=False):
         """pretty print entire program"""
         start_idx = self.addr2idx(start) if start else 0
         end_idx = self.addr2idx(end) if end else self.size
-        indent = " " * (7 if is_prog else 10)
+        indent = " " * (7 if as_prog else 10)
         orgs = (indent + "GROM >%04X\n" % (self.addr & 0xe000) +
                 indent + "AORG >%04X\n" % (self.addr & 0x1fff))
-        listing = [self.code[i].list(is_prog=is_prog) for i in xrange(start_idx, end_idx)]
-        return orgs + self.equ_text + "\n".join(listing) + "\n"
+        org_text = orgs if strict else orgs.lower()
+        equ_text = self.equ_text if strict else self.equ_text.lower()
+        listing = [self.code[i].list(as_prog=as_prog, strict=strict) for i in xrange(start_idx, end_idx)]
+        return org_text + equ_text + "\n".join(listing) + "\n"
 
 
 class BadSyntax:
@@ -796,11 +809,12 @@ class BadSyntax:
         self.byte = byte
         self.size = 1
 
-    def list(self, is_prog):
-        if is_prog:
-            return "L%04X  BAD SYNTAX %02X" % (self.addr, self.byte)
+    def list(self, as_prog, strict):
+        if as_prog:
+            error = "L%04X  BAD SYNTAX %02X" % (self.addr, self.byte)
         else:
-            return "%04X %02X!  BAD SYNTAX" % (self.addr, self.byte)
+            error = "%04X %02X!  BAD SYNTAX" % (self.addr, self.byte)
+        return error if strict else error.lower()
 
 
 class Disassembler:
@@ -896,7 +910,7 @@ class Disassembler:
                     starts.append(ordw(prog.binary[menu + 2:menu + 4]))
                     menu = ordw(prog.binary[menu:menu + 2])
             except ValueError:
-                XdgLogger.warn("bad cartridge menu structure")
+                XdgLogger.warn("Bad cartridge menu structure")
             return starts
         else:
             # unknown binary
@@ -967,13 +981,17 @@ def main():
                       help="disassemble to address (default: end)")
     args.add_argument("-e", "--exclude", metavar="<addr>-<addr>", dest="exclude", nargs="+",
                       help="exclude address ranges")
+    args.add_argument("-k", "--skip", metavar="<bytes>", dest="skip",
+                      help="skip bytes at beginning of file")
     args.add_argument("-F", "--force", action="store_true", dest="force",
                       help="force overwriting of previous disassembly")
     args.add_argument("-p", "--program", action="store_true", dest="program",
                       help="disassemble to complete program")
     args.add_argument("-n", "--strings", action="store_true", dest="strings",
                       help="disassemble string literals")
-    args.add_argument("-s", "--syntax", dest="syntax",
+    args.add_argument("-s", "--strict", action="store_true", dest="strict",
+                      help="use strict legacy syntax")
+    args.add_argument("-y", "--syntax", dest="syntax",
                       help="syntax variant to use")
     args.add_argument("-S", "--symbols", dest="symfiles", nargs="+",
                       help="known symbols files")
@@ -989,7 +1007,7 @@ def main():
     barename = os.path.splitext(basename)[0]
     output = opts.outfile or barename + ".dis"
     
-    binary = readbin(opts.source)
+    binary = readbin(opts.source)[xhex(opts.skip) or 0:]
     start_addr = xhex(opts.addr) if opts.addr is not None else 0x6000
     end_addr = xhex(opts.to)
 
@@ -1029,7 +1047,7 @@ def main():
     except IOError as e:
         sys.exit("%s: %s." % (e.filename, e.strerror))
     try:
-        source = prog.list(is_prog=opts.program or False)
+        source = prog.list(as_prog=opts.program or False, strict=opts.strict)
         writelines(output, "w", source)
     except IOError as e:
         sys.exit("%s: %s." % (e.filename, e.strerror))

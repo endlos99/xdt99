@@ -541,8 +541,8 @@ modified register.  In this code example,
         movb l#r0, @vdpwa
         movb r0, @vdpwa
  
-the expression `l#r0` simply stands for `@>8301`, i.e., the LSB of register 0.
-The modifier is always relative to the workspace pointer (WP) so that
+the expression `l#r0` resolved to `@>8301`, i.e., the LSB of register 0.  The
+modifier is relative to the workspace pointer (WP) so that
 
         lwpi >8300
         movb l#r1, r0
@@ -553,7 +553,41 @@ The modifier is always relative to the workspace pointer (WP) so that
         
 reads `>8303`, `>2003`, and `>83E3`, respectively.
 
-For the cross-bank access modifier `x#`, see the paragraphs on bank switching.
+*Caution!* `l#` uses the syntactically most recent `LWPI` statement.  When
+using multiple workspaces or inside `BLWP` subroutines, make sure that the
+workspace is still set correctly, or don't use 'l#' at all.
+
+Finally, the __symbol size__ modifier `s#` returns the size of the label it is
+attached to.  Size here means the number of bytes from this symbol to the
+subsequent symbol in the source code.
+
+         li   r0, 320
+         li   r1, text1
+         li   r2, s#text1   ; s#text1 == 12
+         bl   @vmbw
+         ...
+    text1:
+        text 'HELLO WORLD!'
+    text2:
+        text 'GOOD BYE!'
+
+In this example, `s#text1` equals 12, since there are 12 bytes from `text1` to
+`text2`.
+
+The size modifier detects if the last byte of the range is a padding byte and
+subtracts it from the size.
+
+    text1:
+        text 'HELLO WORLD'
+    text2:
+        text 'GOOD BYE!'
+
+Here, `s#text1` equals 11, even though there are still 12 bytes from `text1` to
+`text2`.  Please note that `s#` only applies to labels; symbols created by
+`EQU`s are not supported.
+ 
+The __cross-bank access__ modifier `x#` enables cross-bank symbol access.  For
+a detailed description on `x#`, see the paragraphs on bank switching.
 
 `xas99` also provides __new directives__.  The `BCOPY` directive includes an
 external binary file as a sequence of `BYTE`s.  For example, if `sprite.raw`
@@ -1079,21 +1113,24 @@ for the disassembly with `-f`:
 All command line values are interpreted as hexadecimal values.  They can
 optionally be prefixed by `>` or `0x`.
 
+The strict option `-s` generates all output files in legacy Editor/Assembler
+format.
+
 The resulting file has the same name as the binary file but ends in `.dis`.  It
 contains the disassembled instructions in a list file-like list:
 
-                AORG >6000
+                aorg >6000
     6000 4845?
-    6002 4C4C?
-    6004 4F20?
+    6002 4c4c?
+    6004 4f20?
     6006 4341?
     6008 5254?
-    600A 2100?
-    600C 0300   LIMI  >0000
-    600E 0000
-    6010 02E0   LWPI  PAD
+    600a 2100?
+    600c 0300   limi  >0000
+    600e 0000
+    6010 02e0   lwpi  pad
     6012 8300
-    6014 04C0   CLR   R0
+    6014 04c0   clr   r0
     ...
 
 The output option `-o` redirects the output to a different file, or prints to
@@ -1102,25 +1139,51 @@ The output option `-o` redirects the output to a different file, or prints to
 The area to disassemble can be specified with the _from_ parameter `-f` and the
 optional _to_ parameter `-t`.
 
-Machine code consists of both code and data segments.  Supplying the _from_
-parameter `-f` will start the disassembly in "top-down mode", which 
-disassembles the machine code sequentially word by word.  In general, this mode
-yields bad results, as the data segments in the machine code will be translated
-into accurate, but meaningless statements.  This can be seen by chanding above
-command line parameter to `-f 6000`:
+The skip option `-k` skips some prefix of the binary to disassemble.  For
+example, when disassembling an E/A option 5 binary, use `-k` to skip the 6-byte
+header:
 
-                AORG >6000
-    6000 4845   SZC   R5, @>4C4C(R1)        |
-    6002 4C4C                               |  
-    6004 4F20   SZC   @>4341, *R12+         |  data erroneously
-    6006 4341                               |  disassembled into
-    6008 5254   SZCB  *R4, R9               |  source code
-    600A 2100   COC   R0, R4                |
-    600C 0300   LIMI  >0000
-    600E 0000
+    $ xda99.py program5.bin -k 6 -a a000 -r a000
+ 
+Machine code consists of both code and data segments, which are often
+intermingled.  Without context information, however, a disassembler cannot tell
+data from code.
+  
+Using `xda99` with the _from_ parameter `-f` will start the disassembly in
+_top-down mode_, which disassembles the machine code sequentially word by word.
+As stated above, this mode generally yields bad results, as data segments will
+be translated into accurate, but meaningless statements.  This can be seen with
+above example by changing the from parameter to `-f 6000`:
 
-Even worse, disassembling data into nonsense can spill over to the actual code
-if the alignment happend to be incorrect.
+                aorg >6000
+    6000 4845   szc   r5, @>4c4c(r1)     |
+    6002 4c4c                            |  data erroneously  
+    6004 4f20   szc   @>4341, *r12+      |  disassembled into
+    6006 4341                            |  source code
+    6008 5254   szcb  *r4, r9            |
+    600a 2100   coc   r0, r4             |
+    600c 0300   limi  >0000
+    600e 0000
+
+Even worse, disassembling data into nonsense statements can spill over to the
+real code if the last data word is assembled into a two-word instruction:
+
+        aorg >a000
+        byte 4, 224
+    start:
+        lwpi >8300
+        limi 0
+        ...
+
+Disassembling the machine code generated by above program with `-f a000` yields
+
+                aorg >a000
+    a000 04e0   clr  @>02e0        |  disassembled data
+    a002 02e0                      |  swallowed the LWPI
+    a004 8300   c    r0, r12       |  instruction
+    a006 0300   limi >0000
+    a008 0000
+    ...
 
 If the data segments are known, those can be excluded from disassembly with the
 exclude `-e` option:
@@ -1130,8 +1193,8 @@ exclude `-e` option:
 The upper address `yyyy` of an exclude range `xxxx-yyyy` is not included in the
 range, so range `6000-6000` is an empty range.
 
-For unknown programs, exclusion of data segments is difficult.  Thus, `xdg99`
-offers an additional "run mode" `-r` that recognizes static branch, call, and
+For unknown programs, exclusion of data segments is difficult.  Thus, `xda99`
+offers an additional _run mode_ `-r` that recognizes static branch, call, and
 return statements, and disassembles only along the program flow.
 
 	$ xda99.py ascart_6000.bin -a 6000 -r 600c
@@ -1154,37 +1217,37 @@ beginning given by `-a`.
 Run mode also includes jump markers as comments that show from where an
 instruction was branched to:
 
-    6058 D809   MOVB R9, @>837C
-    605A 837C
-    605C D809   MOVB R9, @>8374           ; <- >6068
-    605E 8374
-    6060 0420   BLWP @KSCAN
+    6058 d809   movb r9, @>837c
+    605a 837c
+    605c d809   movb r9, @>8374           ; <- >6068
+    605e 8374
+    6060 0420   blwp @kscan
     6062 2108
-    6064 9220   CB   @>8375, R8
+    6064 9220   cb   @>8375, r8
     6066 8375
-    6068 13F9   JEQ  >605C
-    606A D020   MOVB @>8375, R0
-    606C 8375
+    6068 13f9   jeq  >605c
+    606a d020   movb @>8375, r0
+    606c 8375
 
 The program option `-p` turns the disassembly into actual source code that can
 be re-assembled again:
 
-           AORG >6000
-    VDPWD  EQU  >8C00
-    PAD    EQU  >8300
-    GPLLNK EQU  >2100
-    VDPWA  EQU  >8C02
-    L6000  DATA >4845
-    L6002  DATA >4C4C
-    L6004  DATA >4F20
-    L6006  DATA >4341
-    L6008  DATA >5254
-    L600A  DATA GPLLNK
-    L600C  LIMI >0000
-    L600E
-    L6010  LWPI PAD
-    L6012
-    L6014  CLR  R0
+           aorg >6000
+    vdpwd  equ  >8c00
+    pad    equ  >8300
+    gpllnk equ  >2100
+    vdpwa  equ  >8c02
+    l6000  data >4845
+    l6002  data >4c4c
+    l6004  data >4f20
+    l6006  data >4341
+    l6008  data >5254
+    l600a  data gpllnk
+    l600c  limi >0000
+    l600e
+    l6010  lwpi pad
+    l6012
+    l6014  clr  r0
     ...
 
 The `-p` options will also include an `EQU` stanza of all symbols used, in this
@@ -1195,30 +1258,36 @@ symbol file can be generated with the EQU option `-E` of `xas99`, which is
 admittedly a rare case in practice, or written manually in fairly free form,
 e.g.,
 
-    S1 EQU >10
-    S2:
-            EQU 10
-    S3 >10
-    S4: 0x10
+    s1 equ >10
+    s2:
+            equ 10
+    s3 >10
+    s4: 0x10
 
 Data segments often contain strings, that can be restored heuristically by using
 the string option `-n`, either with or without the `-p` option.
 
-                AORG >6000
-    6000 4845   TEXT  'HELLO CART'
-    6002 4C4C
-    6004 4F20
+                aorg >6000
+    6000 4845   text  'hello cart'
+    6002 4c4c
+    6004 4f20
     6006 4341
     6008 5254
-    600A 2100?
-    600C 0300   LIMI  >0000
-    600E 0000
-    6010 02E0   LWPI  PAD
+    600a 2100?
+    600c 0300   limi  >0000
+    600e 0000
+    6010 02e0   lwpi  pad
 
 Option `-n` is only useful in run mode, as top-down mode will not leave behind
 any data segments, where strings could be found.
 
 Note that currently, `xda99` only disassembles even length strings.
+
+The strict option `-s` generates output files in legacy Editor/Assembler
+format, in particular upper-case.
+
+The register option `-R` tells the disassembler to use plain integers for
+registers, i.e., to *not* prepend registers with `R`.
 
 
 ### Run Mode and Conflicts
@@ -1238,12 +1307,13 @@ disassemble the same range differently:
 
                    First run,              Second run,
                    starting @>6000         starting @>6002
-                   AORG >6000              AORG >6000
-    6000 C820      MOV  @PAD, @>831C                           | disagree-
-    6002 8300                              C    R0, R12        |      ment
-    6004 831C                              C    *R12, R12      |
-    6006 0A51      SLA  R1, 5              SLA  R1, 5
-    6008 1620      JNE  >604A              JNE  >604A
+                   
+                   aorg >6000              aorg >6000
+    6000 c820      mov  @pad, @>831c                         | 
+    6002 8300                              c    r0, r12      | disagreement
+    6004 831c                              c    *r12, r12    |
+    6006 0a51      sla  r1, 5              sla  r1, 5
+    6008 1620      jne  >604a              jne  >604a
 
 Above, the second run hit an address that is only *part* of a previously
 disassembled address (i.e., an operator), which raises a conflict about which
@@ -1261,12 +1331,11 @@ of each disassembly may vary with each binary, and should be tried out.
 xdg99 GPL Disassembler
 ----------------------
 
-The GPL disassembler `xdg99` is a command-line tool to convert GPL bytecode into
-GPL source code.
+The GPL disassembler `xdg99` is a command-line tool to convert GPL bytecode
+into GPL source code.
 
-`xdg99` shares all options with `xda99`, and works very similar to this
-disassembler.  In fact, at some point in the future, both programs might be
-merged into one.
+`xdg99` shares almost all options with `xda99`, and works very similar.  In
+fact, at some point in the future, both programs might be merged into one.
 
 To show the similarities,
 
@@ -1275,35 +1344,36 @@ To show the similarities,
 disassembles bytecode file `gacart.bin`, i.e., a GROM file, into GPL
 instructions:
 
-	          GROM >6000
-              AORG >0000
-	6000 AA?
+              grom >6000
+              aorg >0000
+	6000 aa?
 	...
-	602F 00?
-    6030 07   ALL   >20
+	602f 00?
+    6030 07   all   >20
     6031 20
-    6032 04   BACK  >04
+    6032 04   back  >04
     6033 04
-    6034 BE   ST    >48, V@>0021
-    6035 A0
+    6034 be   st    >48, v@>0021
+    6035 a0
     6036 21
     6037 48
     ...
 
 The only option that `xdg99` features over `xda99` is the syntax selection
-option `-s`, which is already known from `xga99`:
+option `-y`, which is already known from `xga99`:
 
 	$ xdg99.py gacart.bin -a 6000 -f 6030
     ...
-    6206 31   MOVE >0010, G@>6EC4, V@>0033
+    6206 31   move >0010, g@>6ec4, v@>0033
     ...
 
-yields the standard syntax, but `-s` selects RAG, Ryte Data, or TIMT style:
+	$ xdg99.py gacart.bin -a 6000 -f 6030 -y mizapf
+    ...
+    6206 31   move >0010 bytes from grom@>6ec4 to vdp@>0033
+    ...
 
-	$ xdg99.py gacart.bin -a 6000 -f 6030 -s mizapf
-    ...
-    6206 31   MOVE >0010 BYTES FROM GROM@>6EC4 TO VDP@>0033
-    ...
+At the same time, the `-R` option of `xda99` has no meaning for GPL, and thus
+is not supported by `xdg99`.
 
 
 xbas99 TI BASIC and TI Extended BASIC Tool

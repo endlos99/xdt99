@@ -5,7 +5,7 @@ import re
 import glob
 
 from config import Dirs, Files
-from utils import xda, xas, error, check_indent, count_mnemonics, check_source, check_origins
+from utils import xda, xas, error, check_indent, count_mnemonics, check_source, check_origins, check_binary_files_eq
 
 
 # Check function
@@ -52,20 +52,20 @@ def runtest():
 
     # source and symbol EQU file
     source = os.path.join(Dirs.sources, "dasource.asm")
-    xas(source, "-b", "-R", "-o", Files.reference, "-E", Files.input)
-    xda(Files.reference, "-a", "6000", "-f", "6016", "-p", "-S", Files.input, "-o", Files.output)
+    xas(source, "-b", "-R", "-w", "-o", Files.reference, "-E", Files.input)
+    xda(Files.reference, "-a", "6000", "-f", "6016", "-p", "-s", "-S", Files.input, "-o", Files.output)
     check_source(Files.output, source)
 
     # symbols w/o EQUs
     source = os.path.join(Dirs.sources, "dasym.asm")
     syms = os.path.join(Dirs.sources, "dasym.txt")
-    xas(source, "-b", "-R", "-o", Files.reference)
-    xda(Files.reference, "-a", "2000", "-f", "2000", "-p", "-S", syms, "-o", Files.output)
+    xas(source, "-b", "-R", "-w", "-o", Files.reference)
+    xda(Files.reference, "-a", "2000", "-f", "2000", "-p", "-s", "-S", syms, "-o", Files.output)
     check_source(Files.output, source)
 
     # from/to
     source = os.path.join(Dirs.sources, "dastart.asm")
-    xas(source, "-b", "-R", "-o", Files.reference)
+    xas(source, "-b", "-R", "-w", "-o", Files.reference)
     xda(Files.reference, "-a", "6000", "-f", "601c",
         "-o", Files.output)
     check_range(Files.output, 14, 999)
@@ -78,7 +78,7 @@ def runtest():
     
     # exclude
     source = os.path.join(Dirs.sources, "daexclude.asm")
-    xas(source, "-b", "-o", Files.reference)
+    xas(source, "-b", "-w", "-o", Files.reference)
     xda(Files.reference, "-a", "0", "-r", "0x0", "-e", "0-2", "8-12", "-p", "-o", Files.output)
     datas = count_datas(Files.output)
     if datas != 6:
@@ -86,7 +86,7 @@ def runtest():
 
     # "start"
     source = os.path.join(Dirs.sources, "dastart.asm")
-    xas(source, "-b", "-R", "-o", Files.reference)
+    xas(source, "-b", "-R", "-w", "-o", Files.reference)
     xda(Files.reference, "-a", "6000", "-f", "start", "-o", Files.output)
     m1 = sum(count_mnemonics(Files.output, offset=9).values())
     if m1 != 4:
@@ -98,7 +98,7 @@ def runtest():
 
     # origins
     source = os.path.join(Dirs.sources, "dajumps.asm")
-    xas(source, "-b", "-R", "-o", Files.reference)
+    xas(source, "-b", "-R", "-w", "-o", Files.reference)
     xda(Files.reference, "-a", "0", "-r", "0", "-o", Files.output)
     check_origins(Files.output, {
         0xa: [0x2a],
@@ -107,14 +107,14 @@ def runtest():
 
     # strings (won't really work with "-f", unless the order is changed
     source = os.path.join(Dirs.sources, "datext.asm")
-    xas(source, "-b", "-R", "-o", Files.reference)
+    xas(source, "-b", "-R", "-w", "-o", Files.reference)
     xda(Files.reference, "-a", "7000", "-r", "7000", "-p", "-n",
         "-o", Files.output)
     check_strings(Files.output, source)
     
     # force
     source = os.path.join(Dirs.sources, "daforce.asm")
-    xas(source, "-b", "-R", "-o", Files.reference)
+    xas(source, "-b", "-R", "-w", "-o", Files.reference)
     xda(Files.reference, "-a", "a000", "-r", "a000", "-o", Files.output)
     movs = count_mnemonics(Files.output, offset=9, wanted="mov")
     if movs != 2:
@@ -126,14 +126,48 @@ def runtest():
 
     # layout
     source = os.path.join(Dirs.sources, "dastart.asm")
-    xas(source, "-b", "-R", "-o", Files.reference)
+    xas(source, "-b", "-R", "-w", "-o", Files.reference)
     xda(Files.reference, "-a", "6000", "-f", "start", "-o", Files.output)
     check_indent(Files.output, 2)
     xda(Files.reference, "-a", "6000", "-f", "start", "-p", "-o", Files.output)
     check_indent(Files.output, 1)
 
+    # skip -k
+    source = os.path.join(Dirs.sources, "dasource.asm")
+    xas(source, "-b", "-R", "-w", "-o", Files.reference, "-E", Files.symbols)
+    with open(Files.output, "wb") as fout, open(Files.reference, "rb") as fin:
+        fout.write("\xff" * 0x555)
+        data = fin.read()
+        fout.write(data)
+    xda(Files.output, "-k", "555", "-a", "6000", "-f", "6016", "-p", "-S", Files.symbols, "-o", Files.input)
+    xas(Files.input, "-b", "-R", "-w", "-o", Files.output)
+    check_binary_files_eq("skip", Files.output, Files.reference)
+
+    # strict -s and no R for registers -R
+    source = os.path.join(Dirs.sources, "dasource.asm")
+    xas(source, "-b", "-R", "-w", "-o", Files.reference, "-E", Files.symbols)
+    xda(Files.reference, "-a", "6000", "-f", "6016", "-p", "-S", Files.symbols, "-o", Files.output)
+    with open(Files.output, "r") as fin:
+        for line in fin.readlines():
+            if line != line.lower():
+                error("strict", "Source file not entirely lower case: %s" % line)
+
+    xas(source, "-b", "-R", "-w", "-o", Files.reference, "-E", Files.symbols)
+    xda(Files.reference, "-a", "6000", "-f", "6016", "-p", "-s", "-S", Files.symbols, "-o", Files.output)
+    with open(Files.output, "r") as fin:
+        for line in fin.readlines():
+            if line != line.upper():
+                error("strict", "Source file not entirely upper case: %s" % line)
+
+    xda(Files.reference, "-a", "6000", "-f", "6016", "-p", "-R", "-S", Files.symbols, "-o", Files.output)
+    with open(Files.output, "r") as fin:
+        lines = fin.readlines()
+        if any([re.search(r"R\d", line, re.IGNORECASE) for line in lines]):
+            error("no-R", "Found erroneous register in source file")
+
     # Cleanup
     os.remove(Files.input)
+    os.remove(Files.symbols)
     for f in glob.glob(Files.output + "*"):
         os.remove(f)
     for f in glob.glob(Files.reference + "*"):

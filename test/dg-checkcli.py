@@ -26,13 +26,13 @@ def check_syntax(fn, syntax_name):
             
 def check_move(fn, syntax_name):
     """ check syntax variant for MOVE instruction"""
-    move_stmt = ("GROM>0000AORG>0000" +
-                 "MOVE>1234BYTESFROMGROM@>6800TOVDP*>8302" +
-                 "MOVE@>8300(@>03)BYTESFROMGROM@>8304(@>01)TOVREG0"
+    move_stmt = ("grom>0000aorg>0000" +
+                 "move>1234bytesfromgrom@>6800tovdp*>8302" +
+                 "move@>8300(@>03)bytesfromgrom@>8304(@>01)tovreg0"
                  if syntax_name == "mizapf" else
-                 "GROM>0000AORG>0000" +
-                 "MOVE>1234,G@>6800,V*>8302" +
-                 "MOVE@>8300(@>03),G@>8304(@>01),#0")
+                 "grom>0000aorg>0000" +
+                 "move>1234,g@>6800,v*>8302" +
+                 "move@>8300(@>03),g@>8304(@>01),#0")
     with open(fn, "r") as f:
         data = "".join([l[9:] for l in f.readlines()])
     ref = re.sub(r"\s+", "", data)  # eliminate white space
@@ -48,8 +48,7 @@ def runtest():
     # source with sym file
     source = os.path.join(Dirs.gplsources, "dgsource.gpl")
     xga(source, "-o", Files.reference, "-E", Files.input)
-    xdg(Files.reference, "-a", "2000", "-f", ">2000", "-p", "-S", Files.input,
-        "-o", Files.output)
+    xdg(Files.reference, "-a", "2000", "-f", ">2000", "-p", "-S", Files.input, "-o", Files.output)
     check_source(Files.output, source)
 
     # from/to
@@ -74,7 +73,7 @@ def runtest():
     source = os.path.join(Dirs.gplsources, "dgsyntax.gpl")
     xga(source, "-o", Files.reference)
     for syntax in "rag", "ryte", "mizapf":
-        xdg(Files.reference, "-a", "0", "-f", "0", "-s", syntax,
+        xdg(Files.reference, "-a", "0", "-f", "0", "-y", syntax,
             "-o", Files.output)
         check_syntax(Files.output, syntax)
 
@@ -82,7 +81,7 @@ def runtest():
     source = os.path.join(Dirs.gplsources, "dgsynmove.gpl")
     xga(*[source] + ["-o", Files.reference])
     for syntax in "xdt99", "rag", "ryte", "mizapf":
-        xdg(Files.reference, "-a", "0", "-f", "0", "-s", syntax, "-o", Files.output)
+        xdg(Files.reference, "-a", "0", "-f", "0", "-y", syntax, "-o", Files.output)
         check_move(Files.output, syntax)
 
     # "start"
@@ -127,6 +126,32 @@ def runtest():
     nf = sum(count_mnemonics(Files.output, offset=9).values())
     if nf != 8:
         error("force", "Mnemonics count mismatch: %d != 8" % nf)
+
+    # skip -k
+    source = os.path.join(Dirs.gplsources, "dgsource.gpl")
+    xga(source, "-o", Files.output, "-E", Files.input)
+    with open(Files.output, "rb") as fin, open(Files.reference, "wb") as fout:
+        data = fin.read()
+        fout.write("\x99" * 0x999)
+        fout.write(data)
+    xdg(Files.reference, "-a", "2000", "-f", ">2000", "-k", "999", "-p", "-S", Files.input, "-o", Files.output)
+    check_source(Files.output, source)
+
+    # strict -s
+    source = os.path.join(Dirs.gplsources, "dgsource.gpl")
+    xga(source, "-o", Files.reference, "-E", Files.input)
+    xdg(Files.reference, "-a", "2000", "-f", ">2000", "-p", "-S", Files.input, "-o", Files.output)
+    with open(Files.output, "r") as fin:
+        for line in fin.readlines():
+            line = re.sub(r"'[^']*'", "", line)  # escape literal
+            if line != line.lower():
+                error("strict", "Source file not entirely lower case: %s" % line)
+
+    xdg(Files.reference, "-a", "2000", "-f", ">2000", "-p", "-s", "-S", Files.input, "-o", Files.output)
+    with open(Files.output, "r") as fin:
+        for line in fin.readlines():
+            if line != line.upper():
+                error("strict", "Source file not entirely upper case: %s" % line)
 
     # layout
     source = os.path.join(Dirs.gplsources, "dgstart.gpl")
