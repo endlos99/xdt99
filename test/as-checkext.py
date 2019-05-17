@@ -209,6 +209,12 @@ def runtest():
     exp_errors = get_source_markers(source, tag=r";ERROR")
     check_errors(exp_errors, act_errors)
 
+    # floating-point numbers
+    source = os.path.join(Dirs.sources, "asfloat.asm")
+    xas(source, "-b", "-o", Files.output)
+    ref = os.path.join(Dirs.refs, "asfloat.ref")
+    check_binary_files_eq("float", Files.output, ref)
+
     # cleanup
     os.remove(Files.output)
     os.remove(Files.reference)

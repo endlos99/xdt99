@@ -1,0 +1,8 @@
+   grom >6000
+
+   data >ffff
+   .defm bar
+   data >2222
+
+   end
+

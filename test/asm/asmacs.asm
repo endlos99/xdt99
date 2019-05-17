@@ -47,6 +47,7 @@ main   lwpi >8300
        inc #1
        .else
        dec #1
+       .endif
        .endm
 
 prog   data 0

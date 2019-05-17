@@ -20,10 +20,11 @@
 # along with this program; if not, see <http://www.gnu.org/licenses/>.
 
 import sys
+import math
 import re
 import os.path
 
-VERSION = "1.8.3"
+VERSION = "1.8.4"
 
 
 # Utility functions
@@ -1076,6 +1077,15 @@ class Directives:
                 code.byte(ord(c))
 
     @staticmethod
+    def FLOA(parser, code, label, ops):
+        code.process_label(parser.lidx, label, tracked=True)
+        code.list(-1, text2="....")
+        for op in ops:
+            bytes_ = parser.radix100(op)
+            for b in bytes_:
+                code.byte(b)
+
+    @staticmethod
     def BSS(parser, code, label, ops):
         code.process_label(parser.lidx, label, tracked=True)
         size = parser.value(ops[0])
@@ -1254,13 +1264,11 @@ class Preprocessor:
 
     def IFDEF(self, code, ops):
         self.parse_branches.append(self.parse)
-        self.parse = (code.symbols.get_symbol(ops[0]) is not None if self.parse
-                      else None)
+        self.parse = code.symbols.get_symbol(ops[0]) is not None if self.parse else None
 
     def IFNDEF(self, code, ops):
         self.parse_branches.append(self.parse)
-        self.parse = (code.symbols.get_symbol(ops[0]) is None if self.parse
-                      else None)
+        self.parse = code.symbols.get_symbol(ops[0]) is None if self.parse else None
 
     def IFEQ(self, code, ops):
         self.parse_branches.append(self.parse)
@@ -1720,12 +1728,10 @@ class Parser:
             try:
                 # break line into fields
                 label, mnemonic, operands, comment, stmt = self.line(line)
-                keep, operands, line = self.prep.process(dummy, label, mnemonic,
-                                                         operands, line)
+                keep, operands, line = self.prep.process(dummy, label, mnemonic, operands, line)
                 if not keep:
                     continue
-                source.append((lino, label, mnemonic, operands, line, filename,
-                               stmt))
+                source.append((lino, label, mnemonic, operands, line, filename, stmt))
                 if not stmt:
                     continue
                 self.lidx += 1
@@ -1743,8 +1749,11 @@ class Parser:
                 Directives.process(self, dummy, label, mnemonic, operands) or \
                     Opcodes.process(self, dummy, label, mnemonic, operands)
             except AsmError as e:
-                errors.append("%s <1> %04d - %s\n***** %s\n" % (
-                    filename, lino, line, e.message))
+                errors.append("%s <1> %04d - %s\n***** %s\n" % (filename, lino, line, e.message))
+        if self.prep.parse_branches:
+            errors.append("***** Error: Missing .endif\n")
+        if self.prep.parse_macro:
+            errors.append("***** Error: Missing .endm\n")
         return source, errors
 
     def pass_2(self, source, code, errors):
@@ -1767,11 +1776,9 @@ class Parser:
                 Directives.process(self, code, label, mnemonic, operands) or \
                     Opcodes.process(self, code, label, mnemonic, operands)
             except AsmError as e:
-                errors.append("%s <2> %04d - %s\n***** %s\n" % (
-                    filename, lino, line, e.message))
+                errors.append("%s <2> %04d - %s\n***** %s\n" % (filename, lino, line, e.message))
             for msg in self.warnings:
-                sys.stderr.write("%s <2> %04d - Warning: %s\n" % (
-                    filename, lino, msg))
+                sys.stderr.write("%s <2> %04d - Warning: %s\n" % (filename, lino, msg))
             self.warnings = []  # warnings per line
         code.list(0, eos=True)
         if self.warnings_enabled:
@@ -2049,6 +2056,37 @@ class Parser:
             return v[:-1] + chr(-ord(v[-1]) % 0x100) if op[0] == "-" else v
         else:
             raise AsmError("Invalid text literal: " + op)
+
+    def radix100(self, op):
+        """parse floating-point number and convert to radix-100 format"""
+        sign, digits = (-1, op[1:]) if op[0] == '-' else (+1, op)  # sign
+        # find hundreds
+        try:
+            int_part, frac_part = digits.strip("0").split('.')  # with decimal point
+        except ValueError:
+            int_part, frac_part = digits.lstrip("0"), ""  # no decimal point
+        if not int_part:
+            if not frac_part:
+                return [0] * 8  # op is zero
+            while frac_part[:2] == "00":  # only faction
+                frac_part = frac_part[2:]
+        elif len(int_part) % 2 == 1:
+            int_part = "0" + int_part
+        # build mantissa
+        mantissa = int_part + frac_part + "00000000000000"
+        hundreds = [int(mantissa[i:i + 2]) for i in xrange(0, 14, 2)]
+        # get exponent
+        try:
+            exponent = int(math.floor(math.log(float(digits), 100)))  # digits != 0
+        except ValueError:
+            raise AsmError("Bad format for floating point number: " + op)
+        # invert first word if negative
+        bytes_ = [exponent + 0x40] + hundreds
+        if sign < 0:
+            bytes_[1] = 0x100 - bytes_[1]  # cannot yield 0x100 for bytes_[1], since always != 0
+            bytes_[0] = ~bytes_[0]
+        # return radix-100 format
+        return bytes_
 
     def filename(self, op):
         """parse double-quoted filename"""

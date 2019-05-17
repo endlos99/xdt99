@@ -3,7 +3,7 @@
 import os
 
 from config import Dirs, Files
-from utils import xga, read_stderr, get_source_markers, check_errors
+from utils import xga, error, read_stderr, get_source_markers, check_errors
 
 
 # Main test
@@ -27,6 +27,23 @@ def runtest():
         act_errors = read_stderr(Files.error, include_warnings=False)
         exp_errors = get_source_markers(source, tag=r"\* ERROR")
         check_errors(exp_errors, act_errors)
+
+    # open .if-.endif or .defm-.endm
+    source = os.path.join(Dirs.gplsources, "gaopenif.gpl")
+    with open(Files.error, "w") as ferr:
+        xga(source, "-o", Files.output, stderr=ferr, rc=1)
+    with open(Files.error, "r") as fin:
+        msgs = " ".join(fin.readlines())
+    if "Missing .endif" not in msgs:
+        error("open", "Missing error for open .if/.endif")
+
+    source = os.path.join(Dirs.gplsources, "gaopenmac.gpl")
+    with open(Files.error, "w") as ferr:
+        xga(source, "-o", Files.output, stderr=ferr, rc=1)
+    with open(Files.error, "r") as fin:
+        msgs = " ".join(fin.readlines())
+    if "Missing .endm" not in msgs:
+        error("open", "Missing error for open .defm/.endm")
 
     # cleanup
     os.remove(Files.error)

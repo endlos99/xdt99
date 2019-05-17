@@ -20,10 +20,11 @@
 # along with this program; if not, see <http://www.gnu.org/licenses/>.
 
 import sys
+import math
 import re
 import os.path
 
-VERSION = "1.8.2"
+VERSION = "1.8.4"
 
 
 # Utility functions
@@ -648,6 +649,13 @@ class Directives:
         code.emit(len(text), *[ord(c) for c in text])
 
     @staticmethod
+    def FLOAT(parser, code, label, ops):
+        code.process_label(parser.lidx, label, parser.pass_no)
+        for op in ops:
+            bytes_ = parser.radix100(op)
+            code.emit(*bytes_)
+
+    @staticmethod
     def BSS(parser, code, label, ops):
         code.process_label(parser.lidx, label, parser.pass_no)
         size = parser.expression(ops[0])
@@ -870,7 +878,7 @@ class Opcodes:
     op_char = lambda parser, x: (parser.expression(x[0]),
                                  parser.expression(x[1]))
     op_chars = lambda parser, x: (parser.expression(x[0]),
-                                  parser.gaddress(x[1], is_gs=False, is_move=True))
+                                  parser.gaddress(x[1], is_gs=True, is_move=True))
     op_incr = lambda parser, x: (parser.expression(x[0]),)
     op_value = lambda parser, x: (1, parser.expression(x[0]))
     op_bias = lambda parser, x: parser.fmtbias(x)
@@ -883,8 +891,8 @@ class Opcodes:
         "COL+": (0x80, op_incr),
         "ROW+": (0xa0, op_incr),
         "HMOVE": (0xe0, op_chars),
-        #"FOR": (0xc0, op_value),  # -> directive
-        #"FEND": (0xfb, None),  # -> directive
+        # "FOR": (0xc0, op_value),  # -> directive
+        # "FEND": (0xfb, None),  # -> directive
         "BIAS": (0xfc, op_bias),
         "ROW": (0xfe, op_value),
         "COL": (0xff, op_value)
@@ -1149,8 +1157,7 @@ class Parser:
 
     def warn(self, message):
         # warn in pass 2 to avoid duplicates and to prevent false expr values 0
-        if (self.warnings_enabled and self.pass_no == 2 and
-                message not in self.warnings):
+        if self.warnings_enabled and self.pass_no == 2 and message not in self.warnings:
             self.warnings.append(message)
 
     def open(self, filename=None, macro=None, ops=None):
@@ -1291,6 +1298,10 @@ class Parser:
             except AsmError as e:
                 errors.append("%s <1> %04d - %s\n***** %s\n" % (
                     filename, lino, line, e.message))
+        if self.prep.parse_branches:
+            errors.append("***** Error: Missing .endif\n")
+        if self.prep.parse_macro:
+            errors.append("***** Error: Missing .endm\n")
         if errors:
             return errors
         # code generation (passes 1+)
@@ -1492,6 +1503,37 @@ class Parser:
         except (IndexError, ValueError):
             pass
         raise AsmError("Invalid text literal: " + op)
+
+    def radix100(self, op):
+        """parse floating-point number and convert to radix-100 format"""
+        sign, digits = (-1, op[1:]) if op[0] == '-' else (+1, op)  # sign
+        # find hundreds
+        try:
+            int_part, frac_part = digits.strip("0").split('.')  # with decimal point
+        except ValueError:
+            int_part, frac_part = digits.lstrip("0"), ""  # no decimal point
+        if not int_part:
+            if not frac_part:
+                return [0] * 8  # op is zero
+            while frac_part[:2] == "00":  # only faction
+                frac_part = frac_part[2:]
+        elif len(int_part) % 2 == 1:
+            int_part = "0" + int_part
+        # build mantissa
+        mantissa = int_part + frac_part + "00000000000000"
+        hundreds = [int(mantissa[i:i + 2]) for i in xrange(0, 14, 2)]
+        # get exponent
+        try:
+            exponent = int(math.floor(math.log(float(digits), 100)))  # digits != 0
+        except ValueError:
+            raise AsmError("Bad format for floating point number: " + op)
+        # invert first word if negative
+        bytes_ = [exponent + 0x40] + hundreds
+        if sign < 0:
+            bytes_[1] = 0x100 - bytes_[1]  # cannot yield 0x100 for bytes_[1], since always != 0
+            bytes_[0] = ~bytes_[0] & 0xff
+        # return radix-100 format
+        return bytes_
 
     def filename(self, op):
         """parse double-quoted filename"""

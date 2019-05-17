@@ -31,6 +31,12 @@ def runtest():
     xga(ref, "-o", Files.reference)
     check_binary_files_eq("locals", Files.output, Files.reference)
 
+    # floating-point numbers
+    source = os.path.join(Dirs.gplsources, "gafloat.gpl")
+    xga(source, "-o", Files.output)
+    ref = os.path.join(Dirs.refs, "asfloat.ref")
+    check_binary_files_eq("float", Files.output, ref)
+
     # cleanup
     os.remove(Files.output)
     os.remove(Files.reference)

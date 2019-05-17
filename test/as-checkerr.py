@@ -47,6 +47,23 @@ def runtest():
     ref_errors = get_source_markers(source, tag=r";ERROR(:....)?")
     check_errors(ref_errors, xas_errors)
 
+    # open .if-.endif or .defm-.endm
+    source = os.path.join(Dirs.sources, "asopenif.asm")
+    with open(Files.error, "w") as ferr:
+        xas(source, "-o", Files.output, stderr=ferr, rc=1)
+    with open(Files.error, "r") as fin:
+        msgs = " ".join(fin.readlines())
+    if "Missing .endif" not in msgs:
+        error("open", "Missing error for open .if/.endif")
+
+    source = os.path.join(Dirs.sources, "asopenmac.asm")
+    with open(Files.error, "w") as ferr:
+        xas(source, "-o", Files.output, stderr=ferr, rc=1)
+    with open(Files.error, "r") as fin:
+        msgs = " ".join(fin.readlines())
+    if "Missing .endm" not in msgs:
+        error("open", "Missing error for open .defm/.endm")
+
     # files not found
     source = os.path.join(Dirs.sources, "ascopyi.asm")
     with open(Files.error, "w") as ferr:
