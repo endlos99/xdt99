@@ -5,7 +5,8 @@ import re
 import glob
 
 from config import Dirs, Files
-from utils import xda, xas, error, check_indent, count_mnemonics, check_source, check_origins, check_binary_files_eq
+from utils import (xda, xas, error, check_indent, count_mnemonics, check_source, check_origins,
+                   check_binary_files_eq, check_ellipsis)
 
 
 # Check function
@@ -164,6 +165,13 @@ def runtest():
         lines = fin.readlines()
         if any([re.search(r"R\d", line, re.IGNORECASE) for line in lines]):
             error("no-R", "Found erroneous register in source file")
+
+    # concise -c
+    source = os.path.join(Dirs.sources, "daconcis.asm")
+    xas(source, "-b", "-R", "-w", "-o", Files.reference)
+    xda(Files.reference, "-a", "2000", "-r", "2000", "-s", "-c", "-o", Files.output)
+    check_ellipsis(Files.output, skip=2)
+    # no condensed output when disassembling as program (-p)
 
     # Cleanup
     os.remove(Files.input)

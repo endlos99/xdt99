@@ -4,7 +4,8 @@ import os
 import re
 
 from config import Dirs, Files
-from utils import xdg, xga, error, check_indent, count_mnemonics, check_source, check_origins, count_bytes
+from utils import (xdg, xga, error, check_indent, count_mnemonics, check_source, check_origins,
+                   count_bytes, check_ellipsis)
 
 
 # Check function
@@ -152,6 +153,13 @@ def runtest():
         for line in fin.readlines():
             if line != line.upper():
                 error("strict", "Source file not entirely upper case: %s" % line)
+
+    # concise -c
+    source = os.path.join(Dirs.gplsources, "dgconcis.gpl")
+    xga(source, "-o", Files.reference)
+    xdg(Files.reference, "-a", "4000", "-r", "4000", "-s", "-c", "-o", Files.output)
+    check_ellipsis(Files.output, skip=2)
+    # no condensed output when disassembling as program (-p)
 
     # layout
     source = os.path.join(Dirs.gplsources, "dgstart.gpl")

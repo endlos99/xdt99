@@ -468,7 +468,7 @@ class Entry:
         else:  # list format
             return list_fmt % (self.addr, self.word, self.indicator, mnemonic, ops, origin)
 
-    def list(self, as_prog=False, strict=False):
+    def list(self, as_prog=False, strict=False, concise=False):
         """pretty print current entry"""
         return self._list(as_prog, strict)
 
@@ -478,6 +478,9 @@ class Unknown(Entry):
 
     def __init__(self, addr, word):
         Entry.__init__(self, addr, word, indicator="?")
+
+    def list(self, as_prog=False, strict=False, concise=False):
+        return None if concise else self._list(as_prog, strict)
 
 
 class Used(Entry):
@@ -499,7 +502,7 @@ class Instruction(Entry):
         self.operands = ops  # list of operands
         self.comment = comment  # optional comment
 
-    def list(self, as_prog=False, strict=False):
+    def list(self, as_prog=False, strict=False, concise=False):
         """pretty print current instruction"""
         ops_text = [op.text for op in self.operands]
         ops = ("," if strict else ", ").join(ops_text)
@@ -534,7 +537,7 @@ class Literal(Entry):
             self.mnemonic = "DATA"
             self.value = symbols.resolve(value)
 
-    def list(self, as_prog=False, strict=False):
+    def list(self, as_prog=False, strict=False, concise=False):
         """return textual representation of literal"""
         return Entry._list(self, as_prog, strict, self.mnemonic, self.value)
 
@@ -588,14 +591,29 @@ class Program:
             entry = self.code[idx + i]
             self.code[idx + i] = Unknown(entry.addr, entry.word)
 
-    def list(self, start=None, end=None, strict=False, as_prog=False):
+    def list(self, start=None, end=None, strict=False, concise=False, as_prog=False):
         """pretty print entire program"""
         start_idx = self.addr2idx(start) if start else 0
         end_idx = self.addr2idx(end) if end else self.size
         aorg = " " * (7 if as_prog else 12) + ("AORG >%04X\n" if strict else "aorg >%04x\n") % self.addr
         equ_text = self.equ_text if strict else self.equ_text.lower()
-        listing = [self.code[i].list(as_prog=as_prog, strict=strict) for i in xrange(start_idx, end_idx)]
+        listing = [self.code[i].list(as_prog=as_prog, strict=strict, concise=concise)
+                   for i in xrange(start_idx, end_idx)]
+        if concise and not as_prog:  # no unknown parts in programs
+            listing = self.condense(listing)
         return aorg + equ_text + "\n".join(listing) + "\n"
+
+    def condense(self, listing):
+        i = 0
+        while i < len(listing):
+            if listing[i] is None:
+                del listing[i]
+            elif i > 0 and int(listing[i][:4], 16) - int(listing[i - 1][:4], 16) > 2:
+                listing.insert(i, '....')
+                i += 2
+            else:
+                i += 1
+        return listing
 
 
 class BadSyntax:
@@ -606,7 +624,7 @@ class BadSyntax:
         self.word = word
         self.size = 1
 
-    def list(self, as_prog, strict):
+    def list(self, as_prog=False, strict=False, concise=False):
         if as_prog:
             error = "L%04X  BAD SYNTAX %04X" % (self.addr, self.word)
         else:
@@ -768,6 +786,8 @@ def main():
                       help="force overwriting of previous disassembly")
     args.add_argument("-p", "--program", action="store_true", dest="program",
                       help="disassemble to complete program")
+    args.add_argument("-c", "--concise", action="store_true", dest="concise",
+                      help="show only disassembled parts")
     args.add_argument("-n", "--strings", action="store_true", dest="strings",
                       help="disassemble string literals")
     args.add_argument("-R", "--no-r", action="store_true", dest="nor",
@@ -826,7 +846,7 @@ def main():
     except IOError as e:
         sys.exit("ERROR: %s: %s." % (e.filename, e.strerror))   
     try:            
-        source = prog.list(as_prog=opts.program or False, strict=opts.strict)
+        source = prog.list(as_prog=opts.program or False, strict=opts.strict, concise=opts.concise)
         writelines(output, "w", source)
     except IOError as e:
         sys.exit("ERROR: %s: %s." % (e.filename, e.strerror))   

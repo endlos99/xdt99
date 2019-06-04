@@ -1,0 +1,24 @@
+  grom >4000
+
+  b start
+
+  data 1, 2, 3, 4, 5, 6, 7, 8
+
+start:
+  dclr @>8300
+  move 10, g@>4100, @>8380
+  st 1, @>8380
+  b part2
+
+  text 'HELLO WORLD'
+
+part2:
+  fmt
+  htext 'FOO'
+  fend
+  back >20
+  bs start
+  br part2
+
+  end
+
