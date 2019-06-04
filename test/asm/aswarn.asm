@@ -29,6 +29,8 @@ l2     nop
        bss 252
        b @l2        ;WARN
        b @l2
+       b @l2(r1)    ; no warning
+       b *r1        ; no warning
 
        ; Rn as immediate value
        ci r1, 1

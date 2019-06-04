@@ -67,7 +67,7 @@ def runtest():
             ("asreloc.asm", ["ASRELOC-I"])
             ]:
         source = os.path.join(Dirs.sources, inp_file)
-        xas(source, "-R", "-i", "-o", Files.output)
+        xas(source, "-R", "-i", "-w", "-o", Files.output)
         for i, ref_file in enumerate(reffiles):
             xdm(Disks.asmimgs, "-e", ref_file, "-o", Files.reference)
             check_files_eq("Image file",

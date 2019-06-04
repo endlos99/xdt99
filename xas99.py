@@ -899,7 +899,7 @@ class Optimizer:
     @staticmethod
     def process(parser, code, mnemonic, opcode, fmt, arg1, arg2):
         if mnemonic == "B":
-            if (arg1[0] == 0b10 and isinstance(arg1[2], int) and
+            if (arg1[0] == 0b10 and arg1[1] == 0 and isinstance(arg1[2], int) and
                     -128 <= (arg1[2] - (code.symbols.effective_LC() + 2)) / 2 <= 128):
                 # upper bound is 128 instead of 127, since replacing B by JMP
                 # would also eliminate one word (the target of B)
@@ -909,13 +909,13 @@ class Optimizer:
 class Records:
     """object code tag and record handling"""
 
-    def __init__(self, relocSize, idt, compressed):
+    def __init__(self, reloc_size, idt, compressed):
         self.records = []
         if compressed:
-            self.record = "\x01%s%-8s" % (chrw(relocSize), idt)
+            self.record = "\x01%s%-8s" % (chrw(reloc_size), idt)
             self.linlen = 77
         else:
-            self.record = "0%04X%-8s" % (relocSize, idt)
+            self.record = "0%04X%-8s" % (reloc_size, idt)
             self.linlen = 64
         self.compressed = compressed
         self.needs_LC = True

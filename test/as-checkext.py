@@ -99,7 +99,7 @@ def runtest():
 
     # bank switching: obsolete AORG addr, bank
     source = os.path.join(Dirs.sources, "asxbank1.asm")
-    xas(source, "-b", "-o", Files.output)
+    xas(source, "-b", "-w", "-o", Files.output)
     save2s =[Files.output + "_" + ext
               for ext in ["0000", "6000_b0", "6000_b1", "6100_b0", "6200_b1",
                           "6200_b2"]]
@@ -107,7 +107,7 @@ def runtest():
     check_no_files([Files.output + "_0000_b0", Files.output + "_6100_b1"])
 
     source = os.path.join(Dirs.sources, "asxbank2.asm")
-    xas(source, "-b", "-o", Files.output)
+    xas(source, "-b", "-w", "-o", Files.output)
     save3s = [Files.output + "_" + ext
               for ext in ["c000_b0", "c000_b1", "d000_b0", "e000_b1"]]
     check_concat_eq(save3s, os.path.join(Dirs.refs, "save3"))
@@ -115,7 +115,7 @@ def runtest():
                     for ext in ["c000", "d000", "d000_b1", "e000", "e000_b0"]])
 
     source = os.path.join(Dirs.sources, "asxsegm.asm")
-    xas(source, "-b", "-o", Files.output)
+    xas(source, "-b", "-w", "-o", Files.output)
     check_file_sizes([(Files.output + "_" + ext, size)
                       for ext, size in [("0000", 20), ("b000_b1", 14),
                                       ("b010_b1", 2), ("b012_b2", 6)]])

@@ -443,6 +443,24 @@ def check_errors(ref, actual):
                   "Extraneous error: " + str(err) + ": " + actual[err])
 
 
+def check_ellipsis(fn, skip=0):
+    with open(fn, "r") as fin:
+        addrs = [None if line[0] == '.' else int(line[:4], 16) for line in fin.readlines()[skip:]]
+
+    for i, a in enumerate(addrs):
+        if a is None:
+            continue
+        try:
+            if addrs[i + 1] is None:
+                if addrs[i + 2] - a <= 2:
+                    error("concise", "Badly placed '....' within address segment")
+            else:
+                if addrs[i + 1] - a > 2:
+                    error("concise", "Missing '....' between two address segments")
+        except IndexError:
+            pass
+
+
 # common check functions xga99
 
 def check_gbc_files_eq(name, genfile, reffile):
