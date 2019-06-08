@@ -19,7 +19,7 @@ def runtest():
             ("gainst.gpl", ["-a", "0", "-r", "6", "a2", "a3", "aa", "ab", "ac", "b2", "b4"], []),
             ("gabranch.gpl", ["-a", "0", "-f", "5"], []),
             ("gamove.gpl", ["-a", "0", "-f", "6"], []),
-            ("gafmt.gpl", ["-a", "0", "-f", "5", "-y", "rag"], ["-y", "rag"]),
+            ("gafmt.gpl", ["-a", "0", "-f", "5", "-y", "rag"], []),
             ("gacopy.gpl", ["-a", ">2000", "-r", "2000"], []),
             ("gaexts.gpl", ["-a", "0", "-r", "0x1e"], []),
             ("gapass.gpl", ["-a", "0x6030", "-r", "6030"], [])
@@ -30,14 +30,14 @@ def runtest():
         xga(*[Files.input] + aopts + ["-o", Files.output])
         check_files_eq(srcfile, Files.output, Files.reference, "PROGRAM")
         check_bytes(Files.input, source)
-        
+
     # top-down disassembler
     for srcfile, dopts, aopts in [
             ("gaops.gpl", ["-a", "0", "-f", "6"], []),
             ("gainst.gpl", ["-a", "0", "-f", "6"], []),
             ("gabranch.gpl", ["-a", "0", "-f", "5"], []),
             ("gamove.gpl", ["-a", "0", "-f", "6"], []),
-            ("gafmt.gpl", ["-a", "0", "-f", "5", "-y", "rag"], ["-y", "rag"]),
+            ("gafmt.gpl", ["-a", "0", "-f", "5", "-y", "rag"], []),
             ("gadirs.gpl", ["-a", "0", "-f", "0"], []),
             ("gacopy.gpl", ["-a", ">2000", "-f", ">2000"], []),
             ("gaexts.gpl", ["-a", "0", "-f", "0x1e"], []),

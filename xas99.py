@@ -24,7 +24,8 @@ import math
 import re
 import os.path
 
-VERSION = "2.0.0"
+
+VERSION = "2.0.1"
 
 
 # Utility functions
@@ -2166,7 +2167,6 @@ def main():
               "cart" if opts.cart else
               "bin" if opts.bin else
               "xb" if opts.embed else
-              "js" if opts.jstart else
               "obj")
     asm = Assembler(target=target,
                     optr=opts.optr,

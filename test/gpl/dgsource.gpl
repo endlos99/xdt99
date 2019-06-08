@@ -35,7 +35,7 @@ start  back  >02
        col   >09
        vtext 'HELLO'
        bias  *>3333
-       hmove >09, v*bad
+       hmove >09, @bad
        fend
 
        xml   >77
@@ -62,7 +62,7 @@ l2     dec   v@>0040
        br    l1
        br    l2
        br    l3
-       
+
        byte  >99
        byte  >99
 

@@ -113,21 +113,6 @@ def runtest():
     xas(source, "-b", "-D", "s1=2,s2=2,s3=3", "-o", Files.output)
     assert content(Files.output) == "\x02\x03"
 
-    # jumpstart disk
-    source = os.path.join(Dirs.sources, "ashello.asm")
-    xas(source, "-R", "--jumpstart", "-o", Files.output)
-    xdm(Disks.asmsrcs, "-e", "ASHELLO-I", "-o", Files.reference)
-    with open(Files.output, "rb") as fout, open(Files.reference, "rb") as fref:
-        disk = fout.read()
-        prog = fref.read()
-    if len(disk) != 360 * 256:
-        error("Jumpstart", "Incorrect disk size: %d" % len(disk))
-    if disk[0:10] != "xas99-JS\xc2\xb9" or disk[56:256] != "\xff" * 200:
-        error("Jumpstart", "Invalid sector 0 data")
-    plen = ordw(prog[2:4]) - 6
-    if disk[512:512 + plen] != prog[6:6 + plen]:
-        error("Jumpstart", "Invalid program data")
-
     # various parameter combinations
     source = os.path.join(Dirs.sources, "asxbank1.asm")
     remove([Files.reference])
