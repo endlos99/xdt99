@@ -1,15 +1,19 @@
-* VDP MULTI-BYTE WRITE
+* VDP multi-byte write, where length can be zero
 
        ref  vdpwa, vdpwd
 
        even
 
 vmbw:
-       movb @ws_r0lb, @vdpwa
        ori  r0, >4000
+       swpb r0
        movb r0, @vdpwa
-!      movb *r1+, @vdpwd
-       dec  r2
-       jne  -!
+       swpb r0
+       movb r0, @vdpwa
+
+       jmp  !dec
+!mov   movb *r1+, @vdpwd
+!dec   dec  r2
+       joc  -!mov
 
        rt

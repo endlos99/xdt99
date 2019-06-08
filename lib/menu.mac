@@ -1,0 +1,14 @@
+* menu macro
+
+       .defm menu
+
+       data >aa01
+       data 0, 0
+       data !mac_menu
+       data 0, 0, 0, 0
+
+!mac_menu:
+       data 0, #2
+       stri #1
+
+       .endm
