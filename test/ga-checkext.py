@@ -37,7 +37,17 @@ def runtest():
     ref = os.path.join(Dirs.refs, "asfloat.ref")
     check_binary_files_eq("float", Files.output, ref)
 
+    # GROM n or address
+    for source in (" GROM >6000\n DATA $", " GROM 3\n DATA $"):
+        with open(Files.input, "w") as fout:
+            fout.writelines(source)
+        xga(Files.input, "-o", Files.output)
+        with open(Files.output, "rb") as fin:
+            if fin.read()[:4] != "\x60\x00":
+                error("GROM", "Incorrect address after GROM directive")
+
     # cleanup
+    os.remove(Files.input)
     os.remove(Files.output)
     os.remove(Files.reference)
     #os.remove(Files.error)

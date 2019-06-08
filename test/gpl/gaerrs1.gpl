@@ -11,4 +11,9 @@ INVLIT  DATA 1A          * ERROR
         CLR @1(@>9000)   * ERROR
         MOVE 1,@0,#8     * ERROR
 
+        FMT
+        VCHAR 33,'X'     * ERROR
+        HSTR 28, @>8300  * ERROR
+        FEND
+
         END

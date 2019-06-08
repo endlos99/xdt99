@@ -20,20 +20,20 @@ def runtest():
     """check cross-generated output against native reference files"""
 
     # object code
-    for infile, opts, reffile in [
-            ("gaops.gpl", [], "GAOPS-Q"),
-            ("gainst.gpl", [], "GAINST-Q"),
-            ("gabranch.gpl", [], "GABRANCH-Q", ),
-            ("gamove.gpl", [], "GAMOVE-Q"),
-            ("gafmt.gpl", ["-y", "rag"], "GAFMT-Q"),
-            ("gadirs.gpl", [], "GADIRS-Q"),
-            ("gacopy.gpl", [], "GACOPY-Q"),
-            ("gaexts.gpl", [], "GAEXTS-Q"),
-            ("gapass.gpl", [], "GAPASS-Q")
-            ]:
+    for infile, opts, reffile in (
+            ["gaops.gpl", [], "GAOPS-Q"],
+            ["gainst.gpl", [], "GAINST-Q"],
+            ["gabranch.gpl", [], "GABRANCH-Q", ],
+            ["gamove.gpl", [], "GAMOVE-Q"],
+            ["gafmt.gpl", [], "GAFMT-Q"],
+            ["gadirs.gpl", [], "GADIRS-Q"],
+            ["gacopy.gpl", [], "GACOPY-Q"],
+            ["gaexts.gpl", [], "GAEXTS-Q"],
+            ["gapass.gpl", [], "GAPASS-Q"]
+            ):
         source = os.path.join(Dirs.gplsources, infile)
         xdm(Disks.gplsrcs, "-e", reffile, "-o", Files.reference)
-        xga(*[source] + opts + ["-o", Files.output])
+        xga(*[source] + opts + ["-w", "-o", Files.output])
         check_gbc_files_eq(infile, Files.output, Files.reference)
 
     # cart generation

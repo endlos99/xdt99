@@ -24,7 +24,7 @@ import math
 import re
 import os.path
 
-VERSION = "1.8.4"
+VERSION = "1.8.5"
 
 
 # Utility functions
@@ -333,7 +333,7 @@ class Objcode:
             last_line = self.code[-1][1]
             assert isinstance(last_line, Line)
             last_line.text1, last_line.text2 = text1, text2
-        
+
     def wrapup(self):
         """wrap-up code generation"""
         self.segments.append(
@@ -348,7 +348,7 @@ class Objcode:
                 "\n" if dump and dump[-1] != "\n" else "", grom, base)
             for LC, bs in code:
                 if isinstance(bs, Line):
-                    continue                
+                    continue
                 dump += "\n%04X:  " % LC
                 for b in bs:
                     if isinstance(b, Address):
@@ -616,7 +616,7 @@ class Line:
         self.end_of_source = end_of_source
         self.text1 = self.text2 = None
 
-        
+
 # Directives
 
 class Directives:
@@ -663,7 +663,8 @@ class Directives:
 
     @staticmethod
     def GROM(parser, code, label, ops):
-        grom = parser.value(ops[0]) & 0xe000
+        value = parser.value(ops[0])
+        grom = (value << 13) if value < 8 else value & 0xe000
         code.segment(grom, 0x0000)
         code.process_label(parser.lidx, label, parser.pass_no)
 
@@ -846,8 +847,6 @@ class Opcodes:
         "COINC": (0xed, 1, op_gs_dgd),
         "BACK": (0x04, 2, op_imm),
         "ALL": (0x07, 2, op_imm),
-        #"FMT": (0x08, 7, opFmt),  # -> directive
-        #"FEND": (0xfb, 7, opFmt),  # -> directive
         "RAND": (0x02, 2, op_opt(255)),
         "SCAN": (0x03, 5, None),
         "XML": (0x0f, 2, op_imm),
@@ -875,11 +874,11 @@ class Opcodes:
     }
 
     op_text = lambda parser, x: parser.fmttext(x)
-    op_char = lambda parser, x: (parser.expression(x[0]),
+    op_char = lambda parser, x: (parser.fmtcount(x[0]),
                                  parser.expression(x[1]))
-    op_chars = lambda parser, x: (parser.expression(x[0]),
-                                  parser.gaddress(x[1], is_gs=True, is_move=True))
-    op_incr = lambda parser, x: (parser.expression(x[0]),)
+    op_hstr = lambda parser, x: (parser.fmtcount(x[0], max_count=27),
+                                 parser.gaddress(x[1], is_gs=True, plain_only=True))
+    op_incr = lambda parser, x: (parser.fmtcount(x[0]),)
     op_value = lambda parser, x: (1, parser.expression(x[0]))
     op_bias = lambda parser, x: parser.fmtbias(x)
 
@@ -890,7 +889,7 @@ class Opcodes:
         "VCHAR": (0x60, op_char),
         "COL+": (0x80, op_incr),
         "ROW+": (0xa0, op_incr),
-        "HMOVE": (0xe0, op_chars),
+        "HSTR": (0xe0, op_hstr),
         # "FOR": (0xc0, op_value),  # -> directive
         # "FEND": (0xfb, None),  # -> directive
         "BIAS": (0xfc, op_bias),
@@ -951,6 +950,7 @@ class Opcodes:
         else:
             raise AsmError("Unsupported opcode format " + str(fmt))
 
+
 # Parsing
 
 class SyntaxVariant:
@@ -969,28 +969,18 @@ class Syntax:
             raise AsmError("Unknown syntax style " + style)
 
     xdt99 = SyntaxVariant(
-        ga=r"(?:(@|\*|V@|V\*|G@)|(#))([^(]+)(?:\(@?([^)]+)\))?$",
+        ga=r"(?:(@|\*|V@|V\*|G@)|(#|R@))([^(]+)(?:\(@?([^)]+)\))?$",
         gprefix="G@",
         moveops=r"([^,]+),\s*([^,]+),\s*([^,]+)$",
         tdelim="'",
         # regex replacements applied to escaped mnemonic and op fields
         repls=[
+            (r"^HMOVE\b", "HSTR"),  # renamed HMOVE -> HSTR
             (r"^ORG\b", "AORG"),  # TI
-            (r"^TITL\b", "TITLE")  # RYTE DATA
-            ]
-        )
-
-    rag = SyntaxVariant(
-        ga=r"(?:(@|\*|V@|V\*|G@)|(#|R@))([^(]+)(?:\(@?([^)]+)\))?$",
-        gprefix="G@",
-        moveops=r"([^,]+),\s*([^,]+),\s*([^,]+)$",
-        tdelim="'",
-        repls=[
             (r"^TITL\b", "TITLE"),  # RYTE DATA
             (r"^HTEX\b", "HTEXT"),
             (r"^VTEX\b", "VTEXT"),
             (r"^HCHA\b", "HCHAR"),
-            (r"^HSTR\b", "HMOVE"),
             (r"^VCHA\b", "VCHAR"),
             (r"^SCRO\b", "BIAS"),
             (r"&([01]+)", r":\1"),
@@ -1015,6 +1005,7 @@ class Syntax:
             (r"^DOWN\b", "ROW+"),
             (r"^RIGHT\b", "COL+"),
             (r"^END\b", "FEND"),
+            (r"^HMOVE\b", "HSTR"),
             (r"^XGPL\b", "BYTE")
             ]
         )
@@ -1042,7 +1033,7 @@ class Preprocessor:
         if self.parse_macro in self.macros:
             raise AsmError("Duplicate macro name")
         self.macros[self.parse_macro] = []
-    
+
     def ENDM(self, code, ops):
         raise AsmError("Found .ENDM without .DEFM")
 
@@ -1157,7 +1148,7 @@ class Parser:
 
     def warn(self, message):
         # warn in pass 2 to avoid duplicates and to prevent false expr values 0
-        if self.warnings_enabled and self.pass_no == 2 and message not in self.warnings:
+        if self.warnings_enabled and self.pass_no > 0 and message not in self.warnings:
             self.warnings.append(message)
 
     def open(self, filename=None, macro=None, ops=None):
@@ -1335,6 +1326,9 @@ class Parser:
                 except AsmError as e:
                     errors.append("%s <%d> %04d - %s\n***** %s\n" % (
                         filename, self.pass_no, lino, line, e.message))
+                for msg in self.warnings:
+                    sys.stderr.write("%s <2> %04d - Warning: %s\n" % (filename, lino, msg))
+                self.warnings = []  # warnings per line
             if self.fmt_mode:
                 self.warn("Source ends with open FMT block")
             if errors and self.pass_no > 1 or not self.symbols.updated:
@@ -1369,6 +1363,13 @@ class Parser:
         oo = rbit | vbit | cbit | ibit | nbit
         return oo, ln, gd, gs
 
+    def fmtcount(self, op, max_count=32):
+        """parse FMT count"""
+        count = self.expression(op)
+        if self.pass_no > 0 and count > max_count:
+            raise AsmError("Count cannot exceed %d here" % max_count)
+        return count
+
     def fmttext(self, ops):
         """parse FMT text"""
         ts = [self.text(op) for op in ops]
@@ -1385,7 +1386,7 @@ class Parser:
         else:
             return 2, bias
 
-    def gaddress(self, op, is_gs, is_d=False, is_move=False):
+    def gaddress(self, op, is_gs, is_d=False, is_move=False, plain_only=False):
         """parse general source or destination address operand"""
         m = re.match(self.syntax.ga, op)
         if m:
@@ -1406,10 +1407,14 @@ class Parser:
                 raise AsmError("VDP register out of range: %d" % value)
             if grom and not is_move:
                 raise AsmError("Invalid GROM address outside MOVE")
+            if plain_only and (grom or vram or vreg or indirect or index):
+                raise AsmError("Invalid address format, only '@>xxxx' allowed here")
             return Operand(value, vram=vram, grom=grom, vreg=vreg, indirect=indirect, index=index)
         if is_gs:
+            # immediate value as address
+            if is_move:
+                self.warn("Treating '%s' as ROM address, did you intend a GROM address?" % op)
             value = self.expression(op)
-            # NOTE: enable optional G@ for GROM addresses G@LABEL here
             return Operand(value, imm=2 if is_d else 1)
         raise AsmError("Invalid G%c address operand: %s" % ("s" if is_gs else "d", op))
 
@@ -1557,19 +1562,21 @@ class Parser:
 class Assembler:
     """main driver class"""
 
-    def __init__(self, syntax, grom, aorg, target="", include_path=None, defs=()):
+    def __init__(self, syntax, grom, aorg, target="", include_path=None, defs=(), warnings=True):
         self.syntax = syntax
         self.grom = grom
         self.aorg = aorg
         self.include_path = include_path
         self.defs = ["_xga99_" + target] + list(defs)
+        self.warnings = warnings
 
     def assemble(self, srcname):
         symbols = Symbols(add_defs=self.defs)
         code = Objcode(symbols, self.grom, self.aorg)
         parser = Parser(symbols,
                         syntax=self.syntax,
-                        include_path=self.include_path)
+                        include_path=self.include_path,
+                        warnings=self.warnings)
         parser.open(srcname)
         errors = parser.parse(code)
         return code, errors
@@ -1612,6 +1619,8 @@ def main():
                       help="add symbol table to list file")
     args.add_argument("-E", "--symbol-file", dest="equs", metavar="<file>",
                       help="put symbols in EQU file")
+    args.add_argument("-w", action="store_true", dest="nowarn",
+                      help="hide warnings")
     args.add_argument("-o", "--output", dest="output", metavar="<file>",
                       help="set output file name")
     opts = args.parse_args()
@@ -1642,7 +1651,8 @@ def main():
                     grom=grom,
                     aorg=aorg,
                     include_path=inclpath,
-                    defs=opts.defs or ())
+                    defs=opts.defs or (),
+                    warnings=not opts.nowarn)
     try:
         # assemble
         code, errors = asm.assemble(basename)

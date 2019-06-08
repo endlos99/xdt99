@@ -45,7 +45,16 @@ def runtest():
     if "Missing .endm" not in msgs:
         error("open", "Missing error for open .defm/.endm")
 
+    # warnings
+    source = os.path.join(Dirs.gplsources, "gawarn.gpl")
+    with open(Files.error, "w") as ferr:
+        xga(source, "-o", Files.output, stderr=ferr, rc=0)
+    act_errors = read_stderr(Files.error, include_warnings=True)
+    exp_errors = get_source_markers(source, tag=r";WARN")
+    check_errors(exp_errors, act_errors)
+
     # cleanup
+    os.remove(Files.output)
     os.remove(Files.error)
 
 

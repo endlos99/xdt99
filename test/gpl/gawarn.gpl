@@ -1,0 +1,15 @@
+     grom >4000
+
+val1 equ >e000
+
+     dst lab1, @>8300 
+     move 5, lab2, v@320     ;WARN
+     move 5, val1, v@530     ;WARN
+     move 4, lab2 + 1, v@220 ;WARN
+     move 5, g@lab2, g@val1 
+
+lab1 data >1234
+lab2 text 'HELLO'
+
+     end
+
