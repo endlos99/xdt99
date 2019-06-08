@@ -759,36 +759,6 @@ class Objcode:
         return (chr(len(header)) + header +
                 "".join([chr(len(c)) + c for c in chunks]))
 
-    def generate_jumpstart(self):
-        """generate disk image for Jumpstart cartridge"""
-        segments = self.generate_image(0xa000, 0x6000)
-        if len(segments) > 32 / 4:
-            raise BuildError(
-                "Cannot create jumpstart disk with more than 8 segments")
-        e = self.entry or Address(0xa000)
-        start = e.addr + 0xa000 if e.relocatable else e.addr
-        chunks, sectors = [], []
-        for image in segments:
-            addr, data = image[4:6], image[6:]
-            if ordw(addr) % 256 != 0:
-                raise BuildError("Segments must start at multiples of >100")
-            size = used(len(data), 256)
-            chunks.append(addr + chrw(size))
-            sectors.append(data + "\x00" * pad(len(data), 256))
-        disk = (
-            # sector 0
-            "xas99-JS" + chrw(0xc2b9) +           # 10 bytes
-            chrw(360) + "\x09DSK \x28\x01\x01" +  # 10 bytes
-            chrw(start) +                         #  2 bytes
-            "".join(chunks) + "\x00\x00" + "\xff" * (232 - 4 * len(chunks)) +
-            # sector 1
-            "\x00" * 256 +
-            # data sectors
-            "".join(sectors)
-            )
-        assert len(disk) % 256 == 0
-        return disk + "\x00" * (360 * 256 - len(disk))
-
     def generate_symbols(self, equ=False):
         """generate symbols"""
         # merge all defined symbols
@@ -2155,8 +2125,6 @@ def main():
                      help="create text file with binary values")
     cmd.add_argument("--embed-xb", action="store_true", dest="embed",
                      help="create Extended BASIC program with embedded code")
-    cmd.add_argument("--jumpstart", action="store_true", dest="jstart",
-                     help="create disk image for xdt99 Jumpstart cartridge")
     cmd.add_argument("--dump", action="store_true", dest="dump",
                      help=argparse.SUPPRESS)  # debugging
     args.add_argument("-s", "--strict", action="store_true", dest="strict",
@@ -2255,10 +2223,6 @@ def main():
             prog = code.generate_XB_loader()
             name = opts.output or barename + ".iv254"
             out.append((name, prog))
-        elif opts.jstart:
-            disk = code.generate_jumpstart()
-            name = opts.output or barename + ".dsk_id"
-            out.append((name, disk))
         else:
             data = code.generate_object_code(opts.optc)
             name = opts.output or barename + ".obj"
