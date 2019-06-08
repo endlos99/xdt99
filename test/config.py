@@ -1,34 +1,30 @@
 import os.path
+import platform
 
 
-### Executables
+# Executables
 
-#xasPy = ["../xas99.py"]
-xasPy = ["python.exe", "..\\xas99.py"]
-
-#xdaPy = ["../xda99.py"]
-xdaPy = ["python.exe", "..\\xda99.py"]
-
-#xgaPy = ["../xga99.py"]
-xgaPy = ["python.exe", "..\\xga99.py"]
-
-#xdgPy = ["../xdg99.py"]
-xdgPy = ["python.exe", "..\\xdg99.py"]
-
-#xdmPy = ["../xdm99.py"]
-xdmPy = ["python.exe", "..\\xdm99.py"]
-
-xhmPy = ["../xhm99.py"]
-#xhmPy = ["python.exe", "..\\xhm99.py"]
-
-xvmPy = ["../xvm99.py"]
-#xvmPy = ["python.exe", "..\\xvm99.py"]
-
-#xbasPy = ["../xbas99.py"]
-xbasPy = ["python.exe", "..\\xbas99.py"]
+if platform.system() == "Windows":
+    xasPy = ["python.exe", "..\\xas99.py"]
+    xdaPy = ["python.exe", "..\\xda99.py"]
+    xgaPy = ["python.exe", "..\\xga99.py"]
+    xdgPy = ["python.exe", "..\\xdg99.py"]
+    xdmPy = ["python.exe", "..\\xdm99.py"]
+    xhmPy = ["python.exe", "..\\xhm99.py"]
+    xvmPy = ["python.exe", "..\\xvm99.py"]
+    xbasPy = ["python.exe", "..\\xbas99.py"]
+else:
+    xasPy = ["../xas99.py"]
+    xdaPy = ["../xda99.py"]
+    xgaPy = ["../xga99.py"]
+    xdgPy = ["../xdg99.py"]
+    xdmPy = ["../xdm99.py"]
+    xhmPy = ["../xhm99.py"]
+    xvmPy = ["../xvm99.py"]
+    xbasPy = ["../xbas99.py"]
 
 
-### Paths
+# Paths
 
 class Dirs:
     # disk images
@@ -95,6 +91,7 @@ class Files:
         os.path.join(Dirs.tmp, "outpuw"),
         os.path.join(Dirs.tmp, "outpux")
         ]
+    symbols = os.path.join(Dirs.tmp, "symbols")
     error = os.path.join(Dirs.tmp, "error")
     reference = os.path.join(Dirs.tmp, "ref")
     tifile = os.path.join(Dirs.tmp, "tifile")

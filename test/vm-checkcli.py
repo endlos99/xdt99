@@ -4,26 +4,25 @@ import os
 import shutil
 
 from config import Dirs, Disks, Files
-from utils import xvm, xdm, error, checkFilesEq
+from utils import xvm, xdm, error, check_files_eq
 
 
-### Check functions
+# Check functions
 
-def checkFileLen(infile, minlines=-1, maxlines=99999):
+def check_file_len(infile, minlines=-1, maxlines=99999):
     """check if file has certain length"""
-
     try:
         with open(infile, "r") as f:
-            linecnt = len(f.readlines())
+            line_count = len(f.readlines())
     except IOError:
-        linecnt = 0
-    if not minlines <= linecnt <= maxlines:
+        line_count = 0
+    if not minlines <= line_count <= maxlines:
         error("CLI",
               "%s: Line count mismatch: found %d lines, expected %d to %d" % (
-                  infile, linecnt, minlines, maxlines))
+                  infile, line_count, minlines, maxlines))
 
 
-### Main test
+# Main test
 
 def runtest():
     """check command line interface"""
@@ -31,7 +30,7 @@ def runtest():
     # setup
     with open(Disks.volumes, "wb") as v:
         for i in xrange(4 * 1600):
-            v.write("\x00" * 256)  # Disk.bytesPerSector
+            v.write("\x00" * 256)  # Disk.bytes_per_sector
     shutil.copyfile(Disks.recsgen, Disks.work)
 
     # volume operations
@@ -44,26 +43,26 @@ def runtest():
         xvm(Disks.volumes, "5", "-i", stderr=fout, rc=1)
 
     xvm(Disks.volumes, "2", "-r", Files.output)
-    checkFilesEq("xvm", Files.output, Disks.recsgen, "P")
+    check_files_eq("xvm", Files.output, Disks.recsgen, "P")
     xvm(Disks.volumes, "1", "-r", Files.output)
-    checkFilesEq("xvm", Files.output, Disks.recsdis, "P")
+    check_files_eq("xvm", Files.output, Disks.recsdis, "P")
     xvm(Disks.volumes, "4", "-r", Files.output)
-    checkFilesEq("xvm", Files.output, Disks.recsdis, "P")
+    check_files_eq("xvm", Files.output, Disks.recsdis, "P")
     xvm(Disks.volumes, "4", "-r", Files.output, "--keep-size")
-    checkFilesEq("xvm", Files.output, Disks.recsdis, "P",
-                 mask=[(360 * 256, 1600 * 256)])
+    check_files_eq("xvm", Files.output, Disks.recsdis, "P",
+                   mask=[(360 * 256, 1600 * 256)])
 
     # file operations
     xvm(Disks.volumes, "2", "-e", "DF254X015P", "-o", Files.output)
     xdm(Disks.recsgen, "-e", "DF254X015P", "-o", Files.reference)
-    checkFilesEq("xvm", Files.output, Files.reference, "P")
+    check_files_eq("xvm", Files.output, Files.reference, "P")
 
     xvm(Disks.volumes, "1", "-w", Disks.work, "--keep-size")
     ref = os.path.join(Dirs.refs, "sector1")
     xdm(Disks.work, "-a", ref, "-f", "DF80")
     xvm(Disks.volumes, "1", "-a", ref, "-f", "DF80")
     xvm(Disks.volumes, "1", "-r", Files.output)
-    checkFilesEq("xvm", Files.output, Disks.work, "P")
+    check_files_eq("xvm", Files.output, Disks.work, "P")
 
     xvm(Disks.volumes, "3", "-w", Disks.work)
     xvm(Disks.volumes, "3", "-a", ref, "-f", "DF80", "-n", "REFFILE")
@@ -93,3 +92,4 @@ def runtest():
 
 if __name__ == "__main__":
     runtest()
+    print "OK"
