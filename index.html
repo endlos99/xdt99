@@ -108,8 +108,7 @@ information about installation and how to get started in the
 IDEA.  Please refer to the <code>EDITORS.md</code> file for further information about
 editor support.</p>
 
-<p>The <code>lib/</code> directory contains the Jumpstart cartridge and some supporting
-functions that you may use in your TI programs.</p>
+<p>The <code>lib/</code> directory contains supporting functions that you may use in your TI programs.</p>
 
 <p>The <code>example/</code> directory of the binary distribution contains some sample files
 that are referenced throughout this manual.</p>
@@ -296,28 +295,6 @@ example,</p>
 </code></pre>
 
 <p>The result can be <code>COPY</code>ed, <code>#include</code>d, or just copy-and-pasted.</p>
-
-<h3>Jumpstarting</h3>
-
-<p>To make the code, assemble, run cycle as fast as possible, <code>xas99</code> can
-generate so-called "jumpstart disks" that may be loaded and executed by the
-Jumpstart cartridge included with xdt99.</p>
-
-<pre><code>$ xas99.py --jumpstart -R ascart.asm
-$ mess64 ti99_4ae -cart lib/jumpstart.rpk -flop1 ascart.dsk
-</code></pre>
-
-<p>The example above shows the invocation for MESS, but any emulator should
-work.  Obviously, the emulator must be setup with 32K memory expansion and
-at least one floppy disk drive.</p>
-
-<p>Selecting the Jumpstart option in the TI 99 main menu will load the jumpstarted
-program from any inserted disk and run it.  Thus, selecting either option 3
-or 5 in the Editor/Assembler module and manually entering the program filename
-is no longer required.</p>
-
-<p>Currently, jumpstarted programs may consist of up to 8 segments and must fit
-entirely into memory areas <code>&gt;2000</code>-<code>&gt;3EFF</code> and <code>&gt;A000</code>-<code>&gt;FFFF</code>.</p>
 
 <h3>Other Formats</h3>
 
@@ -677,6 +654,15 @@ string.  In other words,</p>
 
 <pre><code>TEXT &gt;0b, 'HELLO WORLD'
 </code></pre>
+
+<p>The <code>FLOA</code> directive stores a decimal number in the 8-byte RADIX-100 format
+used by the TI 99.  Note that digits exceeding the accuracy of RADIX-100 are
+silently ignored.</p>
+
+<pre><code>FLOA 123.456789012
+</code></pre>
+
+<p>The exponent notation <code>1e9</code> is currently not supported.</p>
 
 <p>The <code>BANK</code> directive specifies the memory bank for the following code segment,
 or a shared code segment if the special value <code>ALL</code> is used.  Banks count from
@@ -1073,22 +1059,22 @@ G@&lt;grom addr&gt;(@&lt;cpuram addr&gt;)  .....  GROM/GRAM indexed  (MOVE only)
 <p>Note that symbols do not imply a certain memory type, so references to GROM
 addresses in <code>MOVE</code> instructions still need to prepend <code>G@</code> to the symbol name:</p>
 
-<pre><code>T1 TEXT 'HELLO'
-L1 MOVE 5,G@T1,V@100
+<pre><code>t1 text 'HELLO'
+l1 move 5,g@t1,v@100
 </code></pre>
 
 <p>For branch and call instructions, prefixing addresses by <code>G@</code> is optional, as
 branch targets always reside in GROM/GRAM:</p>
 
-<pre><code>B L1
-B G@L1
+<pre><code>b l1
+b G@l1
 </code></pre>
 
 <p>Instruction operands may be complex expressions of symbols and literals.
 Literals may be decimal numbers, hexadecimal numbers prefixed by <code>&gt;</code>, binary
 numbers prefixed by <code>:</code>, and text literals enclosed in single quotes <code>'</code>.</p>
 
-<pre><code>BYTE 10, &gt;10, :10, '1'
+<pre><code>byte 10, &gt;10, :10, '1'
 </code></pre>
 
 <p><strong>Expressions</strong> are built using arithmetical operators <code>+</code>, <code>-</code>, <code>*</code>, <code>/</code>, <code>%</code>,
@@ -1101,13 +1087,15 @@ section on expressions.</p>
 but other syntax styles are available with the <code>-s</code> option:</p>
 
 <pre><code>HTEXT/VTEXT &lt;text&gt;
-HCHAR/VCHAR &lt;len&gt;, &lt;char&gt;
-HMOVE &lt;len&gt;, &lt;gs&gt;
-ROW/COL &lt;n&gt;
-ROW+/COL+ &lt;n&gt;
-BIAS &lt;n&gt;/&lt;gs&gt;
-FOR &lt;n&gt; ... FEND [&lt;label&gt;]
+HCHAR/VCHAR &lt;count&gt;, &lt;char&gt;
+HSTR &lt;count&gt;, &lt;addr&gt;        (no GROM, no VDP, no indexing, no indirection)
+ROW/COL &lt;count&gt;
+ROW+/COL+ &lt;count&gt;
+BIAS &lt;count/gs&gt;
+FOR &lt;count&gt; ... FEND [&lt;label&gt;]
 </code></pre>
+
+<p>All arguments are immediate values, unless noted.</p>
 
 <p>Note that unlike the Ryte Data GPL Assembler, <code>xga99</code> also supports the optional
 address label for the <code>FEND</code> instruction.</p>
@@ -1116,7 +1104,7 @@ address label for the <code>FEND</code> instruction.</p>
 
 <p>The <code>xga99</code> GPL assembler supports the following directives:</p>
 
-<pre><code>GROM AORG EQU DATA BYTE TEXT STRI BSS TITLE COPY BCOPY
+<pre><code>GROM AORG EQU DATA BYTE TEXT STRI FLOAT BSS TITLE COPY BCOPY
 </code></pre>
 
 <p>Directives affecting listing generation are currently ignored:</p>
@@ -1129,15 +1117,15 @@ address label for the <code>FEND</code> instruction.</p>
 <p>The <code>BYTE</code> and <code>DATA</code> directives insert bytes and words into the program,
 respectively, irrespective of the size of their arguments.</p>
 
-<pre><code>LABEL BYTE 1,&gt;02,:11011010,'@',&gt;100
-      DATA 1,&gt;1000,'A'
+<pre><code>label byte 1,&gt;02,:11011010,'@',&gt;100
+      data 1,&gt;1000,'A'
 </code></pre>
 
 <p>The <code>TEXT</code> directive generates a sequence of bytes from a text literal or an
 extended hexadecimal literal.</p>
 
-<pre><code>LABEL TEXT 'Groovin'' With GPL'
-      TEXT &gt;183C7EFFE7C381
+<pre><code>label text 'Groovin'' With GPL'
+      text &gt;183C7EFFE7C381
 </code></pre>
 
 <p>Note that the second instruction is equivalent to <code>BYTE &gt;18,&gt;3C,&gt;7E,...</code>.</p>
@@ -1145,19 +1133,32 @@ extended hexadecimal literal.</p>
 <p>The <code>STRI</code> directive works similar to the <code>TEXT</code> directive but prepends the
 a length byte to the generated byte sequence.</p>
 
+<p>The <code>FLOAT</code> directive stores a decimal number in the 8-byte RADIX-100 format
+used by the TI 99.  Note that digits exceeding the accuracy of RADIX-100 are
+silently ignored.</p>
+
+<pre><code>float -123.456789012
+</code></pre>
+
+<p>The exponent notation <code>1e9</code> is currently not supported.</p>
+
 <p>The <code>GROM</code> directive sets the GROM base address for the code that follows.
-Currently only one <code>GROM</code> directive per source file is supported.  Note that the
-<code>GROM</code> directive expects the actual GROM address, e.g., <code>&gt;6000</code>, instead of an
-integer number such as <code>3</code>.</p>
+You can specify either the GROM number <code>0</code>, ..., <code>7</code>, or the absolute address
+<code>&gt;0000</code>, ..., <code>&gt;e000</code>, where bits 0-12 are ignored.</p>
+
+<p>If more than one <code>GROM</code> directive is placed in one program, each GROM segment
+will be placed in a separate file, whose name is appended with the address of
+that segment (similar to <code>xas99</code> with multiple <code>AORG</code> directives).</p>
 
 <p>The <code>AORG</code> directive is used to place individual code segments at specific
-addresses within the given GROM.  The address argument is thus relative to the
-GROM base address given by <code>GROM</code>.</p>
+addresses <em>within</em> the given GROM.  The address argument is thus relative to
+the GROM base address given by <code>GROM</code>.</p>
 
 <p>Instead of using the <code>GROM</code> and <code>AORG</code> directives in the source file the
 location of the final GPL byte code image may also be specified by command-line
-parameters <code>-G</code> and <code>-A</code>, respectively.  Note that cartridge parameter <code>-c</code>
-implies <code>-G 0x6000</code> and <code>-A 0x30</code>.</p>
+parameters <code>-G</code> and <code>-A</code>, respectively.  The cartridge parameter <code>-c</code> implies
+<code>-G 0x6000</code> and <code>-A 0x30</code>.  <code>-G</code> and <code>-A</code> will not override <code>GROM</code> or <code>AORG</code>
+directives, but set the GROM and address of the first line of the code.</p>
 
 <p>The <code>COPY</code> and <code>BCOPY</code> directives include text files or binary files,
 respectively.  A text file becomes part of the assembly source, whereas a
@@ -1390,6 +1391,22 @@ the string option <code>-n</code>, either with or without the <code>-p</code> op
 any data segments, where strings could be found.</p>
 
 <p>Note that currently, <code>xda99</code> only disassembles even length strings.</p>
+
+<p>The concise option <code>-c</code> ignores all non-disassembled addresses in the output by
+merging those addresses marked by <code>?</code> and replacing them by <code>....</code>.</p>
+
+<pre><code>            aorg &gt;2000
+2000 1008   jmp  &gt;2012
+....
+2012 c481   mov  r1, *r2
+2014 05a2   inc  @&gt;0002(r2)
+2016 0002
+2018 2881   xor  r1, r2
+201a 1309   jeq  &gt;202e
+201c 10fa   jmp  &gt;2012
+</code></pre>
+
+<p>Options <code>-c</code> and <code>-p</code> cannot be combined.</p>
 
 <p>The strict option <code>-s</code> generates output files in legacy Editor/Assembler
 format, in particular upper-case.</p>
@@ -2289,9 +2306,8 @@ the TI menu selection screen.</p>
 <p>The xdt99 tools are released under the GNU GPL, in the hope that TI 99
 enthusiasts may find them useful.</p>
 
-<p>Please email feedback and bug reports to the developer at <a href="&#x6D;&#x61;&#x69;&#108;&#116;&#111;:&#x78;&#100;&#116;&#57;9&#100;&#x65;&#x76;&#64;&#103;&#109;ail&#46;&#99;&#x6F;&#109;">&#x78;&#100;&#116;&#57;9&#100;&#x65;&#x76;&#64;&#103;&#109;ail&#46;&#99;&#x6F;&#109;</a>
+<p>Please email feedback and bug reports to the developer at <a href="&#109;&#x61;&#105;&#108;&#x74;&#x6F;:&#120;&#100;&#116;&#x39;&#57;&#x64;&#x65;&#x76;&#64;&#x67;&#109;&#97;&#105;&#108;&#x2E;&#x63;&#111;m">&#120;&#100;&#116;&#x39;&#57;&#x64;&#x65;&#x76;&#64;&#x67;&#109;&#97;&#105;&#108;&#x2E;&#x63;&#111;m</a>
 or use the issue tracker on the project <a href="https://github.com/endlos99/xdt99">GitHub page</a>.</p>
-
 
     <!-- FOOTER  -->
     <div id="footer_wrap" class="outer">
