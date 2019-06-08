@@ -6,12 +6,12 @@ import re
 import gzip
 
 from config import Dirs, Disks, Files
-from utils import xhm, xdm, error, checkFilesEq
+from utils import xhm, xdm, error, check_files_eq
 
 
-### Check functions
+# Check functions
 
-def checkFileContains(infile, pattern):
+def check_file_contains(infile, pattern):
     """check if text file contains at least one RE match"""
     try:
         with open(infile, "r") as fin:
@@ -23,7 +23,7 @@ def checkFileContains(infile, pattern):
     error("HFE", "%s: no match found" % infile)
 
 
-### Main test
+# Main test
 
 def runtest():
     """check command line interface"""
@@ -36,27 +36,27 @@ def runtest():
         with gzip.open(refhfe, "rb") as fin, open(Files.reference, "wb") as fout:
             fout.write(fin.read())
         xhm("-T", refdsk, "-o", Files.input)
-        checkFilesEq("HFE", Files.input, Files.reference, "PROGRAM")
+        check_files_eq("HFE", Files.input, Files.reference, "PROGRAM")
         xhm("-F", Files.input, "-o", Files.output)
-        checkFilesEq("HFE", Files.output, refdsk, "PROGRAM")
+        check_files_eq("HFE", Files.output, refdsk, "PROGRAM")
 
     # xdm99 delegation
     with gzip.open(Disks.hfe, "rb") as fin, open(Disks.work, "wb") as fout:
         fout.write(fin.read())
     with open(Files.output, "w") as fout:
         xhm(Disks.work, stdout=fout)
-    checkFileContains(Files.output, "HFEDISK.*1S/1D.*40")
-    checkFileContains(Files.output, "HFEFILE")
+    check_file_contains(Files.output, "HFEDISK.*1S/1D.*40")
+    check_file_contains(Files.output, "HFEFILE")
 
     # image manipulation
     ref = os.path.join(Dirs.refs, "ti-text")
     xhm(Disks.work, "-a", ref, "-n", "TESTFILE", "-f", "DV60")
     xhm(Disks.work, "-e", "TESTFILE", "-o", Files.output)
     xhm("-o", Files.output, Disks.work, "-e", "TESTFILE")
-    checkFilesEq("HFE", Files.output, ref, "PRORGAM")
+    check_files_eq("HFE", Files.output, ref, "DV")
     with open(Files.output, "wb") as fout:
         xhm(Disks.work, "-p", "TESTFILE", stdout=fout)
-    checkFilesEq("HFE", Files.output, ref, "PRORGAM")
+    check_files_eq("HFE", Files.output, ref, "DV")
 
     ref = os.path.join(Dirs.refs, "V10R.tfi")
     shutil.copyfile(ref, Files.reference)    
@@ -64,32 +64,32 @@ def runtest():
     xhm(Disks.work, "-e", "V10R", "-o", Files.output)
     xhm("-o", Files.output, Disks.work, "-e", "V10R")
     ref = os.path.join(Dirs.refs, "v10r.txt")
-    checkFilesEq("HFE", Files.output, ref, "PRORGAM")
+    check_files_eq("HFE", Files.output, ref, "DV")
 
     # image resize
     with open(Files.output, "w") as fout:
         xhm("--hfe-info", Disks.work, stdout=fout)
-    checkFileContains(Files.output, "Tracks: 40")
-    checkFileContains(Files.output, "Sides: 1")
-    checkFileContains(Files.output, "Encoding: 2")  # SD
+    check_file_contains(Files.output, "Tracks: 40")
+    check_file_contains(Files.output, "Sides: 1")
+    check_file_contains(Files.output, "Encoding: 2")  # SD
     xhm(Disks.work, "-Z", "dsdd")
     with open(Files.output, "w") as fout:
         xhm("--hfe-info", Disks.work, stdout=fout)
-    checkFileContains(Files.output, "Tracks: 40")
-    checkFileContains(Files.output, "Sides: 2")
-    checkFileContains(Files.output, "Encoding: 0")  # DD
+    check_file_contains(Files.output, "Tracks: 40")
+    check_file_contains(Files.output, "Sides: 2")
+    check_file_contains(Files.output, "Encoding: 0")  # DD
 
     # image creation
     xhm(Disks.work, "-X", "dssd80t", "-a", ref, "-n", "WALDO")
     with open(Files.output, "w") as fout:
         xhm(Disks.work, "-i", stdout=fout)
-    checkFileContains(Files.output, "2S/1D\s+80")
-    checkFileContains(Files.output, "WALDO.*PROGRAM")
+    check_file_contains(Files.output, r"2S/1D\s+80")
+    check_file_contains(Files.output, r"WALDO.*PROGRAM")
     with open(Files.output, "w") as fout:
         xhm("--hfe-info", Disks.work, stdout=fout)
-    checkFileContains(Files.output, "Tracks: 80")
-    checkFileContains(Files.output, "Sides: 2")
-    checkFileContains(Files.output, "Encoding: 2")  # SD
+    check_file_contains(Files.output, "Tracks: 80")
+    check_file_contains(Files.output, "Sides: 2")
+    check_file_contains(Files.output, "Encoding: 2")  # SD
 
     # messy stuff
     xdm(Disks.work, "-X", "sssd")
@@ -97,9 +97,9 @@ def runtest():
     xhm("-T", Disks.work, "-o", Files.input)
     with open(Files.output, "w") as fout:
         xhm("--hfe-info", Files.input, stdout=fout)
-    checkFileContains(Files.output, "Tracks: 40")
-    checkFileContains(Files.output, "Sides: 2")  # DS
-    checkFileContains(Files.output, "Encoding: 2")  # SD
+    check_file_contains(Files.output, r"Tracks: 40")
+    check_file_contains(Files.output, r"Sides: 2")  # DS
+    check_file_contains(Files.output, r"Encoding: 2")  # SD
     with open(Files.error, "w") as ferr:  # quelch error msg
         xhm(Files.input, stderr=ferr, rc=1)  # invalid track count
 
@@ -113,3 +113,4 @@ def runtest():
 
 if __name__ == "__main__":
     runtest()
+    print "OK"
