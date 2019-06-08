@@ -1,6 +1,6 @@
-;;; xdt99-mode: xdt99 major modes for Emacs - Version 1.2
+;;; xdt99-mode: xdt99 major modes for Emacs - Version 1.3
 
-;; Copyright (c) 2015-2017 Ralph Benzinger <xdt99dev@gmail.com>
+;; Copyright (c) 2015-2019 Ralph Benzinger <r@0x01.de>
 
 ;; This program is part of the TI 99 Cross-Development Tools (xdt99).
 
@@ -47,7 +47,7 @@
     "AORG" "RORG" "DORG" "PSEG" "PEND" "CSEG" "CEND" "DSEG" "DEND"
     "IDT" "UNL" "LIST" "PAGE" "TITL" "DXOP" "LOAD" "SREF" "END"
     ; xdt99 extensions
-    "BCOPY" "XORG" "SAVE"))
+    "WEQU" "BCOPY" "XORG" "SAVE" "BANK" "STRI" "FLOA"))
 
 (defvar asm99-preprocessor
   '(".IFDEF" ".IFNDEF" ".IFEQ" ".IFNE" ".IFGT" ".IFGE" ".ELSE" ".ENDIF"))
@@ -57,6 +57,7 @@
     ("^\\*.*\\|;.*" . font-lock-comment-face)
     ("'[^']*'" . font-lock-string-face)
     ("\"[^\"]*\"" . font-lock-string-face)
+    ("[BbWwSsLlXx]#" . font-lock-type-face)
     ( ,(regexp-opt asm99-opcodes 'symbols) . font-lock-keyword-face)
     ( ,(regexp-opt asm99-directives 'symbols) . font-lock-builtin-face)
     ( ,(regexp-opt asm99-preprocessor 'symbols) . font-lock-preprocessor-face)
@@ -269,10 +270,12 @@
   )
 
 (defvar gpl99-directives
-  '("EQU" "DATA" "BYTE" "TEXT" "STRI" "BSS" "GROM" "AORG" "TITLE"
+  '("EQU" "DATA" "BYTE" "TEXT" "BSS" "GROM" "AORG" "TITLE"
     "COPY" "END" "PAGE" "LIST" "UNL" "LISTM" "UNLM"
     ;; variants
     "ORG" "TITL" "IDT"
+    ;; extensions
+    "STRI" "FLOAT"
     )
   )
 
@@ -394,7 +397,7 @@
   `(
     ("\"[^\"]*\"" . font-lock-string-face)
     ; line number definitions
-    ("^[0-9]+" . font-lock-constant-face)            
+    ("^[0-9]+" . font-lock-constant-face)
     ("!.*\\|\\<REM .*" . font-lock-comment-face)
     ( ,(regexp-opt basic99-statements 'symbols) . font-lock-keyword-face)
     ( ,(regexp-opt basic99-subprograms 'symbols) . font-lock-builtin-face)
