@@ -53,7 +53,7 @@ For additional information, please refer to the [xdt99 homepage][1] or the
 [xdt99 manual][4].  Windows users unfamiliar with working with the command line
 will find some platform-specific information in the [Windows tutorial][5].
 
-**Latest version: 1.7.0**
+**Latest version: 2.0.0**
 
 The latest binary distribution of xdt99 is available on the project
 [releases page][2] on GitHub.  xdt99 requires [Python 2.7.x][6] and runs on any
@@ -390,7 +390,7 @@ The xdt99 tools are released under the GNU GPL, in the hope that TI 99
 enthusiasts may find them useful.
 
 Please email all feedback and bug reports to the developer at
-<xdt99dev@gmail.com>.
+<r@0x01.de>.
 
 
 [1]: https://endlos99.github.io/xdt99

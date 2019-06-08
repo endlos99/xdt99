@@ -23,7 +23,8 @@ import sys
 import re
 import os.path
 
-VERSION = "1.8.0"
+
+VERSION = "2.0.0"
 
 
 # Utility functions
@@ -80,7 +81,7 @@ class XdaLogger:
     level_info = 1
     level_warn = 2
     level_error = 3
-    
+
     log_level = 2
 
     @staticmethod
@@ -251,8 +252,8 @@ class Opcodes:
         # End of opcodes
     }
 
-    # 13. pseudo instructions    
-    pseudos = {  
+    # 13. pseudo instructions
+    pseudos = {
         0x1000: ("NOP", 2),
         0x045B: ("RT", 6)
     }
@@ -422,7 +423,7 @@ class Opcodes:
             return 1, Operand(addr, word, 1, symbols.resolve(word))
         else:
             raise XdaError("Invalid address format " + str(t))
-        
+
     def jump_target(self, prog, instr):
         """return target address of branching instruction"""
         assert instr.mnemonic in Opcodes.branches + Opcodes.calls
@@ -439,10 +440,10 @@ class Opcodes:
 
 class Entry:
     """base class for all entries for a given word position"""
-   
+
     def __init__(self, addr, word, size=1, indicator=' '):
         self.addr = addr  # addr of word
-        self.word = word  # value of word 
+        self.word = word  # value of word
         self.size = size  # index size of entire instruction
         self.origins = []  # addresses this entry was jumped at from
         self.indicator = indicator  # status indicator
@@ -507,7 +508,7 @@ class Instruction(Entry):
         ops_text = [op.text for op in self.operands]
         ops = ("," if strict else ", ").join(ops_text)
         return Entry._list(self, as_prog, strict, self.mnemonic, ops)
- 
+
 
 class Operand:
     """an instruction operand"""
@@ -631,7 +632,7 @@ class BadSyntax:
             error = "%04X %04X!  BAD SYNTAX" % (self.addr, self.word)
         return error if strict else error.lower()
 
-    
+
 class Disassembler:
     """disassemble machine code"""
 
@@ -646,7 +647,7 @@ class Disassembler:
             success = prog.register(idx, instr)
             assert success  # top-down should not have conflicts
             idx += instr.size
-    
+
     def disassemble(self, prog, start=None, end=None):
         """top-down disassembler"""
         idx = prog.addr2idx(start or prog.addr)
@@ -658,7 +659,7 @@ class Disassembler:
         # check if address is valid
         if not prog.addr <= start < prog.end:
             XdaLogger.warn("Cannot disassemble external context @>%04X" % start)
-            return  # cannot disassemble external content        
+            return  # cannot disassemble external content
         start_idx = prog.addr2idx(start)
         end_idx = prog.addr2idx(end or prog.end)
         while 0 <= start_idx < end_idx:
@@ -668,7 +669,7 @@ class Disassembler:
                     if excl_to >= end_idx:  # done
                         return
                     start_idx = excl_to  # skip to end of excluded range
-                    break            
+                    break
             # disassemble instruction
             if not isinstance(prog.code[start_idx], Instruction):
                 instr = self.opcodes.decode(prog, start_idx)
@@ -805,9 +806,9 @@ def main():
     # setup
     dirname = os.path.dirname(opts.binary) or "."
     basename = os.path.basename(opts.binary)
-    barename = os.path.splitext(basename)[0]    
+    barename = os.path.splitext(basename)[0]
     output = opts.outfile or barename + ".dis"
-    
+
     binary = readbin(opts.binary)[xhex(opts.skip) or 0:]
     addr = xhex(opts.addr) if opts.addr is not None else 0x6000
     addr_to = xhex(opts.to)
@@ -844,15 +845,15 @@ def main():
     except XdaError as e:
         sys.exit("ERROR: %s: %s." % e)
     except IOError as e:
-        sys.exit("ERROR: %s: %s." % (e.filename, e.strerror))   
-    try:            
+        sys.exit("ERROR: %s: %s." % (e.filename, e.strerror))
+    try:
         source = prog.list(as_prog=opts.program or False, strict=opts.strict, concise=opts.concise)
         writelines(output, "w", source)
     except IOError as e:
-        sys.exit("ERROR: %s: %s." % (e.filename, e.strerror))   
+        sys.exit("ERROR: %s: %s." % (e.filename, e.strerror))
     return 0
 
 
 if __name__ == "__main__":
     status = main()
-    sys.exit(status)    
+    sys.exit(status)

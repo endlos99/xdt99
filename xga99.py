@@ -24,7 +24,7 @@ import math
 import re
 import os.path
 
-VERSION = "1.8.5"
+VERSION = "2.0.0"
 
 
 # Utility functions

@@ -23,7 +23,8 @@ import sys
 import re
 import os.path
 
-VERSION = "1.8.0"
+
+VERSION = "2.0.0"
 
 
 # Utility functions
@@ -81,12 +82,12 @@ class XdgError(Exception):
 
 class XdgLogger:
     """issue message"""
-    
+
     level_debug = 0
     level_info = 1
     level_warn = 2
     level_error = 3
-    
+
     log_level = 3
 
     @staticmethod
@@ -123,7 +124,7 @@ class XdgLogger:
 
 class SyntaxVariant:
     """helper class"""
-    
+
     def __init__(self, **entries):
         self.__dict__.update(entries)
 
@@ -203,7 +204,7 @@ class Syntax:
 
 
 # Symbol table
- 
+
 class Symbols:
     """symbol table"""
 
@@ -250,7 +251,7 @@ class Symbols:
             return ">%04X" % value if d else ">%02X" % (value & 0xff)
         self.used[symbol] = value  # mark symbol as used for EQU prelude
         return symbol
-        
+
     def get_used(self):
         """return dict of all symbols that have been used"""
         return self.used.iteritems()
@@ -379,7 +380,7 @@ class Opcodes:
     opc_bitmask = ((-1, -1), (1, 1), (0, 0), (0, 0), (5, 0), (0, 0),  # normal
                    (0, 0), (0, 0), (0, 0), (5, 0),
                    (0, 0), (0, 0), (1, 0), (5, 0), (5, 0), (5, 0), (5, 0), (0, 0))  # FMT
-    
+
     # redirect execution
     branches = ("B", "CASE", "DCASE")
 
@@ -406,7 +407,7 @@ class Opcodes:
                 self.vreg = v and r
                 self.indexed = v and not r
                 self.indr = False
-                     
+
     def __init__(self, syntax):
         """complete list to contain all 2*256 opcodes"""
         self.syntax = syntax
@@ -418,7 +419,7 @@ class Opcodes:
             # fill all possible values for given mnemonic
             for i in xrange(1 << mask):
                 self.opcodes[opc + (i << shift)] = (mnem, iformat, in_fmt, toggle_fmt)
-        
+
     def decode(self, prog, idx, fmt_level):
         """disassemble instruction in next bytes(s)"""
         entry = prog.code[idx]
@@ -548,7 +549,7 @@ class Opcodes:
             # VDP register
             if move.vreg:
                 if not 0 <= byte <= 7:
-                    raise Invalid("VDP register too large")        
+                    raise Invalid("VDP register too large")
                 return 1, Operand(addr, byte, 1, self.syntax.reg + str(byte))
             # GROM address variants are encodded by MOVE flags
             if move.grom:
@@ -630,7 +631,7 @@ class Opcodes:
 
 class Entry:
     """base class for all entries for that may fill a byte position"""
-    
+
     def __init__(self, addr, byte, size=1, indicator=' '):
         self.addr = addr  # addr of byte
         self.byte = byte  # value of byte
@@ -730,7 +731,7 @@ class Instruction(Entry):
             mnemonic = self.mnemonic
             ops = ("," if strict else ", ").join(op_texts)
         return Entry._list(self, as_prog, strict, mnemonic, ops)
- 
+
 
 class Operand:
     """an instruction operand"""
@@ -790,7 +791,7 @@ class Program:
         for i in xrange(self.code[idx].size):
             entry = self.code[idx + i]
             self.code[idx + i] = Unknown(entry.addr, entry.byte)
-        
+
     def list(self, start=None, end=None, as_prog=False, strict=False, concise=False):
         """pretty print entire program"""
         start_idx = self.addr2idx(start) if start else 0
@@ -841,7 +842,7 @@ class Disassembler:
     def __init__(self, syntax, excludes):
         self.opcodes = Opcodes(syntax)  # prepare opcodes
         self.excludes = excludes
-        
+
     def decode(self, prog, start_idx, end_idx, fmt_level):
         """decode range of instructions"""
         while 0 <= start_idx < end_idx:
@@ -849,7 +850,7 @@ class Disassembler:
             success = prog.register(start_idx, instr)
             assert success  # top-down should not have conflicts
             start_idx += instr.size
-    
+
     def disassemble(self, prog, start=None, end=None):
         """top-down disassembler"""
         start_idx = prog.addr2idx(start or prog.addr)
@@ -1026,7 +1027,7 @@ def main():
     basename = os.path.basename(opts.source)
     barename = os.path.splitext(basename)[0]
     output = opts.outfile or barename + ".dis"
-    
+
     binary = readbin(opts.source)[xhex(opts.skip) or 0:]
     start_addr = xhex(opts.addr) if opts.addr is not None else 0x6000
     end_addr = xhex(opts.to)
@@ -1057,7 +1058,7 @@ def main():
             for run in runs:
                 dis.run(prog, run, end_addr, force=opts.force)
         if opts.strings:
-            XdgLogger.info("extractign strings")            
+            XdgLogger.info("extractign strings")
             dis.find_strings(prog)
         if opts.program:
             XdgLogger.info("finalizing into complete program")
@@ -1076,4 +1077,4 @@ def main():
 
 if __name__ == "__main__":
     status = main()
-    sys.exit(status)    
+    sys.exit(status)

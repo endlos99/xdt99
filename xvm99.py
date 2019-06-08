@@ -23,7 +23,8 @@ import sys
 import re
 import xdm99
 
-VERSION = "1.8.0"
+
+VERSION = "2.0.0"
 
 
 # Multi-disk volumes
@@ -42,7 +43,7 @@ class Volumes:
         #    d.seek(0, SEEK_END)
         #    self.size = d.tell()
         #self.volume_count = xdm99.used(self.size, self.bytes_per_volume)
-        
+
     def get_volume(self, vol_no, trim=False):
         """get disk image from volume device"""
         with open(self.device, "rb") as f:

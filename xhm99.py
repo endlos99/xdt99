@@ -22,7 +22,8 @@
 
 import sys
 
-VERSION = "1.8.0"
+
+VERSION = "2.0.0"
 
 
 # Utility functions
@@ -213,7 +214,7 @@ class SDFormat:
         [0xaa, 0xaa, 0xa2, 0x2a], [0xaa, 0xaa, 0xa2, 0xaa], [0xaa, 0xaa, 0x2a, 0x22],
         [0xaa, 0xaa, 0x2a, 0xa2], [0xaa, 0xaa, 0x2a, 0x2a], [0xaa, 0xaa, 0x2a, 0xaa],
         [0xaa, 0xaa, 0xaa, 0x22], [0xaa, 0xaa, 0xaa, 0xa2], [0xaa, 0xaa, 0xaa, 0x2a],
-        [0xaa, 0xaa, 0xaa, 0xaa]       
+        [0xaa, 0xaa, 0xaa, 0xaa]
     ]
 
     @classmethod
@@ -275,7 +276,7 @@ class DDFormat:
     data_mark = [0x22, 0x91, 0x22, 0x91, 0x22, 0x91, 0xaa, 0xa2]
     vdata_mark = [0xa1, 0xa1, 0xa1, 0xfb]
     lvdata_mark = 4
-    
+
     pregap = [0x55] * (2 * 12)  # 00
     lvpregap = 12
     gap1 = [0x49, 0x2a] * 22 + [0x55] * (2 * 12)  # 4e/00
@@ -285,7 +286,7 @@ class DDFormat:
 
     sector_interleave = (0, 11, 4, 15, 8, 1, 12, 5, 16,
                          9, 2, 13, 6, 17, 10, 3, 14, 7)
-    
+
     # computation rule: w = int(bs[7::-1], 2) * 256 + int(bs[:7:-1], 2)
     mfm_codes = [
         [0x55, 0x55], [0x55, 0x95], [0x55, 0x25], [0x55, 0xa5],
@@ -392,7 +393,7 @@ class DDFormat:
         for i in xrange(1, len(stream), 2):
             if stream[i] & 0x80:
                 stream[i + 1] &= 0xfe
-    
+
 
 class HFEDisk:
 
@@ -402,7 +403,7 @@ class HFEDisk:
     hfe_sd_encoding = 2
     hfe_dd_encoding = 0
     valid_encodings = [0, 2]
-    
+
     def __init__(self, image):
         """create HFE disk from image"""
         self.header = image[0:512]
@@ -422,7 +423,7 @@ class HFEDisk:
         if image[:8] != "HXCPICFE":
             raise HFEError("Not a HFE image")
         return ord(image[9]), ord(image[10]), ord(image[11]), ord(image[16])
-        
+
     def to_disk_image(self):
         """extract sector data from HFE image"""
         fmt = DDFormat if self.dd else SDFormat

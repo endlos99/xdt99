@@ -24,7 +24,8 @@ import re
 import datetime
 import os.path
 
-VERSION = "1.8.0"
+
+VERSION = "2.0.0"
 
 
 # Utility functions
@@ -111,7 +112,7 @@ class Disk:
     default_tracks = 40
     max_sectors = 1600
     blank_byte = "\xe5"
-    
+
     def __init__(self, image):
         if len(image) < 2 * Disk.bytes_per_sector:
             raise DiskError("Invalid disk image")
@@ -488,7 +489,7 @@ class Disk:
             del(self.warnings[category])
         except KeyError:
             pass
-        
+
     def get_warnings(self):
         """return warnings issued while processing disk image"""
         return "".join(["Warning: %s\n" % w
@@ -626,7 +627,7 @@ class FileDescriptor:
         date = (dt.year % 100) << 9 | dt.month << 5 | dt.day
         time = dt.hour << 11 | dt.minute << 5 | dt.second / 2
         return date, time
-    
+
     def get_sector(self):
         """return FDR as disk image sector"""
         return "%-10s\x00\x00%c%c%c%c%c%c%c%c%c%c%c%c%c%c%c%c" % (
@@ -1028,7 +1029,7 @@ def main(argv, extdata=None):
         help="disk image filename")
     cmd = args.add_mutually_exclusive_group()
     # used argument identifiers: adefhinopqrtu CFIPRSTXZ 9
-    
+
     # disk image commands
     cmd.add_argument(
         "-i", "--info", action="store_true", dest="info",

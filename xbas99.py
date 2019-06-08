@@ -24,7 +24,7 @@ import re
 import os.path
 
 
-VERSION = "1.5.0"
+VERSION = "2.0.0"
 
 
 # Utility functions
@@ -116,7 +116,7 @@ class Tokens:
     tokens = {w.strip(): (chr(0x81 + i), t)
               for i, (w, t) in enumerate(tokenlist) if w is not None}
     literals = {chr(0x81 + i): (w, t) for i, (w, t) in enumerate(tokenlist)}
-    
+
     @classmethod
     def token(cls, tok):
         """get BASIC token for text literal"""
@@ -168,7 +168,7 @@ class BasicProgram:
 
     # maximum number of bytes/tokens per BASIC line
     max_tokens_per_line = 254
-    
+
     def __init__(self, data=None, source=None, long_fmt=False):
         self.lines = {}
         self.textlits = []
@@ -300,7 +300,7 @@ class BasicProgram:
         if len(tokens) > BasicProgram.max_tokens_per_line:
             raise BasicError("Line too long")
         return lino, tokens
-    
+
     def stmts(self, text):
         """parse one or more BASIC statements"""
         sep, _ = Tokens.token(",")
