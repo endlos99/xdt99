@@ -34,6 +34,8 @@
         <h1>
 <a id="xdt99-ti-99-cross-development-tools" class="anchor" href="#xdt99-ti-99-cross-development-tools" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>xdt99: TI 99 Cross-Development Tools</h1>
 
+<h1>xdt99: TI 99 Cross-Development Tools</h1>
+
 <p>The <strong>TI 99 Cross-Development Tools</strong> (xdt99) are a small suite of programs that
 facilitate the development of programs for the TI 99 family of home computers on
 modern computer systems.</p>
@@ -108,7 +110,8 @@ information about installation and how to get started in the
 IDEA.  Please refer to the <code>EDITORS.md</code> file for further information about
 editor support.</p>
 
-<p>The <code>lib/</code> directory contains supporting functions that you may use in your TI programs.</p>
+<p>The <code>lib/</code> directory contains the Jumpstart cartridge and some supporting
+functions that you may use in your TI programs.</p>
 
 <p>The <code>example/</code> directory of the binary distribution contains some sample files
 that are referenced throughout this manual.</p>
@@ -295,6 +298,28 @@ example,</p>
 </code></pre>
 
 <p>The result can be <code>COPY</code>ed, <code>#include</code>d, or just copy-and-pasted.</p>
+
+<h3>Jumpstarting</h3>
+
+<p>To make the code, assemble, run cycle as fast as possible, <code>xas99</code> can
+generate so-called "jumpstart disks" that may be loaded and executed by the
+Jumpstart cartridge included with xdt99.</p>
+
+<pre><code>$ xas99.py --jumpstart -R ascart.asm
+$ mess64 ti99_4ae -cart lib/jumpstart.rpk -flop1 ascart.dsk
+</code></pre>
+
+<p>The example above shows the invocation for MESS, but any emulator should
+work.  Obviously, the emulator must be setup with 32K memory expansion and
+at least one floppy disk drive.</p>
+
+<p>Selecting the Jumpstart option in the TI 99 main menu will load the jumpstarted
+program from any inserted disk and run it.  Thus, selecting either option 3
+or 5 in the Editor/Assembler module and manually entering the program filename
+is no longer required.</p>
+
+<p>Currently, jumpstarted programs may consist of up to 8 segments and must fit
+entirely into memory areas <code>&gt;2000</code>-<code>&gt;3EFF</code> and <code>&gt;A000</code>-<code>&gt;FFFF</code>.</p>
 
 <h3>Other Formats</h3>
 
@@ -1012,25 +1037,25 @@ shows up in the TI 99 menu selection screen.</p>
 <p>The optional list file parameter <code>-L</code> creates a list file of the source that
 shows the addresses and their byte values for each source line.</p>
 
-<pre><code>$ xga99.oy gahello.gpl -L gahello.lst
+<pre><code>$ xga99.py gahello.gpl -L gahello.lst
 </code></pre>
 
 <p>When <code>-L</code> is given, the symbol dump parameter <code>-S</code> includes the symbol table in
 the list file.</p>
 
 <p>As the Graphics Programming Language was never intended for public release,
-existing native tools for assembling GPL source code differ substantially in the
-language syntax they support.  <code>xga99</code> adopts a variation of the Ryte Data GPL
-Assembler syntax as its native format, but other syntax styles may be chosen
-with the syntax parameter <code>-s</code>.</p>
+existing native tools for assembling GPL source code differ substantially in
+the language syntax they support.  <code>xga99</code> adopts a combination of the Ryte
+Data GPL Assembler and the RAG GPL Assembler syntax as its native format.
+Other syntax styles may be chosen with the syntax parameter <code>-y</code>.</p>
 
-<pre><code>$ xga99.py sdemo.gpl -s rag
+<pre><code>$ xga99.py sdemo.gpl -y mizapf
 </code></pre>
 
-<p>Currently supported syntax styles are <code>xdt99</code> for the <code>xga99</code> native format,
-<code>rag</code> for the Ryte Data and R.A.G. GPL assemblers, and <code>mizapf</code> for the TI Image
-Tool GPL disassembler.  Note that the original GPL syntax described in TI's <em>GPL
-Programmer's Guide</em> was considered too arcane for inclusion in <code>xga99</code>.</p>
+<p>Currently supported syntax styles are the default <code>xdt99</code> for the <code>xga99</code>
+native format, and <code>mizapf</code> for the TI Image Tool GPL disassembler.  Note that
+the original GPL syntax described in TI's <em>GPL Programmer's Guide</em> was
+considered too arcane for inclusion in <code>xga99</code>.</p>
 
 <p>The native <code>xdt99</code> syntax style is more "modern" in that it supports lower case
 sources and relaxes the use of whitespace.  For details, please refer to the
@@ -2306,7 +2331,7 @@ the TI menu selection screen.</p>
 <p>The xdt99 tools are released under the GNU GPL, in the hope that TI 99
 enthusiasts may find them useful.</p>
 
-<p>Please email feedback and bug reports to the developer at <a href="&#109;&#x61;&#105;&#108;&#x74;&#x6F;:&#120;&#100;&#116;&#x39;&#57;&#x64;&#x65;&#x76;&#64;&#x67;&#109;&#97;&#105;&#108;&#x2E;&#x63;&#111;m">&#120;&#100;&#116;&#x39;&#57;&#x64;&#x65;&#x76;&#64;&#x67;&#109;&#97;&#105;&#108;&#x2E;&#x63;&#111;m</a>
+<p>Please email feedback and bug reports to the developer at <a href="&#109;&#97;&#105;&#x6C;&#116;&#x6F;:&#120;&#100;&#x74;&#x39;&#x39;&#100;&#101;&#118;&#64;&#x67;&#109;&#x61;&#105;&#x6C;&#x2E;&#99;&#x6F;&#x6D;">&#120;&#100;&#x74;&#x39;&#x39;&#100;&#101;&#118;&#64;&#x67;&#109;&#x61;&#105;&#x6C;&#x2E;&#99;&#x6F;&#x6D;</a>
 or use the issue tracker on the project <a href="https://github.com/endlos99/xdt99">GitHub page</a>.</p>
 
     <!-- FOOTER  -->
