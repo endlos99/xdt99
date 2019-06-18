@@ -16,16 +16,24 @@ l1  data 7 ;s#l1
     byte 1, 2, 3, 4, 5
 l2  data >ffff
 
-    ; #s expressions
+    ; s# expressions
     data 21 ;s#text1 + 10
     data 19 ;s#text1 + s#text2
     data >aaaa
+
+    ; s# and padding bytes
+    data 3 ;s#pad
 
 text1 text 'HELLO WORLD'
 text2 data 1, 2
       data 3, 4
 text3 stri 'FOOBAR'
 text4 text >1234567890    ;WARN
+
+pad   byte 1
+      byte 2
+      byte 3
+padend
 
     end
 
