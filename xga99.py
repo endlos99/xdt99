@@ -24,8 +24,7 @@ import math
 import re
 import os.path
 
-
-VERSION = "2.0.1"
+VERSION = "2.0.2"
 
 
 # Utility functions
@@ -1295,8 +1294,9 @@ class Parser:
         if self.prep.parse_macro:
             errors.append("***** Error: Missing .endm\n")
         if errors:
-            return errors
+            return errors, ()
         # code generation (passes 1+)
+        all_warnings = []
         while True:
             self.pass_no += 1
             if self.pass_no > 32:
@@ -1329,12 +1329,13 @@ class Parser:
                         filename, self.pass_no, lino, line, e.message))
                 for msg in self.warnings:
                     sys.stderr.write("%s <2> %04d - Warning: %s\n" % (filename, lino, msg))
+                all_warnings.extend(self.warnings)
                 self.warnings = []  # warnings per line
             if self.fmt_mode:
                 self.warn("Source ends with open FMT block")
             if errors and self.pass_no > 1 or not self.symbols.updated:
                 break
-        return errors
+        return errors, all_warnings
 
     def value(self, op):
         """parse well-defined value"""
@@ -1579,9 +1580,8 @@ class Assembler:
                         include_path=self.include_path,
                         warnings=self.warnings)
         parser.open(srcname)
-        errors = parser.parse(code)
-        return code, errors
-
+        errors, warnings = parser.parse(code)
+        return code, errors, warnings
 
 # Command line processing
 
@@ -1656,7 +1656,7 @@ def main():
                     warnings=not opts.nowarn)
     try:
         # assemble
-        code, errors = asm.assemble(basename)
+        code, errors, _ = asm.assemble(basename)
 
         # output
         if errors:

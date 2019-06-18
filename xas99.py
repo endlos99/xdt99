@@ -24,8 +24,7 @@ import math
 import re
 import os.path
 
-
-VERSION = "2.0.1"
+VERSION = "2.0.2"
 
 
 # Utility functions
@@ -828,6 +827,8 @@ class Objcode:
                     words.append(("%04X" % LC, "XXXX", t))
                 elif isinstance(w, Block):
                     words.append(("%04X" % LC, "....", t))
+                elif isinstance(w, DelayedAddress):
+                    words.append(("%04X" % LC, "????", t))
                 else:
                     words.append(("%04X" % LC, "%04X" % w, t))
         symbols = "\n" + self.generate_symbols() + "\n" if gen_symbols else ""
@@ -1679,9 +1680,9 @@ class Parser:
     def parse(self, dummy, code):
         """parse source code and generate object code"""
         source, errors = self.pass_1(dummy, code)
-        errors = self.pass_2(source, code, errors)
+        errors, warnings = self.pass_2(source, code, errors)
         self.autogens(code)
-        return errors
+        return errors, warnings
 
     def pass_1(self, dummy, code):
         "pass 1: gather symbols, apply preprocessor"
@@ -1732,6 +1733,7 @@ class Parser:
         self.pass_no = 2
         self.lidx = 0
         self.symbols.reset_LC()
+        all_warnings = []
         prev_file = None
         for lino, label, mnemonic, operands, line, filename, stmt in source:
             if filename != prev_file:
@@ -1750,13 +1752,14 @@ class Parser:
                 errors.append("%s <2> %04d - %s\n***** %s\n" % (filename, lino, line, e.message))
             for msg in self.warnings:
                 sys.stderr.write("%s <2> %04d - Warning: %s\n" % (filename, lino, msg))
+            all_warnings.extend(self.warnings)
             self.warnings = []  # warnings per line
         code.list(0, eos=True)
         if self.warnings_enabled:
             unused = sorted(self.symbols.get_unused())
             if unused:
                 sys.stderr.write("Warning: Unreferenced constants: " + " ".join(unused) + "\n")
-        return errors
+        return errors, all_warnings
 
     def autogens(self, code):
         """append code stanza for autogen constants"""
@@ -2102,8 +2105,8 @@ class Assembler:
             parser.open(srcname)
         except AsmError as e:
             raise IOError(1, e, srcname)
-        errors = parser.parse(dummy, code)
-        return code, errors
+        errors, warnings = parser.parse(dummy, code)
+        return code, errors, warnings
 
 
 # Command line processing
@@ -2175,7 +2178,7 @@ def main():
                     strict=opts.strict,
                     warnings=not opts.nowarn)
     try:
-        code, errors = asm.assemble(dirname, basename)
+        code, errors, _ = asm.assemble(dirname, basename)
     except IOError as e:
         sys.exit("File error: %s: %s." % (e.filename, e.strerror))
 
