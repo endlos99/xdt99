@@ -946,7 +946,7 @@ shows up in the TI 99 menu selection screen.
 The optional list file parameter `-L` creates a list file of the source that
 shows the addresses and their byte values for each source line.
 
-    $ xga99.oy gahello.gpl -L gahello.lst
+    $ xga99.py gahello.gpl -L gahello.lst
 
 When `-L` is given, the symbol dump parameter `-S` includes the symbol table in
 the list file.
