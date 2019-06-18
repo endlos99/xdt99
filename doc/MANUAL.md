@@ -952,17 +952,17 @@ When `-L` is given, the symbol dump parameter `-S` includes the symbol table in
 the list file.
    
 As the Graphics Programming Language was never intended for public release,
-existing native tools for assembling GPL source code differ substantially in the
-language syntax they support.  `xga99` adopts a variation of the Ryte Data GPL
-Assembler syntax as its native format, but other syntax styles may be chosen
-with the syntax parameter `-s`.
+existing native tools for assembling GPL source code differ substantially in
+the language syntax they support.  `xga99` adopts a combination of the Ryte
+Data GPL Assembler and the RAG GPL Assembler syntax as its native format.
+Other syntax styles may be chosen with the syntax parameter `-y`.
 
-    $ xga99.py sdemo.gpl -s rag
+    $ xga99.py sdemo.gpl -y mizapf
 
-Currently supported syntax styles are `xdt99` for the `xga99` native format,
-`rag` for the Ryte Data and R.A.G. GPL assemblers, and `mizapf` for the TI Image
-Tool GPL disassembler.  Note that the original GPL syntax described in TI's *GPL
-Programmer's Guide* was considered too arcane for inclusion in `xga99`.
+Currently supported syntax styles are the default `xdt99` for the `xga99`
+native format, and `mizapf` for the TI Image Tool GPL disassembler.  Note that
+the original GPL syntax described in TI's *GPL Programmer's Guide* was 
+considered too arcane for inclusion in `xga99`.
 
 The native `xdt99` syntax style is more "modern" in that it supports lower case
 sources and relaxes the use of whitespace.  For details, please refer to the
