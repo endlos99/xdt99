@@ -71,8 +71,8 @@ The `ide/` directory contains the editor plugins for GNU Emacs and IntelliJ
 IDEA.  Please refer to the `EDITORS.md` file for further information about
 editor support.
 
-The `lib/` directory contains the Jumpstart cartridge and some supporting
-functions that you may use in your TI programs.
+The `lib/` directory contains some supporting functions that you may use in your
+TI programs.
 
 The `example/` directory of the binary distribution contains some sample files
 that are referenced throughout this manual.
@@ -85,7 +85,7 @@ The `xas99` cross-assembler translates TMS9900 assembly code into executable
 programs for the TI 99 home computer equipped with the Editor/Assembler module
 or the Mini Memory module.
 
-Invoking `xas99` in standard mode will assemble a TMS9900 assembly source code 
+Invoking `xas99` in standard mode will assemble a TMS9900 assembly source code
 file into an object code file that may be loaded using the Editor/Assembler
 module option 3.
 
@@ -138,7 +138,7 @@ package in the case of errors.  `xas99` is slightly more permissive than the
 Editor/Assembler, but it should be able to assemble any source that the
 Editor/Assembler package can assemble.
 
-The assembler may also issue a number of __warnings__, as shown in this 
+The assembler may also issue a number of __warnings__, as shown in this
 example:
 
     val  equ 0
@@ -146,7 +146,7 @@ example:
          ci   r1, r2       ; Register used as immediate operand
          b    @lab         ; Possible B/JMP optimization
          data 0
-    lab  mov  @val(r1)     ; Using indexed address @0, could use *r1 instead 
+    lab  mov  @val(r1)     ; Using indexed address @0, could use *r1 instead
     cons data 1            ; Unreferenced symbol (summary at end of assembly)
 
 Warnings are also written to `stderr`.  Option `-w` disables all warnings.
@@ -241,7 +241,7 @@ The text parameter `-t` generates a textual version of the raw binary generated
 by `-b`.  Followed by `a`, it creates `BYTE` or `DATA` instructions to use in
 assembly or GPL; by `b`, it creates `DATA` instructions to use in BASIC; by
 `c`, it creates a list of hex values to use in C/C++ arrays.  Including `2` or
-`4` in the value generates bytes or words, respectively.  For target platforms 
+`4` in the value generates bytes or words, respectively.  For target platforms
 with different endianness, include `r` to swap the bytes in words.  As an
 example,
 
@@ -255,28 +255,6 @@ results in an assembly file with `AORG`s and `BYTE` directives:
        byte >02, >e0, >83, >e0, >04, >d0
 
 The result can be `COPY`ed, `#include`d, or just copy-and-pasted.
-
-
-### Jumpstarting
-
-To make the code, assemble, run cycle as fast as possible, `xas99` can
-generate so-called "jumpstart disks" that may be loaded and executed by the
-Jumpstart cartridge included with xdt99.
-
-    $ xas99.py --jumpstart -R ascart.asm
-    $ mess64 ti99_4ae -cart lib/jumpstart.rpk -flop1 ascart.dsk
-
-The example above shows the invocation for MESS, but any emulator should
-work.  Obviously, the emulator must be setup with 32K memory expansion and
-at least one floppy disk drive.
-
-Selecting the Jumpstart option in the TI 99 main menu will load the jumpstarted
-program from any inserted disk and run it.  Thus, selecting either option 3
-or 5 in the Editor/Assembler module and manually entering the program filename
-is no longer required.
-
-Currently, jumpstarted programs may consist of up to 8 segments and must fit
-entirely into memory areas `>2000`-`>3EFF` and `>A000`-`>FFFF`.
 
 
 ### Other Formats
@@ -382,7 +360,7 @@ All extensions are backwards compatible in virtually all situations of
 practical relevance so that any existing source code should compile as-is.
 
 __Comments__ may be included anywhere in the source code by prepending them
-with a semicolon `;`.  A `;` character inside a text literal `'...'` or 
+with a semicolon `;`.  A `;` character inside a text literal `'...'` or
 filename `"..."` does *not* introduce a comment.
 
 Source code is processed case insensitively so that all labels, expressions, and
@@ -394,8 +372,8 @@ literals are still case sensitive, though.
     Label3 mov Label1(R1),Label2(r2)
 
 __Labels__ may be of arbitrary length and may contain arbitrary characters
-except for whitespace and operators such as `+`, `*`, `(`, `$`, etc.  An 
-optional colon `:` may be appended to the label name.  The colon is not part 
+except for whitespace and operators such as `+`, `*`, `(`, `$`, etc.  An
+optional colon `:` may be appended to the label name.  The colon is not part
 of the name, but logically continues the current line to the next:
 
     my_label_1:
@@ -469,13 +447,13 @@ evaluation, parentheses can be used: `1 + (2 * 3) - (4 & 5)`.
 `xas99` features a number of so-called __modifiers__ that apply to symbols,
 literals, or registers.
 
-Many programs use byte or word constants, e.g., for `MOV`/`MOVB` or `C`/`CB` 
+Many programs use byte or word constants, e.g., for `MOV`/`MOVB` or `C`/`CB`
 instructions when immediate values are not available or feasible.  A common
 problem then is to keep track of all used constants.  `xas99` assists the
 developer here by warning about unused constants (see Warnings).
 
 A convenient alternative is to use __auto-generated constants__ with modifiers
-`b#` and `w#`.  As an example,  
+`b#` and `w#`.  As an example,
 
         mov  w#>ff01, @status
         socb b#81, r1
@@ -503,7 +481,7 @@ Please note that the constants must be literals, i.e., constructs like
         xor w#msk, r0
 
 are not valid.  For these case, use regular named constants instead.
-      
+
 The assembler logically appends all auto-generated constants to the end of the
 _source_ code.  So if we need to place some data after the code
 
@@ -513,12 +491,12 @@ _source_ code.  So if we need to place some data after the code
     start:
         movb b#1, @acc
         ...
-        
+
         aorg >2ffc
     start_vector:
         data >8300
         data start
-    
+
 using auto-generated constants, we simply reverse the order of our sections
 
         save >2000->2fff
@@ -528,8 +506,8 @@ using auto-generated constants, we simply reverse the order of our sections
         aorg >2000
         ...
         ; auto-generated constants follow
-        
-so that the constants are appended to the `>2000` chunk now.        
+
+so that the constants are appended to the `>2000` chunk now.
 
 All auto-generated constants will also appear in the list file.
 
@@ -540,7 +518,7 @@ modified register.  In this code example,
         ...
         movb l#r0, @vdpwa
         movb r0, @vdpwa
- 
+
 the expression `l#r0` resolved to `@>8301`, i.e., the LSB of register 0.  The
 modifier is relative to the workspace pointer (WP) so that
 
@@ -550,7 +528,7 @@ modifier is relative to the workspace pointer (WP) so that
         movb l#r1, r0
         lwpi >83e0
         movb l#r1, r0
-        
+
 reads `>8303`, `>2003`, and `>83E3`, respectively.
 
 *Caution!* `l#` uses the syntactically most recent `LWPI` statement.  When
@@ -585,7 +563,7 @@ subtracts it from the size.
 Here, `s#text1` equals 11, even though there are still 12 bytes from `text1` to
 `text2`.  Please note that `s#` only applies to labels; symbols created by
 `EQU`s are not supported.
- 
+
 The __cross-bank access__ modifier `x#` enables cross-bank symbol access.  For
 a detailed description on `x#`, see the paragraphs on bank switching.
 
@@ -608,7 +586,7 @@ The `STRI` directive is similar to `TEXT`, but prepends the length of the
 string.  In other words,
 
     STRI 'HELLO WORLD'
-    
+
 is equivalent to
 
     TEXT >0b, 'HELLO WORLD'
@@ -753,8 +731,8 @@ otherwise, it generates images for each segment individually.
 The use of `SAVE` is recommended to reduce the number of generated files if
 `XORG` is employed.
 
-The source code __preprocessor__ allows for conditional assembly based on 
-well-defined conditional expressions.  The preprocessor commands `.ifdef` and 
+The source code __preprocessor__ allows for conditional assembly based on
+well-defined conditional expressions.  The preprocessor commands `.ifdef` and
 `.ifndef` check if a given symbol is defined or not.
 
            .ifdef lang_de
@@ -774,14 +752,14 @@ directive.
 The `.print` preprocessor command prints its arguments to `stdout`.
 
     val    equ 42
-           .print 'Selected answer is', value 
+           .print 'Selected answer is', value
 
 The `.error` command prints a message and aborts the assembly.
 
            aorg >6000
-           
+
            ...
-           
+
            .ifgt $, >7fff
            .error 'Catridge program too large'
            .endif
@@ -950,7 +928,7 @@ shows the addresses and their byte values for each source line.
 
 When `-L` is given, the symbol dump parameter `-S` includes the symbol table in
 the list file.
-   
+
 As the Graphics Programming Language was never intended for public release,
 existing native tools for assembling GPL source code differ substantially in
 the language syntax they support.  `xga99` adopts a combination of the Ryte
@@ -961,7 +939,7 @@ Other syntax styles may be chosen with the syntax parameter `-y`.
 
 Currently supported syntax styles are the default `xdt99` for the `xga99`
 native format, and `mizapf` for the TI Image Tool GPL disassembler.  Note that
-the original GPL syntax described in TI's *GPL Programmer's Guide* was 
+the original GPL syntax described in TI's *GPL Programmer's Guide* was
 considered too arcane for inclusion in `xga99`.
 
 The native `xdt99` syntax style is more "modern" in that it supports lower case
@@ -1084,8 +1062,8 @@ parameters `-G` and `-A`, respectively.  The cartridge parameter `-c` implies
 `-G 0x6000` and `-A 0x30`.  `-G` and `-A` will not override `GROM` or `AORG`
 directives, but set the GROM and address of the first line of the code.
 
-The `COPY` and `BCOPY` directives include text files or binary files, 
-respectively.  A text file becomes part of the assembly source, whereas a 
+The `COPY` and `BCOPY` directives include text files or binary files,
+respectively.  A text file becomes part of the assembly source, whereas a
 binary is included verbatim into the byte code.
 
 
@@ -1101,10 +1079,10 @@ The `xas99` extensions regarding __comments__, __labels__, __whitespace__, and
 __expressions__ also apply to `xga99`.
 
 The source code __preprocessor__ supports conditional assembly `.ifdef` and
-macros `.defm`.  For a description of both features please refer to the 
+macros `.defm`.  For a description of both features please refer to the
 respective section in the `xas99` manual.
 
-`xga99` supports __macros__.  Note, however, that GPL macros use macro 
+`xga99` supports __macros__.  Note, however, that GPL macros use macro
 parameters `$1`, `$2`, ... instead of `#1`, `#2`, ..., as the `#` sign is used
 to denote VDP registers in GPL.
 
@@ -1112,7 +1090,7 @@ The __predefined symbols__ set by `xga99` are `_xga99_image`, `_xga99_cart`, or
 `_xga99_gbc`, depending on the assembly command `-i`, `-c`, ... used.
 
 __Local labels__ are non-unique source-relative labels that begin with an
-exclamation mark `!`.  For details about local labels, please refer to the 
+exclamation mark `!`.  For details about local labels, please refer to the
 Local labels section of the `xas99` cross-assembler manual.
 
 The __command line options__ `-D` to define additional symbols and `-E` to dump
@@ -1170,7 +1148,7 @@ header:
 Machine code consists of both code and data segments, which are often
 intermingled.  Without context information, however, a disassembler cannot tell
 data from code.
-  
+
 Using `xda99` with the _from_ parameter `-f` will start the disassembly in
 _top-down mode_, which disassembles the machine code sequentially word by word.
 As stated above, this mode generally yields bad results, as data segments will
@@ -1179,7 +1157,7 @@ above example by changing the from parameter to `-f 6000`:
 
                 aorg >6000
     6000 4845   szc   r5, @>4c4c(r1)     |
-    6002 4c4c                            |  data erroneously  
+    6002 4c4c                            |  data erroneously
     6004 4f20   szc   @>4341, *r12+      |  disassembled into
     6006 4341                            |  source code
     6008 5254   szcb  *r4, r9            |
@@ -1319,7 +1297,7 @@ merging those addresses marked by `?` and replacing them by `....`.
     201c 10fa   jmp  >2012
 
 Options `-c` and `-p` cannot be combined.
- 
+
 The strict option `-s` generates output files in legacy Editor/Assembler
 format, in particular upper-case.
 
@@ -1339,14 +1317,14 @@ But run mode is not always 100% accurate, as `xda99` cannot follow indirect
 branches such as `B *R1`, and doesn't know if a condition for `JEQ LABEL` is
 always true and thus has no alternate path.  (The latter remark is more
 relevant for `xdg99`, where `BR` is often used as a shorter `B`.)  As a
-consequence, a run may "run off", and worse, different runs may try to 
+consequence, a run may "run off", and worse, different runs may try to
 disassemble the same range differently:
 
                    First run,              Second run,
                    starting @>6000         starting @>6002
-                   
+
                    aorg >6000              aorg >6000
-    6000 c820      mov  @pad, @>831c                         | 
+    6000 c820      mov  @pad, @>831c                         |
     6002 8300                              c    r0, r12      | disagreement
     6004 831c                              c    *r12, r12    |
     6006 0a51      sla  r1, 5              sla  r1, 5
@@ -1358,7 +1336,7 @@ version is correct.
 
 The default behavior of `xda99` is to stop the run, leaving the previous
 disassembly untouched.  You can override the default with the force option
-`-F`, which will always overwrite previous results.  This is done cleanly, so 
+`-F`, which will always overwrite previous results.  This is done cleanly, so
 that run 2 above will reset the overridden instruction at address `@>6000`.
 
 There is no recommendation to disassemble with or without override.  The result
@@ -1567,7 +1545,7 @@ The local output filename is derived automatically from the TI filename but
 may be overridden with the `-o` parameter.
 
     $ xdm99.py work.dsk -e HELLO-S -o hello.a99
-   
+
 If `-o` specifies a directory, the output is placed into that directory.
 
     $ xdm99.py work.dsk -e HELLO-O HELLO-S -o hello/
@@ -1645,7 +1623,7 @@ The write protection parameter `-w` toggles the current protection status of
 the given files.
 
     $ xdm99.py work.dsk -w HELLO HELLO-CPY
-    
+
 Note that file protection is solely for TI 99 systems and emulators but will be
 ignored by `xdm99`.
 
@@ -2172,8 +2150,8 @@ Feedback and Bug Reports
 The xdt99 tools are released under the GNU GPL, in the hope that TI 99
 enthusiasts may find them useful.
 
-Please email feedback and bug reports to the developer at <xdt99dev@gmail.com>
-or use the issue tracker on the project [GitHub page][2].
+Please email feedback and bug reports to the developer at <r@0x01.de> or use the
+issue tracker on the project [GitHub page][2].
 
 
 [1]: https://endlos99.github.io/xdt99
