@@ -1723,7 +1723,7 @@ class Parser:
                     Opcodes.process(self, dummy, label, mnemonic, operands)
             except AsmError as e:
                 errors.append("%s <1> %04d - %s\n***** %s\n" % (filename, lino, line, e.message))
-                self.console.append((filename, 1, lino, line, e.message))
+                self.console.append(('E', filename, 1, lino, line, e.message))
         if self.prep.parse_branches:
             errors.append("***** Error: Missing .endif\n")
             self.console.append(('E', filename, 1, None, None, "***** Error: Missing .endif"))
