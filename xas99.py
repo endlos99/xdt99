@@ -1553,7 +1553,7 @@ class Parser:
     """scanner and parser class"""
 
     def __init__(self, symbols, path=None, includes=None, strict=False,
-                 warnings=True, use_R=False):
+                 warnings=True, use_R=False, console=()):
         self.prep = Preprocessor(self)
         self.warnings = []
         self.symbols = symbols
@@ -1571,6 +1571,7 @@ class Parser:
         self.pass_no = 0
         self.lidx = 0
         self.use_R = use_R
+        self.console = console
 
     def warn(self, message):
         # warn in pass 2 to avoid duplicates and to prevent false expr values 0
@@ -1679,12 +1680,12 @@ class Parser:
 
     def parse(self, dummy, code):
         """parse source code and generate object code"""
-        source, errors = self.pass_1(dummy, code)
-        errors, warnings = self.pass_2(source, code, errors)
+        source, errors = self.pass_1(dummy)
+        errors = self.pass_2(source, code, errors)
         self.autogens(code)
-        return errors, warnings
+        return errors
 
-    def pass_1(self, dummy, code):
+    def pass_1(self, dummy):
         "pass 1: gather symbols, apply preprocessor"
         source, errors = [], []
         # first pass: scan symbols
@@ -1722,10 +1723,13 @@ class Parser:
                     Opcodes.process(self, dummy, label, mnemonic, operands)
             except AsmError as e:
                 errors.append("%s <1> %04d - %s\n***** %s\n" % (filename, lino, line, e.message))
+                self.console.append((filename, 1, lino, line, e.message))
         if self.prep.parse_branches:
             errors.append("***** Error: Missing .endif\n")
+            self.console.append(('E', filename, 1, None, None, "***** Error: Missing .endif"))
         if self.prep.parse_macro:
             errors.append("***** Error: Missing .endm\n")
+            self.console.append(('E', filename, 1, None, None, "***** Error: Missing .endm"))
         return source, errors
 
     def pass_2(self, source, code, errors):
@@ -1733,7 +1737,6 @@ class Parser:
         self.pass_no = 2
         self.lidx = 0
         self.symbols.reset_LC()
-        all_warnings = []
         prev_file = None
         for lino, label, mnemonic, operands, line, filename, stmt in source:
             if filename != prev_file:
@@ -1750,16 +1753,19 @@ class Parser:
                     Opcodes.process(self, code, label, mnemonic, operands)
             except AsmError as e:
                 errors.append("%s <2> %04d - %s\n***** %s\n" % (filename, lino, line, e.message))
+                self.console.append(('E', filename, 2, lino, line, e.message))
             for msg in self.warnings:
                 sys.stderr.write("%s <2> %04d - Warning: %s\n" % (filename, lino, msg))
-            all_warnings.extend(self.warnings)
+                self.console.append(('W', filename, 2, lino, line, msg))
             self.warnings = []  # warnings per line
         code.list(0, eos=True)
         if self.warnings_enabled:
             unused = sorted(self.symbols.get_unused())
             if unused:
                 sys.stderr.write("Warning: Unreferenced constants: " + " ".join(unused) + "\n")
-        return errors, all_warnings
+                self.console.append(('W', None, 1, None, None,
+                                     "Warning: Unreferenced constants: " + " ".join(unused)))
+        return errors
 
     def autogens(self, code):
         """append code stanza for autogen constants"""
@@ -2089,15 +2095,16 @@ class Assembler:
     def __init__(self, target="", optr=False, defs=None, includes=None,
                  strict=False, warnings=True):
         self.optr = optr  # -R specified
-        self.defs = ["_xas99_" + target] + defs
+        self.defs = (defs or []) + ["_xas99_" + target]
         self.includes = includes  # list of include paths to search for COPY
         self.strict = strict  # -s specified
         self.warnings = warnings
+        self.console = []  # structures log of errors and warnings
 
     def assemble(self, path, srcname):
         symbols = Symbols(add_registers=self.optr, add_defs=self.defs)
         parser = Parser(symbols, path=path, includes=self.includes, strict=self.strict, warnings=self.warnings,
-                        use_R=self.optr)
+                        use_R=self.optr, console=self.console)
         code = Objcode(symbols, self.strict)
         dummy = Objdummy(symbols, parser)
 
@@ -2105,8 +2112,8 @@ class Assembler:
             parser.open(srcname)
         except AsmError as e:
             raise IOError(1, e, srcname)
-        errors, warnings = parser.parse(dummy, code)
-        return code, errors, warnings
+        errors = parser.parse(dummy, code)
+        return code, errors, self.console
 
 
 # Command line processing
@@ -2178,7 +2185,7 @@ def main():
                     strict=opts.strict,
                     warnings=not opts.nowarn)
     try:
-        code, errors, _ = asm.assemble(dirname, basename)
+        code, errors, _ = asm.assemble(dirname, basename)  # console is for external tools
     except IOError as e:
         sys.exit("File error: %s: %s." % (e.filename, e.strerror))
 
