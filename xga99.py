@@ -1121,7 +1121,7 @@ class Preprocessor:
 class Parser:
     """scanner and parser class"""
 
-    def __init__(self, symbols, syntax, include_path=None, warnings=True):
+    def __init__(self, symbols, syntax, include_path=None, warnings=True, console=None):
         self.prep = Preprocessor(self)
         self.symbols = symbols
         self.syntax = Syntax.get(syntax)
@@ -1139,6 +1139,7 @@ class Parser:
         self.for_loops = []
         self.warnings = []
         self.warnings_enabled = warnings
+        self.console = console if console is not None else []
 
     def reset(self, code):
         """reset state for new assembly pass"""
@@ -1289,10 +1290,13 @@ class Parser:
             except AsmError as e:
                 errors.append("%s <1> %04d - %s\n***** %s\n" % (
                     filename, lino, line, e.message))
+                self.console.append(('E', filename, 1, lino, line, e.message))
         if self.prep.parse_branches:
             errors.append("***** Error: Missing .endif\n")
+            self.console.append(('E', filename, 1, None, None, "***** Error: Missing .endif"))
         if self.prep.parse_macro:
             errors.append("***** Error: Missing .endm\n")
+            self.console.append(('E', filename, 1, None, None, "***** Error: Missing .endm"))
         if errors:
             return errors, ()
         # code generation (passes 1+)
@@ -1327,12 +1331,15 @@ class Parser:
                 except AsmError as e:
                     errors.append("%s <%d> %04d - %s\n***** %s\n" % (
                         filename, self.pass_no, lino, line, e.message))
+                    self.console.append(('E', filename, self.pass_no, lino, line, e.message))
                 for msg in self.warnings:
                     sys.stderr.write("%s <2> %04d - Warning: %s\n" % (filename, lino, msg))
+                    self.console.append(('W', filename, self.pass_no, lino, line, msg))
                 all_warnings.extend(self.warnings)
                 self.warnings = []  # warnings per line
             if self.fmt_mode:
                 self.warn("Source ends with open FMT block")
+                self.console.append(('W', filename, self.pass_no, None, None, "Source ends with open FMT block"))
             if errors and self.pass_no > 1 or not self.symbols.updated:
                 break
         return errors, all_warnings
@@ -1571,6 +1578,7 @@ class Assembler:
         self.include_path = include_path
         self.defs = ["_xga99_" + target] + list(defs)
         self.warnings = warnings
+        self.console = []  # structures log of errors and warnings
 
     def assemble(self, srcname):
         symbols = Symbols(add_defs=self.defs)
@@ -1578,7 +1586,8 @@ class Assembler:
         parser = Parser(symbols,
                         syntax=self.syntax,
                         include_path=self.include_path,
-                        warnings=self.warnings)
+                        warnings=self.warnings,
+                        console=self.console)
         parser.open(srcname)
         errors, warnings = parser.parse(code)
         return code, errors, warnings
@@ -1630,12 +1639,7 @@ def main():
     dirname = os.path.dirname(opts.source) or "."
     basename = os.path.basename(opts.source)
     barename = os.path.splitext(basename)[0]
-    # output = opts.output or (
-    #     barename + ".rpk" if opts.cart else
-    #     barename + ".bin" if opts.image else
-    #     barename + ".dat" if opts.text else
-    #     barename + ".gbc"
-    #     )
+
     name = opts.name or barename[:16].upper()
     grom = (xint(opts.grom) if opts.grom is not None else
             0x6000 if opts.cart else 0x0000)
