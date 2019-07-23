@@ -207,7 +207,6 @@ def check_image_files_eq(genfile, reffile):
         genimage = fg.read()
         refimage = fr.read()
     if not 0 <= len(genimage) - len(refimage) <= 1:
-        print len(genimage), len(refimage)
         error("Object code", "Image length mismatch")
     if (genimage[:2] != refimage[:2] or
         not (0 <= ordw(genimage[2:4]) - ordw(refimage[2:4]) <= 1) or

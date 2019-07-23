@@ -3,7 +3,7 @@
 import os
 
 from config import Dirs, Disks, Files
-from utils import xas, xdm, error, check_list_files_eq, check_files_eq
+from utils import xas, xdm, error, check_list_files_eq, check_text_files_eq
 
 
 # Check functions
@@ -81,7 +81,7 @@ def runtest():
         lines = fin.readlines()[-20:]
         fout.writelines(lines)
     reffile = os.path.join(Dirs.refs, "asautogen.lst")
-    check_files_eq("autogen", Files.output, reffile, "P")
+    check_text_files_eq("autogen", Files.output, reffile)
 
     # cleanup
     os.remove(Files.output)
