@@ -458,7 +458,7 @@ class Objcode:
             self.code.append((0, l, 0))  # LC, value, timing
         elif lino == 0:
             # change of source
-            l = Line(lino, line, eos)
+            l = Line(lino, "> " + line if line else line, eos)
             l.text1 = l.text2 = "****"
             self.code.append((0, l, 0))
         elif lino > 0:
@@ -1586,8 +1586,7 @@ class Parser:
             self.suspended_files.append((self.fn, self.path, self.source, self.margs, self.lino))
         if filename:
             newfile = "-" if filename == "-" else self.find(filename)
-            self.path, fn = os.path.split(newfile)
-            self.fn = "> " + fn
+            self.path, self.fn = os.path.split(newfile)
             try:
                 self.source = readlines(newfile, "r")
             except IOError as e:
@@ -1722,7 +1721,7 @@ class Parser:
                 Directives.process(self, dummy, label, mnemonic, operands) or \
                     Opcodes.process(self, dummy, label, mnemonic, operands)
             except AsmError as e:
-                errors.append("%s <1> %04d - %s\n***** %s\n" % (filename, lino, line, e.message))
+                errors.append("> %s <1> %04d - %s\n***** %s\n" % (filename, lino, line, e.message))
                 self.console.append(('E', filename, 1, lino, line, e.message))
         if self.prep.parse_branches:
             errors.append("***** Error: Missing .endif\n")
@@ -1752,10 +1751,10 @@ class Parser:
                 Directives.process(self, code, label, mnemonic, operands) or \
                     Opcodes.process(self, code, label, mnemonic, operands)
             except AsmError as e:
-                errors.append("%s <2> %04d - %s\n***** %s\n" % (filename, lino, line, e.message))
+                errors.append("> %s <2> %04d - %s\n***** %s\n" % (filename, lino, line, e.message))
                 self.console.append(('E', filename, 2, lino, line, e.message))
             for msg in self.warnings:
-                sys.stderr.write("%s <2> %04d - Warning: %s\n" % (filename, lino, msg))
+                sys.stderr.write("> %s <2> %04d - Warning: %s\n" % (filename, lino, msg))
                 self.console.append(('W', filename, 2, lino, line, msg))
             self.warnings = []  # warnings per line
         code.list(0, eos=True)
@@ -1781,7 +1780,7 @@ class Parser:
             return
         autogen_LC = code.symbols.LC
         code.segment(autogen_LC)
-        code.list(0, line="> auto-generated constants")
+        code.list(0, line="auto-generated constants")
         stashed_byte = None
         for value, size in self.symbols.autogens + [("-0", "B")]:  # add dummy element to flush stashed byte
             name = size + "#" + value
@@ -2113,7 +2112,7 @@ class Assembler:
         except AsmError as e:
             raise IOError(1, e, srcname)
         errors = parser.parse(dummy, code)
-        return code, errors, self.console
+        return code, errors
 
 
 # Command line processing
@@ -2185,7 +2184,7 @@ def main():
                     strict=opts.strict,
                     warnings=not opts.nowarn)
     try:
-        code, errors, _ = asm.assemble(dirname, basename)  # console is for external tools
+        code, errors = asm.assemble(dirname, basename)  # console is for external tools
     except IOError as e:
         sys.exit("File error: %s: %s." % (e.filename, e.strerror))
 

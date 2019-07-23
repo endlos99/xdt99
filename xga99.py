@@ -322,7 +322,7 @@ class Objcode:
         """create list file entry"""
         if lino == 0:
             # change of source
-            l = Line(lino, line, eos)
+            l = Line(lino, "> " + line if line else line, eos)
             l.text1 = l.text2 = "****"
             self.code.append((0, l))
         elif lino > 0:
@@ -1162,8 +1162,7 @@ class Parser:
             newfile = "-" if filename == "-" else self.find(filename)
             if newfile is None:
                 raise AsmError("Could not find file " + filename)
-            self.path, fn = os.path.split(newfile)
-            self.fn = "> " + fn
+            self.path, self.fn = os.path.split(newfile)
             try:
                 self.source = readlines(newfile, "r")
             except IOError as e:
@@ -1288,7 +1287,7 @@ class Parser:
                 Directives.process(self, code, label, mnemonic, operands) or \
                     Opcodes.process(self, code, label, mnemonic, operands)
             except AsmError as e:
-                errors.append("%s <1> %04d - %s\n***** %s\n" % (
+                errors.append("> %s <1> %04d - %s\n***** %s\n" % (
                     filename, lino, line, e.message))
                 self.console.append(('E', filename, 1, lino, line, e.message))
         if self.prep.parse_branches:
@@ -1329,11 +1328,11 @@ class Parser:
                     Directives.process(self, code, label, mnemonic, operands) or \
                         Opcodes.process(self, code, label, mnemonic, operands)
                 except AsmError as e:
-                    errors.append("%s <%d> %04d - %s\n***** %s\n" % (
+                    errors.append("> %s <%d> %04d - %s\n***** %s\n" % (
                         filename, self.pass_no, lino, line, e.message))
                     self.console.append(('E', filename, self.pass_no, lino, line, e.message))
                 for msg in self.warnings:
-                    sys.stderr.write("%s <2> %04d - Warning: %s\n" % (filename, lino, msg))
+                    sys.stderr.write("> %s <2> %04d - Warning: %s\n" % (filename, lino, msg))
                     self.console.append(('W', filename, self.pass_no, lino, line, msg))
                 all_warnings.extend(self.warnings)
                 self.warnings = []  # warnings per line
@@ -1590,7 +1589,7 @@ class Assembler:
                         console=self.console)
         parser.open(srcname)
         errors, warnings = parser.parse(code)
-        return code, errors, warnings
+        return code, errors
 
 # Command line processing
 
@@ -1660,7 +1659,7 @@ def main():
                     warnings=not opts.nowarn)
     try:
         # assemble
-        code, errors, _ = asm.assemble(basename)
+        code, errors = asm.assemble(basename)
 
         # output
         if errors:
