@@ -143,7 +143,7 @@ class Tokens:
         except ValueError:
             lino = -1
         if not 1 <= lino <= 32767:
-            raise BasicError("Invalid line number")
+            raise BasicError("Invalid line number: " + str(lino))
         return "\xc9" + chrw(lino)
 
     @classmethod
@@ -288,7 +288,7 @@ class BasicProgram:
                 lino, tokens = self.line(line)
                 self.lines[lino] = tokens
             except BasicError as e:
-                self.warn("%s: [%d] %s" % (str(e), i, line[:-1]))
+                self.warn("%s: [%d] %s" % (str(e), i + 1, line[:-1]))
 
     def line(self, line):
         """parse single BASIC line"""
@@ -517,8 +517,7 @@ def main():
         else:
             # create program
             if opts.merge:
-                raise BasicError(
-                    "Program creation in MERGE format is not supported")
+                raise BasicError("Program creation in MERGE format is not supported")
             with open(opts.source, "r") as fin:
                 lines = fin.readlines()
             if opts.join:
@@ -532,8 +531,7 @@ def main():
             output = opts.output or barename + ".prg"
 
         if program and program.warnings:
-            sys.stderr.write("".join([
-                "Warning: %s\n" % w for w in program.warnings]))
+            sys.stderr.write("".join(["Warning: %s\n" % w for w in program.warnings]))
         if output == "-":
             print data.rstrip()
         else:
