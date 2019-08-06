@@ -4,12 +4,8 @@ import os
 import re
 
 from config import Dirs, Disks, Files
-from utils import (xas, xdm, error, content, content_len, check_obj_code_eq,
+from utils import (chrw, ordw, xas, xdm, error, content, content_len, check_obj_code_eq,
                    check_image_files_eq, check_list_files_eq)
-
-
-def ordw(word):
-    return ord(word[0]) << 8 | ord(word[1])
 
 
 def remove(files):
@@ -29,15 +25,25 @@ def check_exists(files):
             error("Files", "File missing or empty: " + fn)
 
 
-def check_bin_text_equal(outfile, reffile):
+def check_bin_text_equal_bytes(outfile, reffile):
+    with open(outfile, "r") as fout, open(reffile, "rb") as fref:
+        txt = " ".join(fout.readlines())
+        bin = fref.read()
+    data = [b for b in bin]
+    dirs = [int(m, 16) for m in re.findall(">([0-9A-Fa-f]{2})", txt)][1:]  # skip AORG
+    if data != dirs:
+        error("DATA", "DATA/word mismatch")
+
+
+def check_bin_text_equal_words(outfile, reffile):
     with open(outfile, "r") as fout, open(reffile, "rb") as fref:
         txt = " ".join(fout.readlines())
         bin = fref.read()
     if len(bin) % 2 == 1:
-        bin += "\x00"
-    bytes = [ord(x) for x in bin]
-    dirs = [int(m, 16) for m in re.findall(">([0-9A-Fa-f]{2})", txt)][1:]
-    if bytes != dirs:                                              # skip AORG
+        bin += b"\x00"
+    data = [ordw(bin[i:i + 2]) for i in range(0, len(bin), 2)]
+    dirs = [int(m, 16) for m in re.findall(">([0-9A-Fa-f]{4})", txt)][1:]  # skip AORG
+    if data != dirs:
         error("DATA", "DATA/word mismatch")
 
 
@@ -56,14 +62,13 @@ def check_symbols(outfile, symbols):
     with open(outfile, "r") as fout:
         source = fout.readlines()
     equs = {}
-    for i in xrange(0, len(source), 2):
+    for i in range(0, len(source), 2):
         sym = source[i].split(':')[0]
         val = source[i + 1].upper().split("EQU", 1)[1].strip().split()[0]
         equs[sym] = val
     for sym, val in symbols:
         if equs.get(sym) != val:
-            error("symbols", "Symbol mismatch for %s=%s/%s" % (
-                sym, val, equs.get(sym)))
+            error("symbols", f"Symbol mismatch for {sym}={val}/{equs.get(sym)}")
 
 
 # Main test
@@ -109,9 +114,9 @@ def runtest():
     # command-line definitions
     source = os.path.join(Dirs.sources, "asdef.asm")
     xas(source, "-b", "-D", "s1=1", "s3=3", "s2=4", "-o", Files.output)
-    assert content(Files.output) == "\x01\x03"
+    assert content(Files.output) == b"\x01\x03"
     xas(source, "-b", "-D", "s1=2,s2=2,s3=3", "-o", Files.output)
-    assert content(Files.output) == "\x02\x03"
+    assert content(Files.output) == b"\x02\x03"
 
     # various parameter combinations
     source = os.path.join(Dirs.sources, "asxbank1.asm")
@@ -123,7 +128,7 @@ def runtest():
     source = os.path.join(Dirs.sources, "ascart.asm")
     xas(source, "-b", "-R", "-o", Files.reference)
     xas(source, "-t", "a2", "-R", "-o", Files.output)
-    check_bin_text_equal(Files.output, Files.reference)
+    check_bin_text_equal_bytes(Files.output, Files.reference)
 
     source = os.path.join(Dirs.sources, "asmtext.asm")
     xas(source, "-t", "a2", "-R", "-o", Files.output)
@@ -152,4 +157,4 @@ def runtest():
 
 if __name__ == "__main__":
     runtest()
-    print "OK"
+    print("OK")

@@ -19,35 +19,26 @@ def check_records_by_checksum(infile):
             for c in l:
                 s = (s + ord(c) - 48) % 80
             if s != 0:
-                error("VAR Records",
-                      "%s: Record %d checksum mismatch: %d != 0" % (
-                          infile, i, s))
+                error("VAR Records", f"{infile}: Record {i} checksum mismatch: {s} != 0")
 
 
 def check_records_by_len(infile, fixed=None):
     """check records by encoded length"""
-    refline = "*".join(["".join([chr(c) for c in xrange(64, 127)])
-                        for _ in xrange(4)])
+    refline = b"*".join([bytes((list(range(64, 127)))) for _ in range(4)])
     if fixed is None:
         with open(infile, "r") as f:
-            records = f.readlines()
+            records = [line.encode() for line in f]
     else:
         with open(infile, "rb") as f:
             data = f.read()
-            records = [data[i:i + fixed]
-                       for i in xrange(0, len(data), fixed)]
+            records = [data[i:i + fixed] for i in range(0, len(data), fixed)]
     for i, line in enumerate(records):
-        if fixed:
-            l = line
-            if len(l) != fixed:
-                error("VAR Records",
-                      "%s: Record %d length mismatch: %d != %d" % (infile, i, len(l), fixed))
-        else:
-            l = line[:-1] if line[-1] == "\n" else line
-        l = l.rstrip()
-        s = "!" + refline[:len(l) - 2] + chr(i + 49) if len(l) > 1 else ""
-        if l != s:
-            error("VAR Records", "%s: Record %i content mismatch" % (infile, i))
+        if fixed and len(line) != fixed:
+            error("VAR Records", f"{infile}: Record {i} length mismatch: {len(l)} != {fixed}")
+        line = line.rstrip()
+        s = b"!" + refline[:len(line) - 2] + bytes((i + 49,)) if len(line) > 1 else b""
+        if line != s:
+            error("VAR Records", f"{infile}: Record {i} content mismatch")
 
 
 # Main test
@@ -106,4 +97,4 @@ def runtest():
 
 if __name__ == "__main__":
     runtest()
-    print "OK"
+    print("OK")

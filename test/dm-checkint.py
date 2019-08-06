@@ -11,25 +11,23 @@ from utils import xdm, error, check_files_eq
 
 def check_records_by_checksum(infile, reclen, fixed):
     """check if internal records match reference format"""
-    reccount = 1024 / reclen
+    reccount = 1024 // reclen
     with open(infile, "rb") as f:
         data = f.read()
     if len(data) != reccount * (reclen if fixed else reclen + 1):
-        error("INT Records", "%s: File length mismatch: %d != %d" % (
-            infile, len(data), reccount * reclen))
+        error("INT Records", f"{infile}: File length mismatch: {len(data)} != {reccount * reclen}")
     p = 0
-    for i in xrange(reccount):
+    for i in range(reccount):
         if fixed:
             l = reclen
         else:
-            l, p = ord(data[p]), p + 1  # data length <= record length
-        for j in xrange(l):
+            l, p = data[p], p + 1  # data length <= record length
+        for j in range(l):
             s = (l - 1 if j == 0 else  # addtl Ext BASIC string length byte
                  i + 1 if j == 1 else  # checksum
                  j - 2) % 256
-            if ord(data[p + j]) != s:
-                error("INT Records", "%s: Record contents mismatch at %d" % (
-                    infile, p + j))
+            if data[p + j] != s:
+                error("INT Records", f"{infile}: Record contents mismatch at {p + j}")
         p += l
 
 
@@ -87,4 +85,4 @@ def runtest():
 
 if __name__ == "__main__":
     runtest()
-    print "OK"
+    print("OK")

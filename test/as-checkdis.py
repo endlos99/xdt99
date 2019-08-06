@@ -72,12 +72,11 @@ def runtest():
             "IMG00FFD8"
             ]:
         archive = os.path.join(Dirs.sources, "dis", n + ".dis.gz")
-        with gzip.open(archive, "rb") as fin, open(Files.input, "w") as fout:
+        with gzip.open(archive, "rt") as fin, open(Files.input, "w") as fout:
             src_code = process_source(fin.readlines())
             fout.write(src_code)
         xas(Files.input, "-i", "-R", "-w", "-o", Files.output)
-        check_image_files_eq(n, os.path.join(Dirs.sources, "dis", n + ".img"),
-                             Files.outputff)
+        check_image_files_eq(n, os.path.join(Dirs.sources, "dis", n + ".img"), Files.outputff)
 
     # cleanup
     os.remove(Files.input)
@@ -91,4 +90,4 @@ def runtest():
 
 if __name__ == "__main__":
     runtest()
-    print "OK"
+    print("OK")

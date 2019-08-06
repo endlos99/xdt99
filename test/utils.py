@@ -3,17 +3,19 @@ import os
 import re
 
 from subprocess import call
-from config import xdmPy, xhmPy, xvmPy, xasPy, xdaPy, xgaPy, xdgPy, xbasPy
+from config import xdm_py, xhm_py, xvm_py, xas_py, xda_py, xga_py, xdg_py, xbas_py
 
 
 # Utility functions
 
-def chrw(word):
-    return chr(word >> 8) + chr(word & 0xFF)
-
-
 def ordw(word):
-    return ord(word[0]) << 8 | ord(word[1])
+    """word ord"""
+    return (word[0] << 8) | word[1]
+
+
+def chrw(word):
+    """word chr"""
+    return bytes((word >> 8, word & 0xff))
 
 
 def xint(s):
@@ -25,11 +27,11 @@ def xint(s):
 
 def xdm(*args, **kargs):
     """invoke Disk Manager"""
-    print "DM:", args
+    print("DM:", args)
     if kargs.get("shell"):
-        rc = call(" ".join(xdmPy + list(args)), shell=True)
+        rc = call(" ".join(xdm_py + list(args)), shell=True)
     else:
-        rc = call(xdmPy + list(args), stdin=kargs.get("stdin"),
+        rc = call(xdm_py + list(args), stdin=kargs.get("stdin"),
                   stdout=kargs.get("stdout"), stderr=kargs.get("stderr"))
     if rc != kargs.get("rc", 0):
         error("OS", "xdm99 call returned with failure code " + str(rc))
@@ -37,11 +39,11 @@ def xdm(*args, **kargs):
 
 def xhm(*args, **kargs):
     """invoke HFE Manager"""
-    print "HM:", args
+    print("HM:", args)
     if kargs.get("shell"):
-        rc = call(" ".join(xhmPy + list(args)), shell=True)
+        rc = call(" ".join(xhm_py + list(args)), shell=True)
     else:
-        rc = call(xhmPy + list(args),
+        rc = call(xhm_py + list(args),
                   stdout=kargs.get("stdout"), stderr=kargs.get("stderr"))
     if rc != kargs.get("rc", 0):
         error("OS", "xhm99 call returned with failure code " + str(rc))
@@ -49,11 +51,11 @@ def xhm(*args, **kargs):
 
 def xvm(*args, **kargs):
     """invoke Volume Manager"""
-    print "VM:", args
+    print("VM:", args)
     if kargs.get("shell"):
-        rc = call(" ".join(xvmPy + list(args)), shell=True)
+        rc = call(" ".join(xvm_py + list(args)), shell=True)
     else:
-        rc = call(xvmPy + list(args),
+        rc = call(xvm_py + list(args),
                   stdout=kargs.get("stdout"), stderr=kargs.get("stderr"))
     if rc != kargs.get("rc", 0):
         error("OS", "xvm99 call returned with failure code " + str(rc))
@@ -61,8 +63,8 @@ def xvm(*args, **kargs):
 
 def xas(*args, **kargs):
     """invoke assembler"""
-    print "AS:", args
-    rc = call(xasPy + list(args),
+    print("AS:", args)
+    rc = call(xas_py + list(args),
               stdout=kargs.get("stdout"), stderr=kargs.get("stderr"))
     if rc != kargs.get("rc", 0):
         error("OS", "xas99 call returned with failure code " + str(rc))
@@ -70,8 +72,8 @@ def xas(*args, **kargs):
 
 def xda(*args, **kargs):
     """invoke disassembler"""
-    print "DA:", args
-    rc = call(xdaPy + list(args),
+    print("DA:", args)
+    rc = call(xda_py + list(args),
               stdout=kargs.get("stdout"), stderr=kargs.get("stderr"))
     if rc != kargs.get("rc", 0):
         error("OS", "xda99 call returned with failure code " + str(rc))
@@ -79,8 +81,8 @@ def xda(*args, **kargs):
 
 def xga(*args, **kargs):
     """invoke GPL assembler"""
-    print "GA:", args
-    rc = call(xgaPy + list(args),
+    print("GA:", args)
+    rc = call(xga_py + list(args),
               stdout=kargs.get("stdout"), stderr=kargs.get("stderr"))
     if rc != kargs.get("rc", 0):
         error("OS", "xga99 call returned with failure code " + str(rc))
@@ -88,8 +90,8 @@ def xga(*args, **kargs):
 
 def xdg(*args, **kargs):
     """invoke GPL disssembler"""
-    print "DG:", args
-    rc = call(xdgPy + list(args),
+    print("DG:", args)
+    rc = call(xdg_py + list(args),
               stdout=kargs.get("stdout"), stderr=kargs.get("stderr"))
     if rc != kargs.get("rc", 0):
         error("OS", "xdg99 call returned with failure code " + str(rc))
@@ -97,8 +99,8 @@ def xdg(*args, **kargs):
 
 def xbas(*args, **kargs):
     """invoke TI BASIC tool"""
-    print "BAS:", args
-    rc = call(xbasPy + list(args),
+    print("BAS:", args)
+    rc = call(xbas_py + list(args),
               stdout=kargs.get("stdout"), stderr=kargs.get("stderr"))
     if rc != kargs.get("rc", 0):
         error("OS", "xbas99 call returned with failure code " + str(rc))
@@ -194,9 +196,9 @@ def check_obj_code_eq(infile, reffile):
     """check if object code files are equal modulo id tag"""
     with open(infile, "rb") as fin, open(reffile, "rb") as fref:
         indata = fin.read()
-        inlines = [indata[i:i + 80] for i in xrange(0, len(indata), 80)]
+        inlines = [indata[i:i + 80] for i in range(0, len(indata), 80)]
         refdata = fref.read()
-        reflines = [refdata[i:i + 80] for i in xrange(0, len(refdata), 80)]
+        reflines = [refdata[i:i + 80] for i in range(0, len(refdata), 80)]
         if inlines[:-1] != reflines[:-1]:
             error("Object code", "File contents mismatch")
 
@@ -213,7 +215,7 @@ def check_image_files_eq(genfile, reffile):
             genimage[4:6] != refimage[4:6]):
         error("Object code", "Image header mismatch")
     # TI-generated images may contain arbitrary bytes in BSS segments
-    for i in xrange(4, len(refimage)):
+    for i in range(4, len(refimage)):
         if genimage[i] != "\x00" and genimage[i] != refimage[i]:
             error("Image file", "Image contents mismatch @ " + hex(i))
 
@@ -287,10 +289,10 @@ def count_bytes(fn):
             if parts[1].lower() == "data":
                 byte_count += len(args) * 2
             elif parts[1].lower() == "text":
-                byte_count += sum([len(a) / 2 if a[0] == '>' else 1
+                byte_count += sum([len(a) // 2 if a[0] == '>' else 1
                                    for a in args])
             elif parts[1].lower() == "stri":
-                byte_count += sum([len(a) / 2 if a[0] == '>' else 1
+                byte_count += sum([len(a) // 2 if a[0] == '>' else 1
                                    for a in args]) + 1  # len byte
             else:
                 byte_count += len(args)
@@ -396,37 +398,37 @@ def check_origins(fn, origins):
 
 def read_stderr(fn, include_warnings=False):
     """read stderr output"""
-    errors, lino = {}, "----"
+    errors = []
     with open(fn, "r") as f:
-        for line in f:
-            if "Warning:" in line:
-                if include_warnings:
-                    warn = re.search(r"<\d>\s+(\d+)\s+-\s+Warning:\s+(.*)", line)
-                    if warn:
-                        errors[warn.group(1)] = warn.group(2)
-                else:
-                    continue  # ignore warnings
-            err = re.match(r">[ \w.]+<\d>\s+(\d+)", line)
-            if err:
-                lino = err.group(1)
+        lines = f.readlines()
+    for error, line in zip(lines[::2], lines[1::2]):
+        if "Warning" in line:
+            if include_warnings:
+                warn = re.search(r"<\d>\s+(\d+|\*+)\s+-", error)
+                if warn:
+                    errors.append(warn.group(1))
             else:
-                errors[lino] = line[6:].strip()
+                continue  # ignore warnings
+        else:
+            err = re.match(r">[ \w.]+<\d>\s+(\d+)", error)
+            if err:
+                errors.append(err.group(1))
     return errors
 
 
 def get_source_markers(source, tag):
-    ref_errors = {}
+    ref_errors = []
     with open(source, "r") as f:
         for i, line in enumerate(f):
             m = re.search(tag, line)
             if m:
                 try:
                     if m.group(1):
-                        ref_errors[m.group(1)[1:]] = line
+                        ref_errors.append(m.group(1)[1:])
                         continue
                 except IndexError:
                     pass
-                ref_errors["%04d" % (i + 1)] = line
+                ref_errors.append(f"{i + 1:04d}")
     return ref_errors
 
 
@@ -434,12 +436,12 @@ def check_errors(ref, actual):
     """compare two dicts for key equality"""
     for err in ref:
         if err not in actual:
-            error("Error messages",
-                  "Missing error: " + str(err) + ": " + ref[err])
+            error("Error messages", "Missing error of line " + err)
     for err in actual:
+        if err[0] == "*":
+            continue
         if err not in ref:
-            error("Error messages",
-                  "Extraneous error: " + str(err) + ": " + actual[err])
+            error("Error messages", "Extraneous error in line " + err)
 
 
 def check_ellipsis(fn, skip=0):

@@ -21,7 +21,7 @@ def create_blob(size):
     """create random binary data with checksum"""
     vs = [random.randint(0, 255) for _ in range(size - 1)]
     cc = (- sum(vs)) % 256
-    return "".join(chr(v) for v in vs + [cc])
+    return bytes(vs + [cc])
 
 
 def create_text_file(count, length, fixed, partial):
@@ -29,7 +29,7 @@ def create_text_file(count, length, fixed, partial):
     name = "D%c%03dX%03d%s" % ("F" if fixed else "V", length, count,
                                "P" if partial else "")
     path = os.path.join(Dirs.tmp, name.lower())
-    lines = [create_textline(random.randint(0, length) if partial else length) for _ in xrange(count)]
+    lines = [create_textline(random.randint(0, length) if partial else length) for _ in range(count)]
     if fixed:
         data = "".join([l + " " * (length - len(l)) for l in lines])
         fmt = "DIS/FIX" + str(length)
@@ -168,4 +168,4 @@ def runtest():
 
 if __name__ == "__main__":
     runtest()
-    print "OK"
+    print("OK")

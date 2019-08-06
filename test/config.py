@@ -5,23 +5,23 @@ import platform
 # Executables
 
 if platform.system() == "Windows":
-    xasPy = ["python.exe", "..\\xas99.py"]
-    xdaPy = ["python.exe", "..\\xda99.py"]
-    xgaPy = ["python.exe", "..\\xga99.py"]
-    xdgPy = ["python.exe", "..\\xdg99.py"]
-    xdmPy = ["python.exe", "..\\xdm99.py"]
-    xhmPy = ["python.exe", "..\\xhm99.py"]
-    xvmPy = ["python.exe", "..\\xvm99.py"]
-    xbasPy = ["python.exe", "..\\xbas99.py"]
+    xas_py = ["python.exe", "..\\xas99.py"]
+    xda_py = ["python.exe", "..\\xda99.py"]
+    xga_py = ["python.exe", "..\\xga99.py"]
+    xdg_py = ["python.exe", "..\\xdg99.py"]
+    xdm_py = ["python.exe", "..\\xdm99.py"]
+    xhm_py = ["python.exe", "..\\xhm99.py"]
+    xvm_py = ["python.exe", "..\\xvm99.py"]
+    xbas_py = ["python.exe", "..\\xbas99.py"]
 else:
-    xasPy = ["../xas99.py"]
-    xdaPy = ["../xda99.py"]
-    xgaPy = ["../xga99.py"]
-    xdgPy = ["../xdg99.py"]
-    xdmPy = ["../xdm99.py"]
-    xhmPy = ["../xhm99.py"]
-    xvmPy = ["../xvm99.py"]
-    xbasPy = ["../xbas99.py"]
+    xas_py = ["../xas99.py"]
+    xda_py = ["../xda99.py"]
+    xga_py = ["../xga99.py"]
+    xdg_py = ["../xdg99.py"]
+    xdm_py = ["../xdm99.py"]
+    xhm_py = ["../xhm99.py"]
+    xvm_py = ["../xvm99.py"]
+    xbas_py = ["../xbas99.py"]
 
 
 # Paths

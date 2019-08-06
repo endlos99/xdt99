@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import os
+import platform
 
 from config import Dirs, Disks, Files
 from utils import xas, xdm, error, check_list_files_eq, check_text_files_eq
@@ -76,12 +77,14 @@ def runtest():
 
     # auto-generated constants
     source = os.path.join(Dirs.sources, "asautogen.asm")
-    xas(source, "-R", "-o", Files.error, "-S", "-L", Files.input)
-    with open(Files.input, "r") as fin, open(Files.output, "w") as fout:
-        lines = fin.readlines()[-20:]
-        fout.writelines(lines)
+    xas(source, "-R", "-o", Files.error, "-S", "-L", Files.output)
+    with open(Files.output, "r") as fout:
+        lines = fout.readlines()[-20:]
     reffile = os.path.join(Dirs.refs, "asautogen.lst")
-    check_text_files_eq("autogen", Files.output, reffile)
+    with open(reffile, "r") as fref:
+        reflines = fref.readlines()
+    if lines != reflines:
+        error("autogen", "autogen list mismatch")
 
     # cleanup
     os.remove(Files.output)
@@ -91,4 +94,4 @@ def runtest():
 
 if __name__ == "__main__":
     runtest()
-    print "OK"
+    print("OK")

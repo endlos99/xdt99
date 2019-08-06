@@ -19,8 +19,7 @@ def check_file_len(infile, min_lines=-1, max_lines=99999):
         line_count = 0
     if not min_lines <= line_count <= max_lines:
         error("CLI",
-              "%s: Line count mismatch: found %d lines, expected %d to %d" % (
-                  infile, line_count, min_lines, max_lines))
+              f"{infile}: Line count mismatch: found {line_count} lines, expected {min_lines} to {max_lines}")
 
 
 def check_file_size(infile, size):
@@ -28,8 +27,7 @@ def check_file_size(infile, size):
     statinfo = os.stat(infile)
     if statinfo.st_size != size:
         error("CLI",
-              "%s: File size mismatch: found %d bytes, expected %d" % (
-                  infile, statinfo.st_size, size))
+              f"{infile}: File size mismatch: found {statinfo.st_size} bytes, expected {size}")
 
 
 def check_disks_eq(disk, ref):
@@ -39,7 +37,7 @@ def check_disks_eq(disk, ref):
     with open(ref, "rb") as f:
         ref = f.read(512)
     if dat != ref:
-        error("CLI", "Disk metadata mismatch");
+        error("CLI", "Disk metadata mismatch")
 
 
 def check_lines_start(reffile, starts, skip=0):
@@ -47,7 +45,7 @@ def check_lines_start(reffile, starts, skip=0):
         lines = fin.readlines()[skip:]
     for text in starts:
         if all([line[:len(text)] != text for line in lines]):
-            error("line text", "Text '%s' could not be found" % text)
+            error("line text", f"Text '{text}' could not be found")
 
 
 # Main test
@@ -231,8 +229,7 @@ def runtest():
     rfile = os.path.join(Dirs.refs, "ti-text")  # TEXT D/V80
     with open(Files.output, "w") as fout, open(Files.error, "w") as ferr:
         xdm(Disks.work, "-X", "sssd", "-n", "TI-DISK", stderr=ferr, rc=0)
-        xdm(Disks.work, "-a", rfile, "-n", "TEXT", "-f", "dv80",
-            stderr=ferr, rc=0)
+        xdm(Disks.work, "-a", rfile, "-n", "TEXT", "-f", "dv80", stderr=ferr, rc=0)
         check_file_len(Files.error, max_lines=0)
         check_disks_eq(Disks.work, Disks.tisssd)
         xdm(Disks.work, "-X", "dsdd", "-n", "TI-DISK", stderr=ferr, rc=0)
@@ -333,7 +330,7 @@ def runtest():
     # conversion between TI/PC names ('.' vs '/')
     file1 = os.path.join(Dirs.refs, "vardis")
     with open(os.path.join(Dirs.tmp, "file.y.z"), "wb") as f:
-        f.write("\xff" * 100)
+        f.write(b"\xff" * 100)
     xdm(Disks.work, "-X", "sssd", "-a", file1, "-n", "FILE.X")
     xdm(Disks.work, "-a", os.path.join(Dirs.tmp, "file.y.z"))
     with open(Files.output, "w") as fout:
@@ -421,4 +418,4 @@ def runtest():
 
 if __name__ == "__main__":
     runtest()
-    print "OK"
+    print("OK")

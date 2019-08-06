@@ -19,14 +19,14 @@ def runtest():
     xas_errors = read_stderr(Files.error)
 
     # TI assembler error messages
-    ti_errors = {}
+    ti_errors = []
     xdm(Disks.asmsrcs, "-e", "ASERRS-L", "-o", Files.reference)
     with open(Files.reference, "r") as f:
         for line in f:
             err = re.match(r"\*{5}\s+([A-Z ]*) - (\d+)", line)
             if err:
-                lino, err_msg = err.group(2), err.group(1)
-                ti_errors[lino] = err_msg
+                lino = err.group(2)
+                ti_errors.append(lino)
 
     # compare
     check_errors(ti_errors, xas_errors)
@@ -82,7 +82,7 @@ def runtest():
         xas(source, "-R", "-o", Files.output, stderr=ferr, rc=0)  # no error
     with open(Files.error, "r") as fin:
         output = fin.read()
-    if output.strip()[-14:] != "U1 U2 U3 U4 U5":
+    if output.strip()[-18:] != "U1, U2, U3, U4, U5":
         error("stdout", "Bad list of unreferenced symbols")
 
     with open(Files.error, "w") as ferr:
@@ -108,4 +108,4 @@ def runtest():
 
 if __name__ == "__main__":
     runtest()
-    print "OK"
+    print("OK")
