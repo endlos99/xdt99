@@ -24,49 +24,65 @@ import re
 import os.path
 
 
-VERSION = "2.0.1"
+VERSION = "3.0.0"
 
 
 # Utility functions
 
 def ordw(word):
     """word ord"""
-    return ord(word[0]) << 8 | ord(word[1])
+    return (word[0] << 8) | word[1]
 
 
 def chrw(word):
     """word chr"""
-    return chr(word >> 8) + chr(word & 0xFF)
+    return bytes((word >> 8, word & 0xff))
 
 
-def xhex(s):
+def xhex(text):
     """return hex string as integer value"""
-    return s and int(s.lstrip(">").lstrip("0x") or "0", 16)
+    try:
+        return text if text is None else int(re.sub(r"^>|^0x", "", text), 16)
+    except ValueError:
+        raise XdaError("Invalid hex value: " + text)
 
 
-def escape(t):
+def escape(text):
     """escape non-printable characters"""
-    q = t.replace("'", "''")
-    return "'" + re.sub(r"[^ -~]",
-                        lambda m: "\\%02X" % ord(m.group(0)), q) + "'"
+    q = text.replace(b"'", b"''")
+    return "'" + re.sub(rb"[^ -~]", lambda m: b"\\%02X" % m.group(0), q).decode("ascii") + "'"
 
 
-def readbin(n, m="rb"):
+def addr_range(text, prog):
+    try:
+        start, stop = text.split("-")
+    except ValueError:
+        raise XdaError("Bad range specifier: " + text)
+    return prog.addr2idx(xhex(start)), prog.addr2idx(xhex(stop))
+
+
+def readbin(name, mode="rb"):
     """read lines from file or STDIN"""
-    if n == "-":
-        return sys.stdin.read()
+    if name == "-":
+        if "b" in mode:
+            return sys.stdin.buffer.read()
+        else:
+            return sys.stdin.read()
     else:
-        with open(n, m) as f:
+        with open(name, mode) as f:
             return f.read()
 
 
-def writelines(n, m, d):
+def writelines(name, data, mode="rb"):
     """write lines to file or STDOUT"""
-    if n == "-":
-        sys.stdout.write(d)
+    if name == "-":
+        if "b" in mode:
+            sys.stdout.buffer.write(data)
+        else:
+            sys.stdout.write(data)
     else:
-        with open(n, m) as f:
-            f.write(d)
+        with open(name, mode) as f:
+            f.write(data)
 
 
 # Error handling
@@ -75,7 +91,7 @@ class XdaError(Exception):
     pass
 
 
-class XdaLogger:
+class XdaLogger(object):
 
     level_debug = 0
     level_info = 1
@@ -91,40 +107,40 @@ class XdaLogger:
     @staticmethod
     def warn(message):
         if XdaLogger.log_level <= XdaLogger.level_warn:
-            print "WARNING:", message
+            print("Warning:", message)
 
     @staticmethod
     def info(message):
         if XdaLogger.log_level <= XdaLogger.level_info:
-            print "INFO:", message
+            print("Info:", message)
 
     @staticmethod
     def debug(message):
         if XdaLogger.log_level <= XdaLogger.level_debug:
-            print "DEBUG:", message
+            print("Debug:", message)
 
 
 # Symbol table
 
-class Symbols:
+class Symbols(object):
     """symbol table"""
 
     def __init__(self, symfiles=None):
         # pre-defined symbols
         self.symbols = {
-            0x210C: "VSBW", 0x2110: "VMBW",
+            0x210c: "VSBW", 0x2110: "VMBW",
             0x2114: "VSBR", 0x2118: "VMBR",
-            0x211C: "VWTR", 0x2108: "KSCAN",
+            0x211c: "VWTR", 0x2108: "KSCAN",
             0x2100: "GPLLNK", 0x2104: "XMLLNK",
             0x2120: "DSRLNK", 0x2124: "LOADER",
-            0x2022: "UTLTAB", 0x000E: "SCAN",
-            0x8300: "PAD", 0x83E0: "GPLWS",
+            0x2022: "UTLTAB", 0x000e: "SCAN",
+            0x8300: "PAD", 0x83e0: "GPLWS",
             0x8400: "SOUND",
             0x8800: "VDPRD", 0x8802: "VDPST",
-            0x8C00: "VDPWD", 0x8C02: "VDPWA",
+            0x8c00: "VDPWD", 0x8c02: "VDPWA",
             0x9000: "SPCHRD", 0x9400: "SPCHWT",
             0x9800: "GRMRD", 0x9802: "GRMRA",
-            0x9C00: "GRMWD", 0x9C02: "GRMWA"
+            0x9c00: "GRMWD", 0x9c02: "GRMWA"
             }
         # additional symbols loaded from file(s)
         if symfiles:
@@ -137,14 +153,14 @@ class Symbols:
         """load symbol EQUs from file"""
         with open(fn, "r") as fsym:
             lines = fsym.readlines() + [""]
-        for i in xrange(len(lines) - 1):
+        for i in range(len(lines) - 1):
             longline = lines[i] + lines[i + 1]  # join two lines to resolve continuation labels
             m = re.match(r"^(\w+):?\s*(?:EQU)?\s+(>?[0-9A-F]+)\s", longline.upper())
             if not m:
                 continue
             symbol, addr = m.group(1), xhex(m.group(2))
             if self.symbols.get(addr) is not None:
-                XdaLogger.warn("Symbol for >%04X already defined, overwritten" % addr)
+                XdaLogger.warn(f"Symbol for >{addr:04X} already defined, overwritten")
             self.symbols[addr] = symbol
 
     def resolve(self, value):
@@ -152,31 +168,31 @@ class Symbols:
         try:
             symbol = self.symbols[value]
         except KeyError:
-            return ">%04X" % value
+            return f">{value:04X}"
         self.used[symbol] = value  # mark symbol as used for EQU prelude
         return symbol
 
     def get_used(self):
         """return dict of all symbols that have been used"""
-        return self.used.iteritems()
+        return self.used.items()
 
 
 # Opcodes
 
-class Opcodes:
+class Opcodes(object):
 
     # list of all TMS 9900 opcodes
     opcodes = {
         # 6. arithmetic
-        0xA000: ("A", 1),
-        0xB000: ("AB", 1),
+        0xa000: ("A", 1),
+        0xb000: ("AB", 1),
         0x0740: ("ABS", 6),  # 4 in E/A Manual
         0x0220: ("AI", 8),
         0x0600: ("DEC", 6),
         0x0640: ("DECT", 6),
-        0x3C00: ("DIV", 9),
+        0x3c00: ("DIV", 9),
         0x0580: ("INC", 6),
-        0x05C0: ("INCT", 6),
+        0x05c0: ("INCT", 6),
         0x3800: ("MPY", 9),
         0x0500: ("NEG", 6),
         0x6000: ("S", 1),
@@ -188,19 +204,19 @@ class Opcodes:
         0x1300: ("JEQ", 2),
         0x1500: ("JGT", 2),
         0x1400: ("JHE", 2),
-        0x1B00: ("JH", 2),
-        0x1A00: ("JL", 2),
+        0x1b00: ("JH", 2),
+        0x1a00: ("JL", 2),
         0x1200: ("JLE", 2),
         0x1100: ("JLT", 2),
         0x1000: ("JMP", 2),
         0x1700: ("JNC", 2),
         0x1600: ("JNE", 2),
         0x1900: ("JNO", 2),
-        0x1C00: ("JOP", 2),
+        0x1c00: ("JOP", 2),
         0x1800: ("JOC", 2),
         0x0380: ("RTWP", 7),
         0x0480: ("X", 6),
-        0x2C00: ("XOP", 9),
+        0x2c00: ("XOP", 9),
         # 8. compare instructions
         0x8000: ("C", 1),
         0x9000: ("CB", 1),
@@ -209,53 +225,53 @@ class Opcodes:
         0x2400: ("CZC", 3),
         # 9. control and cru instructions
         0x3000: ("LDCR", 4),
-        0x1D00: ("SBO", 12),
-        0x1E00: ("SBZ", 12),
+        0x1d00: ("SBO", 12),
+        0x1e00: ("SBZ", 12),
         0x3400: ("STCR", 4),
-        0x1F00: ("TB", 12),
-        0x03C0: ("CKOF", 7),
-        0x03A0: ("CKON", 7),
+        0x1f00: ("TB", 12),
+        0x03c0: ("CKOF", 7),
+        0x03a0: ("CKON", 7),
         0x0340: ("IDLE", 7),
         0x0360: ("RSET", 7),
-        0x03E0: ("LREX", 7),
+        0x03e0: ("LREX", 7),
         # 10. load and move instructions
         0x0200: ("LI", 8),
         0x0300: ("LIMI", 10),
-        0x02E0: ("LWPI", 10),
-        0xC000: ("MOV", 1),
-        0xD000: ("MOVB", 1),
-        0x02C0: ("STST", 11),
-        0x02A0: ("STWP", 11),
-        0x06C0: ("SWPB", 6),
+        0x02e0: ("LWPI", 10),
+        0xc000: ("MOV", 1),
+        0xd000: ("MOVB", 1),
+        0x02c0: ("STST", 11),
+        0x02a0: ("STWP", 11),
+        0x06c0: ("SWPB", 6),
         # 11. logical instructions
         0x0240: ("ANDI", 8),
         0x0260: ("ORI", 8),
         0x2800: ("XOR", 3),
         0x0540: ("INV", 6),
-        0x04C0: ("CLR", 6),
+        0x04c0: ("CLR", 6),
         0x0700: ("SETO", 6),
-        0xE000: ("SOC", 1),
-        0xF000: ("SOCB", 1),
+        0xe000: ("SOC", 1),
+        0xf000: ("SOCB", 1),
         0x4000: ("SZC", 1),
         0x5000: ("SZCB", 1),
         # 12. shift instructions
         0x0800: ("SRA", 5),
         0x0900: ("SRL", 5),
-        0x0A00: ("SLA", 5),
-        0x0B00: ("SRC", 5),
+        0x0a00: ("SLA", 5),
+        0x0b00: ("SRC", 5),
         # F18A GPU instructions
-        0x0C80: ("CALL", 6),
-        0x0C00: ("RET", 7),
-        0x0D00: ("PUSH", 6),
-        0x0F00: ("POP", 6),
-        0x0E00: ("SLC", 5)
+        0x0c80: ("CALL", 6),
+        0x0c00: ("RET", 7),
+        0x0d00: ("PUSH", 6),
+        0x0f00: ("POP", 6),
+        0x0e00: ("SLC", 5)
         # End of opcodes
     }
 
     # 13. pseudo instructions
     pseudos = {
         0x1000: ("NOP", 2),
-        0x045B: ("RT", 6)
+        0x045b: ("RT", 6)
     }
 
     # number of valid MSB bits for each instruction format
@@ -415,9 +431,9 @@ class Opcodes:
         elif t == 3:  # workspace register indirect auto-incr
             return 0, Operand(None, None, 0, "*" + self.regstr + str(operand) + "+")
         elif t == 7:  # count
-            return 0, Operand(None, None, 0, "%d" % operand)
+            return 0, Operand(None, None, 0, str(operand))
         elif t == 8:  # register
-            return 0, Operand(None, None, 0, self.regstr + ("%d" % operand))
+            return 0, Operand(None, None, 0, self.regstr + str(operand))
         elif t == 9:  # imm values
             addr, word = code[idx].addr, code[idx].word
             return 1, Operand(addr, word, 1, symbols.resolve(word))
@@ -438,7 +454,7 @@ class Opcodes:
         return dest
 
 
-class Entry:
+class Entry(object):
     """base class for all entries for a given word position"""
 
     def __init__(self, addr, word, size=1, indicator=' '):
@@ -451,23 +467,21 @@ class Entry:
     def _list(self, as_prog, strict, mnemonic="", ops=""):
         """internal pretty printing function"""
         if self.origins:
-            origin = "; <- " + ", ".join([">%04X" % o for o in sorted(self.origins)])
+            origin = "; <- " + ", ".join([f">{o:04X}" for o in sorted(self.origins)])
         else:
             origin = ""
-        if strict:
-            prog_fmt = "L%04X  %-4s %-20s %s"
-            list_fmt = "%04X %04X%c  %-4s %-20s %s"
-            pass
-        else:
-            prog_fmt = "l%04x  %-4s %-20s %s"
-            list_fmt = "%04x %04x%c  %-4s %-20s %s"
+        prog_fmt = "L{:04X}  {:4s} {:20s} {:s}"
+        list_fmt = "{:04X} {:04X}{:s}  {:4s} {:20s} {:s}"
+        if not strict:
+            prog_fmt = prog_fmt.lower()
+            list_fmt = list_fmt.lower()
             mnemonic = mnemonic.lower()
-            ops = ",".join([op if "'" in op else op.lower() for op in ops.split(",")])  # keeps spacing
             origin = origin.lower()
+            ops = ",".join([op if "'" in op else op.lower() for op in ops.split(",")])  # keeps spacing
         if as_prog:  # program format, can be re-assembled
-            return prog_fmt % (self.addr, mnemonic, ops, origin)
+            return prog_fmt.format(self.addr, mnemonic, ops, origin)
         else:  # list format
-            return list_fmt % (self.addr, self.word, self.indicator, mnemonic, ops, origin)
+            return list_fmt.format(self.addr, self.word, self.indicator, mnemonic, ops, origin)
 
     def list(self, as_prog=False, strict=False, concise=False):
         """pretty print current entry"""
@@ -510,7 +524,7 @@ class Instruction(Entry):
         return Entry._list(self, as_prog, strict, self.mnemonic, ops)
 
 
-class Operand:
+class Operand(object):
     """an instruction operand"""
 
     def __init__(self, addr, word, size, text, dest=None):
@@ -528,9 +542,9 @@ class Literal(Entry):
     # change, Literal should inherit from Instruction.
 
     def __init__(self, addr, word, value, symbols):
-        if isinstance(value, str):
+        if isinstance(value, bytes):
             assert len(value) % 2 == 0
-            Entry.__init__(self, addr, word, len(value) / 2)
+            Entry.__init__(self, addr, word, len(value) // 2)
             self.mnemonic = "TEXT"
             self.value = escape(value)
         else:
@@ -543,7 +557,7 @@ class Literal(Entry):
         return Entry._list(self, as_prog, strict, self.mnemonic, self.value)
 
 
-class Program:
+class Program(object):
     """a binary program"""
 
     def __init__(self, binary, addr, symbols):
@@ -551,14 +565,14 @@ class Program:
         self.addr = addr  # start addr
         self.symbols = symbols  # symbol table
         self.code = [Unknown(addr + i, ordw(binary[i:i + 2]))  # list of entries
-                     for i in xrange(0, len(binary), 2)]
+                     for i in range(0, len(binary), 2)]
         self.size = len(self.code)  # index size of programm
         self.end = self.addr + len(binary)  # final address of program
         self.equ_text = ""  # EQU statements
 
     def addr2idx(self, addr):
         """converts address to code index"""
-        return (addr - self.addr) / 2
+        return (addr - self.addr) // 2
 
     def idx2addr(self, idx):
         """converts code index to addr"""
@@ -570,12 +584,12 @@ class Program:
         assert not isinstance(self.code[idx], Instruction)  # no double work
         # is the instruction conflicting with previous instructions?
         if not force:
-            for i in xrange(idx, idx + instr.size):
+            for i in range(idx, idx + instr.size):
                 if not isinstance(self.code[i], Unknown):
-                    XdaLogger.warn("Would overwrite already disassembled index %d" % i)
+                    XdaLogger.warn("Would overwrite already disassembled index " + str(i))
                     return False
         # persist instruction and mark words of operands as disassembled
-        for i in xrange(idx, idx + instr.size):
+        for i in range(idx, idx + instr.size):
             # undo instructions of previous disassembly runs
             if isinstance(self.code[i], Instruction):
                 self.deregister(i)
@@ -588,7 +602,7 @@ class Program:
     def deregister(self, idx):
         """remove disassembled instruction from code"""
         assert isinstance(self.code[idx], Instruction)
-        for i in xrange(self.code[idx].size):
+        for i in range(self.code[idx].size):
             entry = self.code[idx + i]
             self.code[idx + i] = Unknown(entry.addr, entry.word)
 
@@ -596,10 +610,11 @@ class Program:
         """pretty print entire program"""
         start_idx = self.addr2idx(start) if start else 0
         end_idx = self.addr2idx(end) if end else self.size
-        aorg = " " * (7 if as_prog else 12) + ("AORG >%04X\n" if strict else "aorg >%04x\n") % self.addr
+        aorg = (" " * (7 if as_prog else 12) +
+                ("AORG >{:04X}\n" if strict else "aorg >{:04x}\n").format(self.addr))
         equ_text = self.equ_text if strict else self.equ_text.lower()
         listing = [self.code[i].list(as_prog=as_prog, strict=strict, concise=concise)
-                   for i in xrange(start_idx, end_idx)]
+                   for i in range(start_idx, end_idx)]
         if concise and not as_prog:  # no unknown parts in programs
             listing = self.condense(listing)
         return aorg + equ_text + "\n".join(listing) + "\n"
@@ -617,7 +632,7 @@ class Program:
         return listing
 
 
-class BadSyntax:
+class BadSyntax(object):
     """used for invalid syntax entries"""
 
     def __init__(self, addr, word):
@@ -627,13 +642,13 @@ class BadSyntax:
 
     def list(self, as_prog=False, strict=False, concise=False):
         if as_prog:
-            error = "L%04X  BAD SYNTAX %04X" % (self.addr, self.word)
+            error = "L{:04X}  BAD SYNTAX {:04X}".format(self.addr, self.word)
         else:
-            error = "%04X %04X!  BAD SYNTAX" % (self.addr, self.word)
+            error = "{:04X} {:04X}!  BAD SYNTAX".format(self.addr, self.word)
         return error if strict else error.lower()
 
 
-class Disassembler:
+class Disassembler(object):
     """disassemble machine code"""
 
     def __init__(self, excludes, no_r=False):
@@ -658,7 +673,7 @@ class Disassembler:
         """run disassembler"""
         # check if address is valid
         if not prog.addr <= start < prog.end:
-            XdaLogger.warn("Cannot disassemble external context @>%04X" % start)
+            XdaLogger.warn(f"Cannot disassemble external context @>{start:04X}")
             return  # cannot disassemble external content
         start_idx = prog.addr2idx(start)
         end_idx = prog.addr2idx(end or prog.end)
@@ -708,7 +723,7 @@ class Disassembler:
     def get_starts(self, prog):
         """returns list of all recognized start addresses"""
         # check for cartridge header
-        if prog.binary[0] == "\xaa":
+        if prog.binary[0] == 0xaa:
             # cart, no autostart
             menu, starts = ordw(prog.binary[6:8]) - prog.addr, []
             try:
@@ -729,7 +744,7 @@ class Disassembler:
         end_idx = prog.addr2idx(end) if end else prog.size
         # find un-disassembled chunks
         while start_idx < end_idx:
-            for i in xrange(start_idx, end_idx):
+            for i in range(start_idx, end_idx):
                 try:
                     if not isinstance(prog.code[i], Unknown):
                         break
@@ -738,13 +753,13 @@ class Disassembler:
             # found Unknown chunk (might be empty)
             chunk = prog.binary[start_idx * 2:i * 2]
             # search for text literal of at least size 6 in Unknown chunk
-            m = re.search(r"[A-Za-z0-9 ,.:?!()\-]{%d,}" % min_len, chunk)
+            m = re.search(rb"[A-Za-z0-9 ,.:?!()\-]{%d,}" % min_len, chunk)
             if m:
                 # replace Unknowns by Literal
                 m_start = m.start(0) if m.start(0) % 2 == 0 else m.start(0) + 1
                 m_end = m.end(0) if m.end(0) % 2 == 0 else m.end(0) - 1
                 # TODO: odd positions would require to issue BYTEs here
-                lidx = start_idx + m_start / 2
+                lidx = start_idx + m_start // 2
                 prog.register(lidx, Literal(prog.idx2addr(lidx),
                                             prog.code[lidx].word,
                                             chunk[m_start:m_end], prog.symbols))
@@ -753,12 +768,12 @@ class Disassembler:
     def make_program(self, prog):
         """turns disassembled fragment into assembly source"""
         # turn unknowns into literals
-        for idx in xrange(prog.size):
+        for idx in range(prog.size):
             instr = prog.code[idx]
             if isinstance(instr, Unknown):
                 prog.code[idx] = Literal(instr.addr, instr.word, instr.word, prog.symbols)
         # add symbol EQUs, if needed
-        prog.equ_text += "".join(["%-8s EQU  >%04X\n" % (s, v) for s, v in prog.symbols.get_used()])
+        prog.equ_text += "".join(["{:8s} EQU  >{:04X}\n".format(s, v) for s, v in prog.symbols.get_used()])
 
 
 # Command line processing
@@ -795,7 +810,7 @@ def main():
                       help="do not prepend registers with 'R'")
     args.add_argument("-s", "--strict", action="store_true", dest="strict",
                       help="use strict legacy syntax")
-    args.add_argument("-S", "--symbols", dest="symfiles", nargs="+",
+    args.add_argument("-S", "--symbols", metavar="<file>", dest="symfiles", nargs="+",
                       help="known symbols file(s)")
     args.add_argument("-V", "--verbose", action="store_true", dest="verbose",
                       help="verbose messages")
@@ -809,17 +824,17 @@ def main():
     barename = os.path.splitext(basename)[0]
     output = opts.outfile or barename + ".dis"
 
-    binary = readbin(opts.binary)[xhex(opts.skip) or 0:]
-    addr = xhex(opts.addr) if opts.addr is not None else 0x6000
-    addr_to = xhex(opts.to)
-
     if opts.verbose:
         XdaLogger.setlevel(XdaLogger.level_info)
 
     try:
+        binary = readbin(opts.binary)[xhex(opts.skip) or 0:]
+        addr = xhex(opts.addr) if opts.addr is not None else 0x6000
+        addr_to = xhex(opts.to)
+
         symbols = Symbols(opts.symfiles)
         prog = Program(binary, addr, symbols=symbols)
-        excludes = [[prog.addr2idx(xhex(i)) for i in e.split("-")] for e in (opts.exclude or [])]
+        excludes = [addr_range(e, prog) for e in (opts.exclude or ())]
         disasm = Disassembler(excludes, no_r=opts.nor)
 
         if opts.frm:
@@ -843,14 +858,14 @@ def main():
             XdaLogger.info("finalizing into complete program")
             disasm.make_program(prog)
     except XdaError as e:
-        sys.exit("ERROR: %s: %s." % e)
+        sys.exit(f"Error: {str(e):s}.")
     except IOError as e:
-        sys.exit("ERROR: %s: %s." % (e.filename, e.strerror))
+        sys.exit(f"{e.filename:s}: {e.strerror:s}.")
     try:
         source = prog.list(as_prog=opts.program or False, strict=opts.strict, concise=opts.concise)
-        writelines(output, "w", source)
-    except IOError as e:
-        sys.exit("ERROR: %s: %s." % (e.filename, e.strerror))
+        writelines(output, source, "w")
+    except OSError as e:
+        sys.exit(f"{e.filename:s}: {e.strerror:s}.")
     return 0
 
 

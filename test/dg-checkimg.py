@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 
 import os
-import re
 import random
 
 from config import Dirs, Files
@@ -48,8 +47,9 @@ def runtest():
         xdg(*[Files.reference] + dopts + ["-p", "-o", Files.input])
         xga(*[Files.input] + aopts + ["-o", Files.output])
         check_files_eq(srcfile, Files.output, Files.reference, "PROGRAM")
+        xdg(*[Files.reference] + dopts + ["-o", Files.output])  # -p would introduce BYTEs where not disassembled
         if count_bytes(Files.output) > 0:
-            error("BYTE", "Too many BYTE directives in result")
+            error("BYTE", "Unwanted BYTE directives in result")
 
     # disassembler run
     for srcfile in ["dgruns.gpl"]:
@@ -71,10 +71,10 @@ def runtest():
     #check_files_eq("blobg-run", Files.output, binary, "PROGRAM")
 
     # disassemble random
-    randrange = [n for n in xrange(256) if n != 0x08 and n != 0xfb]
-    for r in xrange(16):
+    randrange = [n for n in range(256) if n != 0x08 and n != 0xfb]
+    for r in range(16):
         random.seed(r)
-        binary = "".join([chr(random.choice(randrange)) for i in xrange(2048)])
+        binary = bytes([random.choice(randrange) for i in range(2048)])
         with open(Files.reference, "wb") as fref:
             fref.write(binary)
         xdg(Files.reference, "-a", "1000", "-f", "1000", "-p", "-o", Files.input)
@@ -89,4 +89,4 @@ def runtest():
 
 if __name__ == "__main__":
     runtest()
-    print "OK"
+    print("OK")

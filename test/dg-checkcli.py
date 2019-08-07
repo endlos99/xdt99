@@ -133,7 +133,7 @@ def runtest():
     xga(source, "-o", Files.output, "-E", Files.input)
     with open(Files.output, "rb") as fin, open(Files.reference, "wb") as fout:
         data = fin.read()
-        fout.write("\x99" * 0x999)
+        fout.write(b"\x99" * 0x999)
         fout.write(data)
     xdg(Files.reference, "-a", "2000", "-f", ">2000", "-k", "999", "-p", "-S", Files.input, "-o", Files.output)
     check_source(Files.output, source)
@@ -177,4 +177,4 @@ def runtest():
 
 if __name__ == "__main__":
     runtest()
-    print "OK"
+    print("OK")

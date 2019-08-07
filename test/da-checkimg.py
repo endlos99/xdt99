@@ -91,9 +91,9 @@ def runtest():
         check_files_eq(binary, Files.output, binary, "PROGRAM")
 
     # disassemble random
-    for r in xrange(16):
+    for r in range(16):
         random.seed(r)
-        binary = "".join([chr(random.randrange(256)) for i in xrange(2048)])
+        binary = bytes([random.randrange(256) for i in range(2048)])
         with open(Files.reference, "wb") as fref:
             fref.write(binary)
         xda(Files.reference, "-a", "1000", "-f", "1000", "-p", "-o", Files.input)
@@ -110,4 +110,4 @@ def runtest():
 
 if __name__ == "__main__":
     runtest()
-    print "OK"
+    print("OK")

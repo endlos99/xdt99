@@ -27,7 +27,7 @@ def check_range(outfile, fidx, tidx):
     """check if only given range was disassembled"""
     with open(outfile, "r") as fout:
         src = fout.readlines()[1:]  # skip AORG
-    for i in xrange(1, len(src)):
+    for i in range(1, len(src)):
         if fidx <= i < tidx and src[i][9] != ' ':
             error("start", "Missing disassembly at %d" % i)
         if not fidx <= i < tidx and src[i][9] != '?':
@@ -137,7 +137,7 @@ def runtest():
     source = os.path.join(Dirs.sources, "dasource.asm")
     xas(source, "-b", "-R", "-w", "-o", Files.reference, "-E", Files.symbols)
     with open(Files.output, "wb") as fout, open(Files.reference, "rb") as fin:
-        fout.write("\xff" * 0x555)
+        fout.write(b"\xff" * 0x555)
         data = fin.read()
         fout.write(data)
     xda(Files.output, "-k", "555", "-a", "6000", "-f", "6016", "-p", "-S", Files.symbols, "-o", Files.input)
@@ -184,4 +184,4 @@ def runtest():
 
 if __name__ == "__main__":
     runtest()
-    print "OK"
+    print("OK")
