@@ -60,4 +60,4 @@ def runtest():
 
 if __name__ == "__main__":
     runtest()
-    print "OK"
+    print("OK")

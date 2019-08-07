@@ -404,13 +404,13 @@ def read_stderr(fn, include_warnings=False):
     for error, line in zip(lines[::2], lines[1::2]):
         if "Warning" in line:
             if include_warnings:
-                warn = re.search(r"<\d>\s+(\d+|\*+)\s+-", error)
+                warn = re.search(r"<.>\s+(\d+|\*+)\s+-", error)
                 if warn:
                     errors.append(warn.group(1))
             else:
                 continue  # ignore warnings
         else:
-            err = re.match(r">[ \w.]+<\d>\s+(\d+)", error)
+            err = re.search(r"<.>\s+(\d+)", error)
             if err:
                 errors.append(err.group(1))
     return errors

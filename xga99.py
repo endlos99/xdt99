@@ -24,19 +24,19 @@ import math
 import re
 import os.path
 
-VERSION = "2.0.2"
+VERSION = "3.0.0"
 
 
 # Utility functions
 
 def ordw(word):
     """word ord"""
-    return ord(word[0]) << 8 | ord(word[1])
+    return (word[0] << 8) | word[1]
 
 
 def chrw(word):
     """word chr"""
-    return chr(word >> 8) + chr(word & 0xff)
+    return bytes((word >> 8, word & 0xff))
 
 
 def xint(s):
@@ -49,6 +49,10 @@ def trunc(i, m):
     return i - i % m
 
 
+def cmp(x, y):
+    return (x > y) - (x < y)
+
+
 def readlines(n, m="r"):
     """read lines from file or STDIN"""
     if n == "-":
@@ -58,13 +62,16 @@ def readlines(n, m="r"):
             return f.readlines()
 
 
-def writedata(n, d, m="wb"):
+def writedata(name, data, mode="wb"):
     """write data to file or STDOUT"""
-    if n == "-":
-        sys.stdout.write(d)
+    if name == "-":
+        if "b" in mode:
+            sys.stdout.buffer.write(data)
+        else:
+            sys.stdout.write(data)
     else:
-        with open(n, m) as f:
-            f.write(d)
+        with open(name, mode) as f:
+            f.write(data)
 
 
 def outname(basename, extension, output=None, addition=None, count=1):
@@ -85,7 +92,7 @@ class AsmError(Exception):
 
 # Symbol table
 
-class Address:
+class Address(object):
     """absolute GROM address"""
 
     def __init__(self, addr, local=False):
@@ -98,7 +105,7 @@ class Address:
         self.local = local
 
     def hex(self):
-        return "%04X" % self.addr
+        return f"{self.addr:04X}"
 
     def __eq__(self, other):
         return (isinstance(other, Address) and
@@ -109,7 +116,7 @@ class Address:
         return not self == other
 
 
-class Local:
+class Local(object):
     """local label reference"""
 
     def __init__(self, name, distance):
@@ -117,7 +124,7 @@ class Local:
         self.distance = distance
 
 
-class Operand:
+class Operand(object):
     """general source or destination address or imm value"""
 
     def __init__(self, addr, vram=False, grom=False, vreg=False,
@@ -174,7 +181,7 @@ class Operand:
         return not self == other
 
 
-class Symbols:
+class Symbols(object):
     """symbol table and line counter"""
 
     def __init__(self, add_defs=()):
@@ -212,17 +219,19 @@ class Symbols:
             parts = defs.upper().split("=")
             value = Parser.symconst(parts[1]) if len(parts) > 1 else 1
             self.symbols[parts[0]] = value
-        self.reset_LC()
+        self.entry = None
+        self.pass_no = 0
+        self.lidx = 0
+        self.reset()
         self.locations = []  # list of (lidx, name), must not be deleted between passes
 
-    def reset_LC(self):
-        self.LC = 0
-        self.updated = False
+    def reset(self):
+        self.updated = False  # has at least one value changed?
 
-    def add_symbol(self, name, value, pass_no):
+    def add_symbol(self, name, value):
         """add symbol to symbol table or update existing symbol"""
         prev_value = self.symbols.get(name)
-        if pass_no == 0:
+        if self.pass_no == 0:
             if not re.match(r"[^\W\d]\w*$", name) and "$" not in name:
                 raise AsmError("Invalid symbol name: " + name)
             if prev_value is not None:
@@ -233,18 +242,18 @@ class Symbols:
             self.updated = True
         return name
 
-    def add_label(self, lidx, label, pass_no):
+    def add_label(self, label):
         """add label, in every pass to update its LC"""
-        name = self.add_symbol(label, Address(self.LC), pass_no)
-        if (lidx, name) not in self.locations:
-            self.locations.append((lidx, name))
+        name = self.add_symbol(label, Address(self.LC))
+        if (self.lidx, name) not in self.locations:
+            self.locations.append((self.lidx, name))
 
-    def add_local_label(self, lidx, label, pass_no):
+    def add_local_label(self, label):
         """add local label, in every pass to update its LC"""
-        self.add_label(lidx, label + "$" + str(lidx), pass_no)
+        self.add_label(label + "$" + str(self.lidx))
 
-    def get_symbol(self, name, pass_no=99, check=False, needed=False, not_found=0):
-        if pass_no == 0 and not needed:
+    def get_symbol(self, name, check=False, needed=False, not_found=0):
+        if self.pass_no == 0 and not needed:
             return not_found
         value = self.symbols.get(name)
         if value is None:
@@ -253,14 +262,14 @@ class Symbols:
                 raise AsmError("Unknown symbol: " + name)
         return value
 
-    def get_local(self, name, lpos, distance, pass_no):
-        if pass_no == 0:
+    def get_local(self, name, distance):
+        if self.pass_no == 0:
             return 0
         targets = [(l, n) for (l, n) in self.locations
                    if n[:len(name) + 1] == name + "$"]
         try:
-            i, lidx = next((j, l) for j, (l, n) in enumerate(targets) if l >= lpos)
-            if distance > 0 and lidx > lpos:
+            i, lidx = next((j, l) for j, (l, n) in enumerate(targets) if l >= self.lidx)
+            if distance > 0 and lidx > self.lidx:
                 distance -= 1  # i points to +! unless lidx == lpos
         except StopIteration:
             i = len(targets)  # beyond last label
@@ -268,55 +277,149 @@ class Symbols:
             _, fullname = targets[i + distance]
         except IndexError:
             return None
-        return self.get_symbol(fullname, pass_no=pass_no)
+        return self.get_symbol(fullname)
 
     def is_symbol(self, name):
         return name in self.symbols
 
 
-class Objcode:
-    """generate object code"""
+class Assembler(object):
+    """generate GPL virtual machine code"""
 
-    def __init__(self, symbols, grom, aorg):
-        self.symbols = symbols
-        self.base_grom = grom
-        self.base_aorg = aorg
-        self.code = []
-        self.entry = None
-        self.reset_gen()
-
-    def reset_gen(self):
-        """prepare new assembly pass"""
+    def __init__(self, syntax, grom, aorg, target="", include_path=None, defs=(), warnings=True):
+        self.symbols = None
+        self.parser = None
+        self.console = Console(enable_warnings=warnings)
+        self.syntax = syntax
+        self.include_path = include_path
+        self.grom = grom
+        self.offset = aorg
+        self.defs = ["_xga99_" + target] + list(defs)
         self.segments = []
-        self.symbols.reset_LC()
-        self.segment(self.base_grom, self.base_aorg, init=True)
 
-    def segment(self, grom, base, init=False):
+    def assemble(self, srcname):
+        self.symbols = Symbols(add_defs=self.defs)
+        self.parser = Parser(self.symbols, syntax=self.syntax, include_path=self.include_path)
+        self.parser.open(srcname)
+        source = self.pass_0()
+        if self.console.errors:
+            return  # abort if errors in pass 0
+        self.pass_n(source)
+        self.wrapup()
+
+    def pass_0(self):
+        """initial pass of assembly scanning symbols"""
+        source = []
+        self.symbols.pass_no = 0
+        self.symbols.lidx = 0
+        prev_label = None
+        self.segment(self.grom, self.offset, init=True)
+        while True:
+            # get next source line
+            lino, line, filename = self.parser.read()
+            if lino is None:
+                break
+            try:
+                # break line into fields
+                label, mnemonic, operands, comment, stmt = self.parser.line(line)
+                self.symbols.lidx += 1
+                keep, operands, line = self.parser.prep.process(self, label, mnemonic, operands, line)
+                if not keep:
+                    continue
+                source.append((lino, self.symbols.lidx, label, mnemonic, operands, line, filename, stmt))
+                if not stmt:
+                    continue
+                # process continuation label
+                if prev_label:
+                    if label:
+                        raise AsmError("Invalid continuation for label")
+                    label, prev_label = prev_label, None
+                elif label[-1:] == ":" and not mnemonic:
+                    prev_label = label
+                    continue
+                if label[-1:] == ":":
+                    label = label[:-1]
+                # process directives only
+                Directives.process(self, self.parser, label, mnemonic, operands) or \
+                    Opcodes.process(self, self.parser, label, mnemonic, operands)
+            except AsmError as e:
+                self.console.error(filename, 0, lino, line, str(e))
+        if self.parser.prep.parse_branches:
+            self.console.error(filename, 0, None, None, "***** Error: Missing .endif")
+        if self.parser.prep.parse_macro:
+            self.console.error(filename, 0, None, None, "***** Error: Missing .endm")
+        return source
+
+    def pass_n(self, source):
+        """subsequent passes generating GPL virtual machine code"""
+        # code generation (passes 1+)
+        prev_label = None
+        while True:
+            self.segments = []  # reset state
+            self.symbols.reset()
+            self.parser.reset()
+            self.segment(self.grom, self.offset, init=True)
+            error = False
+
+            self.symbols.pass_no += 1
+            if self.symbols.pass_no > 32:
+                sys.exit("Too many assembly passes, aborting. :-(")
+
+            for lino, lidx, label, mnemonic, operands, line, filename, stmt in source:
+                self.symbols.lidx = lidx
+                self.list(lino, line=line)
+                if not stmt:
+                    continue
+                # process continuation label
+                if prev_label:
+                    if label:
+                        raise AsmError("Invalid continuation for label")
+                    label, prev_label = prev_label, None
+                elif label[-1:] == ":" and not mnemonic:
+                    prev_label = label
+                    continue
+                if label[-1:] == ":":
+                    label = label[:-1]
+                # process directives and opcodes
+                try:
+                    Directives.process(self, self.parser, label, mnemonic, operands) or \
+                        Opcodes.process(self, self.parser, label, mnemonic, operands)
+                except AsmError as e:
+                    self.console.error(filename, self.symbols.pass_no, lino, line, str(e))
+                    error = True
+                for msg in self.parser.warnings:
+                    self.console.warn(filename, self.symbols.pass_no, lino, line, msg)
+                self.parser.warnings = []
+            if self.parser.fmt_mode:
+                self.console.warn(None, self.symbols.pass_no, None, None, "Source ends with open FMT block")
+            if (error and self.symbols.pass_no > 1) or not self.symbols.updated:
+                break
+
+    def segment(self, grom, offset, init=False):
         """create new code segment"""
         if not init and self.code:
-            self.segments.append(
-                (self.grom, self.base, self.symbols.LC, self.code))
+            self.segments.append((self.grom, self.offset, self.symbols.LC, self.code))  # append old values
         self.grom = grom
-        self.base = base
-        self.symbols.LC = self.grom + self.base
+        self.offset = offset
+        self.symbols.LC = grom + offset
         self.code = []
 
-    def process_label(self, lidx, label, pass_no):
+    def process_label(self, label):
         if not label:
             return
         if label[0] == "!":
-            self.symbols.add_local_label(lidx, label[1:], pass_no)
+            self.symbols.add_local_label(label[1:])
         else:
-            self.symbols.add_label(lidx, label, pass_no)
+            self.symbols.add_label(label)
 
     def emit(self, *args):
         """generate byte code"""
         self.code.append((self.symbols.LC, args))
         self.symbols.LC += sum(
-            [a.size if isinstance(a, Operand) else
-             a.size if isinstance(a, Address) else
-             0 if a is None else 1
-             for a in args])
+                [a.size if isinstance(a, Operand) else
+                 a.size if isinstance(a, Address) else
+                 0 if a is None else 1
+                 for a in args])
 
     def list(self, lino, line=None, eos=False, text1=None, text2=None):
         """create list file entry"""
@@ -336,43 +439,121 @@ class Objcode:
 
     def wrapup(self):
         """wrap-up code generation"""
-        self.segments.append(
-            (self.grom, self.base, self.symbols.LC, self.code))
+        self.segments.append((self.grom, self.offset, self.symbols.LC, self.code))
+
+    def generate_list(self, gensymbols):
+        """generate listing file"""
+        listing = []
+        for grom, _, final_LC, code in self.segments:
+            words, slino, sline, skip = [], None, None, False
+            # code:  Line()             <-
+            #        (LC, [byte, ...])  <-  belongs together
+            #        (LC, [byte, ...])  <-
+            #        Line()
+            #        ...
+            for LC, bs in code:
+                if isinstance(bs, Line):
+                    if slino is not None:
+                        a0, w0 = words[0] if words else ("    ", "  ")
+                        listing.append("{:4s} {:2s} {:5s} {:s}".format(
+                                slino, a0, w0, sline))
+                        for addri, wordi, in words[1:]:
+                            listing.append("     {:2s} {:5s}".format(addri, wordi))
+                            if bs.end_of_source:
+                                break
+                    slino = f"{bs.lino:04d}" if bs.lino else "****"
+                    sline = bs.line
+                    if not (bs.text1 is None and bs.text2 is None):
+                        warg = ("    " if bs.text2 is None else
+                                bs.text2 if isinstance(bs.text2, str) else
+                                bs.text2.hex() if isinstance(bs.text2, Address) else
+                                f"{bs.text2:04X}")
+                        words = [(f"{LC:04X}" if bs.text1 is None else bs.text1, warg[0:2]),
+                                 ("0000", warg[2:4])]
+                        skip = True
+                    else:
+                        words = []
+                        skip = False
+                elif skip:
+                    pass
+                else:
+                    o = 0
+                    for b in bs:
+                        if isinstance(b, Address):
+                            if b.size == 1:
+                                # back-patch previous line with high byte of current address
+                                patched_byte = int(words[-1][1], 16) | int(b.hex()[0:2], 16)
+                                words[-1] = (words[-1][0], f"{patched_byte:02x}")
+                                words.append((f"{LC + o:04X}", b.hex()[2:4]))  # regular line
+                            else:
+                                words.append((f"{LC + o:04X}", b.hex()[0:2]))
+                                words.append((f"{LC + o + 1:04X}", b.hex()[2:4]))
+                            o += b.size
+                        elif isinstance(b, Operand):
+                            for x in b.bytes:
+                                words.append((f"{LC + o:04X}", f"{x:02X}"))
+                                o += 1
+                        else:
+                            words.append((f"{LC + o:04X}", f"{b:02X}"))
+                            o += 1
+        symbols = self.generate_symbols() if gensymbols else ""
+        return ("XGA99 CROSS-ASSEMBLER   VERSION " + VERSION + "\n" +
+                "\n".join(listing) + "\n\n" + symbols + "\n")
+
+    def generate_symbols(self, equ=False):
+        """generate symbols"""
+        symbols = self.symbols.symbols
+        symlist = []
+        for symbol in sorted(symbols):
+            if symbol[0] == '$' or symbol[0] == "_":
+                continue  # skip local and internal symbols
+            addr = symbols.get(symbol)
+            addr_value = addr.addr if isinstance(addr, Address) else addr
+            symlist.append((symbol, addr_value))
+        fmt = "{}:\n       equ  >{:04X}" if equ else "    {:.<20} >{:04X}"
+        return "\n".join([fmt.format(*symbol) for symbol in symlist])
+
+
+class Linker(object):
+    """generate byte code"""
+
+    def __init__(self, segments=None, symbols=None):
+        self.segments = segments
+        self.symbols = symbols
 
     def generate_dump(self):
         """generate raw dump of internal data structures (debug)"""
-        self.wrapup()
         dump, i = "", 0
-        for grom, base, final_LC, code in self.segments:
-            dump += "%sGROM >%04X AORG >%04X:" % (
-                "\n" if dump and dump[-1] != "\n" else "", grom, base)
+        for grom, offset, final_LC, code in self.segments:
+            dump += "{}GROM >{:04X} AORG >{:04X}:".format(
+                    "\n" if dump and dump[-1] != "\n" else "", grom, offset)
             for LC, bs in code:
                 if isinstance(bs, Line):
                     continue
-                dump += "\n%04X:  " % LC
+                dump += f"\n{LC:04X}:  "
                 for b in bs:
                     if isinstance(b, Address):
-                        dump += "(%04X)  " % b.addr
+                        dump += f"{b.addr:04X}  "
                     elif isinstance(b, Operand):
                         for bb in b.bytes:
-                            dump += "%02X  " % bb
+                            dump += f"{bb:02X}  "
                     else:
-                        dump += "%02X  " % b
+                        dump += f"{b:02X}  "
                     i += 1
         dump += "\n"
         for i, s in enumerate(self.symbols.symbols):
             v = self.symbols.get_symbol(s)
-            dump += "%-8s>%04X %c" % (
-                s, v.addr if isinstance(v, Address) else v,
-                "\n" if i % 5 == 4 else " ")
+            dump += "{:8s}>{:04X} {:s}".format(
+                    s,
+                    v.addr if isinstance(v, Address) else v,
+                    "\n" if i % 5 == 4 else " ")
         return dump if dump[-1] == "\n" else dump + "\n"
 
     def generate_byte_code(self):
         """generate GPL byte code"""
-        self.wrapup()
         mems = {}
         # put bytes into memory
-        for grom, base, final_LC, code in self.segments:
+        for grom, _, final_LC, code in self.segments:
             mem = mems.setdefault(grom, {})
             for LC, bs in code:
                 if isinstance(bs, Line):
@@ -403,22 +584,19 @@ class Objcode:
             addrs = mem.keys()
             if addrs:  # could be empty if only lines are before GROM dir
                 sfirst, slast = min(addrs), max(addrs) + 1
-                bs = "".join([chr(mem[addr] & 0xff) if addr in mem else "\x00"
-                              for addr in xrange(sfirst, slast)])
+                bs = bytes([mem.get(addr, 0) & 0xff for addr in range(sfirst, slast)])
                 groms.append((grom, sfirst, bs))
         return groms
 
-    def generate_header(self, grom, base, name):
+    def generate_header(self, grom, offset, name):
         """generate GPL header"""
-        offset = base - grom
         if offset < 0x16:
             raise AsmError("No space for GROM header")
-        entry = self.entry or self.symbols.get_symbol("START") or base
-        gpl_header = "\xaa\x01\x00\x00\x00\x00%s" % chrw(grom + 0x10) + "\x00" * 8
+        entry = self.symbols.entry or self.symbols.get_symbol("START") or base
+        gpl_header = bytes((0xaa, 1, 0, 0, 0, 0)) + chrw(grom + 0x10) + bytes(8)
         menu_name = name[:offset - 0x15]
-        info = "\x00\x00%s%c%s" % (
-            chrw(entry.addr if isinstance(entry, Address) else entry),
-            len(menu_name), menu_name)
+        info = (bytes(2) + chrw(entry.addr if isinstance(entry, Address) else entry) +
+                bytes((len(menu_name),)) + menu_name.encode())
         return gpl_header + info
 
     def generate_image(self, name):
@@ -426,42 +604,42 @@ class Objcode:
         groms = self.generate_byte_code()
         if len(groms) > 1:
             raise AsmError("Multiple GROMs currently not supported")
-        grom, base, image = groms[0]
-        header = self.generate_header(grom, base, name)
-        padding = "\x00" * (base - grom - len(header))
+        grom, offset, image = groms[0]
+        header = self.generate_header(grom, offset, name)
+        padding = bytes(offset - grom - len(header))
         return header + padding + image
 
     def generate_cart(self, name):
         """generate RPK file for use as MESS rom cartridge"""
         image = self.generate_image(name)
-        layout = """<?xml version="1.0" encoding="utf-8"?>
+        layout = f"""<?xml version="1.0" encoding="utf-8"?>
                     <romset version="1.0">
                         <resources>
-                            <rom id="gromimage" file="%s.bin"/>
+                            <rom id="gromimage" file="{name}.bin"/>
                         </resources>
                         <configuration>
                             <pcb type="standard">
                                 <socket id="grom_socket" uses="gromimage"/>
                             </pcb>
                         </configuration>
-                    </romset>""" % name
-        metainf = """<?xml version="1.0"?>
+                    </romset>"""
+        metainf = f"""<?xml version="1.0"?>
                      <meta-inf>
-                         <name>%s</name>
-                     </meta-inf>""" % name
+                         <name>{name}</name>
+                     </meta-inf>"""
         return image, layout, metainf
 
     def generate_text(self, byte_code, mode):
         """convert binary data into text representation"""
         text = ""
         for grom, sfirst, mem in byte_code:
-            mem += "\x00"  # safety pad for word size
+            mem += b"\x00"  # safety pad for word size
             if 'r' in mode:
                 word = lambda i: ordw(mem[i + 1:((i - 1) if i > 0 else None):-1])  # byte-swapped
             else:
                 word = lambda i: ordw(mem[i:i + 2])
 
-            fmt = "%s%04x" if '4' in mode else "%s%02x"
+            fmt = "{:s}{:04x}" if '4' in mode else "{:s}{:02x}"
             tf = lambda x: x  # use value as-is
 
             if 'a' in mode:  # assembly
@@ -474,7 +652,7 @@ class Objcode:
                 hex_prefix = ""
                 data_prefix = "DATA "
                 suffix = "\n"
-                fmt = "%s%d"
+                fmt = "{:s}{:d}"
                 tf = lambda x: x - 0x10000 if x > 32767 else x  # hex to dec
             elif 'c' in mode:  # C
                 hex_prefix = "0x"
@@ -484,109 +662,35 @@ class Objcode:
                 raise AsmError("Bad text format: " + mode)
 
             if '4' in mode:  # words
-                ws = [fmt % (hex_prefix, tf(word(i)))
-                      for i in xrange(0, len(mem), 2)]
+                ws = [fmt.format(hex_prefix, tf(word(i))) for i in range(0, len(mem), 2)]
                 lines = [data_prefix + ", ".join(ws[i:i + 4]) + suffix
-                         for i in xrange(0, len(ws), 4)]
+                         for i in range(0, len(ws), 4)]
             else:  # bytes (default)
-                bs = [fmt % (hex_prefix, ord(mem[i]))
-                      for i in xrange(0, len(mem))]
+                bs = [fmt.format(hex_prefix, mem[i]) for i in range(0, len(mem))]
                 lines = [data_prefix + ", ".join(bs[i:i + 8]) + suffix
-                         for i in xrange(0, len(bs), 8)]
+                         for i in range(0, len(bs), 8)]
             text += "".join(lines)
         return text
 
-    def generate_list(self, gensymbols):
-        """generate listing file"""
-        listing = []
-        for grom, base, final_LC, code in self.segments:
-            words, slino, sline, skip = [], None, None, False
-            # code:  Line()             <-
-            #        (LC, [byte, ...])  <-  belongs together
-            #        (LC, [byte, ...])  <-
-            #        Line()
-            #        ...
-            for LC, bs in code:
-                if isinstance(bs, Line):
-                    if slino is not None:
-                        a0, w0 = words[0] if words else ("    ", "  ")
-                        listing.append("%4s %-2s %-5s %s" % (
-                            slino, a0, w0, sline))
-                        for addri, wordi, in words[1:]:
-                            listing.append("     %-2s %-5s" % (addri, wordi))
-                            if bs.end_of_source:
-                                break
-                    slino = "%04d" % bs.lino if bs.lino else "****"
-                    sline = bs.line
-                    if not (bs.text1 is None and bs.text2 is None):
-                        warg = ("    " if bs.text2 is None else
-                                bs.text2 if isinstance(bs.text2, str) else
-                                bs.text2.hex() if isinstance(bs.text2, Address) else
-                                "%04X" % bs.text2)
-                        words = [("%04X" % LC if bs.text1 is None else bs.text1, warg[0:2]),
-                                 (0, warg[2:4])]
-                        skip = True
-                    else:
-                        words = []
-                        skip = False
-                elif skip:
-                    pass
-                else:
-                    o = 0
-                    for b in bs:
-                        if isinstance(b, Address):
-                            if b.size == 1:
-                                # back-patch previous line with high byte of current address
-                                patched_byte = int(words[-1][1], 16) | int(b.hex()[0:2], 16)
-                                words[-1] = (words[-1][0], "%02x" % patched_byte)
-                                words.append(("%04X" % (LC + o), b.hex()[2:4]))  # regular line
-                            else:
-                                words.append(("%04X" % (LC + o), b.hex()[0:2]))
-                                words.append(("%04X" % (LC + o + 1), b.hex()[2:4]))
-                            o += b.size
-                        elif isinstance(b, Operand):
-                            for x in b.bytes:
-                                words.append(("%04X" % (LC + o), "%02X" % x))
-                                o += 1
-                        else:
-                            words.append(("%04X" % (LC + o), "%02X" % b))
-                            o += 1
-        symbols = self.generate_symbols() if gensymbols else ""
-        return ("XGA99 CROSS-ASSEMBLER   VERSION " + VERSION + "\n" +
-                "\n".join(listing) + "\n\n" + symbols + "\n")
 
-    def generate_symbols(self, equ=False):
-        """generate symbols"""
-        symbols = self.symbols.symbols
-        symlist = []
-        for symbol in sorted(symbols):
-            if symbol[0] == '$' or symbol[0] == "_":
-                continue  # skip local and internal symbols
-            addr = symbols.get(symbol)
-            addr_value = addr.addr if isinstance(addr, Address) else addr
-            symlist.append((symbol, addr_value))
-        fmt = "{}:\n       equ  >{:04X}" if equ else "    {:.<20} >{:04X}"
-        return "\n".join([fmt.format(*symbol) for symbol in symlist])
-
-
-class Word:
+class Word(object):
     """auxiliary class for word arithmetic"""
 
     def __init__(self, value, pass_no=None):
-        self.value = value % 0x10000
+        self.value = value & 0xffff
         self.pass_no = pass_no
 
     def sign(self):
         return -1 if self.value & 0x8000 else +1
 
     def abs(self):
-        return -self.value % 0x10000 if self.value & 0x8000 else self.value
+        return self.value + 0x10000 if self.value & 0x8000 else self.value
 
     def add(self, arg):
-        self.value = (self.value + arg.value) % 0x10000
+        self.value = (self.value + arg.value) & 0xffff
 
     def sub(self, arg):
-        self.value = (self.value - arg.value) % 0x10000
+        self.value = (self.value - arg.value) & 0xffff
 
     def mul(self, op, arg):
         if op in "/%" and arg.value == 0:
@@ -596,15 +700,15 @@ class Word:
                 raise AsmError("Division by zero")
         sign = arg.sign() if op == "%" else self.sign() * arg.sign()
         val = (self.abs() * arg.abs() if op == "*" else
-               self.abs() / arg.abs() if op == "/" else
+               self.abs() // arg.abs() if op == "/" else
                self.abs() % arg.abs() if op == "%" else None)
-        self.value = (val if sign > 0 else -val) % 0x10000
+        self.value = (val if sign > 0 else -val) & 0xffff
 
     def bit(self, op, arg):
         val = (self.value & arg.value if op == "&" else
                self.value | arg.value if op == "|" else
                self.value ^ arg.value if op == "^" else None)
-        self.value = val % 0x10000
+        self.value = val & 0xffff
 
 
 class Line:
@@ -619,117 +723,117 @@ class Line:
 
 # Directives
 
-class Directives:
+class Directives(object):
     @staticmethod
-    def EQU(parser, code, label, ops):
+    def EQU(parser, asm, label, ops):
         value = parser.expression(ops[0])
-        code.symbols.add_symbol(label, value, parser.pass_no)
+        asm.symbols.add_symbol(label, value)
 
     @staticmethod
-    def DATA(parser, code, label, ops):
-        code.process_label(parser.lidx, label, parser.pass_no)
-        code.emit(*[Address(parser.expression(op)) for op in ops])
+    def DATA(parser, asm, label, ops):
+        asm.process_label(label)
+        asm.emit(*[Address(parser.expression(op)) for op in ops])
 
     @staticmethod
-    def BYTE(parser, code, label, ops):
-        code.process_label(parser.lidx, label, parser.pass_no)
-        code.emit(*[parser.expression(op) & 0xff for op in ops])
+    def BYTE(parser, asm, label, ops):
+        asm.process_label(label)
+        asm.emit(*[parser.expression(op) & 0xff for op in ops])
 
     @staticmethod
-    def TEXT(parser, code, label, ops):
-        code.process_label(parser.lidx, label, parser.pass_no)
+    def TEXT(parser, asm, label, ops):
+        asm.process_label(label)
         for op in ops:
             text = parser.text(op)
-            code.emit(*[ord(c) for c in text])
+            asm.emit(*[ord(c) for c in text])
 
     @staticmethod
-    def STRI(parser, code, label, ops):
-        code.process_label(parser.lidx, label, parser.pass_no)
+    def STRI(parser, asm, label, ops):
+        asm.process_label(label)
         text = "".join([parser.text(op) for op in ops])
-        code.emit(len(text), *[ord(c) for c in text])
+        asm.emit(len(text), *[ord(c) for c in text])
 
     @staticmethod
-    def FLOAT(parser, code, label, ops):
-        code.process_label(parser.lidx, label, parser.pass_no)
+    def FLOAT(parser, asm, label, ops):
+        asm.process_label(label)
         for op in ops:
             bytes_ = parser.radix100(op)
-            code.emit(*bytes_)
+            asm.emit(*bytes_)
 
     @staticmethod
-    def BSS(parser, code, label, ops):
-        code.process_label(parser.lidx, label, parser.pass_no)
+    def BSS(parser, asm, label, ops):
+        asm.process_label(label)
         size = parser.expression(ops[0])
-        code.emit(*[0x00 for _ in range(size)])
+        asm.emit(*[0x00 for _ in range(size)])
 
     @staticmethod
-    def GROM(parser, code, label, ops):
+    def GROM(parser, asm, label, ops):
         value = parser.value(ops[0])
         grom = (value << 13) if value < 8 else value & 0xe000
-        code.segment(grom, 0x0000)
-        code.process_label(parser.lidx, label, parser.pass_no)
+        asm.segment(grom, 0x0000)
+        asm.process_label(label)
 
     @staticmethod
-    def AORG(parser, code, label, ops):
-        base = parser.value(ops[0])
-        if not 0 <= base < 0x2000:
-            raise AsmError("AORG offset %04X out of range" % base)
-        code.segment(code.grom, base)
-        code.process_label(parser.lidx, label, parser.pass_no)
+    def AORG(parser, asm, label, ops):
+        offset = parser.value(ops[0])
+        if not 0 <= offset < 0x2000:
+            raise AsmError(f"AORG offset {offset:04X} out of range")
+        asm.segment(asm.grom, offset)
+        asm.process_label(label)
 
     @staticmethod
-    def TITLE(parser, code, label, ops):
-        code.process_label(parser.lidx, label, parser.pass_no)
+    def TITLE(parser, asm, label, ops):
+        asm.process_label(label)
         text = parser.text(ops[0])
-        code.symbols.title = text[:12]
+        asm.symbols.title = text[:12]
 
     @staticmethod
-    def FMT(parser, code, label, ops):
-        code.process_label(parser.lidx, label, parser.pass_no)
+    def FMT(parser, asm, label, ops):
+        asm.process_label(label)
         parser.fmt_mode = True
-        code.emit(0x08)
+        asm.emit(0x08)
 
     @staticmethod
-    def FOR(parser, code, label, ops):
-        code.process_label(parser.lidx, label, parser.pass_no)
-        parser.for_loops.append(Address(code.symbols.LC + 1))
+    def FOR(parser, asm, label, ops):
+        asm.process_label(label)
+        parser.for_loops.append(Address(asm.symbols.LC + 1))
         count = parser.expression(ops[0])
-        code.emit(0xC0 + count - 1)
+        asm.emit(0xC0 + count - 1)
 
     @staticmethod
-    def FEND(parser, code, label, ops):
-        code.process_label(parser.lidx, label, parser.pass_no)
+    def FEND(parser, asm, label, ops):
+        asm.process_label(label)
         if parser.for_loops:
             addr = parser.for_loops.pop()
             if ops:
                 addr = Address(parser.label(ops[0]))
-            code.emit(0xFB, addr)
+            asm.emit(0xFB, addr)
         elif parser.fmt_mode:
-            code.emit(0xFB)
+            asm.emit(0xFB)
             parser.fmt_mode = False
         else:
             raise AsmError("Syntax error: unexpected FEND")
 
     @staticmethod
-    def COPY(parser, code, label, ops):
-        code.process_label(parser.lidx, label, parser.pass_no)
+    def COPY(parser, asm, label, ops):
+        asm.process_label(label)
         filename = parser.filename(ops[0])
         parser.open(filename=filename)
 
     @staticmethod
-    def BCOPY(parser, code, label, ops):
+    def BCOPY(parser, asm, label, ops):
         """extension: include binary file as BYTE stream"""
-        code.process_label(parser.lidx, label, parser.pass_no)
+        asm.process_label(label)
         filename = parser.filename(ops[0])
         path = parser.find(filename)  # might throw exception
         with open(path, "rb") as f:
-            bs = [ord(x) for x in f.read()]
-            code.emit(*bs)
+            bs = f.read()
+            asm.emit(*bs)
 
     @staticmethod
-    def END(parser, code, label, ops):
-        code.process_label(parser.lidx, label, parser.pass_no)
+    def END(parser, asm, label, ops):
+        asm.process_label(label)
         if ops:
-            code.entry = code.symbols.get_symbol(ops[0], pass_no=parser.pass_no, check=True)
+            parser.symbols.entry = asm.symbols.get_symbol(ops[0], check=True)
         parser.stop()
 
     ignores = [
@@ -737,17 +841,17 @@ class Directives:
         ]
 
     @staticmethod
-    def process(parser, code, label, mnemonic, operands):
+    def process(asm, parser, label, mnemonic, operands):
         """process directives"""
         if mnemonic in Directives.ignores:
-            code.process_label(parser.lidx, label, parser.pass_no)
+            asm.process_label(label)
             return True
         try:
             fn = getattr(Directives, mnemonic)
         except AttributeError:
             return False
         try:
-            fn(parser, code, label, operands)
+            fn(parser, asm, label, operands)
         except (IndexError, ValueError):
             raise AsmError("Syntax error")
         return True
@@ -755,7 +859,7 @@ class Directives:
 
 # Opcodes
 
-class Opcodes:
+class Opcodes(object):
     op_imm = lambda parser, x: (parser.expression(x[0]),)
     op_imm_gs = lambda parser, x: (parser.expression(x[0]),
                                    parser.gaddress(x[1], is_gs=True))
@@ -898,9 +1002,9 @@ class Opcodes:
     }
 
     @staticmethod
-    def process(parser, code, label, mnemonic, operands):
+    def process(asm, parser, label, mnemonic, operands):
         """get assembly code for mnemonic"""
-        code.process_label(parser.lidx, label, parser.pass_no)
+        asm.process_label(label)
         if mnemonic in Opcodes.pseudos:
             mnemonic, opers = Opcodes.pseudos[mnemonic]
             operands = [re.sub(r"\$(\d+)",
@@ -912,14 +1016,14 @@ class Opcodes:
                 args = parse(parser, operands) if parse else []
             except (KeyError, ValueError, IndexError):
                 raise AsmError("Syntax error in FMT mode")
-            Opcodes.generate(code, opcode, 7, args)
+            Opcodes.generate(asm, opcode, 7, args)
         else:
             try:
                 opcode, fmt, parse = Opcodes.opcodes[mnemonic]
                 args = parse(parser, operands) if parse else []
             except (KeyError, ValueError, IndexError):
                 raise AsmError("Syntax error")
-            Opcodes.generate(code, opcode, fmt, args)
+            Opcodes.generate(asm, opcode, fmt, args)
 
     @staticmethod
     def generate(code, opcode, fmt, args):
@@ -953,12 +1057,12 @@ class Opcodes:
 
 # Parsing
 
-class SyntaxVariant:
+class SyntaxVariant(object):
     def __init__(self, **entries):
         self.__dict__.update(entries)
 
 
-class Syntax:
+class Syntax(object):
     """various syntax conventions"""
 
     @staticmethod
@@ -1011,7 +1115,7 @@ class Syntax:
         )
 
 
-class Preprocessor:
+class Preprocessor(object):
     """xdt99-specific preprocessor extensions"""
 
     def __init__(self, parser):
@@ -1085,7 +1189,7 @@ class Preprocessor:
         parts[::2] = [self.inst_macro_args(p) for p in parts[::2]]
         return "".join(parts)
 
-    def process(self, code, label, mnemonic, operands, line):
+    def process(self, asm, label, mnemonic, operands, line):
         """process preprocessor directive"""
         if self.parse_macro:
             if mnemonic == ".ENDM":
@@ -1099,7 +1203,7 @@ class Preprocessor:
             operands = [self.inst_macro_args(op) for op in operands]
             line = self.instline(line)
         if mnemonic and mnemonic[0] == '.':
-            code.process_label(self.parser.lidx, label, 0)
+            asm.process_label(label)
             name = mnemonic[1:]
             if name in self.macros:
                 if self.parse:
@@ -1110,7 +1214,7 @@ class Preprocessor:
                 except AttributeError:
                     raise AsmError("Invalid preprocessor directive")
                 try:
-                    fn(self, code, operands)
+                    fn(self, asm, operands)
                 except (IndexError, ValueError):
                     raise AsmError("Syntax error")
             return False, None, None
@@ -1118,10 +1222,10 @@ class Preprocessor:
             return self.parse, operands, line
 
 
-class Parser:
+class Parser(object):
     """scanner and parser class"""
 
-    def __init__(self, symbols, syntax, include_path=None, warnings=True, console=None):
+    def __init__(self, symbols, syntax, include_path=None):
         self.prep = Preprocessor(self)
         self.symbols = symbols
         self.syntax = Syntax.get(syntax)
@@ -1133,23 +1237,18 @@ class Parser:
         self.lino = -1
         self.suspended_files = []
         self.include_path = include_path or ["."]
-        self.pass_no = 0
-        self.lidx = 0
         self.fmt_mode = False
         self.for_loops = []
         self.warnings = []
-        self.warnings_enabled = warnings
-        self.console = console if console is not None else []
 
-    def reset(self, code):
+    def reset(self):
         """reset state for new assembly pass"""
         self.fmt_mode = False
         self.for_loops = []
-        code.reset_gen()
 
     def warn(self, message):
         # warn in pass 2 to avoid duplicates and to prevent false expr values 0
-        if self.warnings_enabled and self.pass_no > 0 and message not in self.warnings:
+        if self.symbols.pass_no > 0 and message not in self.warnings:
             self.warnings.append(message)
 
     def open(self, filename=None, macro=None, ops=None):
@@ -1245,103 +1344,10 @@ class Parser:
         parts = re.split(r"('(?:[^']|'')*'|\"[^\"]*\")", text)  # not-lit, lit, not-lit, lit, ...
         literals = [s[1:-1].replace(self.syntax.tdelim * 2, self.syntax.tdelim)
                     for s in parts[1::2]]  # unquote text delimiters
-        parts[1::2] = ["%c%s%c" % (self.syntax.tdelim, len(self.text_literals) + i, self.syntax.tdelim)
-                       for i in xrange(len(literals))]
+        parts[1::2] = ["{:s}{:d}{:s}".format(self.syntax.tdelim, len(self.text_literals) + i, self.syntax.tdelim)
+                       for i in range(len(literals))]
         self.text_literals.extend(literals)
         return "".join(parts).upper()
-
-    def parse(self, code):
-        """parse source code and generate object code"""
-        source, errors = [], []
-        # prepare source (pass 0)
-        self.pass_no = 0
-        self.lidx = 0
-        prev_label = None
-        # pass 0
-        while True:
-            # get next source line
-            lino, line, filename = self.read()
-            if lino is None:
-                break
-            try:
-                # break line into fields
-                label, mnemonic, operands, comment, stmt = self.line(line)
-                keep, operands, line = self.prep.process(code, label, mnemonic, operands, line)
-                if not keep:
-                    continue
-                source.append((lino, label, mnemonic, operands, line, filename, stmt))
-                if not stmt:
-                    continue
-                self.lidx += 1
-                # process continuation label
-                if prev_label:
-                    if label:
-                        raise AsmError("Invalid continuation for label")
-                    label, prev_label = prev_label, None
-                elif label[-1:] == ":" and not mnemonic:
-                    prev_label = label
-                    continue
-                if label[-1:] == ":":
-                    label = label[:-1]
-                # process directives only
-                Directives.process(self, code, label, mnemonic, operands) or \
-                    Opcodes.process(self, code, label, mnemonic, operands)
-            except AsmError as e:
-                errors.append("> %s <1> %04d - %s\n***** %s\n" % (
-                    filename, lino, line, e.message))
-                self.console.append(('E', filename, 1, lino, line, e.message))
-        if self.prep.parse_branches:
-            errors.append("***** Error: Missing .endif\n")
-            self.console.append(('E', filename, 1, None, None, "***** Error: Missing .endif"))
-        if self.prep.parse_macro:
-            errors.append("***** Error: Missing .endm\n")
-            self.console.append(('E', filename, 1, None, None, "***** Error: Missing .endm"))
-        if errors:
-            return errors, ()
-        # code generation (passes 1+)
-        all_warnings = []
-        while True:
-            self.pass_no += 1
-            if self.pass_no > 32:
-                errors.append("Too many assembly passes, aborting. :-(\n")
-                break
-            self.reset(code)
-            self.lidx = 0
-            errors = []
-            for lino, label, mnemonic, operands, line, filename, stmt in source:
-                code.list(lino, line=line)
-                if not stmt:
-                    continue
-                self.lidx += 1
-                # process continuation label
-                if prev_label:
-                    if label:
-                        raise AsmError("Invalid continuation for label")
-                    label, prev_label = prev_label, None
-                elif label[-1:] == ":" and not mnemonic:
-                    prev_label = label
-                    continue
-                if label[-1:] == ":":
-                    label = label[:-1]
-                # process directives and opcodes
-                try:
-                    Directives.process(self, code, label, mnemonic, operands) or \
-                        Opcodes.process(self, code, label, mnemonic, operands)
-                except AsmError as e:
-                    errors.append("> %s <%d> %04d - %s\n***** %s\n" % (
-                        filename, self.pass_no, lino, line, e.message))
-                    self.console.append(('E', filename, self.pass_no, lino, line, e.message))
-                for msg in self.warnings:
-                    sys.stderr.write("> %s <2> %04d - Warning: %s\n" % (filename, lino, msg))
-                    self.console.append(('W', filename, self.pass_no, lino, line, msg))
-                all_warnings.extend(self.warnings)
-                self.warnings = []  # warnings per line
-            if self.fmt_mode:
-                self.warn("Source ends with open FMT block")
-                self.console.append(('W', filename, self.pass_no, None, None, "Source ends with open FMT block"))
-            if errors and self.pass_no > 1 or not self.symbols.updated:
-                break
-        return errors, all_warnings
 
     def value(self, op):
         """parse well-defined value"""
@@ -1374,8 +1380,8 @@ class Parser:
     def fmtcount(self, op, max_count=32):
         """parse FMT count"""
         count = self.expression(op)
-        if self.pass_no > 0 and count > max_count:
-            raise AsmError("Count cannot exceed %d here" % max_count)
+        if self.symbols.pass_no > 0 and count > max_count:
+            raise AsmError(f"Count cannot exceed {max_count:d} here")
         return count
 
     def fmttext(self, ops):
@@ -1407,12 +1413,12 @@ class Parser:
             index = self.expression(m.group(4)) if m.group(4) else None
             if index is not None and 0x00 <= index <= 0xff:
                 index += 0x8300
-            elif self.pass_no > 0 and index is not None and not 0x8300 <= index <= 0x83ff:
-                raise AsmError("Index out of range: >%04X" % index)
+            elif self.symbols.pass_no > 0 and index is not None and not 0x8300 <= index <= 0x83ff:
+                raise AsmError(f"Index out of range: >{index:04X}")
             if vreg and not (is_move and not is_gs):
                 raise AsmError("Invalid VDP register outside MOVE")
-            if self.pass_no > 0 and vreg and not 0 <= value <= 7:
-                raise AsmError("VDP register out of range: %d" % value)
+            if self.symbols.pass_no > 0 and vreg and not 0 <= value <= 7:
+                raise AsmError(f"VDP register out of range: {value:d}")
             if grom and not is_move:
                 raise AsmError("Invalid GROM address outside MOVE")
             if plain_only and (grom or vram or vreg or indirect or index):
@@ -1421,14 +1427,14 @@ class Parser:
         if is_gs:
             # immediate value as address
             if is_move:
-                self.warn("Treating '%s' as ROM address, did you intend a GROM address?" % op)
+                self.warn(f"Treating '{op:s}' as ROM address, did you intend a GROM address?")
             value = self.expression(op)
             return Operand(value, imm=2 if is_d else 1)
-        raise AsmError("Invalid G%c address operand: %s" % ("s" if is_gs else "d", op))
+        raise AsmError("Invalid G{:s} address operand: {:s}".format("s" if is_gs else "d", op))
 
     def expression(self, expr, needed=False):
         """parse complex arithmetical expression"""
-        value = Word(0, pass_no=self.pass_no)
+        value = Word(0, pass_no=self.symbols.pass_no)
         terms = ["+"] + [tok.strip() for tok in
                          re.split(r"([-+/%~&|^()]|\*\*?)", expr)]
         i, stack = 0, []
@@ -1454,7 +1460,7 @@ class Parser:
                 term_val = self.term(term, needed)
                 if isinstance(term_val, Local):
                     dist = -term_val.distance if negate else term_val.distance
-                    term_val = self.symbols.get_local(term_val.name, self.lidx, dist, self.pass_no)
+                    term_val = self.symbols.get_local(term_val.name, dist)
                     negate = False
                 if term_val is None:
                     raise AsmError("Invalid expression: " + term)
@@ -1470,7 +1476,7 @@ class Parser:
                 value.bit(op, w)
             elif op == "**":
                 base, exp = Word(1), w.value
-                for j in xrange(exp):
+                for j in range(exp):
                     base.mul("*", value)
                 value = base
             else:
@@ -1501,7 +1507,7 @@ class Parser:
             else:
                 raise AsmError("Invalid text literal: " + c)
         else:
-            v = self.symbols.get_symbol(op, pass_no=self.pass_no, check=True, needed=needed)
+            v = self.symbols.get_symbol(op, check=True, needed=needed)
             return v
 
     def text(self, op):
@@ -1510,7 +1516,7 @@ class Parser:
             if op[0] == ">":
                 op0 = op + "0"
                 return "".join([chr(int(op0[i:i + 2], 16))
-                                for i in xrange(1, len(op), 2)])
+                                for i in range(1, len(op), 2)])
             elif op[0] == op[-1] == self.syntax.tdelim:
                 return self.text_literals[int(op[1:-1])]
         except (IndexError, ValueError):
@@ -1534,7 +1540,7 @@ class Parser:
             int_part = "0" + int_part
         # build mantissa
         mantissa = int_part + frac_part + "00000000000000"
-        hundreds = [int(mantissa[i:i + 2]) for i in xrange(0, 14, 2)]
+        hundreds = [int(mantissa[i:i + 2]) for i in range(0, 14, 2)]
         # get exponent
         try:
             exponent = int(math.floor(math.log(float(digits), 100)))  # digits != 0
@@ -1565,31 +1571,33 @@ class Parser:
             return op
 
 
-# Main assembler
+class Console(object):
+    """collects warnings"""
 
-class Assembler:
-    """main driver class"""
+    def __init__(self, enable_warnings=True):
+        self.console = []
+        self.filename = None
+        self.enabled = enable_warnings
+        self.errors = False
 
-    def __init__(self, syntax, grom, aorg, target="", include_path=None, defs=(), warnings=True):
-        self.syntax = syntax
-        self.grom = grom
-        self.aorg = aorg
-        self.include_path = include_path
-        self.defs = ["_xga99_" + target] + list(defs)
-        self.warnings = warnings
-        self.console = []  # structures log of errors and warnings
+    def warn(self, filename, pass_no, lino, line, message):
+        if self.enabled and pass_no > 0:
+            self.console.append(('W', filename, pass_no, lino, line, message))
 
-    def assemble(self, srcname):
-        symbols = Symbols(add_defs=self.defs)
-        code = Objcode(symbols, self.grom, self.aorg)
-        parser = Parser(symbols,
-                        syntax=self.syntax,
-                        include_path=self.include_path,
-                        warnings=self.warnings,
-                        console=self.console)
-        parser.open(srcname)
-        errors, warnings = parser.parse(code)
-        return code, errors
+    def error(self, filename, pass_no, lino, line, message):
+        self.console.append(('E', filename, pass_no, lino, line, message))
+        self.errors = True
+
+    def print(self):
+        """print all console messages to stderr"""
+        for kind, filename, pass_no, lino, line, message in self.console:
+            text = "Error" if kind == 'E' else "Warning"
+            s_filename = filename or "---"
+            s_pass = pass_no or "-"
+            s_lino = f"{lino:04d}" if lino is not None else "****"
+            s_line = line or ""
+            sys.stderr.write(f"> {s_filename} <{s_pass}> {s_lino} - {s_line}\n***** {text:s}: {message}\n")
+
 
 # Command line processing
 
@@ -1614,7 +1622,7 @@ def main():
     args.add_argument("-G", "--grom", dest="grom", metavar="<GROM>",
                       help="set GROM base address")
     args.add_argument("-A", "--aorg", dest="aorg", metavar="<origin>",
-                      help="set AORG origin in GROM for byte code")
+                      help="set AORG offset in GROM for byte code")
     args.add_argument("-y", "--syntax", dest="syntax", metavar="<style>",
                       help="set syntax style (xdt99, rag, mizapf)")
     args.add_argument("-I", "--include", dest="inclpath", metavar="<paths>",
@@ -1640,10 +1648,8 @@ def main():
     barename = os.path.splitext(basename)[0]
 
     name = opts.name or barename[:16].upper()
-    grom = (xint(opts.grom) if opts.grom is not None else
-            0x6000 if opts.cart else 0x0000)
-    aorg = (xint(opts.aorg) if opts.aorg is not None else
-            0x0030 if opts.cart else 0x0000)
+    grom = xint(opts.grom) if opts.grom is not None else 0x6000 if opts.cart else 0x0000
+    aorg = xint(opts.aorg) if opts.aorg is not None else 0x0030 if opts.cart else 0x0000
     inclpath = [dirname] + (opts.inclpath.split(",") if opts.inclpath else [])
 
     # assembly
@@ -1659,35 +1665,39 @@ def main():
                     warnings=not opts.nowarn)
     try:
         # assemble
-        code, errors = asm.assemble(basename)
+        asm.assemble(basename)
+        linker = Linker(asm.segments, asm.symbols)
+
+        # stderr
+        asm.console.print()
+        if asm.console.errors:
+            return 1
 
         # output
-        if errors:
-            sys.stderr.write("".join(errors))
-        elif opts.dump:
-            sys.stdout.write(code.generate_dump())
+        if opts.dump:
+            sys.stdout.write(linker.generate_dump())
         elif opts.cart:
-            data, layout, metainf = code.generate_cart(name)
+            data, layout, metainf = linker.generate_cart(name)
             try:
                 with zipfile.ZipFile(outname(barename, ".zip", output=opts.output), "w") as archive:
                     archive.writestr(name + ".bin", data)
                     archive.writestr("layout.xml", layout)
                     archive.writestr("meta-inf.xml", metainf)
             except IOError as e:
-                sys.exit("File error: %s: %s." % (e.filename, e.strerror))
+                sys.exit(f"File error: {e.filename}: {e.strerror}.")
         else:
             if opts.image:
-                result = ((None, code.generate_image(name)),)
+                result = ((None, linker.generate_image(name)),)
                 extension = ".img"
                 mode = "wb"
             elif opts.text:
-                byte_code = code.generate_byte_code()
-                result = ((None, code.generate_text(byte_code, opts.text.lower())),)
+                byte_code = linker.generate_byte_code()
+                result = ((None, linker.generate_text(byte_code, opts.text.lower())),)
                 extension = ".dat"
                 mode = "w"
             else:
-                byte_code = code.generate_byte_code()
-                result = [("%04x" % grom, bytes_) for (grom, base, bytes_) in byte_code]
+                byte_code = linker.generate_byte_code()
+                result = [(f"{grom:04x}", bytes_) for (grom, offset, bytes_) in byte_code]
                 extension = ".gbc"
                 mode = "wb"
             count = len(result)
@@ -1696,17 +1706,17 @@ def main():
                           data,
                           mode)
         if opts.list:
-            listing = code.generate_list(opts.symtab)
+            listing = asm.generate_list(opts.symtab)
             writedata(opts.list, listing, "w")
         if opts.equs:
-            writedata(opts.equs, code.generate_symbols(equ=True))
+            writedata(opts.equs, asm.generate_symbols(equ=True), mode="w")
     except IOError as e:
-        sys.exit("File error: %s: %s." % (e.filename, e.strerror))
+        sys.exit(f"File error: {e.filename}: {e.strerror}.")
     except AsmError as e:
-        sys.exit("Error: %s" % e)
+        sys.exit("Error: " + str(e))
 
     # return status
-    return 1 if errors else 0
+    return 1 if asm.console.errors else 0
 
 
 if __name__ == "__main__":

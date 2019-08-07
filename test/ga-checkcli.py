@@ -14,8 +14,8 @@ def check_bin_text_equal_c(outfile, reffile):
         txt = " ".join([line for line in fout if ';' not in line])
         bin = fref.read()
     if len(bin) % 2 != 0:
-        bin += "\x00"
-    words = [(ord(bin[i + 1]) << 8) + ord(bin[i]) for i in xrange(0, len(bin), 2)]
+        bin += b"\x00"
+    words = [(bin[i + 1] << 8) + bin[i] for i in range(0, len(bin), 2)]
     inter = re.findall(r"0x([0-9a-f]{4})", txt)
     texts = [int(m, 16) for m in re.findall(r"0x([0-9a-f]{4})", txt)]
     if words != texts:
@@ -27,8 +27,8 @@ def check_bin_text_equal_basic(outfile, reffile):
         txt = " ".join(fout.readlines())
         bin = fref.read()
     if len(bin) % 2 != 0:
-        bin += "\x00"
-    words = [(ord(bin[i]) << 8) + ord(bin[i + 1]) for i in xrange(0, len(bin), 2)]
+        bin += b"\x00"
+    words = [(bin[i] << 8) + bin[i + 1] for i in range(0, len(bin), 2)]
     texts = [int(m) % 0x10000 for m in re.findall(r"(-?[0-9]{1,5})", txt)]
     if words != texts:
         error("DATA", "DATA/word mismatch")
@@ -55,7 +55,7 @@ def check_list_addr_data(infile, reffile, addr):
             code_lines[int(m.group(1), 16)] = int(m.group(2), 16)
     for byte_ in data:
         try:
-            if code_lines[addr] != ord(byte_):
+            if code_lines[addr] != byte_:
                 error("list", "Address/data mismatch at address >%x" % addr)
         except KeyError:
             error("list", "Missing address >%x in list file" % addr)
@@ -114,11 +114,11 @@ def runtest():
 
     # cleanup
     os.remove(Files.input)
-    os.remove(Files.output)
     os.remove(Files.reference)
     os.remove(Files.error)
+    #os.remove(Files.output)  #TODO
 
 
 if __name__ == "__main__":
     runtest()
-    print "OK"
+    print("OK")

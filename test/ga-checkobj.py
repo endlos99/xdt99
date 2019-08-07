@@ -41,8 +41,7 @@ def runtest():
         source = os.path.join(Dirs.gplsources, name + ".gpl")
         ref = os.path.join(Dirs.refs, name + ".rpk")
         xga(source, "-c", "-o", Files.output)
-        check_files_eq("GPL cart", Files.output, ref, "P",
-                     mask=((0x8, 0x1e), (0x188, 0xfff)))
+        check_files_eq("GPL cart", Files.output, ref, "P", mask=((0x8, 0x1e), (0x188, 0xfff)))
 
     # cleanup
     os.remove(Files.output)
@@ -51,4 +50,4 @@ def runtest():
 
 if __name__ == "__main__":
     runtest()
-    print "OK"
+    print("OK")

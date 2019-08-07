@@ -43,7 +43,7 @@ def runtest():
             fout.writelines(source)
         xga(Files.input, "-o", Files.output)
         with open(Files.output, "rb") as fin:
-            if fin.read()[:4] != "\x60\x00":
+            if fin.read()[:4] != b"\x60\x00":
                 error("GROM", "Incorrect address after GROM directive")
 
     # cleanup
@@ -55,4 +55,4 @@ def runtest():
 
 if __name__ == "__main__":
     runtest()
-    print "OK"
+    print("OK")
