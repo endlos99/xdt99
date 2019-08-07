@@ -29,8 +29,8 @@ def runtest():
 
     # setup
     with open(Disks.volumes, "wb") as v:
-        for i in xrange(4 * 1600):
-            v.write("\x00" * 256)  # Disk.bytes_per_sector
+        for i in range(4 * 1600):
+            v.write(bytes(2 * 256))  # Disk.bytes_per_sector plus padding
     shutil.copyfile(Disks.recsgen, Disks.work)
 
     # volume operations
@@ -39,7 +39,7 @@ def runtest():
 
     with open(Files.error, "w") as fout:
         xvm(Disks.volumes, "1-5", stdout=fout)
-        xvm(Disks.volumes, "4", "-i", stdout=fout)
+        xvm(Disks.volumes, "4", stdout=fout)
         xvm(Disks.volumes, "5", "-i", stderr=fout, rc=1)
 
     xvm(Disks.volumes, "2", "-r", Files.output)
@@ -92,4 +92,4 @@ def runtest():
 
 if __name__ == "__main__":
     runtest()
-    print "OK"
+    print("OK")

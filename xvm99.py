@@ -24,7 +24,7 @@ import re
 import xdm99
 
 
-VERSION = "2.0.1"
+VERSION = "3.0.0"
 
 
 # Multi-disk volumes
@@ -38,18 +38,13 @@ class Volumes:
 
     def __init__(self, device):
         self.device = device
-        # NOTE: cannot determine device size reliably in Windows
-        #with open(device, "rb") as d:
-        #    d.seek(0, SEEK_END)
-        #    self.size = d.tell()
-        #self.volume_count = xdm99.used(self.size, self.bytes_per_volume)
 
     def get_volume(self, vol_no, trim=False):
         """get disk image from volume device"""
         with open(self.device, "rb") as f:
             f.seek((vol_no - 1) * self.bytes_per_volume)
             data = f.read(self.bytes_per_volume)
-        image = data[::2]
+        image = data[::2]  # only every second byte is used
         return xdm99.Disk.trim_sectors(image) if trim else image
 
     def write_volume(self, vol_no, image, resize=None):
@@ -59,7 +54,7 @@ class Volumes:
             raise ValueError("Disk image too large")
         if resize:
             image = xdm99.Disk.extend_sectors(image, resize)
-        data = "\x00".join(image) + "\x00" * (self.bytes_per_volume - size + 1)
+        data = b"".join([bytes((b, 0)) for b in image]) + bytes(self.bytes_per_volume - size)
         with open(self.device, "r+b") as d:
             d.seek((vol_no - 1) * self.bytes_per_volume)
             d.write(data)
@@ -72,20 +67,24 @@ class Volumes:
                 try:
                     d.seek((vol - 1) * self.bytes_per_volume)
                     sector_0 = d.read(xdm99.Disk.bytes_per_sector * 2 if extended else 0x10 * 2)
-                    if sector_0[0x0d * 2] == "D" and sector_0[0x0e * 2] == "S" and sector_0[0x0f * 2] == "K":
+                    if sector_0[0x0d * 2:0x10 * 2:2] == b"DSK":
+                        try:
+                            name = sector_0[:0x0a * 2:2].decode()
+                        except UnicodeDecodeError:
+                            name = "".join([chr(b) if 0x20 <= b < 0x7f else '.' for b in sector_0[:0x0a * 2:2]])
                         if extended:
-                            total = ord(sector_0[0x0a * 2]) << 8 | ord(sector_0[0x0b * 2])
+                            total = sector_0[0x0a * 2] << 8 | sector_0[0x0b * 2]
                             used = 0
-                            for j in xrange(xdm99.used(total, 8)):
-                                used += bin(ord(sector_0[(0x38 + j) * 2])).count("1")
-                            info.append("[%4d]  %-10s:  %4d used  %4d free\n" % (
-                                vol, sector_0[:0x0a * 2:2], used, total - used))
+                            for j in range(xdm99.used(total, 8)):
+                                used += bin(sector_0[(0x38 + j) * 2]).count("1")
+                            info.append("[{:4d}]  {:10s}:  {:4d} used  {:4d} free\n".format(
+                                vol, name, used, total - used))
                         else:
-                            info.append("[%4d]  %-10s" % (vol, sector_0[:0x0a * 2:2]))
+                            info.append("[{:4d}]  {:10s}".format(vol, name))
                     else:
-                        info.append("[%4d]  (not a valid disk image)\n" % vol)
+                        info.append("[{:4d}]  (not a valid disk image)\n".format(vol))
                 except IndexError:
-                    info.append("[%4d]  (invalid volume)\n" % vol)
+                    info.append("[{:4d}]  (invalid volume)\n".format(vol))
         return "".join(info)
 
 
@@ -224,9 +223,7 @@ def main():
                     result.extend([(disk.get_tifiles_file(name), name.lower() + suffix + ".tfi", "wb")
                                    for name in files])
                 else:
-                    result.extend([(disk.get_file(name).get_contents(),
-                                    name.lower() + suffix,
-                                    "w" if fmt[0] == "D" else "wb")
+                    result.extend([(disk.get_file(name).get_contents(), name.lower() + suffix, "wb")
                                    for name in files])
         elif opts.add:
             for v in volumes:
@@ -238,13 +235,13 @@ def main():
                         name = "STDIN"
                         data = sys.stdin.read()
                     else:
-                        with open(name, "r" if fmt[0] == "D" and not opts.astif else "rb") as fin:
+                        with open(name, "rb") as fin:
                             data = fin.read()
                     if opts.astif:
                         disk.add_file(xdm99.File(tif_image=data))
                     else:
                         n = xdm99.sseq(opts.name, c) if opts.name else tiname(name)
-                        disk.add_file(xdm99.File(name=n, fmt=fmt, data=data))
+                        disk.add_file(xdm99.File(name=n, format_=fmt, data=data))
                         c += 1
                 device.write_volume(v, disk.image)
         elif opts.delete:
