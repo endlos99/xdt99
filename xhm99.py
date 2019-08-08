@@ -23,39 +23,34 @@
 import sys
 
 
-VERSION = "2.0.1"
+VERSION = "3.0.0"
 
 
 # Utility functions
 
 def ordw(word):
     """word ord"""
-    return ord(word[0]) << 8 | ord(word[1])
-
-
-def rordl(word):
-    """reverse long ord"""
-    return ord(word[3]) << 24 | ord(word[2]) << 16 | ord(word[1]) << 8 | ord(word[0])
-
-
-def ords(string):
-    """string ord"""
-    return [ord(c) for c in string]
+    return (word[0] << 8) | word[1]
 
 
 def chrw(word):
     """word chr"""
-    return chr(word >> 8) + chr(word & 0xFF)
+    return bytes((word >> 8, word & 0xff))
+
+
+def rordl(word):
+    """reverse long ord"""
+    return word[3] << 24 | word[2] << 16 | word[1] << 8 | word[0]
 
 
 def rchrw(word):
     """reverse word chr"""
-    return chr(word & 0xFF) + chr(word >> 8)
+    return bytes((word & 0xff, word >> 8))
 
 
 def chunk(data, size):
     """split into chunks of equal size"""
-    return [data[i:i + size] for i in xrange(0, len(data), size)]
+    return [data[i:i + size] for i in range(0, len(data), size)]
 
 
 def flatten(list_of_lists):
@@ -63,21 +58,27 @@ def flatten(list_of_lists):
     return [item for list_ in list_of_lists for item in list_]
 
 
-def writedata(n, d, m="wb"):
+def writedata(name, data, mode="wb"):
     """write data to file or STDOUT"""
-    if n == "-":
-        sys.stdout.write(d)
+    if name == "-":
+        if "b" in mode:
+            sys.stdout.buffer.write(data)
+        else:
+            sys.stdout.write(data)
     else:
-        with open(n, m) as f:
-            f.write(d)
+        with open(name, mode) as f:
+            f.write(data)
 
 
-def readdata(n, m="r"):
+def readdata(name, mode="rb"):
     """read data from file or STDIN"""
-    if n == "-":
-        return sys.stdin.read()
+    if name == "-":
+        if "b" in mode:
+            return sys.stdin.buffer.read()
+        else:
+            return sys.stdin.read()
     else:
-        with open(n, m) as f:
+        with open(name, mode) as f:
             return f.read()
 
 
@@ -221,7 +222,7 @@ class SDFormat:
     def decode(cls, stream):
         """decode FM bit stream into bytes"""
         bs = []
-        for i in xrange(0, len(stream), 4):
+        for i in range(0, len(stream), 4):
             v = rordl(stream[i:i + 4])
             # bit format:  ABCDEFGH <->  H...G... F...E... D...C... B...A...
             b = (
@@ -365,7 +366,7 @@ class DDFormat:
         lookup = {word[0] << 8 | word[1]: i
                   for i, word in enumerate(cls.mfm_codes)}
         bs = []
-        for j, i in enumerate(xrange(0, len(stream), 2)):
+        for j, i in enumerate(range(0, len(stream), 2)):
             w = ordw(stream[i:i + 2])
             if w == 0x2291:  # address mark
                 b = 0xa1
@@ -390,7 +391,7 @@ class DDFormat:
     @classmethod
     def fix_clocks(cls, stream):
         """fix clock bits in stream (inline)"""
-        for i in xrange(1, len(stream), 2):
+        for i in range(1, len(stream), 2):
             if stream[i] & 0x80:
                 stream[i + 1] &= 0xfe
 
@@ -420,9 +421,9 @@ class HFEDisk:
     @classmethod
     def get_hfe_params(cls, image):
         """checks if image is HFE image"""
-        if image[:8] != "HXCPICFE":
+        if image[:8] != b"HXCPICFE":
             raise HFEError("Not a HFE image")
-        return ord(image[9]), ord(image[10]), ord(image[11]), ord(image[16])
+        return image[9], image[10], image[11], image[16]
 
     def to_disk_image(self):
         """extract sector data from HFE image"""
@@ -435,8 +436,8 @@ class HFEDisk:
         size = DDFormat.track_len if self.dd else SDFormat.track_len
         decode = DDFormat.decode if self.dd else SDFormat.decode
         chunks = chunk(self.trackdata, 256)
-        side_0 = "".join(chunks[0::2])
-        side_1 = "".join(chunks[1::2])
+        side_0 = b"".join(chunks[0::2])
+        side_1 = b"".join(chunks[1::2])
         tracks0 = chunk(decode(side_0), size)
         tracks1 = chunk(decode(side_1), size) if self.sides == 2 else []
         tracks1.reverse()
@@ -486,7 +487,7 @@ class HFEDisk:
             h0, h1 = h1, h1 + fmt.lvleadout
             assert h1 == len(track)
             sectors.extend(flatten([track_sectors[k] for k in sorted(track_sectors)]))
-        return "".join([chr(b) for b in sectors])
+        return bytes(sectors)
 
     @classmethod
     def create(cls, image):
@@ -497,56 +498,56 @@ class HFEDisk:
     @classmethod
     def create_image(cls, image):
         """create HFE image from disk image"""
-        tracks = ord(image[0x11])
-        sides = ord(image[0x12])
-        dd = image[0x13] == "\x02"
-        protected = image[0x10] == "P"
+        tracks = image[0x11]
+        sides = image[0x12]
+        dd = image[0x13] == 2
+        protected = image[0x10] == b"P"
 
         header = cls.create_header(tracks, sides, dd, protected)
         lut = cls.create_lut(tracks, dd)
 
         fmt = DDFormat if dd else SDFormat
         side_0, side_1 = cls.create_tracks(tracks, sides, fmt, image)
-        dummy = "\x00" * 256 if not side_1 else None
-        sandwich = "".join([side_0[i:i+256] + (dummy or side_1[i:i+256])
-                            for i in xrange(0, len(side_0), 256)])
+        dummy = bytes(256) if not side_1 else None
+        sandwich = b"".join([side_0[i:i+256] + (dummy or side_1[i:i+256])
+                            for i in range(0, len(side_0), 256)])
         assert len(header) == len(lut) == 512
         return header + lut + sandwich
 
     @classmethod
     def create_header(cls, tracks, sides, dd, protected):
         """create HFE disk header"""
-        info = "HXCPICFE%c%c%c%c%s%s%c\x01%s%c" % (
-            0,  # revision
-            tracks, sides,
-            HFEDisk.hfe_dd_encoding if dd else HFEDisk.hfe_sd_encoding,
-            rchrw(HFEDisk.hfe_bit_rate),  # bit rate
-            rchrw(0),  # RPM (not used)
-            HFEDisk.hfe_interface_mode,
-            rchrw(1),  # LUT offset / 512
-            0 if protected else 0xff)
-        return info + "\xff" * (512 - len(info))
+        info = (b"HXCPICFE" +
+                bytes((0,  # revision
+                       tracks, sides,
+                       HFEDisk.hfe_dd_encoding if dd else HFEDisk.hfe_sd_encoding)) +
+                rchrw(HFEDisk.hfe_bit_rate) +  # bit rate
+                rchrw(0) +  # RPM (not used)
+                bytes((HFEDisk.hfe_interface_mode, 1)) +
+                rchrw(1) +  # LUT offset // 512
+                (b"\x00" if protected else b"\xff"))
+        return info + b"\xff" * (512 - len(info))
 
     @classmethod
     def create_lut(cls, tracks, dd):
         """create HFE LUT"""
-        lut = "".join([rchrw(0x31 * i + 2) +
-                       ("\xc0\x61" if dd else "\xb0\x61")
-                       for i in xrange(tracks)])
-        return lut + "\xff" * (512 - 4 * tracks)
+        lut = b"".join([rchrw(0x31 * i + 2) +
+                        (bytes((0xc0, 0x61)) if dd else bytes((0xb0, 0x61)))
+                        for i in range(tracks)])
+        return lut + b"\xff" * (512 - 4 * tracks)
 
     @classmethod
     def create_tracks(cls, tracks, sides, fmt, sectors):
         """create HFE tracks"""
         track_data = ([], [])
-        for s in xrange(sides):
-            for j in xrange(tracks):
+        for s in range(sides):
+            for j in range(tracks):
                 sector_data = []
-                for i in xrange(fmt.sectors):
+                for i in range(fmt.sectors):
                     track_id = tracks - 1 - j if s else j  # 0 .. 39 39 .. 0
                     sector_id = fmt.interleave(s, j, i, tracks == 80)
                     offset = ((s * tracks + j) * fmt.sectors + sector_id) * 256
-                    sector = ords(sectors[offset:offset + 256])
+                    sector = [b for b in sectors[offset:offset + 256]]
                     addr = [track_id, s, sector_id, 0x01]
                     crc1 = crc16(0xffff, fmt.vaddress_mark + addr)
                     crc2 = crc16(0xffff, fmt.vdata_mark + sector)
@@ -560,10 +561,9 @@ class HFEDisk:
                         fmt.gap2)
                 fmt.fix_clocks(sector_data)
                 track = fmt.leadin + sector_data + fmt.leadout
-                track_data[s].append(track)
+                track_data[s].append(bytes(track))
         track_data[1].reverse()
-        return ("".join([chr(b) for t in track_data[0] for b in t]),
-                "".join([chr(b) for t in track_data[1] for b in t]))
+        return b"".join(track_data[0]), b"".join(track_data[1])
 
 
 # main
@@ -624,27 +624,27 @@ def main(argv):
             barename = os.path.splitext(os.path.basename(opts.filename))[0]
             result = xdm.main([barename[:10].upper()] + other, disk)
             if isinstance(result, tuple):  # disk modified?
-                dsk = result[0]
+                dsk, _ = result
                 hfe = HFEDisk.create_image(dsk)
-                result = (hfe, opts.filename, "wb")
+                result = (hfe, opts.filename)
         # HFE/DSK conversion
         for name in opts.fromhfe or []:
             image = readdata(name, "rb")
             dsk = HFEDisk(image).to_disk_image()
             barename = os.path.splitext(os.path.basename(name))[0]
-            result.append((dsk, barename + ".dsk_id", "wb"))
+            result.append((dsk, barename + ".dsk_id"))
         for name in opts.tohfe or []:
             image = readdata(name, "rb")
             hfe = HFEDisk.create_image(image)
             barename = os.path.splitext(os.path.basename(name))[0]
-            result.append((hfe, barename + ".hfe", "wb"))
+            result.append((hfe, barename + ".hfe"))
         for name in opts.dump or []:
             image = readdata(name, "rb")
             hfe = HFEDisk(image)
             tracks = hfe.get_tracks()
             data = "".join([chr(b) for b in flatten(tracks)])
             barename = os.path.splitext(os.path.basename(name))[0]
-            result.append((data, barename + ".dump", "wb"))
+            result.append((data, barename + ".dump"))
         # image analysis
         for name in opts.hfeinfo or []:
             image = readdata(name, "rb")
@@ -660,10 +660,10 @@ def main(argv):
     # write result
     if isinstance(result, tuple):
         result = [result]
-    for data, name, mode in result:
+    for data, name in result:
         outname = opts.output or name
         try:
-            writedata(outname, data, mode)
+            writedata(outname, data, "wb")
         except IOError as e:
             sys.exit("Error: " + str(e))
 
