@@ -24,19 +24,19 @@ import re
 import os.path
 
 
-VERSION = "2.0.1"
+VERSION = "3.0.0"
 
 
 # Utility functions
 
 def ordw(word):
     """word ord"""
-    return ord(word[0]) << 8 | ord(word[1])
+    return (word[0] << 8) | word[1]
 
 
 def chrw(word):
     """word chr"""
-    return chr(word >> 8) + chr(word & 0xff)
+    return bytes((word >> 8, word & 0xff))
 
 
 def xint(s):
@@ -52,6 +52,30 @@ def trunc(i, m):
 def sinc(s, i):
     """string sequence increment"""
     return s[:-1] + chr(ord(s[-1]) + i)
+
+
+def readdata(filename, lines=False):
+    """read data from file or STDIN (or return supplied data)"""
+    if filename == "-":
+        if lines:
+            return sys.stdin.readlines()
+        else:
+            return sys.stdin.buffer.read()
+    else:
+        with open(filename, "r" if lines else "rb") as f:
+                return f.readlines() if lines else f.read()
+
+
+def writedata(filename, data, mode="wb"):
+    """write data to file or STDOUT"""
+    if filename == "-":
+        if "b" in mode:
+            sys.stdout.buffer.write(data)
+        else:
+            sys.stdout.write(data)
+    else:
+        with open(filename, mode) as f:
+            f.write(data)
 
 
 # Error handling
@@ -76,7 +100,10 @@ class Tokens:
     KEEP = 7  # keep previous follow token type
 
     # unused token code for escaping statement separator "::"
-    STMT_SEP = "\xaf"
+    QS_VAL = 0xc7  # token value for quoted string
+    US_VAL = 0xc8  # token value for unquoted string
+    LINO_VAL = 0xc9  # token value for line number
+    STMT_SEP = "\xaf"  # token representation of :: stmt separator
 
     # token list
     tokenlist = [
@@ -113,9 +140,9 @@ class Tokens:
         (None, None)
         ]
 
-    tokens = {w.strip(): (chr(0x81 + i), t)
+    tokens = {w.strip(): (bytes((0x81 + i,)), t)
               for i, (w, t) in enumerate(tokenlist) if w is not None}
-    literals = {chr(0x81 + i): (w, t) for i, (w, t) in enumerate(tokenlist)}
+    literals = {0x81 + i: (w, t) for i, (w, t) in enumerate(tokenlist)}
 
     @classmethod
     def token(cls, tok):
@@ -128,12 +155,18 @@ class Tokens:
     @classmethod
     def qstr_token(cls, s):
         """return quoted string token"""
-        return "\xc7" + chr(len(s)) + s
+        try:
+            return bytes((cls.QS_VAL,)) + bytes((len(s),)) + s.encode("ascii")
+        except UnicodeEncodeError:
+            raise BasicError("Cannot include non-ASCII characters in program")
 
     @classmethod
     def ustr_token(cls, s):
         """return unquoted string token"""
-        return "\xc8" + chr(len(s)) + s
+        try:
+            return bytes((cls.US_VAL,)) + bytes((len(s),)) + s.encode("ascii")
+        except UnicodeEncodeError:
+            raise BasicError("Cannot include non-ASCII characters in program")
 
     @classmethod
     def lino_token(cls, s):
@@ -144,22 +177,25 @@ class Tokens:
             lino = -1
         if not 1 <= lino <= 32767:
             raise BasicError("Invalid line number: " + str(lino))
-        return "\xc9" + chrw(lino)
+        return bytes((cls.LINO_VAL,)) + chrw(lino)
 
     @classmethod
     def literal(cls, tokens):
         """return textual representation of BASIC token(s)"""
         lit_type, _ = cls.literals[tokens[0]]
-        if lit_type == "qs":
-            lit_value = ord(tokens[1])
-            return '"' + tokens[2:2 + lit_value].replace('"', '""') + '"', lit_type, lit_value + 2
-        elif lit_type == "us":
-            lit_value = ord(tokens[1])
-            return tokens[2:2 + lit_value], lit_type, lit_value + 2
-        elif lit_type == "ln":
-            return str(ordw(tokens[1:3])), lit_type, 3
-        else:
-            return lit_type, None, 1
+        try:
+            if lit_type == "qs":
+                lit_value = tokens[1]
+                return '"' + tokens[2:2 + lit_value].decode("ascii").replace('"', '""') + '"', lit_type, lit_value + 2
+            elif lit_type == "us":
+                lit_value = tokens[1]
+                return tokens[2:2 + lit_value].decode("ascii"), lit_type, lit_value + 2
+            elif lit_type == "ln":
+                return str(ordw(tokens[1:3])), lit_type, 3
+            else:
+                return lit_type, None, 1  # for all other cases, lit_type == token
+        except UnicodeDecodeError:
+            raise BasicError("Non-ASCII characters found in program")
 
 
 # BASIC Program
@@ -189,36 +225,36 @@ class BasicProgram:
     # convert program to source
     def load(self, data, long_fmt):
         """load tokenized BASIC program"""
-        if long_fmt or data[1:3] == "\xab\xcd":
+        if long_fmt or data[1:3] == b"\xab\xcd":
             # convert long format INT/VAR 254 to PROGRAM
-            program, idx = "", 11
+            program, idx = b"", 11
             while idx < len(data):
-                n = ord(data[idx]) + 1
+                n = data[idx] + 1
                 program += data[idx + 1:idx + n]
                 idx += n
-            data = "XX" + data[5:7] + data[3:5] + "XX" + program
+            data = b"XX" + data[5:7] + data[3:5] + b"XX" + program
 
         # extract line number table and token table
         ptr_tokens = ordw(data[2:4]) + 1
         ptr_line_numbers = ordw(data[4:6])
-        no_lines = (ptr_tokens - ptr_line_numbers) / 4
+        no_lines = (ptr_tokens - ptr_line_numbers) // 4
         line_numbers = data[8:8 + no_lines * 4]
         tokens = data[8 + no_lines * 4:]
         # process line token table
-        for i in xrange(no_lines):
+        for i in range(no_lines):
             lino = ordw(line_numbers[4 * i:4 * i + 2])
             ptr = ordw(line_numbers[4 * i + 2:4 * i + 4])
             j = ptr - 1 - ptr_tokens
-            line_Len = ord(tokens[j])
-            if tokens[j + line_Len] != "\x00":
+            line_len = tokens[j]
+            if tokens[j + line_len]:
                 self.warn("Missing line termination")
-            self.lines[lino] = tokens[j + 1:j + line_Len]
+            self.lines[lino] = tokens[j + 1:j + line_len]
 
     def merge(self, data):
         """load tokenized BASIC program in merge format"""
-        qstr, _ = Tokens.tokens["qs"]
-        ustr, _ = Tokens.tokens["us"]
-        line, _ = Tokens.tokens["ln"]
+        qstr = Tokens.QS_VAL
+        ustr = Tokens.US_VAL
+        line = Tokens.LINO_VAL
         eol_len = len(os.linesep)
         p = 0
         while p < len(data):
@@ -226,9 +262,9 @@ class BasicProgram:
             if lino == 0xffff:
                 break
             q = p = p + 2
-            while data[p] != "\x00":
+            while data[p]:
                 if data[p] == qstr or data[p] == ustr:
-                    p += 1 + ord(data[p + 1]) + 1
+                    p += 1 + data[p + 1] + 1
                 elif data[p] == line:
                     p += 3
                 else:
@@ -245,15 +281,17 @@ class BasicProgram:
         """return textual representation of token sequence"""
         text = [" "]  # dummy element
         for lino in sorted(self.lines):
-            text.append("%d " % lino)
+            text.append(f"{lino:d} ")
             tokens, p, softspace = self.lines[lino], 0, False
             while p < len(tokens):
                 q = p
-                while p < len(tokens) and tokens[p] <= "\x80":
+                while p < len(tokens) and tokens[p] <= 0x80:
                     p += 1
                 if p > q:
-                    text.append(" " + tokens[q:p] if softspace else
-                                tokens[q:p])
+                    try:
+                        text.append((" " if softspace else "") + tokens[q:p].decode("ascii"))
+                    except UnicodeDecodeError:
+                        raise BasicError("Non-ASCII characters found in program")
                     softspace = True
                 else:
                     lit, lit_type, n = Tokens.literal(tokens[p:])
@@ -288,7 +326,7 @@ class BasicProgram:
                 lino, tokens = self.line(line)
                 self.lines[lino] = tokens
             except BasicError as e:
-                self.warn("%s: [%d] %s" % (str(e), i + 1, line[:-1]))
+                self.warn("{:s}: [{:d}] {:s}".format(str(e), i + 1, line[:-1]))
 
     def line(self, line):
         """parse single BASIC line"""
@@ -303,49 +341,53 @@ class BasicProgram:
 
     def stmts(self, text):
         """parse one or more BASIC statements"""
-        sep, _ = Tokens.token(",")
+        sep, _ = Tokens.tokens[","]
         tokens = []
         # poorest man imaginable's lexer
-        parts = re.split(r'(\s+|"\d+"|[0-9.]+E-[0-9]+|[!,;:()&=<>+\-*/^#' +
-                         Tokens.STMT_SEP + r'])',
-                         text)
+        parts = re.split(r'(\s+|"\d+"|[0-9.]+E-[0-9]+|[!,;:()&=<>+\-*/^#' + Tokens.STMT_SEP + r'])', text)
         tok_type = Tokens.VAR
         for i, word in enumerate(parts):
             if tok_type == Tokens.LINEVAR:
-                tokens.extend(self.unescape("".join(parts[i:])))
+                try:
+                    tokens.append(self.unescape("".join(parts[i:])).encode("ascii"))
+                except UnicodeEncodeError:
+                    raise BasicError("Non-ASCII characater found in text literal")
                 break
             if not word.strip():
                 continue
             if (tok_type == Tokens.LINO or tok_type == Tokens.USTR) and word.isdigit():  # USTR covers "GO SUB"
-                tokens.extend(Tokens.lino_token(word))
+                tokens.append(Tokens.lino_token(word))
                 tok_type = Tokens.LINO
             elif tok_type == Tokens.LINE_STR:
                 remaining = "".join(parts[i:]).strip()
                 if remaining:
-                    tokens.extend(self.qstr(remaining) if remaining[0] == '"' else
+                    tokens.append(self.qstr(remaining) if remaining[0] == '"' else
                                   self.ustr(remaining))
                 break
             elif tok_type == Tokens.DATA_STR:
                 remaining = [s.strip() for s in "".join(parts[i:]).split(",")]
-                data = [(self.qstr(s) if s[0] == '"' else self.ustr(s))
-                        if s else "" for s in remaining]
-                tokens.extend(sep.join(data))
+                data = [(self.qstr(s) if s[0] == '"' else self.ustr(s)) if s else b""
+                        for s in remaining]
+                tokens.append(sep.join(data))
                 break
             elif tok_type == Tokens.QSTR or word[0] == '"':  # keep before USTR!
                 # NOTE: there is actually no token with follow token QSTR
-                tokens.extend(self.qstr(word))
+                tokens.append(self.qstr(word))
                 tok_type = Tokens.VAR
             elif tok_type == Tokens.USTR:
-                tokens.extend(self.ustr(word.upper()))
+                tokens.append(self.ustr(word.upper()))
                 tok_type = Tokens.VAR
             else:
                 token, follow = Tokens.token(word)
                 if token:  # keywords and operators
                     tokens.append(token)
                 elif re.match(r"[0-9.]+", word):  # number literals
-                    tokens.extend(self.ustr(word.upper()))
+                    tokens.append(self.ustr(word.upper()))
                 else:
-                    tokens.extend(word.upper())  # plain VARs
+                    try:
+                        tokens.append(word.upper().encode("ascii"))  # plain VARs
+                    except UnicodeEncodeError:
+                        raise BasicError("Non-ASCII character found in variable name")
                 if follow != Tokens.KEEP:
                     tok_type = follow
         return tokens
@@ -355,7 +397,7 @@ class BasicProgram:
         parts = re.split(r'("(?:[^"]|"")*")', text)
         lits = [s[1:-1].replace('""', '"') for s in parts[1::2]]
         parts[1::2] = ['"' + str(len(self.textlits) + i) + '"'
-                       for i in xrange(len(lits))]
+                       for i in range(len(lits))]
         self.textlits.extend(lits)
         return "".join(parts).replace("::", Tokens.STMT_SEP)
 
@@ -372,7 +414,7 @@ class BasicProgram:
             s = self.textlits[int(lit[1:-1])]
             return Tokens.qstr_token(s)
         except (ValueError, IndexError):
-            raise RuntimeError("Invalid text literal id %s" % lit[1:-1])
+            raise RuntimeError("Invalid text literal id " + lit[1:-1])
 
     def ustr(self, lit):
         """build unquoted string token sequence"""
@@ -387,29 +429,29 @@ class BasicProgram:
             if size < 254:
                 self.warn("Program too short, will pad")
                 pad_len = 254 - size
-                prog.append((0, 32767, chr(pad_len - 1) + "\x83" +
-                             "\x21" * (pad_len - 3) + "\x00"))
+                prog.append((0, 32767, bytes((pad_len - 1, 0x83)) + b"\x21" * (pad_len - 3) + bytes(1)))
                 p = pad_len
         for lino in sorted(self.lines, reverse=True):
-            line = self.lines[lino]
-            prog.append((p, lino, chr(len(line) + 1) + "".join(line) + "\x00"))
-            p += len(line) + 2
+            tokens = self.lines[lino]
+            token_bytes = b"".join(tokens)
+            prog.append((p, lino, bytes((len(token_bytes) + 1,)) + token_bytes + bytes(1)))
+            p += len(token_bytes) + 2
         token_tab_addr = last_addr - p
         lino_tab_addr = token_tab_addr - 4 * len(prog)
-        token_table = "".join([tokens for p, lino, tokens in prog])
-        lino_table = "".join([chrw(lino) + chrw(token_tab_addr + p + 1)
+        token_table = b"".join([tokens for p, lino, tokens in prog])
+        lino_table = b"".join([chrw(lino) + chrw(token_tab_addr + p + 1)
                              for p, lino, tokens in prog])
         checksum = (token_tab_addr - 1) ^ lino_tab_addr
         assert lino_tab_addr + len(lino_table) + len(token_table) == last_addr
         if protected:
             checksum = -checksum % 0x10000
         if long_fmt:
-            header = ("\xab\xcd" + chrw(lino_tab_addr) + chrw(token_tab_addr - 1) +
+            header = (b"\xab\xcd" + chrw(lino_tab_addr) + chrw(token_tab_addr - 1) +
                       chrw(checksum) + chrw(last_addr - 1))
             chunks = [(lino_table + token_table)[i:i + 254]
-                      for i in xrange(0, len(lino_table + token_table), 254)]
-            return (chr(len(header)) + header +
-                    "".join([chr(len(c)) + c for c in chunks]))
+                      for i in range(0, len(lino_table + token_table), 254)]
+            return (bytes((len(header),)) + header +
+                    b"".join([bytes((len(c),)) + c for c in chunks]))
         else:
             header = (chrw(checksum) + chrw(token_tab_addr - 1) +
                       chrw(lino_tab_addr) + chrw(last_addr - 1))
@@ -425,10 +467,10 @@ class BasicProgram:
             p, result = 0, []
             while p < len(tokens):
                 t = tokens[p]
-                if t < " ":
-                    result.append("#%d" % ord(t))
-                elif t <= "\x80":
-                    result.append(t)
+                if t < 32:
+                    result.append(f"#{t:d}")
+                elif t <= 0x80:
+                    result.append(t.decode())
                 elif t == line:
                     result.append("^" + str(ordw(tokens[p + 1:p + 3])))
                     p += 2
@@ -437,7 +479,7 @@ class BasicProgram:
                 else:
                     result.append(Tokens.literals[t][0].rstrip())
                 p += 1
-            lines.append("%d: %s\n" % (lino, " ".join(result)))
+            lines.append("{:d}: {:s}\n".format(lino, " ".join(result)))
         return "".join(lines)
 
     @staticmethod
@@ -508,18 +550,19 @@ def main():
                 program = BasicProgram(data=image, long_fmt=opts.long_)
             data = program.get_source()
             output = "-" if opts.list_ else opts.output or barename + ".b99"
+            mode = "w"
         elif opts.dump:
             with open(opts.source, "rb") as fin:
                 image = fin.read()
             program = BasicProgram(data=image)
             data = program.dump_tokens()
             output = opts.output or "-"
+            mode = "w"
         else:
             # create program
             if opts.merge:
                 raise BasicError("Program creation in MERGE format is not supported")
-            with open(opts.source, "r") as fin:
-                lines = fin.readlines()
+            lines = readdata(opts.source, lines=True)
             if opts.join:
                 try:
                     delta = xint(opts.join)
@@ -529,19 +572,16 @@ def main():
             program = BasicProgram(source=lines)
             data = program.get_image(long_fmt=opts.long_, protected=opts.protect)
             output = opts.output or barename + ".prg"
+            mode = "wb"
 
         if program and program.warnings:
-            sys.stderr.write("".join(["Warning: %s\n" % w for w in program.warnings]))
-        if output == "-":
-            print data.rstrip()
-        else:
-            with open(output, "wb") as fout:
-                fout.write(data)
+            sys.stderr.write("".join([f"Warning: {w:s}\n" for w in program.warnings]))
+        writedata(output, data, mode=mode)
 
     except BasicError as e:
-        sys.exit("Error: %s." % e)
+        sys.exit(f"Error: {e:s}.")
     except IOError as e:
-        sys.exit("File error: %s: %s." % (e.filename, e.strerror))
+        sys.exit(f"File error: {e.filename:s}: {e.strerror:s}.")
 
     # return status
     return 0

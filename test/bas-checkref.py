@@ -74,7 +74,7 @@ def runtest():
         check_files_eq("Tokenization", Files.output, Files.reference, "P")
 
     # check using randomized listings
-    for i in xrange(8):
+    for i in range(8):
         fn = "RAND%02d" % i
         xdm(Disks.basic2, "-e", fn, "-o", Files.input)
         xdm(Disks.basic2, "-e", fn + "-L", "-o", Files.reference)
@@ -109,4 +109,4 @@ def runtest():
 
 if __name__ == "__main__":
     runtest()
-    print "OK"
+    print("OK")
