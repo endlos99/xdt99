@@ -45,7 +45,7 @@ ws3     equ     >1  + 2 ignored
         mov *r0 , *r9+  comment
         mov  @2 + data1,@data1 + >2 - text1
 
-ws4     byte 1, 2 , 3 ,4, 5  , 999
+ws4     byte 1, 2 , 3 ,4, 5  , 999    ; 999 is comment
         text '   ,'',   '  comment
         even  comment
         rtwp  comment

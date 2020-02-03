@@ -12,6 +12,15 @@ bininc bcopy "nonexisting"    ;ERROR
 text1  text >123456
        text >12x34            ;ERROR
        
+       ; arg count
+
+*      rtwp r1         ; cannt detect this: r1 is comment
+*      nop @1          ; ditto
+       inc r1, r2             ;ERROR
+       byte                   ;ERROR
+       text                   ;ERROR
+       mov r1                 ;ERROR
+
        ; label continuations
 
 label1:
@@ -55,6 +64,31 @@ w1:
        equ 1                  ;OK
 w1:
        equ 1                  ;ERROR
+
+       ; 9995 and F18A not available without -5 or -18
+
+nnn    lst r0                 ;ERROR
+       lwp r1                 ;ERROR
+       divs r2                ;ERROR
+       mpys *r3+              ;ERROR
+
+       call *r1               ;ERROR
+       push @nnn              ;ERROR
+       pop r1                 ;ERROR
+       slc r4, 9              ;ERROR
+
+       ; hints for incorrect use
+uuu    b   uuu                ;ERROR
+       jmp @uuu               ;ERROR
+       inc 9                  ;OK, is warning only
+
+       ; auto-constants
+
+       a   w#text1, 0         ;ERROR
+       a   w#w#1, 0           ;ERROR
+       a   b#1 + text1, 0     ;ERROR
+       a   1 + w#1, 0         ;ERROR
+       a   (w#1) + 1, 0       ;ERROR
 
 * NO ERRORS
 

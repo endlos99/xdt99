@@ -2,13 +2,13 @@
 
 # xgd99: A GPL disassembler
 #
-# Copyright (c) 2017-2019 Ralph Benzinger <xdt99@endlos.net>
+# Copyright (c) 2017-2020 Ralph Benzinger <xdt99@endlos.net>
 #
 # This program is part of the TI 99 Cross-Development Tools (xdt99).
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
-# the Free Software Foundation; either version 2 of the License, or
+# the Free Software Foundation; either version 3 of the License, or
 # (at your option) any later version.
 #
 # This program is distributed in the hope that it will be useful,
@@ -24,7 +24,7 @@ import re
 import os.path
 
 
-VERSION = "3.0.0"
+VERSION = '3.0.0'
 
 
 # Utility functions
@@ -42,29 +42,29 @@ def chrw(word):
 def xhex(text):
     """return string with optional > or 0x as hexadecimal value"""
     try:
-        return text if text is None else int(re.sub(r"^>|^0x", "", text), 16)
+        return text if text is None else int(re.sub(r'^>|^0x', '', text), 16)
     except ValueError:
-        raise XdgError("Invalid hex value: " + text)
+        raise XdgError('Invalid hex value: ' + text)
 
 
-def escape(text):
+def escape(bytes_):
     """escape non-printable characters"""
-    q = text.replace(b"'", b"''")
-    return "'" + re.sub(rb"[^ -~]", lambda m: b"\\%02X" % m.group(0), q).decode("ascii") + "'"
+    bytes_ = bytes_.replace(b"'", b"''")  # for internal quotes
+    return "'" + ''.join(chr(b) if 32 <= b < 127 else '.' for b in bytes_) + "'"
 
 
 def addr_range(s, prog):
     try:
-        start, stop = s.split("-")
+        start, stop = s.split('-')
     except ValueError:
-        raise XdgError("Bad range specifier: " + s)
+        raise XdgError('Bad range specifier: ' + s)
     return prog.addr2idx(xhex(start)), prog.addr2idx(xhex(stop))
 
 
-def readbin(name, mode="rb"):
+def readbin(name, mode='rb'):
     """read lines from file or STDIN"""
-    if name == "-":
-        if "b" in mode:
+    if name == '-':
+        if 'b' in mode:
             return sys.stdin.buffer.read()
         else:
             return sys.stdin.read()
@@ -75,8 +75,8 @@ def readbin(name, mode="rb"):
 
 def writelines(name, data, mode):
     """write lines to file or STDOUT"""
-    if name == "-":
-        if "b" in mode:
+    if name == '-':
+        if 'b' in mode:
             sys.stdout.buffer.write(data)
         else:
             sys.stdout.write(data)
@@ -116,25 +116,25 @@ class XdgLogger:
     def error(message):
         """issue error message"""
         if XdgLogger.log_level <= XdgLogger.level_error:
-            print("ERROR:", message)
+            print('ERROR:', message)
 
     @staticmethod
     def warn(message):
         """issue warning"""
         if XdgLogger.log_level <= XdgLogger.level_warn:
-            print("Warning:", message)
+            print('Warning:', message)
 
     @staticmethod
     def info(message):
         """issue informational message"""
         if XdgLogger.log_level <= XdgLogger.level_info:
-            print("Info:", message)
+            print('Info:', message)
 
     @staticmethod
     def debug(message):
         """issue debugging message"""
         if XdgLogger.log_level <= XdgLogger.level_debug:
-            print("Debug:", message)
+            print('Debug:', message)
 
 
 # Language Syntax
@@ -154,68 +154,68 @@ class Syntax:
         try:
             return getattr(Syntax, style)
         except AttributeError:
-            raise XdgError("Unknown syntax style " + style)
+            raise XdgError('Unknown syntax style ' + style)
 
     xdt99 = SyntaxVariant(  # default
-        grom = "G",
-        vdp = "V",
-        reg = "#",
+        grom = 'G',
+        vdp = 'V',
+        reg = '#',
         text_delim ="'",
         replacements = {}
         )
 
     rag = SyntaxVariant(  # RAG
-        grom = "G",
-        vdp = "V",
-        reg = "#",
+        grom = 'G',
+        vdp = 'V',
+        reg = '#',
         text_delim = "'",
         replacements = {
-            "TITLE": ("TITL", None),
-            "I/O":   ("IO", None),
-            "ROW+":  ("IROW", None),
-            "COL+":  ("ICOL", None),
-            "HTEXT": ("HTEX", None),
-            "VTEXT": ("VTEX", None),
-            "HCHAR": ("HCHA", None),
-            "HMOVE": ("HSTR", None),
-            "VCHAR": ("VCHA", None),
-            "BIAS":  ("SCRO", None)
+            'TITLE': ('TITL', None),
+            'I/O':   ('IO', None),
+            'ROW+':  ('IROW', None),
+            'COL+':  ('ICOL', None),
+            'HTEXT': ('HTEX', None),
+            'VTEXT': ('VTEX', None),
+            'HCHAR': ('HCHA', None),
+            'HMOVE': ('HSTR', None),
+            'VCHAR': ('VCHA', None),
+            'BIAS':  ('SCRO', None)
             }
         )
 
     ryte = SyntaxVariant(  # RYTE DATA
-        grom="G",
-        vdp="V",
-        reg="#",
-        move="{:d}, {:s}, {:s}",
-        moves="{:d},{:s},{:s}",
+        grom='G',
+        vdp='V',
+        reg='#',
+        move='{:d}, {:s}, {:s}',
+        moves='{:d},{:s},{:s}',
         text_delim="'",
         replacements={
-            "TITLE": ("TITL", None),
-            "HTEXT": ("HTEX", None),
-            "VTEXT": ("VTEX", None),
-            "HCHAR": ("HCHA", None),
-            "HMOVE": ("HSTR", None),
-            "VCHAR": ("VCHA", None),
-            "BIAS":  ("SCRO", None)
+            'TITLE': ('TITL', None),
+            'HTEXT': ('HTEX', None),
+            'VTEXT': ('VTEX', None),
+            'HCHAR': ('HCHA', None),
+            'HMOVE': ('HSTR', None),
+            'VCHAR': ('VCHA', None),
+            'BIAS':  ('SCRO', None)
             }
         )
 
     mizapf = SyntaxVariant(  # TIMT
-        grom = "GROM",
-        vdp = "VDP",
-        reg = "VREG",
+        grom = 'GROM',
+        vdp = 'VDP',
+        reg = 'VREG',
         text_delim = '"',
         replacements={
-            "MOVE": ("MOVE", "{0} BYTES FROM {1} TO {2}"),
-            "HCHAR": ("PRINTH", "{:s} TIMES {:s}"),
-            "VCHAR": ("PRINTV", "{:s} TIMES {:s}"),
-            "FOR": ("FOR", "{:s} TIMES DO"),
-            "HTEXT": ("PRINTH", None),
-            "VTEXT": ("PRINTV", None),
-            "ROW+": ("DOWN", None),
-            "COL+": ("RIGHT", None),
-            "FEND": ("END", None)
+            'MOVE': ('MOVE', '{0} BYTES FROM {1} TO {2}'),
+            'HCHAR': ('PRINTH', '{:s} TIMES {:s}'),
+            'VCHAR': ('PRINTV', '{:s} TIMES {:s}'),
+            'FOR': ('FOR', '{:s} TIMES DO'),
+            'HTEXT': ('PRINTH', None),
+            'VTEXT': ('PRINTV', None),
+            'ROW+': ('DOWN', None),
+            'COL+': ('RIGHT', None),
+            'FEND': ('END', None)
             }
         )
 
@@ -229,13 +229,13 @@ class Symbols:
         # pre-defined symbols
         self.symbols = {
             # CPU RAM
-            0x8370: "MAXMEM", 0x8372: "DATSTK", 0x8373: "SUBSTK",
-            0x8374: "KEYBRD", 0x8375: "KEY", 0x8376: "JOYY",
-            0x8377: "JOYX", 0x8378: "RANDOM", 0x8379: "TIMER",
-            0x837a: "MOTION", 0x837b: "VDPSTT", 0x837c: "STATUS",
-            0x837d: "CB", 0x837e: "YPT", 0x837F: "XPT",
+            0x8370: 'MAXMEM', 0x8372: 'DATSTK', 0x8373: 'SUBSTK',
+            0x8374: 'KEYBRD', 0x8375: 'KEY', 0x8376: 'JOYY',
+            0x8377: 'JOYX', 0x8378: 'RANDOM', 0x8379: 'TIMER',
+            0x837a: 'MOTION', 0x837b: 'VDPSTT', 0x837c: 'STATUS',
+            0x837d: 'CB', 0x837e: 'YPT', 0x837F: 'XPT',
             # RAG assembler
-            0x8354: "ERCODE", 0x8356: "VPAB", 0x836e: "VSTACK"
+            0x8354: 'ERCODE', 0x8356: 'VPAB', 0x836e: 'VSTACK'
             }
         # additional symbols loaded from file(s)
         if symfiles:
@@ -246,18 +246,18 @@ class Symbols:
 
     def load(self, fn):
         """load symbol table from file"""
-        with open(fn, "r") as fsym:
-            lines = fsym.readlines() + [""]
+        with open(fn, 'r') as fsym:
+            lines = fsym.readlines() + ['']
         for i in range(len(lines) - 1):
             longline = lines[i] + lines[i + 1]  # join two lines
-            m = re.match(r"^(\w+):?\s*\n?\s+EQU\s+(>?[0-9A-F]+)(?:\s|$)",
+            m = re.match(r'^(\w+):?\s*\n?\s+EQU\s+(>?[0-9A-F]+)(?:\s|$)',
                          longline.upper())
             if not m:
                 continue
             # found label s, EQU, and value v
             symbol, value = m.group(1), xhex(m.group(2))
             if self.symbols.get(value) is not None:
-                XdgLogger.warn(f"Symbol for >{value:04X} already defined, overwritten")
+                XdgLogger.warn(f'Symbol for >{value:04X} already defined, overwritten')
             self.symbols[value] = symbol
 
     def resolve(self, value, d=True):
@@ -265,7 +265,7 @@ class Symbols:
         try:
             symbol = self.symbols[value]
         except KeyError:
-            return f">{value:04X}" if d else f">{value & 0xff:02X}"
+            return f'>{value:04X}' if d else f'>{value & 0xff:02X}'
         self.used[symbol] = value  # mark symbol as used for EQU prelude
         return symbol
 
@@ -278,116 +278,116 @@ class Symbols:
 
 class Opcodes:
 
-    # list of all GPL opcodes
+    # listing of all GPL opcodes
     opcode_list = (
         # opcode, mnemonic, instr_format, infmt, togglefmt
         # 4.1 compare and test instructions
-        (0x09, "H", 5, False, 0),
-        (0x0A, "GT", 5, False, 0),
-        (0x0C, "CARRY", 5, False, 0),
-        (0x0D, "OVF", 5, False, 0),
-        (0xD4, "CEQ", 1, False, 0),
-        (0xD5, "DCEQ", 1, False, 0),
-        (0xC4, "CH", 1, False, 0),
-        (0xC5, "DCH", 1, False, 0),
-        (0xC8, "CHE", 1, False, 0),
-        (0xC9, "DCHE", 1, False, 0),
-        (0xCC, "CGT", 1, False, 0),
-        (0xCD, "DCGT", 1, False, 0),
-        (0xD0, "CGE", 1, False, 0),
-        (0xD1, "DCGE", 1, False, 0),
-        (0xD8, "CLOG", 1, False, 0),
-        (0xD9, "DCLOG", 1, False, 0),
-        (0x8E, "CZ", 6, False, 0),
-        (0x8F, "DCZ", 6, False, 0),
+        (0x09, 'H', 5, False, 0),
+        (0x0A, 'GT', 5, False, 0),
+        (0x0C, 'CARRY', 5, False, 0),
+        (0x0D, 'OVF', 5, False, 0),
+        (0xD4, 'CEQ', 1, False, 0),
+        (0xD5, 'DCEQ', 1, False, 0),
+        (0xC4, 'CH', 1, False, 0),
+        (0xC5, 'DCH', 1, False, 0),
+        (0xC8, 'CHE', 1, False, 0),
+        (0xC9, 'DCHE', 1, False, 0),
+        (0xCC, 'CGT', 1, False, 0),
+        (0xCD, 'DCGT', 1, False, 0),
+        (0xD0, 'CGE', 1, False, 0),
+        (0xD1, 'DCGE', 1, False, 0),
+        (0xD8, 'CLOG', 1, False, 0),
+        (0xD9, 'DCLOG', 1, False, 0),
+        (0x8E, 'CZ', 6, False, 0),
+        (0x8F, 'DCZ', 6, False, 0),
         # 4.2 program control instructions
-        (0x60, "BS", 4, False, 0),
-        (0x40, "BR", 4, False, 0),
-        (0x05, "B", 3, False, 0),
-        (0x8A, "CASE", 6, False, 0),
-        (0x8B, "DCASE", 6, False, 0),
-        (0x06, "CALL", 3, False, 0),
-        (0x88, "FETCH", 6, False, 0),
-        (0x00, "RTN", 5, False, 0),
-        (0x01, "RTNC", 5, False, 0),
+        (0x60, 'BS', 4, False, 0),
+        (0x40, 'BR', 4, False, 0),
+        (0x05, 'B', 3, False, 0),
+        (0x8A, 'CASE', 6, False, 0),
+        (0x8B, 'DCASE', 6, False, 0),
+        (0x06, 'CALL', 3, False, 0),
+        (0x88, 'FETCH', 6, False, 0),
+        (0x00, 'RTN', 5, False, 0),
+        (0x01, 'RTNC', 5, False, 0),
         # 4.4 arithmetic and logical instructions
-        (0xA0, "ADD", 1, False, 0),
-        (0xA1, "DADD", 1, False, 0),
-        (0xA4, "SUB", 1, False, 0),
-        (0xA5, "DSUB", 1, False, 0),
-        (0xA8, "MUL", 1, False, 0),
-        (0xA9, "DMUL", 1, False, 0),
-        (0xAC, "DIV", 1, False, 0),
-        (0xAD, "DDIV", 1, False, 0),
-        (0x90, "INC", 6, False, 0),
-        (0x91, "DINC", 6, False, 0),
-        (0x94, "INCT", 6, False, 0),
-        (0x95, "DINCT", 6, False, 0),
-        (0x92, "DEC", 6, False, 0),
-        (0x93, "DDEC", 6, False, 0),
-        (0x96, "DECT", 6, False, 0),
-        (0x97, "DDECT", 6, False, 0),
-        (0x80, "ABS", 6, False, 0),
-        (0x81, "DABS", 6, False, 0),
-        (0x82, "NEG", 6, False, 0),
-        (0x83, "DNEG", 6, False, 0),
-        (0x84, "INV", 6, False, 0),
-        (0x85, "DINV", 6, False, 0),
-        (0xB0, "AND", 1, False, 0),
-        (0xB1, "DAND", 1, False, 0),
-        (0xB4, "OR", 1, False, 0),
-        (0xB5, "DOR", 1, False, 0),
-        (0xB8, "XOR", 1, False, 0),
-        (0xB9, "DXOR", 1, False, 0),
-        (0x86, "CLR", 6, False, 0),
-        (0x87, "DCLR", 6, False, 0),
-        (0xBC, "ST", 1, False, 0),
-        (0xBD, "DST", 1, False, 0),
-        (0xC0, "EX", 1, False, 0),
-        (0xC1, "DEX", 1, False, 0),
-        (0x8C, "PUSH", 6, False, 0),
-        (0x20, "MOVE", 9, False, 0),
-        (0xE0, "SLL", 1, False, 0),
-        (0xE1, "DSLL", 1, False, 0),
-        (0xDC, "SRA", 1, False, 0),
-        (0xDD, "DSRA", 1, False, 0),
-        (0xE4, "SRL", 1, False, 0),
-        (0xE5, "DSRL", 1, False, 0),
-        (0xE8, "SRC", 1, False, 0),
-        (0xE9, "DSRC", 1, False, 0),
+        (0xA0, 'ADD', 1, False, 0),
+        (0xA1, 'DADD', 1, False, 0),
+        (0xA4, 'SUB', 1, False, 0),
+        (0xA5, 'DSUB', 1, False, 0),
+        (0xA8, 'MUL', 1, False, 0),
+        (0xA9, 'DMUL', 1, False, 0),
+        (0xAC, 'DIV', 1, False, 0),
+        (0xAD, 'DDIV', 1, False, 0),
+        (0x90, 'INC', 6, False, 0),
+        (0x91, 'DINC', 6, False, 0),
+        (0x94, 'INCT', 6, False, 0),
+        (0x95, 'DINCT', 6, False, 0),
+        (0x92, 'DEC', 6, False, 0),
+        (0x93, 'DDEC', 6, False, 0),
+        (0x96, 'DECT', 6, False, 0),
+        (0x97, 'DDECT', 6, False, 0),
+        (0x80, 'ABS', 6, False, 0),
+        (0x81, 'DABS', 6, False, 0),
+        (0x82, 'NEG', 6, False, 0),
+        (0x83, 'DNEG', 6, False, 0),
+        (0x84, 'INV', 6, False, 0),
+        (0x85, 'DINV', 6, False, 0),
+        (0xB0, 'AND', 1, False, 0),
+        (0xB1, 'DAND', 1, False, 0),
+        (0xB4, 'OR', 1, False, 0),
+        (0xB5, 'DOR', 1, False, 0),
+        (0xB8, 'XOR', 1, False, 0),
+        (0xB9, 'DXOR', 1, False, 0),
+        (0x86, 'CLR', 6, False, 0),
+        (0x87, 'DCLR', 6, False, 0),
+        (0xBC, 'ST', 1, False, 0),
+        (0xBD, 'DST', 1, False, 0),
+        (0xC0, 'EX', 1, False, 0),
+        (0xC1, 'DEX', 1, False, 0),
+        (0x8C, 'PUSH', 6, False, 0),
+        (0x20, 'MOVE', 9, False, 0),
+        (0xE0, 'SLL', 1, False, 0),
+        (0xE1, 'DSLL', 1, False, 0),
+        (0xDC, 'SRA', 1, False, 0),
+        (0xDD, 'DSRA', 1, False, 0),
+        (0xE4, 'SRL', 1, False, 0),
+        (0xE5, 'DSRL', 1, False, 0),
+        (0xE8, 'SRC', 1, False, 0),
+        (0xE9, 'DSRC', 1, False, 0),
         # 4.5 graphics and miscellaneous instructions
-        (0xED, "COINC", 1, False, 0),
-        (0x04, "BACK", 2, False, 0),
-        (0x07, "ALL", 2, False, 0),
-        (0x08, "FMT", 10, False, +1),  # format
-        (0x02, "RAND", 2, False, 0),
-        (0x03, "SCAN", 5, False, 0),
-        (0x0F, "XML", 2, False, 0),
-        (0x0B, "EXIT", 5, False, 0),
-        (0xF6, "I/O", 8, False, 0),
+        (0xED, 'COINC', 1, False, 0),
+        (0x04, 'BACK', 2, False, 0),
+        (0x07, 'ALL', 2, False, 0),
+        (0x08, 'FMT', 10, False, +1),  # format
+        (0x02, 'RAND', 2, False, 0),
+        (0x03, 'SCAN', 5, False, 0),
+        (0x0F, 'XML', 2, False, 0),
+        (0x0B, 'EXIT', 5, False, 0),
+        (0xF6, 'I/O', 8, False, 0),
         # BASIC
-        (0x0E, "PARSE", 2, False, 0),
-        (0x10, "CONT", 5, False, 0),
-        (0x11, "EXEC", 5, False, 0),
-        (0x12, "RTNB", 5, False, 0),
+        (0x0E, 'PARSE', 2, False, 0),
+        (0x10, 'CONT', 5, False, 0),
+        (0x11, 'EXEC', 5, False, 0),
+        (0x12, 'RTNB', 5, False, 0),
         # undocumented
-        (0xF8, "SWGR", 1, False, 0),
-        (0xF9, "DSWGR", 1, False, 0),
-        (0x13, "RTGR", 5, False, 0),
+        (0xF8, 'SWGR', 1, False, 0),
+        (0xF9, 'DSWGR', 1, False, 0),
+        (0x13, 'RTGR', 5, False, 0),
         # format (+ 0x100)
-        (0x00, "HTEXT", 13, True, 0),
-        (0x20, "VTEXT", 13, True, 0),
-        (0x40, "HCHAR", 14, True, 0),
-        (0x60, "VCHAR", 14, True, 0),
-        (0x80, "COL+", 16, True, 0),
-        (0xA0, "ROW+", 16, True, 0),
-        (0xE0, "HMOVE", 15, True, 0),
-        (0xC0, "FOR", 16, True, +1),
-        (0xFB, "FEND", 17, True, -1),
-        (0xFC, "BIAS", 11, True, 0),  # immediate value
-        (0xFD, "BIAS", 12, True, 0),  # address
-        (0xFE, "ROW", 11, True, 0),
-        (0xFF, "COL", 11, True, 0)
+        (0x00, 'HTEXT', 13, True, 0),
+        (0x20, 'VTEXT', 13, True, 0),
+        (0x40, 'HCHAR', 14, True, 0),
+        (0x60, 'VCHAR', 14, True, 0),
+        (0x80, 'COL+', 16, True, 0),
+        (0xA0, 'ROW+', 16, True, 0),
+        (0xE0, 'HMOVE', 15, True, 0),
+        (0xC0, 'FOR', 16, True, +1),
+        (0xFB, 'FEND', 17, True, -1),
+        (0xFC, 'BIAS', 11, True, 0),  # immediate value
+        (0xFD, 'BIAS', 12, True, 0),  # address
+        (0xFE, 'ROW', 11, True, 0),
+        (0xFF, 'COL', 11, True, 0)
     )
 
     # mask and shift of additionally used opcode bits for every format
@@ -399,13 +399,13 @@ class Opcodes:
                    (0, 0), (0, 0), (1, 0), (5, 0), (5, 0), (5, 0), (5, 0), (0, 0))  # FMT
 
     # redirect execution
-    branches = ("B", "CASE", "DCASE")
+    branches = ('B', 'CASE', 'DCASE')
 
     # fork execution
-    calls = ("BS", "BR", "CALL")  # EXEC calls BASIC
+    calls = ('BS', 'BR', 'CALL')  # EXEC calls BASIC
 
     # terminate execution
-    returns = ("RTN", "RTNC", "RTNB", "EXIT")
+    returns = ('RTN', 'RTNC', 'RTNB', 'EXIT')
 
     class Move:
         """move parameters"""
@@ -426,7 +426,7 @@ class Opcodes:
                 self.indr = False
 
     def __init__(self, syntax):
-        """complete list to contain all 2*256 opcodes"""
+        """complete listing to contain all 2*256 opcodes"""
         self.syntax = syntax
         self.opcodes = {}
         for opc, mnem, iformat, in_fmt, toggle_fmt in self.opcode_list:
@@ -465,16 +465,16 @@ class Opcodes:
                                            prog.symbols, instr_format, fmt_level)
         except IndexError as e:
             # last instruction stepped beyond last index of program
-            XdgLogger.warn("Incomplete program")
+            XdgLogger.warn('Incomplete program')
             return Literal(addr, byte, byte), fmt_level
         except Invalid as e:
             # disassembly was incorrect
-            XdgLogger.warn("Invalid disassembly: " + str(e))
+            XdgLogger.warn('Invalid disassembly: ' + str(e))
             return Literal(addr, byte, byte), fmt_level
         # update domain
         fmt_level += toggle_fmt
         # return disassembled instruction
-        return (Instruction(prog, addr, byte, mnemonic, instr_format, ops, fmt_level, self.syntax, ""),
+        return (Instruction(prog, addr, byte, mnemonic, instr_format, ops, fmt_level, self.syntax, ''),
                 fmt_level)
 
     def decode_instr_format(self, addr, byte, code, idx, symbols, instr_format, fmt_level):
@@ -533,29 +533,29 @@ class Opcodes:
         elif instr_format == 13:  # HTEXT, VTEXT
             v = (byte & 0x1f) + 1
             return Operand(code[idx].addr, code[idx].byte, v,
-                           escape(bytes([code[i].byte for i in range(idx, idx + v)]))),
+                           escape(bytes(code[i].byte for i in range(idx, idx + v)))),
         elif instr_format == 14:  # HCHAR, VCHAR
             v = (byte & 0x1f) + 1
-            i1, o1 = 0, Operand(addr, v, 0, f">{v:02X}")
+            i1, o1 = 0, Operand(addr, v, 0, f'>{v:02X}')
             i2, o2 = self.decode_imm(code, idx, symbols)
             return o1, o2
         elif instr_format == 15:  # HMOVE
             v = (byte & 0x1f) + 1
-            i1, o1 = 0, Operand(addr, v, 0, f">{v:02X}")
+            i1, o1 = 0, Operand(addr, v, 0, f'>{v:02X}')
             i2, o2 = self.decode_addr(code, idx, symbols)
             return o1, o2
         elif instr_format == 16:  # ROW+/COL+
             v = (byte & 0x1f) + 1
-            return Operand(addr, byte, 0, f">{v:02X}"),
+            return Operand(addr, byte, 0, f'>{v:02X}'),
         elif instr_format == 17:
             if fmt_level > 1:
                 # FOR ... FEND
-                return Operand(addr, 0, 2, ""),  # skip address of for
+                return Operand(addr, 0, 2, ''),  # skip address of for
             else:
                 # FMT ... FEND
                 return ()
         else:
-            raise XdgError("Unsupported instruction format " + str(instr_format))
+            raise XdgError('Unsupported instruction format ' + str(instr_format))
 
     def decode_addr(self, code, idx, symbols, move=None):
         """decode general address in operand"""
@@ -565,7 +565,7 @@ class Opcodes:
             # VDP register
             if move.vreg:
                 if not 0 <= byte <= 7:
-                    raise Invalid("VDP register too large")
+                    raise Invalid('VDP register too large')
                 return 1, Operand(addr, byte, 1, self.syntax.reg + str(byte))
             # GROM address variants are encodded by MOVE flags
             if move.grom:
@@ -573,26 +573,26 @@ class Opcodes:
                 s = symbols.resolve(data)
                 if move.indr:
                     # G* is an invention of Ryta Data
-                    raise Invalid("G* is not a valid address mode")
+                    raise Invalid('G* is not a valid address mode')
                 if move.indexed:
                     # indexed G@x(@y)
                     t = symbols.resolve(0x8300 + code[idx + 2].byte, d=False)
                     return 3, Operand(addr, byte, 3,
-                                      "{:s}@{:s}(@{:s})".format(self.syntax.grom, s, t))
+                                      '{:s}@{:s}(@{:s})'.format(self.syntax.grom, s, t))
                 # regular GROM address
                 return 2, Operand(addr, byte, 2,
-                                  "{:s}@{:s}".format(self.syntax.grom, s))
+                                  '{:s}@{:s}'.format(self.syntax.grom, s))
         # not MOVE
         if not (byte & 0x80):
             # direct addressing >8300->837F
             data = 0x8300 + byte
             s = symbols.resolve(data)
-            return 1, Operand(addr, byte, 1, "@" + s, dest=data)
+            return 1, Operand(addr, byte, 1, '@' + s, dest=data)
         is_idx = byte & 0x40  # indexed
         is_vdp = byte & 0x20  # VDP RAM (V)
         is_idr = byte & 0x10  # indirect (*)
-        v = self.syntax.vdp if is_vdp else ""
-        g = self.syntax.grom if move and move.grom else ""
+        v = self.syntax.vdp if is_vdp else ''
+        g = self.syntax.grom if move and move.grom else ''
         offset = 0x8300 if not is_vdp or is_idr else 0
         a = byte & 0x0f
         # direct addressing
@@ -600,40 +600,40 @@ class Opcodes:
             # 3 bytes
             data, size = (code[idx + 1].byte << 8) + code[idx + 2].byte, 3
             if not 0xeff <= data <= 0xffff:
-                raise Invalid("address encoding should use 2 bytes instead of 3 bytes")
+                raise Invalid('address encoding should use 2 bytes instead of 3 bytes')
         else:
             # 2 bytes
             data, size = (a << 8) + code[idx + 1].byte, 2
             if ((not is_vdp and not is_idr and not is_idx and not 0x80 <= data) or
                     (not data <= 0xeff)):
-                raise Invalid("address encoding should use 1 byte instead of 2 bytes")
+                raise Invalid('address encoding should use 1 byte instead of 2 bytes')
         s = symbols.resolve((data + offset) & 0xffff)
-        t = (v + g + ("*" if is_idr else "@") + s)
+        t = (v + g + ('*' if is_idr else '@') + s)
         # indexed addressing
         if is_idx:
             v = code[idx + size].byte
             s = symbols.resolve(0x8300 + v)
-            t += "(@" + (s if s[0] != '>' else f">{v:02X}") + ")"  # TODO: hack
+            t += '(@' + (s if s[0] != '>' else f'>{v:02X}') + ')'  # TODO: hack
             size += 1
         return size, Operand(addr, byte, size, t)
 
     def decode_imm(self, code, idx, symbols, d=False):
         """decode immediate value in operand"""
         v = (code[idx].byte << 8) + code[idx + 1].byte if d else code[idx].byte
-        t = symbols.resolve(v) if d else f">{v:02X}"
+        t = symbols.resolve(v) if d else f'>{v:02X}'
         s = 2 if d else 1
         return s, Operand(code[idx].addr, code[idx].byte, s, t, dest=v)
 
     def jumps(self, prog, instr):
         """return target address of branching and calling instructions"""
         assert instr.mnemonic in Opcodes.branches + Opcodes.calls
-        if instr.mnemonic in ("CASE", "DCASE"):
+        if instr.mnemonic in ('CASE', 'DCASE'):
             # find all BR instructions following (D)CASE statement
             idx = prog.addr2idx(instr.addr + 1 + instr.operands[0].size)
             fmt_level = 0
             for i in range(0, 512, 2):
                 br, fmt_level = self.decode(prog, idx + i, fmt_level)
-                if isinstance(br, Instruction) and br.mnemonic == "BR":
+                if isinstance(br, Instruction) and br.mnemonic == 'BR':
                     if not prog.register(idx + i, br):
                         break  # could not register BR instruction
                 else:
@@ -655,23 +655,23 @@ class Entry:
         self.origins = []  # addresses this entry was jumped at from
         self.indicator = indicator  # status indicator
 
-    def _list(self, as_prog, strict, mnemonic="", ops=""):
+    def _list(self, as_prog, strict, mnemonic='', ops=''):
         """pretty print current entry"""
         if self.origins:
-            text_origin = "; <- " + ", ".join([f">{o:04X}" for o in sorted(self.origins)])
+            text_origin = '; <- ' + ', '.join(f'>{o:04X}' for o in sorted(self.origins))
         else:
-            text_origin = ""
-        prog_fmt = "L{:04X}  {:5s} {:20s} {:s}"
-        list_fmt = "{:04X} {:02X}{}  {:5s} {:20s} {:s}"
+            text_origin = ''
+        prog_fmt = 'L{:04X}  {:5s} {:20s} {:s}'
+        list_fmt = '{:04X} {:02X}{}  {:5s} {:20s} {:s}'
         if not strict:
             prog_fmt = prog_fmt.lower()
             list_fmt = list_fmt.lower()
             mnemonic = mnemonic.lower()
             text_origin = text_origin.lower()
-            ops = ",".join([op if "'" in op else op.lower() for op in ops.split(",")])  # keeps spacing
+            ops = ','.join(op if "'" in op else op.lower() for op in ops.split(','))  # keeps spacing
         if as_prog:  # program format, can be re-assembled
             return prog_fmt.format(self.addr, mnemonic, ops, text_origin)
-        else:  # list format
+        else:  # listing format
             return list_fmt.format(self.addr, self.byte, self.indicator, mnemonic, ops, text_origin)
 
     def list(self, as_prog=False, strict=False, concise=False):
@@ -683,7 +683,7 @@ class Unknown(Entry):
     """unknown entry that has not been disassembled"""
 
     def __init__(self, addr, byte):
-        Entry.__init__(self, addr, byte, indicator="?")
+        Entry.__init__(self, addr, byte, indicator='?')
 
     def list(self, as_prog=False, strict=False, concise=False):
         return None if concise else self._list(as_prog, strict)
@@ -693,7 +693,7 @@ class Used(Entry):
     """entry that is part of an instruction"""
 
     def __init__(self, addr, byte, parent):
-        Entry.__init__(self, addr, byte, indicator=" ")
+        Entry.__init__(self, addr, byte, indicator=' ')
         self.parent = parent  # index of instruction
 
 
@@ -706,12 +706,12 @@ class Literal(Entry):
     def __init__(self, addr, byte, value):
         if isinstance(value, bytes):
             Entry.__init__(self, addr, byte, len(value))
-            self.mnemonic = "TEXT"
+            self.mnemonic = 'TEXT'
             self.value = escape(value)
         else:
             Entry.__init__(self, addr, byte, 1)
-            self.mnemonic = "BYTE"
-            self.value = f">{value:02X}"  # bytes are not resolved
+            self.mnemonic = 'BYTE'
+            self.value = f'>{value:02X}'  # bytes are not resolved
 
     def list(self, as_prog=False, strict=False, concise=False):
         """return textual representation of literal"""
@@ -721,12 +721,12 @@ class Literal(Entry):
 class Instruction(Entry):
     """an instruction"""
 
-    def __init__(self, prog, addr, byte, mnemonic, instr_format, ops, fmt_level, syntax, comment=""):
-        Entry.__init__(self, addr, byte, 1 + sum([op.size for op in ops]))
-        self.prog = prog  # surrounding program (list of entries)
+    def __init__(self, prog, addr, byte, mnemonic, instr_format, ops, fmt_level, syntax, comment=''):
+        Entry.__init__(self, addr, byte, 1 + sum(op.size for op in ops))
+        self.prog = prog  # surrounding program (listing of entries)
         self.mnemonic = mnemonic  # mnemonic of instruction
         self.instr_format = instr_format  # instruction format
-        self.operands = ops  # list of operands
+        self.operands = ops  # listing of operands
         self.comment = comment  # optional comment
         self.fmt_level = fmt_level  # current FMT level (0=normal, 1+=FMT mode)
         self.syntax = syntax  # syntax variant used
@@ -740,11 +740,11 @@ class Instruction(Entry):
             if op_format:
                 ops = op_format.format(*op_texts)
             else:
-                ops = ("," if strict else ", ").join(op_texts)
+                ops = (',' if strict else ', ').join(op_texts)
         except KeyError:
             # keep original
             mnemonic = self.mnemonic
-            ops = ("," if strict else ", ").join(op_texts)
+            ops = (',' if strict else ', ').join(op_texts)
         return Entry._list(self, as_prog, strict, mnemonic, ops)
 
 
@@ -766,10 +766,10 @@ class Program:
         self.binary = binary  # binary blob
         self.addr = addr  # initial address of binary
         self.symbols = symbols  # symbol table
-        self.code = [Unknown(addr + i, binary[i]) for i in range(len(binary))]  # list of entries
+        self.code = [Unknown(addr + i, binary[i]) for i in range(len(binary))]  # listing of entries
         self.size = len(self.code)  # index size of program
         self.end = self.addr + self.size  # final address of program
-        self.equ_text = ""
+        self.equ_text = ''
 
     def addr2idx(self, addr):
         """converts address to program index"""
@@ -787,7 +787,7 @@ class Program:
         if not force:
             for i in range(idx, idx + instr.size):
                 if not isinstance(self.code[i], Unknown):
-                    XdgLogger.warn("Would overwrite already disassembled index " + str(i))
+                    XdgLogger.warn('Would overwrite already disassembled index ' + str(i))
                     return False
         # persist instruction and mark bytes of operands as disassembled
         for i in range(idx + 1, idx + instr.size):
@@ -811,16 +811,16 @@ class Program:
         """pretty print entire program"""
         start_idx = self.addr2idx(start) if start else 0
         end_idx = self.addr2idx(end) if end else self.size
-        indent = " " * (7 if as_prog else 10)
-        orgs = (indent + "GROM >{:04X}\n".format(self.addr & 0xe000) +
-                indent + "AORG >{:04X}\n".format(self.addr & 0x1fff))
+        indent = ' ' * (7 if as_prog else 10)
+        orgs = (indent + 'GROM >{:04X}\n'.format(self.addr & 0xe000) +
+                indent + 'AORG >{:04X}\n'.format(self.addr & 0x1fff))
         org_text = orgs if strict else orgs.lower()
         equ_text = self.equ_text if strict else self.equ_text.lower()
         listing = [self.code[i].list(as_prog=as_prog, strict=strict, concise=concise)
                    for i in range(start_idx, end_idx)]
         if concise and not as_prog:  # no unknown parts in programs
             listing = self.condense(listing)
-        return org_text + equ_text + "\n".join(listing) + "\n"
+        return org_text + equ_text + '\n'.join(listing) + '\n'
 
     def condense(self, listing):
         i = 0
@@ -845,9 +845,9 @@ class BadSyntax:
 
     def list(self, as_prog=False, strict=False, concise=False):
         if as_prog:
-            error = "L{:04X}  BAD SYNTAX {:02X}".format(self.addr, self.byte)
+            error = 'L{:04X}  BAD SYNTAX {:02X}'.format(self.addr, self.byte)
         else:
-            error = "{:04X} {:02X}!  BAD SYNTAX".format(self.addr, self.byte)
+            error = '{:04X} {:02X}!  BAD SYNTAX'.format(self.addr, self.byte)
         return error if strict else error.lower()
 
 
@@ -876,7 +876,7 @@ class Disassembler:
         """run disassembler"""
         # check if address is valid
         if not prog.addr <= start < prog.end:
-            XdgLogger.warn(f"Cannot disassemble external context @>{start:04X}")
+            XdgLogger.warn(f'Cannot disassemble external context @>{start:04X}')
             return  # cannot disassemble external content
         start_idx = prog.addr2idx(start)
         end_idx = prog.addr2idx(end or prog.end)
@@ -930,8 +930,8 @@ class Disassembler:
         if prog.binary[0] == 0xaa and prog.addr == 0x6000:
             # autostart?
             if prog.binary[1] >= 0x80:
-                XdgLogger.info("auto-starting cart")
-                idx = 0x10 if prog.binary[16] != "\x00" else 0x13
+                XdgLogger.info('auto-starting cart')
+                idx = 0x10 if prog.binary[16] != '\x00' else 0x13
                 # do not start disassembly at >6010/>6013, as the run
                 # disassembler would also follow >6011/>6014, which is
                 # incorrect here
@@ -944,7 +944,7 @@ class Disassembler:
                     starts.append(ordw(prog.binary[menu + 2:menu + 4]))
                     menu = ordw(prog.binary[menu:menu + 2])
             except ValueError:
-                XdgLogger.warn("Bad cartridge menu structure")
+                XdgLogger.warn('Bad cartridge menu structure')
             return starts
         else:
             # unknown binary
@@ -965,7 +965,7 @@ class Disassembler:
             # found Unknown chunk (might be empty)
             chunk = prog.binary[start_idx:i]
             # search for text literal of at least size 6 in Unknown chunk
-            m = re.search(rb"[A-Za-z0-9 ,.:?!()\-]{%d,}" % min_len, chunk)
+            m = re.search(rb'[A-Za-z0-9 ,.:?!()\-]{%d,}' % min_len, chunk)
             if m:
                 # replace Unknowns by Literal
                 prog_idx = start_idx + m.start(0)
@@ -981,7 +981,7 @@ class Disassembler:
             if isinstance(instr, Unknown):
                 prog.register(idx, Literal(instr.addr, instr.byte, instr.byte))
         # add symbol EQUs, if needed
-        prog.equ_text += "".join([f"{s:8s} EQU  >{v:04X}\n" for s, v in prog.symbols.get_used()])
+        prog.equ_text += ''.join(f'{s:8s} EQU  >{v:04X}\n' for s, v in prog.symbols.get_used())
 
     def toggle(self, prog, addr):
         """disassemle/undo at given index (unused)"""
@@ -1000,48 +1000,47 @@ def main():
     import argparse
 
     args = argparse.ArgumentParser(
-        description="GPL disassembler, v" + VERSION,
+        description='GPL disassembler, v' + VERSION,
         epilog="All addresses are hex values and may by prefixed optionally by '>' or '0x'.")
-    args.add_argument("source", metavar="<source>",
-                      help="GPL binary code")
+    args.add_argument('source', metavar='<source>',
+                      help='GPL binary code')
     cmd = args.add_mutually_exclusive_group(required=True)
-    cmd.add_argument("-r", "--run", metavar="<addr>", dest="runs", nargs="+",
+    cmd.add_argument('-r', '--run', metavar='<addr>', dest='runs', nargs='+',
                       help="disassemble running from addresses, or 'start'")
-    cmd.add_argument("-f", "--from", metavar="<addr>", dest="frm",
+    cmd.add_argument('-f', '--from', metavar='<addr>', dest='frm',
                       help="disassemble top-down from address or 'start'")
-    args.add_argument("-a", "--address", metavar="<addr>", dest="addr",
-                      help="GROM address of first byte")
-    args.add_argument("-t", "--to", metavar="<addr>", dest="to",
-                      help="disassemble to address (default: end)")
-    args.add_argument("-e", "--exclude", metavar="<addr>-<addr>", dest="exclude", nargs="+",
-                      help="exclude address ranges")
-    args.add_argument("-k", "--skip", metavar="<bytes>", dest="skip",
-                      help="skip bytes at beginning of file")
-    args.add_argument("-F", "--force", action="store_true", dest="force",
-                      help="force overwriting of previous disassembly")
-    args.add_argument("-p", "--program", action="store_true", dest="program",
-                      help="disassemble to complete program")
-    args.add_argument("-c", "--concise", action="store_true", dest="concise",
-                      help="show only disassembled parts")
-    args.add_argument("-n", "--strings", action="store_true", dest="strings",
-                      help="disassemble string literals")
-    args.add_argument("-s", "--strict", action="store_true", dest="strict",
-                      help="use strict legacy syntax")
-    args.add_argument("-y", "--syntax", dest="syntax",
-                      help="syntax variant to use")
-    args.add_argument("-S", "--symbols", dest="symfiles", nargs="+",
-                      help="known symbols files")
-    args.add_argument("-V", "--verbose", action="store_true", dest="verbose",
-                      help="verbose messages")
-    args.add_argument("-o", "--output", dest="outfile",
-                      help="output filename")
+    args.add_argument('-a', '--address', metavar='<addr>', dest='addr',
+                      help='GROM address of first byte')
+    args.add_argument('-t', '--to', metavar='<addr>', dest='to',
+                      help='disassemble to address (default: end)')
+    args.add_argument('-e', '--exclude', metavar='<addr>-<addr>', dest='exclude', nargs='+',
+                      help='exclude address ranges')
+    args.add_argument('-k', '--skip', metavar='<bytes>', dest='skip',
+                      help='skip bytes at beginning of file')
+    args.add_argument('-F', '--force', action='store_true', dest='force',
+                      help='force overwriting of previous disassembly')
+    args.add_argument('-p', '--program', action='store_true', dest='program',
+                      help='disassemble to complete program')
+    args.add_argument('-c', '--concise', action='store_true', dest='concise',
+                      help='show only disassembled parts')
+    args.add_argument('-n', '--strings', action='store_true', dest='strings',
+                      help='disassemble string literals')
+    args.add_argument('-s', '--strict', action='store_true', dest='strict',
+                      help='use strict legacy syntax')
+    args.add_argument('-y', '--syntax', metavar='<syntax>', dest='syntax',
+                      help='syntax variant to use')
+    args.add_argument('-S', '--symbols', metavar='<file>', dest='symfiles', nargs='+',
+                      help='known symbols files')
+    args.add_argument('-V', '--verbose', action='store_true', dest='verbose',
+                      help='verbose messages')
+    args.add_argument('-o', '--output', metavar='<file>', dest='outfile',
+                      help='output filename')
     opts = args.parse_args()
 
     # setup
-    dirname = os.path.dirname(opts.source) or "."
     basename = os.path.basename(opts.source)
     barename = os.path.splitext(basename)[0]
-    output = opts.outfile or barename + ".dis"
+    output = opts.outfile or barename + '.dis'
 
     if opts.verbose:
         XdgLogger.set_level(1)
@@ -1053,42 +1052,42 @@ def main():
 
         symbols = Symbols(symfiles=opts.symfiles)
         prog = Program(binary, start_addr, symbols=symbols)
-        syntax = Syntax.get(opts.syntax or "xdt99")
+        syntax = Syntax.get(opts.syntax or 'xdt99')
         excludes = [addr_range(e, prog) for e in (opts.exclude or ())]
         dis = Disassembler(syntax, excludes)
 
         if opts.frm:
             # top-down disassembler: uses specified start address -f
-            XdgLogger.info("top-down disassembly")
-            addr_from = min(dis.get_starts(prog)) if opts.frm.lower() == "start" else xhex(opts.frm)
+            XdgLogger.info('top-down disassembly')
+            addr_from = min(dis.get_starts(prog)) if opts.frm.lower() == 'start' else xhex(opts.frm)
             dis.disassemble(prog, addr_from, end_addr)
         else:
             # run disassembler: uses specified run addresses -r
-            XdgLogger.info("run trace disassembly")
-            runs = [xhex(r) for r in (opts.runs or []) if r.lower() != "start"]
-            auto_run = any([r.lower() == "start" for r in (opts.runs or [])])
+            XdgLogger.info('run trace disassembly')
+            runs = [xhex(r) for r in (opts.runs or []) if r.lower() != 'start']
+            auto_run = any(r.lower() == 'start' for r in (opts.runs or []))
             if auto_run:
                 runs += dis.get_starts(prog)
             for run in runs:
                 dis.run(prog, run, end_addr, force=opts.force)
         if opts.strings:
-            XdgLogger.info("extractign strings")
+            XdgLogger.info('extractign strings')
             dis.find_strings(prog)
         if opts.program:
-            XdgLogger.info("finalizing into complete program")
+            XdgLogger.info('finalizing into complete program')
             dis.program(prog)
     except XdgError as e:
-        sys.exit(f"Error: {str(e):s}")
+        sys.exit(f'Error: {str(e):s}')
     except IOError as e:
-        sys.exit(f"{e.filename:s}: {e.strerror:s}.")
+        sys.exit(f'{e.filename:s}: {e.strerror:s}.')
     try:
         source = prog.list(as_prog=opts.program or False, strict=opts.strict, concise=opts.concise)
-        writelines(output, source, "w")
+        writelines(output, source, 'w')
     except IOError as e:
-        sys.exit(f"{e.filename:s}: {e.strerror:s}.")
+        sys.exit(f'{e.filename:s}: {e.strerror:s}.')
     return 0
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     status = main()
     sys.exit(status)

@@ -1,0 +1,23 @@
+* DORG (TI)
+
+    RORG >1000
+LA  DATA -1
+
+LB  EQU  >A000
+LC  EQU  LB+5
+LD  EQU  LA+>A
+LE  EQU  LD+2
+
+    DATA LA
+    DATA LB
+    DATA LC
+    DATA LE
+
+    RORG
+    DATA -1
+    DATA LB
+    DATA LC
+    DATA LD
+    DATA LE
+
+    END

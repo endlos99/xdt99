@@ -1,5 +1,6 @@
 * write VDP register
 
+       def  vwtr
        ref  vdpwa
 
        even

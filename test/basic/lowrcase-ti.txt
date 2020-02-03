@@ -1,0 +1,24 @@
+! LOWER CASE
+
+A=1 :: B=2 :: CDEF=3
+!D=1E1 (PARSED AS "1 E1")
+
+IF A THEN 100 ELSE 200
+
+PRINT A,B,"Hello"
+GOTO 100 :: GO SUB 200
+
+REM HELLO WORLD IF THEN ELSE
+
+DATA A,B,Hello,"World"
+
+IMAGE Hello World ##
+IMAGE "Hello World ##"
+
+CALL FOO(#A,B)
+
+SUB FOO :: ENDSUB
+
+DEF FOO(X)=X*X
+
+END

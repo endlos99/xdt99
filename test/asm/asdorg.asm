@@ -1,0 +1,25 @@
+* DORG
+
+    RORG >1000
+LA  DATA -1
+    DATA LA
+    DATA LB
+    DATA LC
+    DATA LE
+
+LB  DORG >A000
+    DATA 0
+LC  BES  3
+
+LD  RORG
+    DATA -1
+    DATA LB
+    DATA LC
+    DATA LD
+    DATA LE
+
+    DORG LD
+    DATA 0
+LE
+
+    END

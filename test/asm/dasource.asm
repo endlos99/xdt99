@@ -30,10 +30,10 @@ text_lines:
        
        data >aa01
        data >0000
-       data >0000             ; power-up list
-       data menu              ; program list
-       data >0000             ; DSR list
-       data >0000             ; subprogram list
+       data >0000             ; power-up listing
+       data menu              ; program listing
+       data >0000             ; DSR listing
+       data >0000             ; subprogram listing
        data 0
        data 0
 

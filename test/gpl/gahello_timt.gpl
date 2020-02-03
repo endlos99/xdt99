@@ -1,0 +1,118 @@
+* HELLO GPL WORLD!
+
+speed    equ >80
+
+iterp    equ >8300
+iterc    equ >8302
+sndlst   equ >8308
+counter  equ >8310
+
+* rainbow data
+
+pattern  text >ffffffffffffffff
+         text >0000000000000000
+         text >ffffffffffffffff
+
+colors   text >34466aaddcc55ee3
+         text >34466aaddcc55ee3
+
+* sprites
+
+sprreg   byte >63
+spratt   text >3800800f, >30008401
+         text >8700800f, >82008401
+         text >d0
+sprpat   text >0c12120c02020c00
+         text >0000000000000000
+         text >3048483008083000
+         text >0000000000000000
+         text >8b8a5222528a8b00
+         text >0000000000000000
+         text >9f44444444448400
+         text >0000000000000000
+sprmot   text >0008000000080000
+         text >00f8000000f80000
+
+* tone
+
+tunes    byte >03, >96, >8b, >1a, >20  * 261.626
+         byte >02, >83, >15, >20       * 329.628
+         byte >02, >8d, >11, >20       * 391.995
+         byte >02, >85, >0d, >40       * 523.251
+         byte >01, >9f, >ff
+         byte >00
+         data tunes
+
+* main  program
+
+start   all   >20
+        back  >00
+
+screen  fmt
+        row 12
+        col 8
+        printh "HELLO GPL WORLD!"
+        row 5
+        col 0
+        printh 32 times >80
+        printh 32 times >88
+        printh 32 times >90
+        printh 32 times >98
+        printh 32 times >a0
+        row 15
+        printh 32 times >80
+        printh 32 times >88
+        printh 32 times >90
+        printh 32 times >98
+        printh 32 times >a0
+        end
+
+sprite  move  >0001 bytes from grom@sprreg to vreg>01
+        move  >0011 bytes from grom@spratt to vdp@>0300
+        move  >0040 bytes from grom@sprpat to vdp@>0400
+        move  >0010 bytes from grom@sprmot to vdp@>0780
+        st    4,@>837a
+
+sound   dst   tunes,@sndlst
+        i/o   0,@sndlst
+
+* animation
+
+        dclr  @>8302
+        dclr  @>8300
+
+anim    dst   '00',vdp@30
+        add   @iterc+1,vdp@30
+        add   @iterp+1,vdp@31
+
+        move  >0008 bytes from grom@pattern(@iterp) to vdp@>c00
+        move  >0008 bytes from grom@pattern(@iterp) to vdp@>c40
+        move  >0008 bytes from grom@pattern(@iterp) to vdp@>c80
+        move  >0008 bytes from grom@pattern(@iterp) to vdp@>cc0
+        move  >0008 bytes from grom@pattern(@iterp) to vdp@>d00
+
+        move  >0008 bytes from grom@colors(@iterc) to vdp@>390
+        call  delay
+
+        dinc  @iterp
+        dcgt  8,@iterp
+        br    anim
+
+        dclr  @iterp
+        dinc  @iterc
+        dcgt  7,@iterc
+        br    anim
+        dclr  @iterc
+
+        b     anim
+
+* delay
+
+delay   st    speed,@counter
+loop    scan
+        bs    done
+        dec   @counter
+        br    loop
+        rtn
+
+done    exit

@@ -1,5 +1,6 @@
 * VDP multi-byte write, where length can be zero
 
+       def  vmbw
        ref  vdpwa, vdpwd
 
        even

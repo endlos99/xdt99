@@ -13,7 +13,7 @@ def writesrc():
         shutil.copyfile(Disks.blankDD, Disks.asmsrcs)
     # create source files
     for name in [
-            "ASHELLO", "ASDIRS", "ASBSS", "ASORGS", "ASOPCS", "ASEXPRS",
+            "ASHELLON", "ASDIRS", "ASBSS", "ASORGS", "ASOPCS", "ASEXPRS",
             "ASREGS", "ASSIZE1", "ASSIZE2", "ASSIZE3", "ASSIZE4",
             "ASCOPY", "ASCOPY1", "ASCOPY2", "ASCOPY3", "ASCOPY4",
             "ASCOPYN-TI", "ASIMG1", "ASIMG2", "ASIMG3", "ASTISYM",

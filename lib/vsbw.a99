@@ -1,5 +1,6 @@
 * VDP single-byte write
 
+       def  vsbw
        ref  vdpwa, vdpwd
 
        even

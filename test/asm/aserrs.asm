@@ -5,11 +5,14 @@
 
         DEF Q
         DEF E
-        DEF E                 * MULTIPLE SYMBOLS ERROR
+*       DEF E                 * XAS99 OK, E/A ERR
         REF QREF
         
 E       EQU >1
 X       DATA >FFFF
+
+        DEF Q+1               * invalid
+        REF Q-1               * invalid
 
 * SYNTAX ERRORS
 
@@ -104,7 +107,7 @@ V1      DATA 0
 
 E2      EQU Z                 * BAD FWD REFERENCE ERROR
 E3      EQU QREF              * INVALID REF ERROR
-*       EQU 1                 * SYNTAX ERROR (X)
+        EQU 1                 * SYNTAX ERROR
 E4      EQU
 *                             ^ SYNTAX ERROR
 
@@ -168,6 +171,13 @@ E22     EQU *2                * SYNTAX ERROR
 
         JMP R*2               * SYNTAX ERROR
 
+* ARG COUNT
+
+        MOV  1,2,3
+        SETO 1,2
+*       RTWP 1                * SEE ASXERRS
+*       NOP  1                * SEE ASXERRS
+
 * REFERENCE ADDRESSES
 
 R0      RORG
@@ -177,8 +187,7 @@ A0      AORG >1000
 A       DATA >3333
 AA      DATA >4444
 RZ      RORG
-
-* END
+        DORG                  * KEEP AT END
         
 Z       END
 

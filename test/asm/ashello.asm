@@ -3,7 +3,6 @@
        IDT 'ASHELLO'
 
        DEF SLOAD,SFIRST,SLAST,START
-       REF VSBW,VMBW,VWTR
        REF KSCAN
 
 SLOAD
@@ -27,7 +26,7 @@ START  LIMI 0
        LI   R1,'* '
        LI   R2,24*32
 
-CLS    BLWP @VSBW
+CLS    BL   @VSBW
        INC  R0
        DEC  R2
        JNE  CLS
@@ -37,7 +36,7 @@ CLS    BLWP @VSBW
        LI   R0,2*32+3
        LI   R1,MESSG
        LI   R2,MESSGL
-       BLWP @VMBW       
+       BL   @VMBW
 
 * CHECK KEY PRESSES
 
@@ -48,7 +47,7 @@ NEXT   LIMI 2
        LIMI 0
        MOVB R9,@GPLST
 KEYSC  MOVB R9,@KMODE
-       BLWP @KSCAN
+       BL   @KSCAN
        CB   @KCODE,R8
        JEQ  KEYSC
 
@@ -56,8 +55,12 @@ KEYSC  MOVB R9,@KMODE
        SRL  R0,8
        ANDI R0,>000F
        ORI  R0,>0700
-       BLWP @VWTR
+       BL   @VWTR
 
        JMP  NEXT
+
+       COPY "vsbw.a99"
+       COPY "vmbw.a99"
+       COPY "vwtr.a99"
 
 SLAST  END

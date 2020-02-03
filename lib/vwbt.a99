@@ -1,5 +1,6 @@
 * VDP write byte text: write hex value of r1 (MSB) to r0
 
+       def  vwbt
        ref  vdpwa, vdpwd
 
        even

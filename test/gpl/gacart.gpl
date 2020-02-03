@@ -1,7 +1,17 @@
 * RPK EXAMPLE
 
 *       GROM >6000
-*       AORG >0030
+*       AORG >0000
+
+        DATA >AA01
+        DATA 0,0
+        DATA MENU
+        DATA 0,0,0,0
+
+MENU    DATA 0
+        DATA START
+        BYTE 6
+        TEXT 'GACART'
 
 START   ALL 32
         BACK 4

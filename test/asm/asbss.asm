@@ -20,12 +20,12 @@ L1      NOP
 A1      DATA >FFF0
 A2      BSS 1
 A3      DATA >1111
-A4      BSS 0
+A4
 A5      DATA >2222
 A6      BES 1
-A7      BSS 0
+A7
 A8      BSS 2
-A9      BES 0
+A9
 A10     DATA >3333
 
 AX      DATA A1,A2,A3,A4,A5

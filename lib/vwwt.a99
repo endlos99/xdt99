@@ -1,5 +1,6 @@
 * VDP write word text: write hex value of r1 to r0
 
+       def  vwwt
        ref  vdpwa, vdpwd
 
        even

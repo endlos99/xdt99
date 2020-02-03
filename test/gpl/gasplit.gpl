@@ -1,0 +1,25 @@
+* split groms
+
+   grom 3
+   aorg >10
+
+   byte 3, 3, 3
+   bss 100
+   byte 3
+
+
+   grom 4
+   aorg >20
+ 
+   byte 4, 4, 4, 4
+   bss 10
+   byte 4, 4
+
+
+   grom 5
+   aorg 0
+
+   byte 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5
+
+
+   end

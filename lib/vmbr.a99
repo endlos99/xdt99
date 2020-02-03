@@ -1,5 +1,6 @@
 * VDP multi-byte read, where length can be zero
 
+       def  vmbr
        ref  vdpwa, vdprd
 
        even
