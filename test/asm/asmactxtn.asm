@@ -4,6 +4,6 @@
     s    r2, r0
     bl   @vmbw
 
-    copy "vmbw.a99"
+    copy "vmbw.asm"
 
     end

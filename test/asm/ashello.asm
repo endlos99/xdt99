@@ -59,8 +59,8 @@ KEYSC  MOVB R9,@KMODE
 
        JMP  NEXT
 
-       COPY "vsbw.a99"
-       COPY "vmbw.a99"
-       COPY "vwtr.a99"
+       COPY "vsbw.asm"
+       COPY "vmbw.asm"
+       COPY "vwtr.asm"
 
 SLAST  END
