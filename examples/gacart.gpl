@@ -1,0 +1,119 @@
+* RPK EXAMPLE
+
+*       GROM >6000
+*       AORG >0000
+
+        DATA >AA01
+        DATA 0,0
+        DATA MENU
+        DATA 0,0,0,0
+
+MENU    DATA 0
+        DATA START
+        BYTE 6
+        TEXT 'GACART'
+
+START   ALL 32
+        BACK 4
+
+* DIRECT STORE
+
+        ST 'H',V@33
+        ST 'W',V@39
+
+* DIRECT MOVE
+
+        MOVE 5,G@T1,V@64+33
+        MOVE 5,G@T1+5,V@64+33+6
+        MOVE 5,V@64+33+6,V@64+33+13
+        MOVE 5,G@T1,V@64+33+13+6
+
+* INDIRECT MOVE
+
+        DST 128+33,@>8390
+        MOVE 10,G@T1,V*>8390
+
+* INDEXED MOVE
+
+        DST 5,@>8310
+        MOVE 5,G@T1(@>8310),V@192+33
+        MOVE 5,G@T1,V@192+33(@>8310)
+
+* NON-IMM LENGTH
+
+        DST 5,V@>1000
+        ST 'H',V@256+33
+        MOVE V@>1000,G@T1+5,V@256+33+5
+
+* FMT
+
+FMT     MOVE 5,G@T1,@>8305
+        MOVE 5,G@T1+5,@>8385
+        FMT
+        ROW 12
+        FOR 3
+        COL 1
+        HTEXT 'HELLO'
+        ROW+ 1
+        FEND
+        ROW 12
+        COL+ 1
+        VTEXT 'XDT'
+        COL 10
+        ROW 12
+        HMOVE 5,@>8305
+        COL 10
+        ROW+ 2
+        HMOVE 5,@>8385
+        FEND
+
+        DST 20,@>8304
+        FMT
+        BIAS 4
+        ROW 1
+        FOR 5
+        ROW+ 1
+FL      ROW+ 1
+        COL 27
+        HTEXT '&'  * '&' + 4 = '*'
+        FEND FL
+        FEND
+
+* SPRITES
+
+SPRT    MOVE 1,G@SPRREG,#1
+        MOVE 9,G@SPRATT,V@>300
+        MOVE 64,G@SPRPAT,V@>400
+        MOVE 8,G@SPRMOT,V@>780
+        ST 2,@>837A
+
+* DONE
+
+LOOP    DEC @>8300
+        BR SCAN
+        RAND 16
+*       MOVE 1,@>8378,#7
+        ST @>8378,V@>307
+SCAN    SCAN
+        BR   LOOP
+        EXIT
+
+* DISPLAY DATA
+
+T1      TEXT 'HELLOWORLD'
+
+SPRREG  BYTE >62
+SPRATT  TEXT >00E88004
+        TEXT >04E88400
+        TEXT >D0
+SPRPAT  TEXT >8B8A5222528A8B00
+        TEXT >0000000000000000
+        TEXT >9F44444444448400
+        TEXT >0000000000000000
+        TEXT >0C12120C02020C00
+        TEXT >0000000000000000
+        TEXT >3048483008083000
+        TEXT >0000000000000000
+SPRMOT  TEXT >0800000008000000
+
+        END

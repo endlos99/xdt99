@@ -1,9 +1,9 @@
 xdt99 Editor Support
 ====================
 
-The `ide` folder provides plugins for various editors and integrated development
-environments (IDEs) that assist developers writing programs for the TI 99 home
-computer.
+The `ide/` folder provides plugins for various editors and integrated
+development environments (IDEs) that assist developers writing programs for the
+TI 99 home computer.
 
 Currently, xdt99 supports the following development environments:
 
@@ -17,7 +17,7 @@ precompiled binary `emacs-<version>-bin-i686-pc-mingw.zip` from the
 [GNU server][4].
 
 Picking an editor is very much a matter of personal taste.  For new users with
-no prior experience with either project we recommend IntelliJ IDEA.
+no prior experience with either project, we recommend IntelliJ IDEA.
 
 
 GNU Emacs
@@ -305,12 +305,11 @@ Types tab.
 Contact Information
 -------------------
 
-The xdt99 Editor Support is part of the [TI 99 Cross-Development Tools][1].  The
-tools are released under the GNU GPL, in the hope that TI 99 enthusiasts may
-find them useful.
+The xdt99 tools are released under the GNU GPL, in the hope that fellow TI 99
+enthusiasts may find them useful.
 
-Please email feedback and bug reports to the developer at <xdt99dev@gmail.com>
-or use the issue tracker on the project [GitHub page][2].
+Please email bug reports and feature requests to the developer at <r@0x01.de>,
+or use the issue tracker of the [project][2].
 
 
 [1]: http://endlos99.github.io/xdt99
