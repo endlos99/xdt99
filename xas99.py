@@ -2479,9 +2479,9 @@ class Linker(object):
             b'\x34\x38\xb6\x82\x9d\xc8\x04\x4c\x49\x4e\x4b\xb7\xc7\x05\x58' +
             b'\x59\x5a\x5a\x59\xb6'
             )
-        self.offsets = {0: 0, 1: first_addr}  # rebase segments on first_addr
-        binaries = self.generate_binaries()
-        _, _, _, payload = binaries[0]
+        # build binary, relocated at first_addr
+        self.offsets = {0: first_addr}  # rebase segments on first_addr
+        _, _, _, payload = self.generate_binaries()[0]  # returns only one element
         token_table = (bytes((len(loader) + 1,)) + loader + bytes(256 - size + 1) + payload + b'\x04\x60' +
                        chrw(first_addr))
         token_tab_addr = last_addr - len(token_table)
@@ -2489,6 +2489,7 @@ class Linker(object):
         lino_table = b'\x00\x01' + chrw(token_tab_addr + 1)
         checksum = (token_tab_addr - 1) ^ lino_tab_addr
         header = (b'\xab\xcd' + chrw(lino_tab_addr) + chrw(token_tab_addr - 1) + chrw(checksum) + chrw(last_addr - 1))
+        # convert data into INT/VAR 254 records
         chunks = [(lino_table + token_table)[i:i + 254]
                   for i in range(0, len(lino_table + token_table), 254)]
         return bytes((len(header),)) + header + b''.join(bytes((len(c),)) + c for c in chunks)

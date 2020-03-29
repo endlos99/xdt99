@@ -53,14 +53,6 @@ def escape(bytes_):
     return "'" + ''.join(chr(b) if 32 <= b < 127 else '.' for b in bytes_) + "'"
 
 
-def addr_range(text, prog):
-    try:
-        start, stop = text.split('-')
-    except ValueError:
-        raise XdaError('Bad range specifier: ' + text)
-    return prog.addr2idx(xhex(start)), prog.addr2idx(xhex(stop))
-
-
 def readbin(name, mode='rb'):
     """read lines from file or STDIN"""
     if name == '-':
@@ -599,6 +591,14 @@ class Program(object):
         """converts code index to addr"""
         return self.addr + idx * 2
 
+    def addr_range(self, text):
+        """convert address range in index range"""
+        try:
+            start, stop = text.split('-')
+        except ValueError:
+            raise XdaError('Bad range specifier: ' + text)
+        return self.addr2idx(xhex(start)), self.addr2idx(xhex(stop))
+
     def register(self, idx, instr, force=False):
         """register disassembled instruction in program"""
         assert idx == self.addr2idx(instr.addr)  # consistency
@@ -676,9 +676,20 @@ class Disassembler(object):
         self.opcodes = Opcodes(no_r, tms9995=tms9995, f18a=f18a)
         self.excludes = excludes
 
+    def is_excluded(self, addr):
+        """is addr in any excluded range?"""
+        for excl_from, excl_to in self.excludes:
+            if excl_from <= addr < excl_to:
+                return excl_from, excl_to
+        return None
+
     def decode(self, program, idx, idx_to):
         """decode instructions in range"""
         while 0 <= idx < idx_to:
+            excluded_range = self.is_excluded(idx)
+            if excluded_range is not None:
+                _, next_addr = excluded_range
+                idx = next_addr + next_addr % 2  # round up to next even
             instr = self.opcodes.decode(program, idx)
             success = program.register(idx, instr)
             assert success  # top-down should not have conflicts
@@ -859,7 +870,7 @@ def main():
 
         symbols = Symbols(opts.symfiles)
         program = Program(binary, addr, symbols=symbols)
-        excludes = [addr_range(e, program) for e in (opts.exclude or ())]
+        excludes = [program.addr_range(e) for e in (opts.exclude or ())]
         disasm = Disassembler(excludes, no_r=opts.nor, tms9995=opts.dis_9995, f18a=opts.dis_f18a)
 
         if opts.frm:

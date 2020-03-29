@@ -53,14 +53,6 @@ def escape(bytes_):
     return "'" + ''.join(chr(b) if 32 <= b < 127 else '.' for b in bytes_) + "'"
 
 
-def addr_range(s, prog):
-    try:
-        start, stop = s.split('-')
-    except ValueError:
-        raise XdgError('Bad range specifier: ' + s)
-    return prog.addr2idx(xhex(start)), prog.addr2idx(xhex(stop))
-
-
 def readbin(name, mode='rb'):
     """read lines from file or STDIN"""
     if name == '-':
@@ -779,6 +771,14 @@ class Program:
         """converts program index to address"""
         return self.addr + idx
 
+    def addr_range(self, text):
+        """convert address range in index range"""
+        try:
+            start, stop = text.split('-')
+        except ValueError:
+            raise XdgError('Bad range specifier: ' + text)
+        return self.addr2idx(xhex(start)), self.addr2idx(xhex(stop))
+
     def register(self, idx, instr, force=False):
         """register disassembled instruction in program"""
         assert idx == self.addr2idx(instr.addr)  # consistency
@@ -1051,37 +1051,37 @@ def main():
         end_addr = xhex(opts.to)
 
         symbols = Symbols(symfiles=opts.symfiles)
-        prog = Program(binary, start_addr, symbols=symbols)
+        program = Program(binary, start_addr, symbols=symbols)
         syntax = Syntax.get(opts.syntax or 'xdt99')
-        excludes = [addr_range(e, prog) for e in (opts.exclude or ())]
+        excludes = [program.addr_range(e) for e in (opts.exclude or ())]
         dis = Disassembler(syntax, excludes)
 
         if opts.frm:
             # top-down disassembler: uses specified start address -f
             XdgLogger.info('top-down disassembly')
-            addr_from = min(dis.get_starts(prog)) if opts.frm.lower() == 'start' else xhex(opts.frm)
-            dis.disassemble(prog, addr_from, end_addr)
+            addr_from = min(dis.get_starts(program)) if opts.frm.lower() == 'start' else xhex(opts.frm)
+            dis.disassemble(program, addr_from, end_addr)
         else:
             # run disassembler: uses specified run addresses -r
             XdgLogger.info('run trace disassembly')
             runs = [xhex(r) for r in (opts.runs or []) if r.lower() != 'start']
             auto_run = any(r.lower() == 'start' for r in (opts.runs or []))
             if auto_run:
-                runs += dis.get_starts(prog)
+                runs += dis.get_starts(program)
             for run in runs:
-                dis.run(prog, run, end_addr, force=opts.force)
+                dis.run(program, run, end_addr, force=opts.force)
         if opts.strings:
-            XdgLogger.info('extractign strings')
-            dis.find_strings(prog)
+            XdgLogger.info('extracting strings')
+            dis.find_strings(program)
         if opts.program:
             XdgLogger.info('finalizing into complete program')
-            dis.program(prog)
+            dis.program(program)
     except XdgError as e:
         sys.exit(f'Error: {str(e):s}')
     except IOError as e:
         sys.exit(f'{e.filename:s}: {e.strerror:s}.')
     try:
-        source = prog.list(as_prog=opts.program or False, strict=opts.strict, concise=opts.concise)
+        source = program.list(as_prog=opts.program or False, strict=opts.strict, concise=opts.concise)
         writelines(output, source, 'w')
     except IOError as e:
         sys.exit(f'{e.filename:s}: {e.strerror:s}.')
