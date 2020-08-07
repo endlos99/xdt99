@@ -2665,6 +2665,8 @@ def main():
                      help='create program image (E/A option 5)')
     cmd.add_argument('-c', '--cart', action='store_true', dest='cart',
                      help='create MESS cart image')
+    cmd.add_argument('-B', '--bincart', action='store_true', dest='bincart',
+                     help='create binary cart image with zero-padded banks')
     cmd.add_argument('-t', '--text', dest='text', nargs='?', metavar='<format>',
                      help='create text file with binary values')
     cmd.add_argument('--embed-xb', action='store_true', dest='embed',
@@ -2714,7 +2716,7 @@ def main():
     errors = False
     target = ('image' if opts.image else
               'cart' if opts.cart else
-              'bin' if opts.bin else
+              'bin' if opts.bin or opts.bincart else
               'xb' if opts.embed else
               'obj')
 
@@ -2798,6 +2800,15 @@ def main():
                 else:
                     name = barename + addr_tag + bank_tag + '.dat'
                 out.append((name, text, 'w'))
+        elif opts.bincart:
+            banksize = program.saves[0][1] - program.saves[0][0]
+            binaries = linker.generate_binaries()
+            image = bytes()
+            for bank, save, addr, data in binaries:
+                print(f"Bank {bank}: {len(data)} bytes")
+                image += data + bytes([0] * (banksize - len(data)))
+            name = opts.output or barename + '.bin'
+            out.append((name, image, 'wb'))
         elif opts.cart:
             data, layout, metainf = linker.generate_cartridge(name)
             output = opts.output or barename + '.rpk'
