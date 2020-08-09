@@ -2496,25 +2496,29 @@ class Linker(object):
 
     def generate_cartridge(self, name):
         """generate RPK file for use as MESS rom cartridge"""
-        if self.bank_count > 1:
-            raise AsmError('Cannot create banked cartridge with -c')
-        send = self.program.entry or Address(0x6030)
-        entry = send.addr + 0x6030 if send.reloc else send.addr
-        gpl_header = bytes((0xaa, 0x01, 0x00, 0x00, 0x00, 0x00, 0x60, 0x10)) + bytes(8)
-        try:
-            program_info = chrw(0) + chrw(entry) + bytes((len(name),)) + name.encode()
-        except UnicodeEncodeError:
-            raise AsmError(f'Bad program name "{name}"')
-        padding = bytes(27 - len(name))
         binaries = self.generate_binaries()
-        _, _, _, data = binaries[0]
+        if self.bank_count > 1 or binaries[0][2] >= 0xa000:
+            image = self.generate_banked_cartridge(name, binaries)
+            pcb = 'paged378'
+        else:
+            send = self.program.entry or Address(0x6030)
+            entry = send.addr + 0x6030 if send.reloc else send.addr
+            gpl_header = bytes((0xaa, 0x01, 0x00, 0x00, 0x00, 0x00, 0x60, 0x10)) + bytes(8)
+            try:
+                program_info = chrw(0) + chrw(entry) + bytes((len(name),)) + name.encode()
+            except UnicodeEncodeError:
+                raise AsmError(f'Bad program name "{name}"')
+            padding = bytes(27 - len(name))
+            _, _, _, data = binaries[0]
+            image = gpl_header + program_info + padding + data
+            pcb = 'standard'
         layout = f"""<?xml version='1.0' encoding='utf-8'?>
                     <romset version='1.0'>
                         <resources>
                             <rom id='romimage' file='{name:s}.bin'/>
                         </resources>
                         <configuration>
-                            <pcb type='standard'>
+                            <pcb type='{pcb:s}'>
                                 <socket id='rom_socket' uses='romimage'/>
                             </pcb>
                         </configuration>
@@ -2523,8 +2527,75 @@ class Linker(object):
                      <meta-inf>
                          <name>{name:s}</name>
                      </meta-inf>"""
-        return gpl_header + program_info + padding + data, layout, metainf
+        return image, layout, metainf
 
+    def generate_banked_cartridge(self, name, binaries=None):
+        """generate banked binary cartridge file with padded banks concatenated 
+           together into a single image.
+           If the base is >A000, a 32K cartridge will be created with GPL header 
+           and trampoline to copy the program from cart ROM to RAM, with each bank
+           containing 6K chunks of the program.  Limited to upper 24K only.
+        """
+        if binaries == None:
+            binaries = self.generate_binaries()
+        if binaries[0][2] >= 0xa000:
+            gpl_header = bytes((0xaa, 0x01, 0x00, 0x00, 0x00, 0x00, 0x60, 0x10)) + bytes(8)
+            try:
+                program_info = chrw(0) + chrw(0x6030) + bytes((len(name),)) + name.encode()
+            except UnicodeEncodeError:
+                raise AsmError(f'Bad program name "{name}"')
+            save, offset = self.get_image_parameters()
+            sload = 0xa000 if save == None else save[0] + offset
+
+            # code starts at >6030, copies data from each bank to >A000, then jumps to it
+            padding = bytes(27 - len(name)) + bytes((
+                0x02,0xe0,0x83,0x00, #        LWPI >8300    ; set workspace pointer
+                0x02,0x00,0x60,0x00, #        LI R0,>6000   ; write to R0 to select bank
+                0x02,0x01,0xA0,0x00, #        LI R1,>A000   ; copy data to upper mem exp
+                0x04,0xD0,           # BANKSW CLR *R0       ; select bank to read from
+                0x02,0x02,0x60,0x92, #        LI R2,DATA    ; copy data from each bank
+                0x02,0x03,0x0C,0x00, #        LI R3,>1800/2 ; 6K data per bank, in words
+                0xC4,0x52,           # !      MOV *R2,*R1   ; copy word
+                0x8C,0x72,           #        C *R2+,*R1+   ; verify word
+                0x16,0x08,           #        JNE FAILED
+                0x06,0x03,           #        DEC R3
+                0x16,0xFB,           #        JNE -!
+                0x05,0xC0,           #        INCT R0       ; next bank
+                0x02,0x80,0x60,0x08, #        CI R0,>6008   ; last bank?
+                0x16,0xF2,           #        JNE BANKSW
+                0x04,0x60,           #        B @SFIRST     ; start program
+                ))+chrw(sload) + bytes((
+                0x02,0x01,0x60,0x7A, # FAILED LI R1,ERRVDP
+                0x02,0x02,0x00,0x16, #        LI R2,s#ERRMSG
+                0xD8,0x31,0x8C,0x02, #        MOVB *R1+,@VDPWA
+                0xD8,0x31,0x8C,0x02, #        MOVB *R1+,@VDPWA
+                0xD8,0x31,0x8C,0x00, # !      MOVB *R1+,@VDPWD
+                0x06,0x02,           #        DEC R2
+                0x16,0xFC,           #        JNE -!
+                0x03,0x00,0x00,0x02, #        LIMI 2
+                0x10,0xFF,           # !      JMP -!
+                0x00,0x40,           # ERRVDP DATA >0040
+                0x33,0x32,0x4B,0x20, # ERRMSG "32K EXPANSION REQUIRED"
+                0x45,0x58,0x50,0x41,
+                0x4E,0x53,0x49,0x4F,
+                0x4E,0x20,0x52,0x45,
+                0x51,0x55,0x49,0x52,
+                0x45,0x44,
+                ))
+            chunksize = 0x1800
+            image = bytes()
+            for addr in range(0xa000,0x10000,chunksize):
+                binaries = self.generate_binaries(save=(addr,addr+chunksize))
+                _, _, _, data = binaries[0]
+                data = gpl_header + program_info + padding + data
+                image += data + bytes(0x2000 - len(data))
+        else:
+            saves = self.program.saves
+            banksize = 0x2000 if saves == [] else saves[0][1] - saves[0][0]
+            image = bytes()
+            for bank, save, addr, data in binaries:
+                image += data + bytes(banksize - len(data))
+        return image
 
 # Console and Listing
 
@@ -2666,7 +2737,7 @@ def main():
     cmd.add_argument('-c', '--cart', action='store_true', dest='cart',
                      help='create MESS cart image')
     cmd.add_argument('-B', '--bincart', action='store_true', dest='bincart',
-                     help='create binary cart image with zero-padded banks')
+                     help='create single binary cart image with zero-padded banks')
     cmd.add_argument('-t', '--text', dest='text', nargs='?', metavar='<format>',
                      help='create text file with binary values')
     cmd.add_argument('--embed-xb', action='store_true', dest='embed',
@@ -2801,14 +2872,9 @@ def main():
                     name = barename + addr_tag + bank_tag + '.dat'
                 out.append((name, text, 'w'))
         elif opts.bincart:
-            banksize = program.saves[0][1] - program.saves[0][0]
-            binaries = linker.generate_binaries()
-            image = bytes()
-            for bank, save, addr, data in binaries:
-                print(f"Bank {bank}: {len(data)} bytes")
-                image += data + bytes([0] * (banksize - len(data)))
-            name = opts.output or barename + '.bin'
-            out.append((name, image, 'wb'))
+            data = linker.generate_banked_cartridge(name)
+            name = opts.output or barename + '8.bin'
+            out.append((name, data, 'wb'))
         elif opts.cart:
             data, layout, metainf = linker.generate_cartridge(name)
             output = opts.output or barename + '.rpk'
