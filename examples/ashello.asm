@@ -2,6 +2,7 @@
 
        IDT 'ASHELLO'
 
+       DEF START
        REF VSBW,VMBW,VWTR
        REF KSCAN
 

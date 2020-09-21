@@ -281,7 +281,7 @@ option 5 using the image option `-i`.
     $ xas99.py -R -i ashello.asm -o ashello5.img
 
 Again, we override the default output name `ashello.img`, for later.  The
-resulting image file `ashello5.img` has 248 bytes and contains binary data.
+resulting image file `ashello5.img` has 132 bytes and contains binary data.
 
     $ ls -l ashello5.img
     > dir ashello5.img
