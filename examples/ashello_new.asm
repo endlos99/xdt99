@@ -3,7 +3,6 @@
        idt 'ashello'
 
        def sload, sfirst, slast, start
-       ref kscan
 
        jmp  start
 
@@ -49,7 +48,7 @@ next:
        movb r9, @gpl_status
 
 !      movb r9, @keymode
-       bl   @kscan
+       blwp @kscan
        cb   @keycode, r8
        jeq  -!
 
@@ -64,5 +63,6 @@ next:
        copy "vsbw.asm"
        copy "vmbw.asm"
        copy "vwtr.asm"
+       copy "kscan_ea.asm"
 
        end
