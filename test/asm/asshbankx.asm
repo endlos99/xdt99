@@ -1,7 +1,6 @@
 * cross-bank with shared section
 
-       aorg >a000
-       bank all
+       bank all, >a000
 
 l_all
        data >aaaa

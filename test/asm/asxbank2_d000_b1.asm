@@ -2,9 +2,6 @@
 
 *      SAVE >D000,>D020
 
-*      AORG >D000
-*      DATA 0,0,0,0,0,0,0,0    * NO PADDING
+       AORG >D000
 
-*      DATA 0,0,0,0,0,0,0,0
- 
        END

@@ -11,7 +11,7 @@ bininc bcopy "nonexisting"    ;ERROR
 
 text1  text >123456
        text >12x34            ;ERROR
-       
+
        ; arg count
 
 *      rtwp r1         ; cannt detect this: r1 is comment
@@ -34,7 +34,7 @@ label3 clr  1                 ;ERROR
 label4 clr  0
 label4:
        clr  1                 ;ERROR
-       
+
        ; macros
 
        .defm mac1
@@ -59,9 +59,9 @@ w1:
 s2:
        equ 2
 w1:
-       equ 2                  ;ERROR
+       equ 2                  ;OK
 w1:
-       equ 1                  ;OK
+       equ 1                  ;ERROR
 w1:
        equ 1                  ;ERROR
 
@@ -89,6 +89,11 @@ uuu    b   uuu                ;ERROR
        a   b#1 + text1, 0     ;ERROR
        a   1 + w#1, 0         ;ERROR
        a   (w#1) + 1, 0       ;ERROR
+
+       ; incorrect use of operands
+
+       coc  @nnn, @uuu        ;ERROR
+       coc  @nnn, w1          ;OK
 
 * NO ERRORS
 

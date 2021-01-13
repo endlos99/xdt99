@@ -5,11 +5,11 @@
 
        ref  vdpwa, vdpwd
 
-       aorg >6000, 0
+       bank all, >6000
 
        data >aa01
        data 0, 0
-       data start
+       data menu
        data 0, 0, 0, 0
 
 menu:
@@ -20,7 +20,9 @@ menu:
 
 start:
        limi 0
-       lwpi >83e0
+       lwpi >8300
+
+       bank 0
 
        li   r0, >4150
        swpb r0
@@ -30,11 +32,12 @@ start:
        li   r0, '1 '
        movb r0, @vdpwd
 
-       b    @bank2
+       b    @x#bank1
 
-       aorg >6000,1
+       bank 1
 
-bank2:
+       b    @x#start
+bank1:
        li   r0, >4158
        swpb r0
        movb r0, @vdpwa

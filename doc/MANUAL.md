@@ -17,7 +17,7 @@ As of this release, the cross-development tools comprise
  * [`xvm99`](#xvm99), a volume manager for nanoPEB/CF7+ Compact Flash cards.
 
 All programs are written in Python and thus run on any platform that Python
-supports, including Linux, Windows, and MacOS.
+supports, including Linux, Windows, and macOS.
 
 Additionally, xdt99 provides TI-specific editor support for some freely
 available development environments:
@@ -27,7 +27,7 @@ available development environments:
 
 The plugins offer syntax highlighting, source navigation, and semantic renaming
 for assembly, GPL, and TI (Extended) BASIC programs.  Note, however, that both
-plugins work best with older versions of the editors.
+plugins currently support an older version of the `xas99` syntax.
 
 To get started, follow the [installation](#installation) instructions and read
 the [tutorial](#tutorial).
@@ -47,7 +47,7 @@ additional test cases that are useful when extending or modifying xdt99.
 
 xdt99 requires a working installation of [Python 3.6][5] or later.  On most
 Linux systems, Python is available as a package.  For other platforms, we
-recommend to install the latest stable Python 3 release.  Please note that xdt99
+recommend installing the latest stable Python 3 release.  Please note that xdt99
 will not run on Python 2.
 
 All xdt99 files should be placed somewhere in the `$PATH` or where the
@@ -275,6 +275,21 @@ The four columns before the source code show
 Some directives such as `EQU` do not generate machine code, so their second and
 third columns may be missing or show different information.
 
+For more complex programs with `COPY` and/or macros, source indicators show to
+which source file a certain listing sequence belongs to:
+
+   XAS99 CROSS-ASSEMBLER   VERSION 3.1.0
+        **** ****     > asmacs.asm
+        ...
+        **** ****     > MAC0
+        ...
+        **** ****     > DSK2.ASCOPY3
+        ...
+                      < MAC0
+        ...
+                      < asmacs.asm
+        ...
+
 In addition to option 3 object code, `xas99` can also generate _images_ for E/A
 option 5 using the image option `-i`.
 
@@ -394,7 +409,7 @@ The disk size can be descriptive like `SSSD`, `2s/2d`, `1s1d80t`, or `CF`, or
 explicit by specifying the number of sectors, e.g., `720`.  The maximum size
 for a disk image is 1600 sectors. 
 
-We can also combine the creation of a new image and the addition of files into
+We can also combine the creation of a new image, and the addition of files into
 a single operation.
 
     $ xdm99.py -X sssd work.dsk -a ashello.obj -f df80
@@ -457,7 +472,7 @@ we're using the `-o` option again.
     $ xdm99.py -T ashello.obj -f DIS/FIX80 -o ASHELLO
     $ xdm99.py -T ashello5.img -o ASHELLO5
 
-We can examine the stored meta data of TIFILES or v9t9 files by using the info
+We can examine the stored metadata of TIFILES or v9t9 files by using the info
 option `-I`.
 
     $ xdm99.py -I ASHELLO
@@ -510,7 +525,7 @@ To get the name of the device to use on a Linux machine, we can use the
 If we're running Gnome or KDE, we can also mount the CF card and then view the
 card properties.  With KDE, the device name is listed under `Mounted from`.
 
-On MacOS systems, the `diskutil list` lists all devices.  We pick the device
+On macOS systems, the `diskutil list` lists all devices.  We pick the device
 name from the first column.
 
 For Windows systems, we can use the `wmic` command (no admin rights required):
@@ -577,7 +592,7 @@ To convert in the other direction, we would use the "from HFE" option `-F`.
 After this foray into managing disks and files of various formats, let's return
 to `xas99` now.  The cross-assembler not only generates code for the
 Editor/Assembler cartridge, but also raw binary code and MAME-style cartridges,
-which can be used independent from E/A.
+which can be used independently of E/A.
 
 The cartridge option `-c` automatically generates a GPL header and then
 assembles everything into a MAME-style cartridge RPK archive.
@@ -632,7 +647,7 @@ cart such as the FlashROM or the [FinalGROM][6].
 The `-b` option is not limited to cartridges.  We can also use it to create
 DSRs, or code we want to load dynamically into memory, e.g., by DSR opcode 5.
 We can put the binaries in an EPROM, or store them in a microcontroller or FPGA.
-As such, binary is arguably the most simple and most versatile format.
+As such, binary is arguably the simplest, and most versatile format.
 
 #### E/A Utility Functions
 
@@ -875,8 +890,8 @@ to `RUN` it, the interpreter will throw an error:
 
     * BAD NAME IN 10
 
-When given a program in internal format, such as our `nim.prg`, we can decode
-it into textual format with the decode option `-d`.
+When given a program in an internal format, such as our `nim.prg`, we can decode
+it into a textual format with the decode option `-d`.
 
     $ xbas99.py -d nim.prg -o nim2.bas
 
@@ -929,8 +944,8 @@ we can use labels for each line that is the target of a branch:
      END
 
 A label must be alphanumeric and followed by a colon `:`.  The actual program
-lines must be indented by at least one one blank.  Sadly, when using a label,
-e.g., as part of a `GOTO` statement, we must prefix the label with an `@` sign.
+lines must be indented by at least one blank.  Sadly, when using a label, e.g.,
+as part of a `GOTO` statement, we must prefix the label with an `@` sign. 
 The `@` prefix is needed to identify invalid, i.e., mistyped labels, or else
 invalid labels would become stray variables.
 
@@ -965,9 +980,9 @@ that we write some part of the program, assemble it, test the new code in an
 emulator, fix the code or write the next part, and so on.
 
 To simplify this cycle, we can write a script or batch file that will perform
-all of this tasks -- except for writing code, of course -- automatically.
+all of these tasks -- except for writing code, of course -- automatically.
 
-In Linux or MacOS, this sample bash file `build.sh` will assemble a file and
+In Linux or macOS, this sample bash file `build.sh` will assemble a file and
 start the MAME emulator.
 
     #!/bin/sh
@@ -1012,8 +1027,8 @@ change.
     ...
 
 This automation by scripting becomes more effective the more steps the build
-process takes.  The firmware of the [FinalGROM][6] cartridge, for example, is
-comprised of an assembly part and and a GPL part, and each result is included in
+process takes.  The firmware of the [FinalGROM][6] cartridge, for example,
+comprises an assembly part and a GPL part, and each result is included in
 a C program, which is then compiled.  Executing the individual steps in the
 correct order quickly becomes a too complex task to merely rely on pressing
 Cursor-Up the correct number of times in the command line.     
@@ -1083,6 +1098,12 @@ occurred, the line number and the actual erroneous line, followed by the error
 message.  Note that in some cases, an error may be reported twice, once for each
 pass.
 
+At the end of assembly, if there were any errors, `xas99` shows an error count
+so that users can quickly see if any errors occured (especially if color is
+disabled):
+
+    12 Errors found.
+
 The assembler may also issue a number of _warnings_, e.g.,
 
     > t.asm <2> 0002 -      mov  r0, >000a
@@ -1097,7 +1118,7 @@ The assembler may also issue a number of _warnings_, e.g.,
 Warnings indicate a likely error made by the developer.  Warnings are also
 written to `stderr`, unless they are suppressed with the quiet option `-q`.
 
-Note that all example above issues a warning we omitted so far:
+Note that all examples above issues a warning we omitted so far:
 
     $ xas99.py -R ashello.asm
     > --- <L> **** -
@@ -1106,9 +1127,15 @@ Note that all example above issues a warning we omitted so far:
 This warning lists all symbols imported by `REF`, for which no external symbol
 defined by `DEF` was found.  Since all unresolved symbols are E/A utility
 functions, and we are creating object code for E/A option 3, we can ignore this
-warning.  In all other cases, this warnings indicates an error that might crash
+warning.  In all other cases, this warning indicates an error that might crash
 our program.
- 
+
+On Linux and macOS platforms, all warnings and errors are _colored_ by default.
+Irrespective of platform, the use of color can be turned on or off by using the
+color options `--color on` or `--color off`, resp.  (Technical note: Colors
+require so-called ANSI escape sequences, something that Windows `cmd.exe` only 
+started to support very recently.)
+
 
 ### Creating Program Images
 
@@ -1208,7 +1235,7 @@ The resulting `ascart.bin` file contains these bytes:
 
 By default, the assembler will generate one binary for the entire program.  This
 can lead to sparse programs containing large sections of zero bytes if the
-source is comprised of non-contiguous segments.  We can avoid this by using the
+source comprises non-contiguous segments.  We can avoid this by using the
 `SAVE` directive described below.
 
 The base option `-a` sets the base address for relocatable segments; if not set,
@@ -1245,7 +1272,7 @@ program to address `>6030`.  When using `AORG`, make sure to leave an unused >30
 byte buffer at the beginning of the program.
 
 Note that this option is very limited in what kind of headers it can generate.
-We therefore recommended `-c` for only the most simple programs, and suggest
+We therefore recommended `-c` for only the simplest programs, and suggest
 using `-b` instead.
 
 
@@ -1407,7 +1434,7 @@ introduce a comment.
 
 Source code is processed case insensitively so that all labels, expressions, and
 instructions may be written in upper case, lower case, or any mixture.  Text
-literals are still case sensitive, though.
+literals are still case-sensitive, though.
 
     label1 byte >A,>b
     LABEL2 TEXT 'Hello World'
@@ -1546,8 +1573,10 @@ which will store an unknown value `???` in `R0`.
 The assembler ensures that each value is added only once, so for constants
 `b#>41`, `b#65`, and `b#'A'`, it will add only one constant to the code.
 
-The assembler logically appends all auto-generated constants to the end of the
-_source code_.  For cases where this is unwanted, e.g.,
+For each auto-generated constant, a `BYTE` or `DATA` directive will be
+generated.  To denote _where_ these values should be placed, the `AUTO`
+directive is used.  During assembly, it will be replaced by a sequence of
+`BYTE`s and `DATA`s.
 
         save >2000,>3000
 
@@ -1555,23 +1584,17 @@ _source code_.  For cases where this is unwanted, e.g.,
     start:
         movb b#1, @acc
         ...
-
+        auto
+        ...
         aorg >2ffc
     start_vector:
         data >8300
         data start
-        
-        ; auto-generated constants ignored because of SAVE
 
-we need reverse the order of our sections
-
-        save >2000,>3000
-        aorg >2ffc
-        ...
-
-        aorg >2000
-        ...
-        ; auto-generated constants follow
+Auto-generated constants observe banks, and only appear in the bank where they
+were defined.  You can place `AUTO` only in those banks, where at least one
+auto-generated constant is used.  If on the other hand an `AUTO` is missing,
+an error is thrown.
 
 All auto-generated constants will also appear in the list file.
 
@@ -1676,22 +1699,35 @@ silently ignored.
 
 The exponent notation `1e9` is currently not supported.
 
-The `BANK` directive specifies the memory bank for the following code segment,
-or a shared code segment if the special value `ALL` is used.  Banks count from
-zero.
+The `BANK` directive specifies the memory bank and optionally the base address
+for the following code segment, or a shared code segment if the special value
+`ALL` is used.  Banks count from zero.
 
     * asbank.asm
-          aorg >6000
-	      bank all
+	      bank all, >6000
     func1 clr r0
           ...
           bank 1
     func2 li  r1,>1234
           ...
 
+The address of a `BANK` directive defines the base address for other, 
+addressless `BANK`s.  In the previous example, bank 1 also starts at `>6000`,
+since bank 0 defined that base address.
+
+A shared segment introduced by `BANK ALL` without optional address first
+obtains the next available addresses for all banks, and then picks the biggest
+one as start address.  If a plain `BANK n` without address follows a shared
+segment, then its start is at the end of the shared segment.
+
+For example, the program 
+
+Within each bank, all `*ORG` directives may be used, without leaving the current
+bank.
+ 
 Note that the optional second argument of the `AORG` directive to specify the
-current bank is now deprecated, and might be removed in a future version of
-`xas99`.
+current bank has been removed, and is no longer available.  Programs with such
+a directive will fail during assembly.
 
 Generating binary files with the `-b` command stores banked segments in separate
 files.  For example, assembling source file `asbank.asm` containing directives
@@ -1702,11 +1738,17 @@ files.  For example, assembling source file `asbank.asm` containing directives
     
 into a binary will yield files `asbank_b0.bin` and `asbank_b1.bin`.
 
-`xas99` warns about illegal cross-bank accesses in address arguments, but
-access from and to shared code segments are not checked.
+`xas99` detects cross-bank accesses in address arguments.  Of those, accesses
+from and to shared code segments are fine, but others are at least dubious.
 
-          aorg >6000
-          bank 0
+By default, `xas99` allows all cross-bank accesses.  Using the cross-check
+option `-X`, however, makes the assembler issues an error for each illegal
+cross-bank access.
+
+So, assuming `-X` is supplied for the following program, only the `ok` accesses
+are legal, and the `error` accesses throw an error.
+
+          bank 0, >6000
     l1    b    @l3      ; ok
           b    @l2      ; error: different bank
 
@@ -1714,16 +1756,15 @@ access from and to shared code segments are not checked.
     l2    b    @l3      ; ok
           b    @l1      ; error: different bank
 
-          aorg >7000
-          bank all
+          bank all, >7000
     l3    b    @l1      ; ok, could branch to bank 0 or 1, i.e., l1 or l2
 
-In this example, the `B` instructions in segment `>7000` will branch to `L1`
-or `L2`, depending on which bank is active then.
+Also, the `B` instructions in segment `>7000` will branch to `L1` or `L2`,
+depending on which bank is active then.
 
-To override the cross-bank check explicitly, e.g., because the caller will be
-relocated to a different memory address during runtime, the _cross-bank
-modifier_ `x#` can be prepended to the target label.
+If cross-bank accesses are illegal (`-X`), the _cross-bank modifier_ `X#` still
+overrides checks for individual uses, e.g., because the offending code will be
+relocated to a different memory address during runtime.
 
           bank 0
     cont  clr  r0
@@ -1782,10 +1823,10 @@ Note that `XORG` does not place code directly at the target address.  Instead,
 we must copy all `XORG` segments during runtime, e.g., using the code template
 shown before.
 
-The `SAVE` directive limits the memory range to output and directly controls
-the resulting files for the image `-i` and binary `-b` output.  For those
-formats, each `SAVE` directive will yield one file, containing only code in the
-memory range specified.
+The `SAVE` directive limits the memory range to output and controls the
+resulting files for the image `-i` and binary `-b` output.  For those formats,
+each `SAVE` directive will yield one file, containing only code in the memory
+range specified.
 
           save >6000,>7000   ; generate single image for >6000->6fff
 
@@ -1797,17 +1838,26 @@ memory range specified.
           ...                ; assume final address is >6DFE
           end
 
-The single resulting binary file contains code from `>6100` to `>6DFF`, with
-potential zero byte padding between the end of the `>6100` segment and the start
-of the `>6800` segment.
+By default, the resulting binary will contain the entire address range of the
+SAVE(s), with bytes at unspecified addresses set to 0.
 
-Note, however, that `SAVE` will never pad at the beginning or the end of a save
-range.  Thus, for above example, the resulting file has a size of >D00 bytes,
-instead of >1000 bytes.
+When supplying the minimize option `-M`, however, save ranges are minimized,
+i.e., the resulting binary only contains those addresses contained in the 
+program (and zero any gaps between them).
 
-For all output formats, addresses not contained in a `SAVE` range are ignored,
-assuming that at least one `SAVE` directive is present.  Note, however, that
-still the entire program is assembled.
+As an example, the simple program
+
+         save >2000, >2100
+         aorg >2010
+         data 1, 2, 3, 4
+
+will contain >100 bytes normally, but only 8 bytes together with `-M`.
+
+Note that always the entire program is assembled, even if only a portion of it
+is SAVEed.
+
+In combination with banking, there will be one output file per SAVE per bank, 
+even if that file is empty.
 
 The arguments of `SAVE` may be expressions, and may be omitted to denote the
 start and end of a program, resp.
@@ -1841,8 +1891,9 @@ directive.
 
 The `.print` preprocessor command prints its arguments to `stdout`.
 
-    val    equ 42
-           .print 'Selected answer is', val
+    answer equ 42
+           ...
+           .print 'Selected answer is', answer
 
 The `.error` command prints a message to `stderr` and aborts the assembly.
 
@@ -1879,7 +1930,7 @@ instantiating the macro:
 
 Macro parameters may only occur in operand positions, but not in labels or
 mnemonics.  Parameters in literals, e.g., `text '#1'`, are also not substituted.
-This restrictions currently prevent advanced macro trickery.
+These restrictions currently prevent advanced macro trickery.
 
 Macros are used like preprocessor commands, with any arguments separated by
 commas:
@@ -2037,8 +2088,8 @@ sources:
     $ xas99.py -s ashello.asm
 
 Strictness is required, for example, to assemble the _Tombstone City_ sample
-source shipped with the Editor/Assembler package, as some of the comments in
-Tombstone do not adhere to the two-space separator rule of `xas99`.
+source shipped with the Editor/Assembler package, as some comments in Tombstone
+do not adhere to the two-space separator rule of `xas99`.
 
     R5LB   EQU SUBWS+11 * REGISTER 5 LOW BYTE.
     ***** Unknown symbol: REGISTER 5 LOW BYTE.
@@ -2866,11 +2917,11 @@ This will extract all files matching the given pattern.
 
     $ xdm99.py work.dsk -e "H?LLO-*"
 
-Note that on Linux and MacOS platforms, we have to quote our glob pattern to
+Note that on Linux and macOS platforms, we have to quote our glob pattern to
 prevent the shell from expanding the pattern prematurely.
     
 Extracting files will yield the file contents only.  In we also want to retain
-the meta data, i.e., file type and record length, we should extract files in
+the metadata, i.e., file type and record length, we should extract files in
 TIFILES or v9t9 format, described below.
 
 
@@ -2972,10 +3023,10 @@ or `.v9t9`, resp.
     $ xdm99.py work.disk -9 -a hello-s.v9t9
 
 Note that `xdm99` will not infer the format automatically, so if we forget to
-supply `-t` or `-9` when adding files, the meta data of the files will be stored
+supply `-t` or `-9` when adding files, the metadata of the files will be stored
 on the disk image as part of the file contents.
 
-Since TIFILES and v9t9 formats already store all meta data, options `-n` and
+Since TIFILES and v9t9 formats already store all metadata, options `-n` and
 `-f` are ignored when used in combination with `-t` or `-9`.
 
 We should note that `xdm99` also handles short TIFILES files as used by
@@ -2995,7 +3046,7 @@ TIFILES or v9t9 file itself.  Renaming the file will not change the TI filename.
 The `-N` option changes the host filename, not the TI filename.  It is therefore
 only useful for short TIFILES files, e.g., for use with the Classic 99 emulator.
  
-If we want to view the meta data information of a TIFILES or v9t9 file, we can
+If we want to view the metadata information of a TIFILES or v9t9 file, we can
 use the info option `-I`.
 
     $ xdm99.py -I ashello.asm.tfi
@@ -3014,7 +3065,7 @@ If we want to see the contents, we use the print `-P` option instead.
 
 To convert from between TIFILES/v9t9 files and plain files, we can use the from
 and to options `-F` and `-T`, where the reference is the TIFILES/v9t9 format.
-Since plain files lack meta data information, we need to add that data with the
+Since plain files lack metadata information, we need to add that data with the
 file type option `-f` and the name option `-n`.
 
     $ xdm99.py -F hello-s.tfi

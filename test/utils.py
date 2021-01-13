@@ -168,10 +168,10 @@ def check_files_eq(tid, infile, reffile, fmt, mask=None):
         check_binary_files_eq(tid, infile, reffile, mask or [])
 
 
-def check_text_files_eq(tid, infile, reffile):
+def check_text_files_eq(tid, infile, reffile, skip=0):
     """check if file matches reference file"""
     with open(infile, 'r') as fin, open(reffile, 'r') as fref:
-        if fin.readlines() != fref.readlines():
+        if fin.readlines()[skip:] != fref.readlines()[skip:]:
             error(tid, '%s: File contents mismatch' % infile)
 
 
@@ -198,6 +198,20 @@ def check_binary_files_eq(tid, infile, reffile, mask=()):
             cutlen += j - i
         if indata != refdata:
             error(tid, '%s: File contents mismatch' % infile)
+
+
+def check_bin_text_eq(tid, infile, reffile):
+    """check if DISPLAY files with binary parts are equal"""
+    with open(infile, 'rb') as fin, open(reffile, 'rb') as fref:
+        indata = fin.read()
+        refdata = fref.read()
+    if indata == refdata:
+        return
+    # replace line separators by 0xff
+    indata_norm = indata.replace(b'\x0d\x0a', b'\xff').replace(b'\x0a', b'\xff').replace(b'\x0d', b'\xff')
+    refdata_norm = refdata.replace(b'\x0d\x0a', b'\xff').replace(b'\x0a', b'\xff').replace(b'\x0d', b'\xff')
+    if indata_norm != refdata_norm:
+        error(tid, 'Normalized file contents mismatch')
 
 
 def check_file_matches(infile, matches):
@@ -288,7 +302,7 @@ def check_image_set_eq(gendata, refdata):
         padlen = len(refimage) - len(genimage)
         if not 0 <= padlen <= 1:
             error('Image', 'Image length mismatch')
-        if (not (ordw(refimage[2:4]) - ordw(genimage[2:4]) == padlen) or genimage[4:6] != refimage[4:6]):
+        if not (ordw(refimage[2:4]) - ordw(genimage[2:4]) == padlen) or genimage[4:6] != refimage[4:6]:
             error('Image', 'Image header mismatch')
         # TI-generated images may contain arbitrary bytes in BSS segments
         for i in range(4, len(refimage) - padlen):
@@ -301,7 +315,8 @@ def check_list_files_eq(genfile, reffile, ignore_lino=False):
        ignores symbol listing at end of reffile by checking upto end of genfile
     """
     with open(genfile, 'r') as fg, open(reffile, 'r') as fr:
-        genlist = [(l[:16] + l[19:]).rstrip() for l in fg.readlines() if l.strip() and l[5:9] != '****']
+        genlist = [(l[:16] + l[19:]).rstrip() for l in fg.readlines()
+                   if l.strip() and l[5:9] != '****' and l[19] != '<']
         reflist = [l[2:].rstrip() for l in fr.readlines() if l[:2] == '  ']
     gi, ri = 1, 0  # skip assembler header note
     min_col, max_col = 4 if ignore_lino else 0, 74

@@ -8,8 +8,10 @@ value:
     ; s# terms
     data >1111
     li  r1, s#text1
-;   mov w#s#text2, r1     ;ERROR
-;   data s#value          ;ERROR
+    ai  r2, s#text2
+    ai  r3, -s#text3
+    data s#pad
+    ;data s#value         ;ERROR
 
     ; self-#s
 l1  data s#l1
@@ -19,6 +21,7 @@ l2  data >ffff
     ; s# expressions
     data s#text1 + 10
     data s#text1 + s#text2
+    data s#text4
     data >aaaa
 
     ; s# and padding bytes

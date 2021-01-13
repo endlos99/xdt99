@@ -1,9 +1,8 @@
 * BANK directive
 
        save >6000,>6020
-       aorg >6000
-       
-       bank 1
+
+       bank 1, >6000
 
        data >ffff
 
@@ -38,4 +37,3 @@
        data >5555
 
        end
-

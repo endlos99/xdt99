@@ -2,7 +2,7 @@
 
 # xga99: A GPL cross-assembler
 #
-# Copyright (c) 2015-2020 Ralph Benzinger <r@0x01.de>
+# Copyright (c) 2015-2021 Ralph Benzinger <r@0x01.de>
 #
 # This program is part of the TI 99 Cross-Development Tools (xdt99).
 #
@@ -21,12 +21,13 @@
 
 
 import sys
+import platform
+import os.path
 import math
 import re
-import os.path
 
 
-VERSION = '3.0.0'
+VERSION = '3.0.1'
 
 
 # Utility functions
@@ -565,7 +566,7 @@ class Symbols(object):
     @staticmethod
     def valid(name):
         """is name a valid symbol name?"""
-        return (name[:1].isalpha() or name[0] == '_') and not re.search(r'[-+*/$#!@"\']', name)
+        return (name[:1].isalpha() or name[0] == '_') and not re.search(r'[-+*/#!@"\']', name)
 
     def add_symbol(self, name, value, tracked=False, check=True):
         """add symbol to symbol table or update existing symbol"""
@@ -1544,11 +1545,12 @@ class Word(object):
 class Console(object):
     """collects warnings"""
 
-    def __init__(self, enable_warnings=True):
+    def __init__(self, enable_warnings=True, use_colors=False):
         self.console = []
         self.filename = None
         self.enabled = enable_warnings
         self.errors = False
+        self.use_colors = use_colors or platform.system() in ('Linux', 'Darwin')  # no automatic color on Windows
 
     def warn(self, filename, pass_no, lino, line, message):
         if self.enabled and pass_no > 0:
@@ -1558,15 +1560,28 @@ class Console(object):
         self.console.append(('E', filename, pass_no, lino, line, message))
         self.errors = True
 
+    def color(self, severity):
+        if not self.use_colors:
+            return ''
+        elif severity == 0:
+            return '\x1b[0m'  # reset to normal
+        elif severity == 1:
+            return '\x1b[33m'  # yellow
+        elif severity == 2:
+            return '\x1b[31m'  # red
+        else:
+            return ''
+
     def print(self):
         """print all console messages to stderr"""
         for kind, filename, pass_no, lino, line, message in self.console:
-            text = 'Error' if kind == 'E' else 'Warning'
+            text, severity = ('Error', 2) if kind == 'E' else ('Warning', 1)
             s_filename = filename or '---'
             s_pass = pass_no or '-'
             s_lino = f'{lino:04d}' if lino is not None else '****'
             s_line = line or ''
-            sys.stderr.write(f'> {s_filename} <{s_pass}> {s_lino} - {s_line}\n***** {text:s}: {message}\n')
+            sys.stderr.write(f'> {s_filename} <{s_pass}> {s_lino} - {s_line}\n' +
+                             self.color(severity) + f'***** {text:s}: {message}\n' + self.color(0))
 
 
 class Listing(object):

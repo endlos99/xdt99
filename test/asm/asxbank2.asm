@@ -6,8 +6,7 @@
 
        DATA >AFFE      ; IGNORED
 
-       AORG >C000
-       BANK 0
+       BANK 0, >C000
        DATA >C000
        DATA >C0FF
 
@@ -15,27 +14,24 @@
        DATA >C100
        DATA >C1FF
 
-       AORG >C010
-       ;implicit BANK ALL
+       BANK ALL
        DATA >CF00
        DATA >CFFF
 
-       AORG >C018
-       BANK 1
+       BANK 1, >C018
        DATA >C118
        DATA >C1EE
 
        BANK 0
+       AORG
        DATA >C018
        DATA >C0EE
 
-       AORG >D008
-       BANK 0
+       BANK 0, >D008
        DATA >D008
        DATA >D0FF
 
-       AORG >E018
-       BANK 1
+       BANK 1, >E018
        DATA >E108
        DATA >E1FF
 

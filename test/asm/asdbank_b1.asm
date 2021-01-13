@@ -1,6 +1,6 @@
 * BANK directive
 
-       save >6000,>6020
+*      save >6000,>6020
        aorg >6000
        
 *      bank 1
@@ -14,15 +14,11 @@
        data >3333
 
 *      bank 1
-  
+
        data >bbbb
        data >bbbc
-       data 0
 
-*      bank 1
-
-       ; nothing here
-       data 0
+       bss  4       ; skip to shared section
 
 *      bank all
 

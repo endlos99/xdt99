@@ -4,48 +4,49 @@
 
 * BANK SWITCHING
 
-bank_main:
+       bank all, >6000
+bank_all:
        data >0000
-       data bank_main
-       data bank_abs
+       data bank_all
        data bank_a1
        data bank_a2
        data bank_b1
+       data bank_b2
 
-       aorg >6000,1
+       bank 1
 bank_a1:
-       data >6001
-       data bank_main
-       data bank_abs
+       data >1001
+       data bank_all
        data bank_a1
        data bank_a2        ;ERROR
        data bank_b1
+       data bank_b2        ;ERROR
 
-       aorg >6000,2
+       bank 2
 bank_a2:
-       data >6002
-       data bank_main
-       data bank_abs
+       data >1002
+       data bank_all
        data bank_a1        ;ERROR
        data bank_a2
        data bank_b1        ;ERROR
+       data bank_b2
 
-       aorg >6010,1
+       bank 1, >6020
 bank_b1:
-       data >6011
-       data bank_main
-       data bank_abs
+       data >2001
+       data bank_all
        data bank_a1
        data bank_a2        ;ERROR
        data bank_b1
+       data bank_b2        ;ERROR
 
-       aorg >6000
-bank_abs:
+       bank 2
+bank_b2:
        data >6011
-       data bank_main
-       data bank_abs
-       data bank_a1
+       data bank_all
+       data bank_a1        ;ERROR
        data bank_a2
-       data bank_b1
+       data bank_b1        ;ERROR
+       data bank_b2
 
        end

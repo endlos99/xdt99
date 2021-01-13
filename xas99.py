@@ -2,7 +2,7 @@
 
 # xas99: A TMS9900 cross-assembler
 #
-# Copyright (c) 2015-2020 Ralph Benzinger <r@0x01.de>
+# Copyright (c) 2015-2021 Ralph Benzinger <r@0x01.de>
 #
 # This program is part of the TI 99 Cross-Development Tools (xdt99).
 #
@@ -20,101 +20,123 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 import sys
+import platform
 import re
 import math
 import os.path
 from functools import reduce
 
 
-VERSION = '3.0.0'
+VERSION = '3.1.0'
 
 
-# Utility functions
+# Utilities
 
-def even(n):
-    """round value down to even value"""
-    return n - n % 2
+class Util:
+    """utility static methods"""
 
+    @staticmethod
+    def even(n):
+        """round value down to even value"""
+        return n - n % 2
 
-def ordw(word):
-    """word ord"""
-    return (word[0] << 8) | word[1]
+    @staticmethod
+    def ordw(word):
+        """word ord"""
+        return (word[0] << 8) | word[1]
 
+    @staticmethod
+    def chrw(word):
+        """word chr"""
+        return bytes((word >> 8, word & 0xff))
 
-def chrw(word):
-    """word chr"""
-    return bytes((word >> 8, word & 0xff))
+    @staticmethod
+    def cmp(x, y):
+        return (x > y) - (x < y)
 
+    @staticmethod
+    def xint(s):
+        """return hex or decimal value"""
+        return 0 if s is None else int(s.lstrip('>'), 16 if s[:2] == '0x' or s[:1] == '>' else 10)
 
-def cmp(x, y):
-    return (x > y) - (x < y)
+    @staticmethod
+    def sinc(s, i):
+        """string sequence increment"""
+        return None if s is None else s[:-1] + chr(ord(s[-1]) + i)
 
+    @staticmethod
+    def val(n):
+        """dereference address"""
+        return n.addr if isinstance(n, Address) else n
 
-def xint(s):
-    """return hex or decimal value"""
-    return 0 if s is None else int(s.lstrip('>'), 16 if s[:2] == '0x' or s[:1] == '>' else 10)
-
-
-def sinc(s, i):
-    """string sequence increment"""
-    return s[:-1] + chr(ord(s[-1]) + i)
-
-
-def val(n):
-    """dereference address"""
-    return n.addr if isinstance(n, Address) else n
-
-
-def writedata(filename, data, mode='wb'):
-    """write data to file or STDOUT"""
-    if filename == '-':
-        if 'b' in mode:
-            sys.stdout.buffer.write(data)
-        else:
-            sys.stdout.write(data)
-    else:
-        with open(filename, mode) as f:
-            f.write(data)
-
-
-def readdata(filename, data=None, encoding=None):
-    """read data from file or STDIN (or return supplied data)"""
-    if encoding is None:
+    @staticmethod
+    def writedata(filename, data, mode='wb'):
+        """write data to file or STDOUT"""
         if filename == '-':
-            return data or sys.stdin.buffer.read()
-        else:
-            with open(filename, 'rb') as f:
-                data = f.read()
-                return data
-    else:
-        try:
-            if filename == '-':
-                return data or sys.stdin.read().encode(encoding)
+            if 'b' in mode:
+                sys.stdout.buffer.write(data)
             else:
-                with open(filename, 'r') as f:
+                sys.stdout.write(data)
+        else:
+            with open(filename, mode) as f:
+                f.write(data)
+
+    @staticmethod
+    def readdata(filename, data=None, encoding=None):
+        """read data from file or STDIN (or return supplied data)"""
+        if encoding is None:
+            if filename == '-':
+                return data or sys.stdin.buffer.read()
+            else:
+                with open(filename, 'rb') as f:
                     data = f.read()
-                return data.encode(encoding)
-        except UnicodeDecodeError:
-            sys.exit('Bad encoding: ' + encoding)
+                    return data
+        else:
+            try:
+                if filename == '-':
+                    return data or sys.stdin.read().encode(encoding)
+                else:
+                    with open(filename, 'r') as f:
+                        data = f.read()
+                    return data.encode(encoding)
+            except UnicodeDecodeError:
+                sys.exit('Bad encoding: ' + encoding)
 
+    @staticmethod
+    def readlines(filename, mode='r'):
+        """read lines from file or STDIN"""
+        if filename == '-':
+            return sys.stdin.readlines()
+        else:
+            with open(filename, mode) as f:
+                return f.readlines()
 
-def readlines(filename, mode='r'):
-    """read lines from file or STDIN"""
-    if filename == '-':
-        return sys.stdin.readlines()
-    else:
-        with open(filename, mode) as f:
-            return f.readlines()
+    @staticmethod
+    def outname(basename, ext, tag='', redef=None, altname=None):
+        """return output filename"""
+        if redef is None:
+            return basename + tag + ext
+        else:
+            return '-' if redef == '-' else (altname or redef) + tag
 
+    @staticmethod
+    def name_suffix(base=None, bank=None, use_base=False, bank_count=0):
+        return (('' if not use_base else f'_{base:04x}') +
+                ('' if bank is None or bank_count <= 1 else f'_b{bank}'))
 
-def outname(basename, extension, output=None, addition=None, count=1):
-    if basename == '-':
-        return '-'
-    if count == 1:
-        return output or basename + extension
-    if output is not None:
-        basename, extension = os.path.splitext(output)
-    return basename + '_' + addition + extension
+    @staticmethod
+    def max_bins_per_bank(binaries):
+        """return max binaries per bank and None (None needed for bank-less programs)"""
+        banks = [b for b, *_ in binaries]
+        bank_count = max((b + 1 for b in banks if b is not None and b != Symbols.BANK_ALL), default=0)
+        counts = {i: 0 for i in (None, *range(bank_count))}
+        for b in banks:
+            if b == Symbols.BANK_ALL:
+                for i in range(bank_count):
+                    counts[i] += 1
+            else:
+                counts[b] += 1
+        return max(counts.values(), default=0)
 
 
 # Exception Class
@@ -154,21 +176,22 @@ class Local(object):
 
 class AutoConstant(Address):
 
-    def __init__(self, value, symbols, size='W'):
+    def __init__(self, value, size='W', bank=None, symbols=None):
         super().__init__(None, unit_id=symbols.unit_id)
         self.value = value
         self.size = size
-        self.name = self.get_name(size, value)
+        self.bank = bank
+        self.name = self.get_name(size, value, bank)
         self.addr = None
         self.symbols = symbols  # for finding address of auto-constant later
 
     @staticmethod
-    def get_name(size, value):
-        return '_%auto' + size + str(value)
+    def get_name(size, value, bank):
+        return '_%auto' + size + str(value) + 'b' + str(bank)
 
     def resolve_addr(self):
-        value = self.symbols.get_symbol(self.name)
-        self.addr = val(value)
+        self.addr = self.symbols.get_symbol(self.name)
+        return self.addr
 
 
 class Reference(object):
@@ -379,6 +402,7 @@ class Opcodes(object):
         # 13. pseudo instructions
         'NOP': ('JMP', ['$+2']),
         'RT': ('B', ['*<R>11']),
+        'SLL': ('SRL', None),
         'PIX': ('XOP', None)
     }
 
@@ -416,6 +440,7 @@ class Opcodes(object):
                 arg2 = parse_op2(self.asm.parser, operands[1]) if parse_op2 else None
                 Optimizer.process(self.asm, mnemonic, opcode, fmt, arg1, arg2)
                 self.generate(opcode, fmt, arg1, arg2, timing)
+                return True
             except (IndexError, ValueError, TypeError):
                 raise AsmError('Syntax error')
         else:
@@ -516,7 +541,7 @@ class Directives(object):
         if not label:
             raise AsmError('Missing label')
         value = asm.parser.expression(ops[0], well_defined=True)
-        asm.symbols.add_symbol(label, value)
+        asm.symbols.add_symbol(label, value, equ=Symbols.EQU)
 
     @staticmethod
     def WEQU(asm, label, ops):
@@ -528,11 +553,11 @@ class Directives(object):
         if not label:
             raise AsmError('Missing label')
         value = asm.parser.expression(ops[0], well_defined=True)
-        asm.symbols.add_symbol(label, value, weak=True)
+        asm.symbols.add_symbol(label, value, equ=Symbols.WEQU)
 
     @staticmethod
     def DATA(asm, label, ops):
-        asm.even()
+        asm.even()  # required for s# modifier
         asm.process_label(label, tracked=True)
         Directives.check_ops(asm, ops, min_count=1)
         for op in ops:
@@ -543,22 +568,18 @@ class Directives(object):
     def BYTE(asm, label, ops):
         asm.process_label(label, tracked=True)
         Directives.check_ops(asm, ops, min_count=1)
-        stmt = True
         for op in ops:
             byte_ = asm.parser.expression(op)
-            asm.byte(byte_, stmt=stmt)
-            stmt = False
+            asm.byte(byte_)
 
     @staticmethod
     def TEXT(asm, label, ops):
         asm.process_label(label, tracked=True)
         Directives.check_ops(asm, ops, min_count=1)
-        stmt = True
         for op in ops:
             text = asm.parser.text(op)
             for char_ in text:
-                asm.byte(ord(char_), stmt=stmt)
-                stmt = False
+                asm.byte(ord(char_))
 
     @staticmethod
     def STRI(asm, label, ops):
@@ -590,7 +611,7 @@ class Directives(object):
     def BES(asm, label, ops):
         Directives.check_ops(asm, ops, min_count=1, max_count=1, warning_only=True)
         size = asm.parser.value(ops[0])
-        asm.block(size)
+        asm.block(size, offset=size)
         asm.process_label(label, tracked=True)
 
     @staticmethod
@@ -600,15 +621,11 @@ class Directives(object):
 
     @staticmethod
     def AORG(asm, label, ops):
+        Directives.check_ops(asm, ops, max_count=2)
         base = asm.parser.value(ops[0]) if ops else None
-        if len(ops) > 1:  # keep for compatibility
-            bank = asm.parser.value(ops[1])
-            asm.parser.warn('AORG with bank is obsolete, use BANK directive instead')
-        else:
-            bank = None
-        asm.org(base, reloc=False, bank=bank)
-        if base is not None:
-            asm.symbols.reset_banks()
+        if len(ops) > 1:
+            raise AsmError('Cannot use bank with AORG directive (deprecated use)')
+        asm.org(base, reloc=False)
         asm.process_label(label)
 
     @staticmethod
@@ -623,7 +640,7 @@ class Directives(object):
         Directives.check_ops(asm, ops, max_count=1)
         base = asm.parser.expression(ops[0], well_defined=True)
         reloc = isinstance(base, Address) and base.reloc
-        asm.org(val(base), dummy=True, reloc=reloc)
+        asm.org(Util.val(base), dummy=True, reloc=reloc)
         asm.process_label(label)
 
     @staticmethod
@@ -635,11 +652,13 @@ class Directives(object):
 
     @staticmethod
     def BANK(asm, label, ops):
-        Directives.check_ops(asm, ops, min_count=1, max_count=1)
-        asm.process_label(label, real_LC=True)
+        Directives.check_ops(asm, ops, min_count=1, max_count=2)
         bank = asm.parser.bank(ops[0])
-        base = asm.symbols.switch_bank(bank)
-        asm.org(base, reloc=False, bank=bank)
+        if bank > Symbols.BANK_ALL or (bank == Symbols.BANK_ALL and not ops[0].isalpha()):
+            raise AsmError(f'Bank number too large, must be less than { Symbols.BANK_ALL }')
+        base = asm.symbols.switch_bank(bank, asm.parser.expression(ops[1], well_defined=True) if len(ops) > 1 else None)
+        asm.org(base, bank=bank)
+        asm.process_label(label, real_LC=True)
 
     @staticmethod
     def COPY(asm, label, ops):
@@ -709,6 +728,14 @@ class Directives(object):
             raise AsmError(e)
 
     @staticmethod
+    def AUTO(asm, label, ops):
+        """place auto-generated constants here"""
+        if asm.symbols.pass_no == 1 and asm.symbols.bank == Symbols.BANK_ALL:
+            raise AsmError('Directive AUTO cannot be placed in shared bank area')
+        asm.process_label(label)
+        asm.auto_constants()
+
+    @staticmethod
     def check_ops(asm, ops, min_count=None, max_count=None, warning_only=False):
         if min_count and len(ops) < min_count:
             raise AsmError('Missing operand(s)')
@@ -776,28 +803,42 @@ class Externals(object):
 
 class Symbols(object):
     """symbol table and line counter
-       Each symbol entry is a tuple (value, weak, used).
-       Weak symbols may be redefined if they have the same value.
+       Each symbol entry is a tuple (value, equ-kind, used).
+       Equ-kind symbols may be redefined, if EQU by the same value only.
        Used tracks if a symbol has been used (True/False).  If set to None, usage is not tracked.
        Each program unit owns its own symbol table.
     """
-
     unit_id = 0
 
-    def __init__(self, externals, add_registers=False):
+    # symbol kind
+    NONE = 0  # not an EQU symbol
+    EQU = 1   # EQU symbols (can be redefined by same value)
+    WEQU = 2  # weak EQU symbol (can be redefined by other value)
+    BANK_ALL = 411  # shared code
+
+    def __init__(self, externals, console, add_registers=False, strict=False):
         self.externals = externals
+        self.console = console
         self.registers = {'R' + str(i): i for i in range(16)} if add_registers else {}
-        self.symbols = {n: (v, False, None) for n, v in self.registers.items()}  # registers are just non-weak symbols
+        self.strict = strict
+        self.symbols = {n: (v, False, None) for n, v in self.registers.items()}  # registers are just symbols
         self.saved_LC = {True: 0, False: 0}  # key == relocatable
         self.xops = {}
         self.locations = []
+        self.interm_source = []
         self.unit_id = Symbols.unit_id
         Symbols.unit_id += 1
         self.local_lid = 0
         self.pass_no = 0
         self.lidx = 0
         self.autoconsts = set()  # set of auto-generated constants
-        self.LC = self.bank = self.bank_LC = self.segment_reloc = self.xorg_offset = self.pad_idx = None
+        self.autos_defined = set()
+        self.autos_generated = set()
+        self.LC = None  # current line counter
+        self.bank = None  # current bank, or None
+        self.bank_LC = None  # next LC for each bank
+        self.bank_base = 0  # base addr of BANK <addr>
+        self.segment_reloc = self.xorg_offset = self.pad_idx = None
         self.reset()
 
     def reset(self):
@@ -811,7 +852,7 @@ class Symbols(object):
 
     def reset_banks(self):
         """reset LC for all banks"""
-        self.bank_LC = {None: 0}  # next LC for each bank
+        self.bank_LC = {Symbols.BANK_ALL: 0}  # next LC for each bank
 
     def effective_LC(self):
         """compute effective LC inside and outside of XORG sections"""
@@ -825,36 +866,66 @@ class Symbols(object):
         """restore LC for new segment"""
         self.xorg_offset = None
         self.segment_reloc = reloc
-        self.LC = base if base is not None else self.saved_LC[reloc]
-        self.bank = bank
+        if base is None:
+            self.LC = self.saved_LC[reloc]
+        elif bank is None:
+            self.LC = base
+        else:
+            self.LC = base + self.bank_LC.get(bank, 0) if reloc else base  # bank is set in BANK dir
 
-    @staticmethod
-    def valid(name):
+    def valid(self, name):
         """is name a valid symbol name?"""
-        return (name[:1].isalpha() or name[0] == '_') and not re.search(r'[-+*/$#!@"\']', name)
+        return ((not self.strict and name != '$' and name[0] not in "!@" and not re.search(r'[-+*/#"\']', name[1:])) or
+                (name[0].isalpha() and name.isalnum()))
 
-    def add_symbol(self, name, value, weak=False, tracked=False, check=True):
+    def add_symbol(self, name, value, tracked=False, check=True, equ=None):
         """add symbol to symbol table"""
-        if check and not Symbols.valid(name):
+        if equ is None:
+            equ = Symbols.NONE  # workaround for Python limitation
+        if check and not self.valid(name):
             raise AsmError(f'Invalid symbol name {name}')
         try:
-            defined_value, defined_weak, unused = self.symbols[name]
+            defined_value, defined_equ, unused = self.symbols[name]
             # existing definition
             if isinstance(value, Reference):
                 return name  # don't overwrite values by Reference
             elif isinstance(defined_value, Reference):
                 pass  # resolve Reference, fall-through
-            elif not defined_weak:
-                raise AsmError('Multiple symbols: ' + name)
-            elif value != defined_value:
-                raise AsmError(f"Value of weak symbol {name} and new value don't match")
+            else:
+                new_entry = self._valid_redefinition(defined_value, defined_equ, name, value, equ)
+                if new_entry is None:
+                    raise AsmError('Duplicate symbols: ' + name)
+                else:
+                    value, equ = new_entry
         except KeyError:
             # new definition
             unused = tracked or None  # true=unused, false=used, None=don't track
         if isinstance(value, Address):
             value.unit_id = self.unit_id
-        self.symbols[name] = value, weak, unused
+        self.symbols[name] = value, equ, unused
         return name
+
+    def _valid_redefinition(self, defined_value, defined_equ, name, value, equ):
+        """check if redefinition of symbol is allowed"""
+        if equ == Symbols.NONE or defined_equ == Symbols.NONE:  # either symbol not an EQU
+            return None  # duplicate symbol
+        if defined_equ == Symbols.EQU:  # defined symbol is EQU
+            if equ == Symbols.EQU:
+                if defined_value != value:
+                    raise AsmError(f"Value {value} of symbol {name} does no match previous definition {defined_value}")
+                else:
+                    return defined_value, defined_equ
+            elif equ == Symbols.WEQU:
+                self.console.warn('Ignoring WEQU directive trying to redefine EQU directive')
+                return defined_value, defined_equ
+        elif defined_equ == Symbols.WEQU:
+            if equ == Symbols.EQU:
+                self.console.warn(f'Replacing WEQU value {defined_value} by EQU value {value}')
+                return value, equ
+            elif equ == Symbols.WEQU:
+                self.console.warn(f'Redefining WEQU value {defined_value} by {value}')
+                return value, equ
+        return None
 
     def add_label(self, label, real_LC=False, tracked=False, check=True):
         """add a new label symbol to symbol table"""
@@ -862,7 +933,7 @@ class Symbols(object):
                        self.bank,
                        self.segment_reloc and (real_LC or not self.xorg_offset),
                        self.unit_id)
-        name = self.add_symbol(label, addr, tracked=tracked, check=check)  # labels are never weak
+        name = self.add_symbol(label, addr, tracked=tracked, check=check)
         self.locations.append((self.lidx, name))
 
     def add_local_label(self, label):
@@ -872,11 +943,13 @@ class Symbols(object):
 
     def add_autoconst(self, auto: AutoConstant):
         """create auto-constant in symbol table"""
+        if auto.bank in self.autos_generated:
+            raise AsmError(f'Auto-generated constant placed after AUTO directive')
         if isinstance(auto.value, Address):
             raise AsmError('Modifier expressions cannot involve addresses')
         if not isinstance(auto.value, int):
             raise AsmError('Invalid modifier expression')
-        self.autoconsts.add((auto.size, auto.value))
+        self.autoconsts.add((auto.size, auto.value, auto.bank))
 
     def add_def(self, name):
         """add globally defined symbol (added to symbol table separately)"""
@@ -909,9 +982,9 @@ class Symbols(object):
     def get_symbol(self, name):
         """retrieve value of given symbol, or None"""
         try:
-            value, weak, unused = self.symbols[name]
+            value, equ, unused = self.symbols[name]
             if unused:
-                self.symbols[name] = (value, weak, False)  # symbol has been used
+                self.symbols[name] = (value, equ, False)  # symbol has been used
         except KeyError:
             try:
                 value, _ = self.externals.definitions.get(name)
@@ -946,20 +1019,26 @@ class Symbols(object):
         except ValueError:
             raise AsmError('Cannot determine size of symbol: ' + name)
         sym_addr, next_addr = self.get_symbol(name), self.get_symbol(next_name)
-        return val(next_addr) - val(sym_addr)
+        return Util.val(next_addr) - Util.val(sym_addr)
 
     def switch_bank(self, bank, addr=None):
-        """update current active bank"""
-        if addr is None:
-            addr = 0
-        self.bank_LC[self.bank] = self.LC
-        if bank is None:  # ALL
-            return max(addr, *self.bank_LC.values())
+        """update current active bank, returns new LC addr"""
+        if addr is not None:
+            self.bank_LC = {b: addr for b in self.bank_LC}  # new base addr
         else:
-            bank_LC = self.bank_LC.get(bank)
-            if bank_LC is None:
-                bank_LC = self.bank_LC[bank] = self.bank_LC[None]
-            return max(addr, bank_LC, self.bank_LC[None])
+            self.bank_LC[self.bank] = self.LC
+            if bank == Symbols.BANK_ALL:
+                addr = max(*self.bank_LC.values())
+            else:
+                bank_LC = self.bank_LC.get(bank)
+                if bank_LC is None:  # new bank
+                    # new bank starts end of last shared bank
+                    # (which equals bank base if no shared bank present after last addr)
+                    bank_LC = self.bank_LC[bank] = self.bank_LC[Symbols.BANK_ALL]
+                addr = addr or max(bank_LC, self.bank_LC[Symbols.BANK_ALL])
+        self.saved_LC[True] = self.saved_LC[False] = addr
+        self.bank = bank
+        return addr
 
     def get_unused(self):
         """return all symbol names that have not been used"""
@@ -976,7 +1055,7 @@ class Symbols(object):
             if isinstance(addr, Address):
                 # add extra information to addresses
                 reloc = 'REL' if addr.reloc else '   '
-                bank = 'B>{:02X}'.format(addr.bank) if addr.bank is not None else ''
+                bank = 'B>{:02X}'.format(addr.bank) if addr.bank != Symbols.BANK_ALL and addr.bank is not None else ''
                 addr = addr.addr
             elif isinstance(addr, Reference):
                 # add value of references
@@ -996,7 +1075,7 @@ class Symbols(object):
             symfmt = ('{}:\n       equ  >{:04X}  ; {} {}' if equ else
                       '    {:.<20} >{:04X} : {} {}')
         return ('\n'.join(reffmt(ref) for ref in references) + '\n' +
-                '\n'.join(symfmt.format(*sym) for sym in symbol_list))
+                '\n'.join(symfmt.format(*sym) for sym in symbol_list) + '\n')
 
 
 # Parser and Preprocessor
@@ -1006,12 +1085,13 @@ class Preprocessor(object):
        The preprocessor is only called for pass 1, in pass 2 all dot-commands have been eliminated!
     """
 
-    def __init__(self, parser):
-        self.parser = parser
-        self.parse = True
-        self.parse_branches = []
-        self.parse_macro = None
-        self.macros = {}
+    def __init__(self, parser, listing):
+        self.parser = parser   # the parser object
+        self.listing = listing  # the listing object
+        self.parse = True  # is parsing in progress (or disabled by .ifX/.endif)?
+        self.parse_branches = []  # parse status before hitting .ifX
+        self.parse_macro = None  # name of macro currently parsing
+        self.macros = {}  # macros defined
 
     def args(self, ops):
         lhs = self.parser.expression(ops[0], well_defined=True, relaxed=True)
@@ -1044,27 +1124,27 @@ class Preprocessor(object):
 
     def IFEQ(self, asm, ops):
         self.parse_branches.append(self.parse)
-        self.parse = cmp(*self.args(ops)) == 0 if self.parse else None
+        self.parse = Util.cmp(*self.args(ops)) == 0 if self.parse else None
 
     def IFNE(self, asm, ops):
         self.parse_branches.append(self.parse)
-        self.parse = cmp(*self.args(ops)) != 0 if self.parse else None
+        self.parse = Util.cmp(*self.args(ops)) != 0 if self.parse else None
 
     def IFGT(self, asm, ops):
         self.parse_branches.append(self.parse)
-        self.parse = cmp(*self.args(ops)) > 0 if self.parse else None
+        self.parse = Util.cmp(*self.args(ops)) > 0 if self.parse else None
 
     def IFGE(self, asm, ops):
         self.parse_branches.append(self.parse)
-        self.parse = cmp(*self.args(ops)) >= 0 if self.parse else None
+        self.parse = Util.cmp(*self.args(ops)) >= 0 if self.parse else None
 
     def IFLT(self, asm, ops):
         self.parse_branches.append(self.parse)
-        self.parse = cmp(*self.args(ops)) < 0 if self.parse else None
+        self.parse = Util.cmp(*self.args(ops)) < 0 if self.parse else None
 
     def IFLE(self, asm, ops):
         self.parse_branches.append(self.parse)
-        self.parse = cmp(*self.args(ops)) <= 0 if self.parse else None
+        self.parse = Util.cmp(*self.args(ops)) <= 0 if self.parse else None
 
     def ELSE(self, asm, ops):
         self.parse = not self.parse if self.parse is not None else None
@@ -1102,7 +1182,7 @@ class Preprocessor(object):
         return ''.join(parts)
 
     def process(self, asm, label, mnemonic, operands, line):
-        """process preprocessor commands"""
+        """process preprocessor commands (for pass 1)"""
         if self.parse_macro:
             if mnemonic == '.ENDM':
                 self.parse_macro = None
@@ -1110,7 +1190,7 @@ class Preprocessor(object):
                 raise AsmError('Cannot define macro within macro')
             else:
                 self.macros[self.parse_macro].append(line)
-            return False, None, None
+            return False, False, None, None  # macro definition
         if self.parse and asm.parser.in_macro_instantiation and operands:
             operands = [self.instantiate_macro_args(op) for op in operands]
             line = self.instantiate_line(line)  # only for display
@@ -1120,6 +1200,7 @@ class Preprocessor(object):
             if name in self.macros:
                 if self.parse:
                     self.parser.open(macro=name, macro_args=operands)
+                    return False, label, None, line
             else:
                 try:
                     fn = getattr(Preprocessor, name)
@@ -1129,23 +1210,28 @@ class Preprocessor(object):
                     fn(self, asm, operands)
                 except (IndexError, ValueError):
                     raise AsmError('Syntax error')
-            return False, None, None
+            return False, False, None, None  # eliminate preprocessor commands
         else:
-            return self.parse, operands, line
+            return self.parse, False, operands, line  # normal statement
 
 
 class Parser(object):
     """scanner and parser class"""
+    OPEN = '$OPEN'  # constants inserted into source to denote new or resumes source units
+    RESUME = '$RESM'
 
-    def __init__(self, symbols, console, path, includes=None, strict=False, r_prefix=False):
+    def __init__(self, symbols, listing, console, path, includes=None, strict=False, r_prefix=False,
+                 bank_cross_check=False):
         self.symbols = symbols
+        self.listing = listing
         self.console = console
         self.path = path
         self.includes = includes or []  # do not include '.' -- current path added implicitly in find()
-        self.prep = Preprocessor(self)
+        self.prep = Preprocessor(self, listing)
         self.text_literals = []
         self.strict = strict
         self.r_prefix = r_prefix
+        self.bank_cross_check = bank_cross_check
         self.warnings = []  # per line
         self.filename = None
         self.source = None
@@ -1164,18 +1250,20 @@ class Parser(object):
         if filename:
             newfile = '-' if filename == '-' else self.find(filename)
             self.path, self.filename = os.path.split(newfile)
-            self.source = readlines(newfile)  # might throw error
+            self.source = Util.readlines(newfile)  # might throw error
             self.in_macro_instantiation = False
         else:
             self.source = self.prep.macros[macro]
             self.macro_args = macro_args or []
             self.in_macro_instantiation = True
+        self.symbols.interm_source.append((0, 0, None, Parser.OPEN, None, None, filename or macro, None))
         self.lino = 0
 
     def resume(self):
         """close current source file and resume previous one"""
         try:
             self.filename, self.path, self.source, self.macro_args, self.lino = self.suspended_files.pop()
+            self.symbols.interm_source.append((0, 0, None, Parser.RESUME, None, None, self.filename, None))
             return True
         except IndexError:
             self.source = None  # indicates end-of-source to pass; keep self.path!
@@ -1241,7 +1329,7 @@ class Parser(object):
         """remove and save text literals from line"""
         parts = re.split(r"('(?:[^']|'')*'|\"[^\"]*\")", text)  # not-lit, lit, not-lit, lit, ...
         literals = [s[1:-1].replace("''", "'") for s in parts[1::2]]  # '' is ' within 'string'
-        parts[1::2] = ["'{:d}'".format(len(self.text_literals) + i) for i in range(len(literals))]  # 'n' lit placeholder
+        parts[1::2] = ["'{:d}'".format(len(self.text_literals) + i) for i in range(len(literals))]  # 'n' placeholder
         self.text_literals.extend(literals)
         return ''.join(parts).upper()
 
@@ -1269,8 +1357,12 @@ class Parser(object):
             else:
                 return 0b01, self.register(op[1:]), None
         elif op[:2] in ('B#', 'W#'):  # auto-generated constant (x# replaces @)
-            auto = AutoConstant(self.expression(op[2:], well_defined=True), size=op[0], symbols=self.symbols)
-            self.symbols.add_autoconst(auto)
+            auto = AutoConstant(self.expression(op[2:], well_defined=True),
+                                size=op[0], bank=self.symbols.bank, symbols=self.symbols)
+            if self.symbols.pass_no == 1:
+                if self.symbols.bank in self.symbols.autos_defined:
+                    raise AsmError('Auto-constant defined after AUTO directive')
+                self.symbols.add_autoconst(auto)
             return 0b10, 0, auto
         else:
             return 0b00, self.register(op), None
@@ -1338,9 +1430,10 @@ class Parser(object):
                         raise AsmError('Invalid reference: ' + expr)
                     return term_val
                 elif isinstance(term_val, Address):
-                    if (term_val.bank is not None and self.symbols.bank is not None and
+                    if (self.bank_cross_check and
+                            term_val.bank != Symbols.BANK_ALL and self.symbols.bank != Symbols.BANK_ALL and
                             term_val.bank != self.symbols.bank and not x_bank_access):
-                        raise AsmError('Invalid cross-bank saccess')
+                        raise AsmError('Invalid cross-bank access')
                         # NOTE: Jumping from bank into shared is safe, but shared into bank in general isn't.
                         #       But if we didn't allow shared to bank, we couldn't leave shared sections!
                     v, reloc = term_val.addr, 1 if term_val.reloc else 0
@@ -1431,7 +1524,7 @@ class Parser(object):
     def value(self, op):
         """parse well-defined value"""
         e = self.expression(op, well_defined=True)
-        return val(e)
+        return Util.val(e)
 
     def register(self, op):
         """parse register"""
@@ -1445,12 +1538,14 @@ class Parser(object):
                 return int(op[1:], 2)
             elif op.isdigit():
                 r = int(op)
+            elif op[0] == '@':
+                raise AsmError('Expected register, found address instead')
             else:
                 r = self.symbols.get_symbol(op[:6] if self.strict else op)
                 if r is None:
                     raise AsmError('Unknown symbol: ' + op)
                 if isinstance(r, Address):
-                    raise AsmError('Invalid term, did you intend an @address?')
+                    raise AsmError('Invalid term for register')
         except TypeError:
             raise AsmError('Invalid register:' + op)
         if self.r_prefix and op[0].upper() != 'R':
@@ -1464,7 +1559,7 @@ class Parser(object):
         if op.isdigit():
             return int(op)
         elif op.lower() == 'all':
-            return None
+            return Symbols.BANK_ALL
         else:
             raise AsmError('Invalid bank value: ' + op)
 
@@ -1537,6 +1632,11 @@ class Parser(object):
     def warn(self, message):
         self.warnings.append(message)
 
+    @staticmethod
+    def raise_invalid_statement():
+        """raises exception, as expression"""
+        raise AsmError('Invalid statement')
+
 
 # Code generation
 
@@ -1594,7 +1694,7 @@ class Program(object):
         """return unit offsets, ignoring RORG/AORG conflicts"""
         offset = base
         offsets = {}
-        for i in range(self.unit_count):
+        for i in (None, *range(self.unit_count)):
             offsets[i] = offset
             offset += self.max_reloc_LC.get(i, 0)
         return offsets
@@ -1606,17 +1706,17 @@ class Program(object):
         for i in range(99):  # limit no. of iterations
             conflict = False
             offset = offsets[0]
-            for id in range(self.unit_count):
-                for min_LC, max_LC in self.reloc_intervals.get(id, ()):
+            for n in range(self.unit_count):
+                for min_LC, max_LC in self.reloc_intervals.get(n, ()):
                     for min_abs_LC, max_abs_LC in self.absolute_intervals:
                         if not (min_LC + offset >= max_abs_LC or max_LC + offset <= min_abs_LC):
                             offset = max_abs_LC - min_LC  # don't apply RORG offset here
                             conflict = True
                 if conflict or i == 0:
-                    offsets[id] = offset
-                    offset += self.max_reloc_LC.get(id, 0)
+                    offsets[n] = offset
+                    offset += self.max_reloc_LC.get(n, 0)
                 else:
-                    offset = offsets.get(id + 1, offset)
+                    offset = offsets.get(n + 1, offset)
             if not conflict:
                 break
         else:
@@ -1629,14 +1729,14 @@ class Segment(object):
        also represents the top level unit of all generated code
     """
 
-    def __init__(self, bank, code, symbols, reloc=False, dummy=False, root=False):
+    def __init__(self, symbols, bank, reloc=False, dummy=False, root=False):
         self.bank = bank
         self.min_LC = None
         self.max_LC = None  # the next unused LC for that segment
         self.reloc = reloc
         self.dummy = dummy
         self.root = root  # initial segment, which may remain unused?
-        self.code = code  # {LC: word}
+        self.code = {}  # {LC: word}
         self.symbols = symbols
 
     def close(self, LC):
@@ -1644,14 +1744,13 @@ class Segment(object):
         self.min_LC = min(self.code, default=LC)
         self.max_LC = LC
 
-    @staticmethod
-    def set(code, LC, value):
+    def set(self, LC, value, byte=False):
         """set code to byte, word, or special value"""
-        if isinstance(value, int):
-            code[LC] = value >> 8
-            code[LC + 1] = value & 0xff
+        if byte or not isinstance(value, int):
+            self.code[LC] = value
         else:
-            code[LC] = value
+            self.code[LC] = value >> 8
+            self.code[LC + 1] = value & 0xff
 
 
 class SymbolAssembler(object):
@@ -1665,9 +1764,9 @@ class SymbolAssembler(object):
         self.console = console
         self.segment = False  # no actual Segment required for symbols
 
-    def assemble_pass_1(self):
+    def assemble_pass_1(self, srcname):
         """pass 1: gather symbols, apply preprocessor"""
-        source = []
+        self.parser.open(filename=srcname)
         self.symbols.pass_no = 1
         self.symbols.lidx = 0
         self.symbols.reset()
@@ -1684,10 +1783,13 @@ class SymbolAssembler(object):
             try:
                 # break line into fields
                 label, mnemonic, operands, comment, stmt = self.parser.line(line)
-                keep, operands, line = self.parser.prep.process(self, label, mnemonic, operands, line)
+                keep, add_label, operands, line = self.parser.prep.process(self, label, mnemonic, operands, line)
+                if add_label:
+                    self.symbols.interm_source.append((lino, self.symbols.lidx, label, "", [], line, label, True))
                 if not keep:
                     continue
-                source.append((lino, self.symbols.lidx, label, mnemonic, operands, line, filename, stmt))
+                self.symbols.interm_source.append((lino, self.symbols.lidx, label, mnemonic, operands,
+                                                   line, filename, stmt))
                 if not stmt:
                     continue
                 # process continuation label
@@ -1702,25 +1804,29 @@ class SymbolAssembler(object):
                     label = label[:-1]
                 # process mnemonic
                 Directives.process(self, label, mnemonic, operands) or \
-                self.opcodes.process(label, mnemonic, operands)
+                    self.opcodes.process(label, mnemonic, operands) or \
+                    Parser.raise_invalid_statement()
             except AsmError as e:
                 self.console.error(str(e), 1, filename, lino, line)
         if self.parser.prep.parse_branches:
             self.console.error('***** Error: Missing .endif', 1, filename)
         if self.parser.prep.parse_macro:
             self.console.error('***** Error: Missing .endm', 1, filename)
-        return source
 
     def org(self, base, reloc=False, bank=None, dummy=False, xorg=False):
         """open new segment"""
         if self.segment:
             self.symbols.save_LC()
+            if bank is None:
+                bank = self.symbols.bank
         if xorg:
             # for XORG, keep reloc status but save LC offset
             self.symbols.xorg_offset = base - self.symbols.LC
         else:
             self.symbols.restore_LC(base, reloc, bank)
         self.segment = not dummy
+        if bank is not None:
+            self.symbols.bank = bank
 
     def even(self):
         """even LC"""
@@ -1728,22 +1834,27 @@ class SymbolAssembler(object):
             self.symbols.pad()
             self.symbols.LC += 1
 
-    def byte(self, byte, stmt=False):
+    def byte(self, byte):
+        """increase LC by byte"""
         self.symbols.LC += 1
 
     def word(self, word):
+        """increase LC by word"""
         self.even()
         self.symbols.LC += 2
 
-    def block(self, size):
+    def block(self, size, offset=0):
+        """increase LC by block size"""
         self.symbols.LC += size
 
     def emit(self, opcode, saddr=None, daddr=None, cycles=0):
+        """increase LC according to machine code generated"""
         self.even()
         self.symbols.LC += (2 + (2 if saddr is not None else 0) +
                                 (2 if daddr is not None else 0))
 
     def process_label(self, label, real_LC=False, tracked=False):
+        """register label at current LC"""
         if not label:
             return
         if label[0] == '!':
@@ -1751,50 +1862,67 @@ class SymbolAssembler(object):
         else:
             self.symbols.add_label(label, real_LC, tracked=tracked)
 
+    def auto_constants(self):
+        """compure addresses of all constants, no further defs allowed"""
+        if self.symbols.bank in self.symbols.autos_generated:
+            raise AsmError('Multiple AUTO directives in current bank')
+        for size, value, bank in sorted(self.symbols.autoconsts):
+            if bank != self.symbols.bank:  # BANK_ALL has been excluded
+                continue
+            if size == 'W' and self.symbols.LC % 2:
+                self.symbols.LC += 1  # padding, executed only once
+            name = AutoConstant.get_name(size, value, bank)
+            value = Address(addr=self.symbols.LC, bank=bank, reloc=self.symbols.segment_reloc,
+                            unit_id=self.symbols.unit_id)
+            self.symbols.add_symbol(name, value, check=False)
+            self.symbols.LC += 2 if size == 'W' else 1
+        self.symbols.autos_defined.add(self.symbols.bank)
+
 
 class Assembler(object):
     """generate object code"""
 
-    def __init__(self, program, opcodes, includes=None, r_prefix=False, strict=False, warnings=True, timing=True):
+    def __init__(self, program, opcodes, includes=None, r_prefix=False, strict=False, warnings=True, timing=True,
+                 bank_cross_check=False, colors=None):
         self.program = program
         self.opcodes = opcodes
         self.includes = includes or []
-        self.console = Console(warnings)
+        self.console = Console(warnings, colors=colors)
         self.symbols = None
         self.parser = None
         self.symasm = None
         self.listing = Listing(timing=timing)
         self.strict = strict
         self.r_prefix = r_prefix
-        self.code = None
+        self.bank_cross_check = bank_cross_check
         self.segment = None
 
     def assemble(self, path, srcname):
-        self.symbols = Symbols(self.program.externals, add_registers=self.r_prefix)
-        self.parser = Parser(self.symbols, self.console, path, includes=self.includes, r_prefix=self.r_prefix,
-                             strict=self.strict)
-        self.symasm = SymbolAssembler(self.program, self.opcodes, self.symbols, self.parser, self.console)  # for pass 1
-        self.parser.open(srcname)
+        self.symbols = Symbols(self.program.externals, self.console, add_registers=self.r_prefix)
+        self.parser = Parser(self.symbols, self.listing, self.console, path, includes=self.includes,
+                             r_prefix=self.r_prefix, bank_cross_check=self.bank_cross_check, strict=self.strict)
+        self.symasm = SymbolAssembler(self.program, self.opcodes, self.symbols, self.parser, self.console)  # pass 1
         self.opcodes.use_asm(self.symasm)
-        source = self.symasm.assemble_pass_1()  # continue even with errors, to display them all
+        self.symasm.assemble_pass_1(srcname)  # continue even with errors, to display them all
         self.opcodes.use_asm(self)
-        self.assemble_pass_2(source)
-        self.auto_constants()
+        self.assemble_pass_2()
         self.finalize()
 
-    def assemble_pass_2(self, source):
+    def assemble_pass_2(self):
         """second pass: generate machine code"""
         self.symbols.pass_no = 2
         self.symbols.reset()
         self.org(0, reloc=True, root=True)  # create root segment
-        prev_file = None
-        for lino, lidx, label, mnemonic, operands, line, filename, stmt in source:
+        for lino, lidx, label, mnemonic, operands, line, filename, stmt in self.symbols.interm_source:
+            if mnemonic == Parser.OPEN or mnemonic == Parser.RESUME:
+                if mnemonic == Parser.OPEN:
+                    self.listing.open(self.symbols.LC, filename)
+                elif mnemonic == Parser.RESUME:
+                    self.listing.resume(self.symbols.LC, filename)
+                self.console.filename = filename
+                continue
             self.symbols.lidx = lidx
             self.parser.warnings = []
-            if filename != prev_file:
-                self.listing.open(self.symbols.LC, filename)
-                self.console.filename = filename
-                prev_file = filename
             self.listing.prepare(self.symbols.LC, Line(lino=lino, line=line))
             if not stmt:
                 continue
@@ -1802,7 +1930,8 @@ class Assembler(object):
                 continue
             try:
                 Directives.process(self, label, mnemonic, operands) or \
-                    self.opcodes.process(label, mnemonic, operands)
+                    self.opcodes.process(label, mnemonic, operands) or \
+                    Parser.raise_invalid_statement()
             except AsmError as e:
                 self.console.error(str(e), 2, filename, lino, line)
             for msg in self.parser.warnings:
@@ -1812,47 +1941,56 @@ class Assembler(object):
             self.console.warn('Unused constants: ' + ', '.join(unused), 2)
 
     def process_label(self, label, real_LC=False, tracked=False):
+        """only in pass 1"""
         pass
 
     def org(self, base, bank=None, reloc=False, dummy=False, xorg=False, root=False):
+        """define new segment"""
         if self.segment and not self.segment.dummy:
             if not root:
                 self.segment.close(self.symbols.LC)
-            self.symbols.save_LC()
+            if bank is None:
+                self.symbols.save_LC()
         if xorg:
             # for XORG, keep reloc status but save LC offset
             self.symbols.xorg_offset = base - self.symbols.LC
         else:
             self.symbols.restore_LC(base, reloc, bank)
-        self.code = {}
-        self.segment = Segment(self.symbols.bank, self.code, self.symbols,
-                               reloc=self.symbols.segment_reloc, dummy=dummy, root=root)
+        if bank is not None:
+            self.symbols.bank = bank
+        self.segment = Segment(self.symbols, self.symbols.bank, reloc=self.symbols.segment_reloc,
+                               dummy=dummy, root=root)
         if not dummy:
             self.program.segments.append(self.segment)
 
     def even(self):
+        """even LC"""
         if self.symbols.LC % 2 == 1:
             self.symbols.LC += 1
 
-    def byte(self, byte, stmt=False):
-        byte &= 0xff
-        self.code[self.symbols.LC] = byte
-        self.listing.add(self.symbols.LC, byte=byte)
+    def byte(self, byte_):
+        """create a byte"""
+        byte_ &= 0xff
+        self.segment.set(self.symbols.LC, byte_, byte=True)
+        self.listing.add(self.symbols.LC, byte=byte_)
         self.symbols.LC += 1
 
     def word(self, word, timing=None):
+        """create a word"""
         self.even()
-        Segment.set(self.code, self.symbols.LC, word)
+        self.segment.set(self.symbols.LC, word)
         self.listing.add(self.symbols.LC, text1=self.symbols.LC, text2=word, timing=timing)
         self.symbols.LC += 2
 
-    def block(self, size):
+    def block(self, size, offset=0):
+        """define block, offset for BES directive"""
         block = Block(size)
-        self.listing.add(self.symbols.LC, text1=self.symbols.LC, text2=block)
-        self.code[self.symbols.LC] = block
+        self.listing.add(self.symbols.LC, text1=self.symbols.LC + offset, text2=block)
+        self.segment.set(self.symbols.LC, block)
         self.symbols.LC += size
 
     def emit(self, opcode, saddr=None, daddr=None, cycles=0):
+        """generate machine code"""
         self.word(opcode, cycles)
         if saddr is not None:
             self.word(saddr)
@@ -1860,34 +1998,31 @@ class Assembler(object):
             self.word(daddr)
 
     def auto_constants(self):
-        """append code stanza for auto-constants and create symbol entries"""
-        def list_autoconsts(name, value, local_lc, byte=False):
+        """create code stanza for auto-constants"""
+        def list_autoconsts(name, local_value, local_lc, byte=False):
             self.listing.prepare(self.symbols.LC, Line(line=name))
             if byte:
-                self.listing.add(self.symbols.LC, text1=local_lc, byte=value)
+                self.listing.add(self.symbols.LC, text1=local_lc, byte=local_value)
             else:
-                self.listing.add(self.symbols.LC, text1=local_lc, text2=f'{value:04X}')
+                self.listing.add(self.symbols.LC, text1=local_lc, text2=f'{local_value:04X}')
 
-        if not self.symbols.autoconsts:
-            return
-        self.org(self.symbols.LC, reloc=True)
         self.listing.open(self.symbols.LC, 'auto-generated constants')
-        for size, value in sorted(self.symbols.autoconsts):
+        for size, value, bank in sorted(self.symbols.autoconsts):
+            if bank != Symbols.BANK_ALL and self.symbols.bank != Symbols.BANK_ALL and bank != self.symbols.bank:
+                continue
             if size == 'W' and self.symbols.LC % 2:
                 # executed only once
                 list_autoconsts('(padding)', 0, self.symbols.LC, byte=True)
                 self.symbols.LC += 1
             display_name = size + '#' + str(value) if size != 'P' else ''
             list_autoconsts(display_name, value, self.symbols.LC, byte=size == 'B')
-            name = AutoConstant.get_name(size, value)
-            self.symbols.add_symbol(name, Address(self.symbols.LC, reloc=True, unit_id=self.symbols.unit_id))
-            if size == 'W':
-                self.code[self.symbols.LC] = value >> 8
-                self.code[self.symbols.LC + 1] = value & 0xff
+            if size == 'W':  # already even
+                self.segment.set(self.symbols.LC, value)
                 self.symbols.LC += 2
             else:  # B
-                self.code[self.symbols.LC] = value
+                self.segment.set(self.symbols.LC, value, byte=True)
                 self.symbols.LC += 1
+        self.symbols.autos_generated.add(self.symbols.bank)
 
     def finalize(self):
         """complete code generation"""
@@ -1903,7 +2038,7 @@ class Records:
         if not idt:
             idt = '        '
         if compressed:
-            self.record = b'\x01%b%-8b' % (chrw(reloc_size), idt.encode())
+            self.record = b'\x01%b%-8b' % (Util.chrw(reloc_size), idt.encode())
             self.line_len = 77
         else:
             self.record = b'0%04X%-8b' % (reloc_size, idt.encode())
@@ -1916,7 +2051,7 @@ class Records:
         add_LC = self.needs_LC and LC is not None
         tag_penalty = (5 if tag in b'9A' else 0) + (5 if add_LC else 0)
         if self.compressed:
-            s = tag + chrw(value)
+            s = tag + Util.chrw(value)
             if tag in b'3456':
                 tag_penalty += 31
         else:
@@ -1931,7 +2066,7 @@ class Records:
             add_LC = LC is not None
         if add_LC:
             tag_LC = ((b'A' if reloc else b'9') +
-                      (chrw(LC) if self.compressed else (b'%04X' % LC)))
+                      (Util.chrw(LC) if self.compressed else (b'%04X' % LC)))
             self.record += tag_LC + s
         else:
             self.record += s
@@ -1984,10 +2119,10 @@ class Optimizer(object):
 class Linker(object):
     """Object code and binary handling"""
 
-    def __init__(self, program, base=0, warnings=True, resolve_conflicts=False):
+    def __init__(self, program, base=0, warnings=True, resolve_conflicts=False, colors=False):
         self.program = program
         self.reloc_base = base
-        self.console = Console(warnings)
+        self.console = Console(warnings, colors=colors)
         self.resolve_conflicts = resolve_conflicts
         self.symbols = None
         self.offsets = None  # dict of program relocation offsets
@@ -1996,18 +2131,18 @@ class Linker(object):
     def load(self, files):
         """link external object code, E/A #5 program file, or binary"""
         for filename, data in files:
-            self.symbols = Symbols(self.program.externals)
+            self.symbols = Symbols(self.program.externals, self.console)
             name, segments = self.load_object_code(data)
             self.program.segments.extend(segments)
             self.program.set_name(name)
 
     def load_object_code(self, objcode):
         """link object code"""
-        segments = []
-        segment = code = None  # overwritten by first address tag
+        segment = Segment(self.symbols, None, reloc=True)  # initial segment
+        segments = [segment]
         LC = 0  # always start at 0, and relocate later if required
         reloc = new_reloc = True
-        addr_change = None  # old LC, new LC
+        addr_change = None  # old LC, new LC, change_idx
         addr_change_chain = False
         try:
             name = objcode[5:13].decode()
@@ -2016,31 +2151,33 @@ class Linker(object):
         if objcode[0] == 0x01:
             compressed = True
             taglen = 3
-            get = lambda t: ordw(t[1:3])
+            get = lambda t: Util.ordw(t[1:3])
         else:
             compressed = False
             taglen = 5
             get = lambda t: int(t[1:5], 16)
-        obj_size = ordw(objcode[1:3]) if compressed else int(objcode[:5], 16)
+        obj_size = Util.ordw(objcode[1:3]) if compressed else int(objcode[:5], 16)
 
+        check_linos = True
         for lino, i in enumerate(range(0, len(objcode) - 80, 80)):  # ignore last line
             line = objcode[i:i + 80]
-            if not compressed and line[-4:] != b'%04d' % (lino + 1):
-                raise AsmError('Malformed object code file: Invalid line number')
+            if not compressed and line[-4:] != b'%04d' % (lino + 1) and check_linos:
+                self.console.warn('Invalid line numner; object code file may be corrupted', pass_no='L', lino=lino)
+                check_linos = False  # report only once
             start_idx = idx = taglen + 8 if lino == 0 else 0
             while True:
                 tag = line[idx:idx + taglen]
                 tagid = tag[0:1]
-                if tagid in b'BC' and addr_change is not None:
+                # if data tags follows an actual address change:
+                if tagid in b'BC' and addr_change:
                     old_LC, new_LC, change_idx = addr_change
                     if (not addr_change_chain and
-                            (segment is None or change_idx > start_idx or reloc != new_reloc or new_LC < old_LC)):
+                            (change_idx > start_idx or reloc != new_reloc or new_LC < old_LC)):
                         # create new segment
                         if segment:
                             segment.close(old_LC)  # current segment done
                         reloc = new_reloc
-                        code = {}
-                        segment = Segment(None, code, self.symbols, reloc=reloc)
+                        segment = Segment(self.symbols, None, reloc=reloc)
                         segments.append(segment)
                     addr_change = None
                 if tagid in b'12':  # entry address
@@ -2069,7 +2206,7 @@ class Linker(object):
                     idx += taglen + 6
                 elif tagid == b'7':  # checksum
                     idx += taglen
-                elif tagid in b'9A':  # LC (also block, which just advances LC)
+                elif tagid in b'9A':  # set LC (also block, which just advances LC)
                     new_LC = get(tag)
                     new_reloc = tagid == b'A'
                     # NOTE:
@@ -2082,48 +2219,46 @@ class Linker(object):
                     # multiple *ORGs occur, only the last one has relevance, assuming
                     # it is not the end of the program.
                     # A trailing 9/A tag does not indicate an *ORG directive, but a BSS.
-                    if addr_change is not None:
+                    if addr_change:
                         prev_old_LC, prev_new_LC, change_idx = addr_change
                         if prev_new_LC == new_LC:  # 2x BSS 1/BYTE in one word
-                            code[prev_new_LC] = Block(1)  # 'B' tag will check for Block(1)
+                            segment.set(prev_new_LC, Block(1))  # 'B' tag will check for Block(1)
                         else:
-                            code[prev_new_LC] = Block(new_LC - prev_new_LC)
+                            segment.set(prev_new_LC, Block(new_LC - prev_new_LC))
                         addr_change_chain = True
                     addr_change = LC, new_LC, idx
                     LC = new_LC
                     idx += taglen
-                elif tagid == b'B':  # data or non-relocatable address
+                elif tagid == b'B':  # data or non-relocatable address as arg
                     value = get(tag)
                     try:
-                        if isinstance(code[LC], Block) and code[LC].size % 2 == 1:
+                        if isinstance(segment.code[LC], Block) and segment.code[LC].size % 2 == 1:
                             assert value < 0x100
-                            code[LC].size -= 1
-                            code[LC + 1] = value
+                            segment.set(LC + 1, value, byte=True)
                     except KeyError:
-                        code[LC] = value >> 8
-                        code[LC + 1] = value & 0xff
+                        segment.set(LC, value)
                     LC += 2
                     idx += taglen
-                elif tagid == b'C':  # relocatable address
-                    code[LC] = Address(get(tag), reloc=True, unit_id=self.symbols.unit_id)
+                elif tagid == b'C':  # relocatable address as arg
+                    segment.set(LC, Address(get(tag), reloc=True, unit_id=self.symbols.unit_id))
                     LC += 2
                     idx += taglen
                 elif tagid == b'F':
                     break
                 else:
                     raise AsmError('Invalid object code tag: {}'.format(str(tagid)))
-        LC = self.close_block(code, addr_change, addr_change_chain, LC, obj_size, segment.reloc)
+        LC = self.close_block(segment, addr_change, addr_change_chain, LC, obj_size, segment.reloc)
         segment.close(LC)
         self.adjust_obj_size(segments, obj_size)
         return name, segments
 
     @staticmethod
-    def close_block(code, addr_change, chain, LC, obj_size, reloc):
+    def close_block(segment, addr_change, chain, LC, obj_size, reloc):
         """handle opened block"""
         try:
             old_LC, new_LC, change_idx = addr_change
             if not chain:
-                code[new_LC] = Block(obj_size - LC)  # final block, size not included in tags
+                segment.set(new_LC, Block(obj_size - LC))  # final block, size not included in tags
         except TypeError:
             pass
         return obj_size if reloc else LC
@@ -2148,9 +2283,9 @@ class Linker(object):
         """replace one addr in ref chain by Reference, return next addr in chain"""
         for segment in segments:
             try:
-                vaddr = val(addr)
+                vaddr = Util.val(addr)
                 if isinstance(segment.code[vaddr], Address):
-                    next_addr = val(segment.code[vaddr])
+                    next_addr = Util.val(segment.code[vaddr])
                 else:
                     next_addr = (segment.code[vaddr] << 8) | segment.code[vaddr + 1]
                     del segment.code[vaddr + 1]
@@ -2160,10 +2295,10 @@ class Linker(object):
                 pass  # addr not in this segment, try next
         return None
 
-    def link(self, resolve_conflicts=False):
+    def link(self, warn_about_unresolved_refs=False):
         """link object code"""
         self.offsets = self.program.layout_program(self.reloc_base, self.resolve_conflicts)
-        self.resolve_references()
+        self.resolve_references(warn_about_unresolved_refs)
         self.bank_count = self.get_bank_count()
 
     def get_offset(self, entity):
@@ -2180,18 +2315,18 @@ class Linker(object):
         else:
             return word
 
-    def resolve_references(self):
+    def resolve_references(self, warn_about_unresolved_references=False):
         """resolve references against all updated known symbols"""
-        symbols = []
+        symbols = set()
         for segment in self.program:
             for LC, entry in segment.code.copy().items():
                 if isinstance(entry, Reference):
                     try:
                         value, _ = self.program.externals.definitions[entry.name]
-                        Segment.set(segment.code, LC, value)
+                        segment.set(LC, value)
                     except KeyError:
-                        symbols.append(entry.name)
-        if symbols:
+                        symbols.add(entry.name)
+        if symbols and warn_about_unresolved_references:
             self.console.warn('Unresolved references: ' + ', '.join(symbols), pass_no='L')
 
         # keep only unresolved references, and all definitions
@@ -2200,7 +2335,8 @@ class Linker(object):
 
     def get_bank_count(self):
         """get number of different banks"""
-        return max((segment.bank for segment in self.program if segment.bank is not None), default=0) + 1
+        return max((segment.bank + 1 for segment in self.program
+                    if segment.bank is not None and segment.bank != Symbols.BANK_ALL), default=0)
 
     def generate_object_code(self, compressed=False):
         """generate object code (E/A option 3)"""
@@ -2220,7 +2356,7 @@ class Linker(object):
             for LC, entry in segment.code.items():
                 addr = LC + offset
                 if isinstance(entry, AutoConstant):
-                    entry = segment.symbols.get_symbol(entry.name)  # resolves to Address()
+                    entry = entry.resolve_addr()  # resolves to Address()
                 if isinstance(entry, Address):
                     tags.add(b'C' if entry.reloc else b'B',
                              entry.addr + self.get_offset(entry), addr, segment.reloc)
@@ -2240,7 +2376,7 @@ class Linker(object):
                             segment.code[LC + 1] = None  # do not process again
                     else:
                         pass  # leave entry as-is
-                    tags.add(b'B', entry, even(addr), segment.reloc)  # might be single byte after BSS block
+                    tags.add(b'B', entry, Util.even(addr), segment.reloc)  # might be single byte after BSS block
         tags.flush()
         # program entry
         if self.program.entry:
@@ -2267,18 +2403,19 @@ class Linker(object):
         tags.append(b':       xdt99 xas')
         return tags.dump()
 
-    def generate_binaries(self, split_segments=False, save=None):
+    def generate_binaries(self, split_segments=False, save=None, minimize=False):
         """generate binary images per bank and per segment or SAVE"""
         saves = self.program.saves + ([save] if save else [])
         binaries = []
-        for bank in range(self.bank_count):
+        for bank in (None, *range(self.bank_count)):
             memories = []
             if split_segments and not saves:  # saves would join splits again
                 # process each segment individually
                 for segment in sorted(self.program.segments,
                                       key=lambda s: (s.min_LC + self.get_offset(s))):  # sort by increasing min_addr
-                    min_addr, max_addr, memory = self.fill_memory(bank, segments=(segment,))
-                    if not memory:
+                    try:
+                        min_addr, max_addr, memory = self.fill_memory(bank, segments=(segment,))
+                    except TypeError:  # fill_memory returns None
                         continue
                     # merge with adjacent memories
                     # since memories.min_addr are increasing, memory can only match with most recent memories
@@ -2293,14 +2430,17 @@ class Linker(object):
                     memories.append((min_addr, max_addr, memory))
             else:
                 # process all segments together
-                min_addr, max_addr, memory = self.fill_memory(bank, segments=self.program.segments)
+                try:
+                    min_addr, max_addr, memory = self.fill_memory(bank, segments=self.program.segments)
+                except TypeError:  # fill_memory returns None
+                    continue
                 memories.append((min_addr, max_addr, memory))
             if saves:
                 for save in saves:
-                    new_binaries = self.build_binary(bank, memories, save_range=save)
+                    new_binaries = self.build_binary(bank, memories, save_range=save, minimize=minimize)
                     binaries.extend(new_binaries)
             else:
-                new_binaries = self.build_binary(bank, memories)
+                new_binaries = self.build_binary(bank, memories, minimize=minimize)
                 binaries.extend(new_binaries)
         return binaries
 
@@ -2314,7 +2454,9 @@ class Linker(object):
         for segment in segments:
             if segment.dummy or not segment.code:
                 continue
-            if segment.bank is not None and segment.bank != bank:
+            # either both banks are None, or both are not None and both banks match
+            if not ((segment.bank is None and self.bank_count == 0) if bank is None else
+                    (segment.bank == Symbols.BANK_ALL or segment.bank == bank)):
                 continue
             offset = self.get_offset(segment)
             min_addr = min(min_addr, segment.min_LC + offset)
@@ -2322,7 +2464,7 @@ class Linker(object):
             for LC, entry in segment.code.items():
                 addr = LC + offset
                 if isinstance(entry, AutoConstant):
-                    entry = segment.symbols.get_symbol(entry.name)  # replace by Address()
+                    entry = entry.resolve_addr()
                 if isinstance(entry, Address):
                     word = entry.addr + self.get_offset(entry)
                     memory[addr] = word >> 8
@@ -2338,9 +2480,38 @@ class Linker(object):
                     pass
                 else:
                     memory[addr] = entry
-        return min_addr, max_addr, memory
+        return (min_addr, max_addr, memory) if memory else None
 
-    def build_binary(self, bank, memories, save_range=None):
+    def build_binary(self, bank, memories, save_range=None, minimize=False):
+        if minimize:
+            return self.build_minimal_binary(bank, memories, save_range)
+        else:
+            return self.build_full_binary(bank, memories, save_range)
+
+    def build_full_binary(self, bank, memories, save_range=None):
+        """create a binary from memories, for given save range
+           Note: unset memory addresses will be zeroed.
+        """
+        binaries = []
+        min_mem = min(n for n, _, _ in memories)
+        max_mem = max(n for _, n, _ in memories)
+        try:
+            save_min, save_max = save_range
+            min_addr = min_mem if save_min is None else self.resolve_addr(save_min)
+            max_addr = max_mem if save_max is None else self.resolve_addr(save_max)
+        except TypeError:
+            min_addr, max_addr = min_mem, max_mem
+        merged_memory = []
+        for addr in range(min_addr, max_addr):
+            values = {mem.get(addr, 0) for _, _, mem in memories}
+            if len(values) != 1:
+                raise AsmError(f'Ambiguous value at address @{ addr }')
+            merged_memory.append(values.pop())
+        binary = bytes(merged_memory)
+        binaries.append((bank, min_addr, min_addr, binary))
+        return binaries
+
+    def build_minimal_binary(self, bank, memories, save_range=None):
         """create a binary from memories, for given save range (has saves <=> only one memory)
            Note: Saves are not padded, e.g., if code occupies the range >10->20 and the save range
            is >00->40, the resulting binary will still occupy range >10->20.
@@ -2374,10 +2545,10 @@ class Linker(object):
     def generate_text(self, mode):
         """convert binary data into text representation"""
         if 'r' in mode:
-            word = lambda i: ordw(
+            word = lambda i: Util.ordw(
                     mem[i + 1:((i - 1) if i > 0 else None):-1])  # byte-swapped
         else:
-            word = lambda i: ordw(mem[i:i + 2])
+            word = lambda i: Util.ordw(mem[i:i + 2])
 
         fmt = '{:s}{:04x}' if '4' in mode else '{:s}{:02x}'
         tf = lambda x: x  # use value as-is
@@ -2402,7 +2573,7 @@ class Linker(object):
         else:
             raise AsmError('Bad text format: ' + mode)
 
-        binaries = self.generate_binaries()
+        binaries = self.generate_binaries(minimize=True)
         result = []
         for bank, save, addr, mem in binaries:
             if '4' in mode:  # words
@@ -2426,11 +2597,11 @@ class Linker(object):
         if self.bank_count > 1:
             raise AsmError('Cannot create banked program image')
         save, offset = self.get_image_parameters()
-        binaries = self.generate_binaries(split_segments=True, save=save)
+        binaries = self.generate_binaries(split_segments=True, save=save, minimize=True)
         chunks = [(addr + offset + i, data[i:i + chunk_size - 6])
                   for bank, _, addr, data in binaries
                   for i in range(0, len(data), chunk_size - 6)]
-        images = [chrw(0xffff if i + 1 < len(chunks) else 0) + chrw(len(chunk) + 6) + chrw(addr) + chunk
+        images = [Util.chrw(0xffff if i + 1 < len(chunks) else 0) + Util.chrw(len(chunk) + 6) + Util.chrw(addr) + chunk
                   for i, (addr, chunk) in enumerate(chunks)]
         return images
 
@@ -2451,8 +2622,8 @@ class Linker(object):
             save = None
             offset = 0
         else:
-            save = val(sfirst), val(slast)
-            offset = val(sload) - val(sfirst)
+            save = Util.val(sfirst), Util.val(slast)
+            offset = Util.val(sload) - Util.val(sfirst)
         return save, offset
 
     def generate_XB_loader(self):
@@ -2483,12 +2654,13 @@ class Linker(object):
         self.offsets = {0: first_addr}  # rebase segments on first_addr
         _, _, _, payload = self.generate_binaries()[0]  # returns only one element
         token_table = (bytes((len(loader) + 1,)) + loader + bytes(256 - size + 1) + payload + b'\x04\x60' +
-                       chrw(first_addr))
+                       Util.chrw(first_addr))
         token_tab_addr = last_addr - len(token_table)
         lino_tab_addr = token_tab_addr - 4
-        lino_table = b'\x00\x01' + chrw(token_tab_addr + 1)
+        lino_table = b'\x00\x01' + Util.chrw(token_tab_addr + 1)
         checksum = (token_tab_addr - 1) ^ lino_tab_addr
-        header = (b'\xab\xcd' + chrw(lino_tab_addr) + chrw(token_tab_addr - 1) + chrw(checksum) + chrw(last_addr - 1))
+        header = (b'\xab\xcd' + Util.chrw(lino_tab_addr) + Util.chrw(token_tab_addr - 1) +
+                  Util.chrw(checksum) + Util.chrw(last_addr - 1))
         # convert data into INT/VAR 254 records
         chunks = [(lino_table + token_table)[i:i + 254]
                   for i in range(0, len(lino_table + token_table), 254)]
@@ -2502,7 +2674,7 @@ class Linker(object):
         entry = send.addr + 0x6030 if send.reloc else send.addr
         gpl_header = bytes((0xaa, 0x01, 0x00, 0x00, 0x00, 0x00, 0x60, 0x10)) + bytes(8)
         try:
-            program_info = chrw(0) + chrw(entry) + bytes((len(name),)) + name.encode()
+            program_info = Util.chrw(0) + Util.chrw(entry) + bytes((len(name),)) + name.encode()
         except UnicodeEncodeError:
             raise AsmError(f'Bad program name "{name}"')
         padding = bytes(27 - len(name))
@@ -2531,12 +2703,14 @@ class Linker(object):
 class Console(object):
     """collects warnings"""
 
-    def __init__(self, enable_warnings=True):
+    def __init__(self, enable_warnings=True, colors=None):
         self.console = []
         self.filename = None
         self.enabled = enable_warnings
         self.errors = False
         self.entries = False
+        self.colors = ((platform.system() in ('Linux', 'Darwin')) if colors is None else  # no auto color on Windows
+                       (colors == 'on'))
 
     def warn(self, message, pass_no=None, filename=None, lino=None, line=None):
         if self.enabled and pass_no != 1:
@@ -2547,15 +2721,34 @@ class Console(object):
         self.console.append(('E', message, pass_no, filename, lino, line))
         self.entries = self.errors = True
 
+    def color(self, severity):
+        if not self.colors:
+            return ''
+        elif severity == 0:
+            return '\x1b[0m'  # reset to normal
+        elif severity == 1:
+            return '\x1b[33m'  # yellow
+        elif severity == 2:
+            return '\x1b[31m'  # red
+        else:
+            return ''
+
     def print(self):
-        """print all console messages to stderr"""
-        for kind, message , pass_no, filename, lino, line in self.console:
-            text = 'Error' if kind == 'E' else 'Warning'
-            s_filename = filename or '---'
+        """print all console error and warning messages to stderr"""
+        for kind, message, pass_no, filename, lino, line in self.console:
+            text, severity = ('Error', 2) if kind == 'E' else ('Warning', 1)
+            s_filename = filename or '***'
             s_pass = pass_no if isinstance(pass_no, str) else str(pass_no) or '-'
             s_lino = f'{lino:04d}' if lino is not None else '****'
             s_line = line or ''
-            sys.stderr.write(f'> {s_filename} <{s_pass}> {s_lino} - {s_line}\n***** {text:s}: {message}\n')
+            sys.stderr.write(f'> {s_filename} <{s_pass}> {s_lino} - {s_line}\n' +
+                             self.color(severity) + f'***** {text:s}: {message}\n' + self.color(0))
+        error_count = sum(1 for kind, *_ in self.console if kind == 'E')
+        sys.stderr.write(self.color(0))
+        if error_count == 1:
+            sys.stderr.write('1 Error found.\n')
+        elif error_count > 1:
+            sys.stderr.write(f'{error_count} Errors found.\n')
 
 
 class Listing(object):
@@ -2568,9 +2761,16 @@ class Listing(object):
         self.byte = None  # or (LC, value)
 
     def open(self, LC, filename):
+        """open new source unit"""
         if self.prepared_line:
             self.add(LC)
         self.listing.append(Line(line='> ' + filename, text1='****', text2='****'))
+
+    def resume(self, LC, filename):
+        """resume previous source unit"""
+        if self.prepared_line:
+            self.add(LC)
+        self.listing.append(Line(line='< ' + filename, text1='', text2=''))
 
     def prepare(self, LC, line):
         """send lino and line data, will be merged with upcoming addr and word"""
@@ -2622,7 +2822,7 @@ class Listing(object):
             t_timing = '' if line.timing is None else str(line.timing)
             word = line.text2
             if isinstance(word, AutoConstant):  # resolve auto-const address
-                word.resolve_addr()
+                word = word.resolve_addr()
             if isinstance(word, Address):
                 t_word = word.hex()
             elif isinstance(word, Reference):
@@ -2643,7 +2843,7 @@ class Listing(object):
 class Line(object):
     """source code line"""
 
-    def __init__(self, lino=None, line=None, text1=None, text2=None, timing=None, new_source=False):
+    def __init__(self, lino=None, line=None, text1=None, text2=None, timing=None):
         self.lino = lino
         self.line = line
         self.text1 = text1
@@ -2654,7 +2854,8 @@ class Line(object):
 # Command line processing
 
 def main():
-    import argparse, zipfile
+    import argparse
+    import zipfile
 
     args = argparse.ArgumentParser(description='TMS9900 cross-assembler, v' + VERSION)
     args.add_argument('sources', metavar='<source>', nargs='*', help='assembly source code(s)')
@@ -2692,6 +2893,10 @@ def main():
                       help='add symbol table to listing (TI Assembler option S)')
     args.add_argument('-E', '--symbol-equs', dest='equs', metavar='<file>',
                       help='put symbols in EQU file')
+    args.add_argument('-M', '--minimal-chunks', action='store_true', dest='minchunk',
+                      help='create minimal chunks when generating binaries with SAVE')
+    args.add_argument('-X', '--cross-checks', action='store_true', dest='x_checks',
+                      help='enable cross-bank checks for banked programs')
     args.add_argument('-q', action='store_true', dest='quiet',
                       help='quiet, do not print warnings')
     args.add_argument('-a', '--base', dest='base', metavar='<addr>',
@@ -2701,6 +2906,8 @@ def main():
     args.add_argument('-D', '--define-symbol', nargs='+', dest='defs',
                       metavar='<sym=val>',
                       help='add symbol to symbol table')
+    args.add_argument('--color', action='store', dest='color', choices=['off', 'on'],
+                      help='enable or disable color output')
     args.add_argument('-o', '--output', dest='output', metavar='<file>',
                       help='set output file name or target directory')
     opts = args.parse_args()
@@ -2724,8 +2931,9 @@ def main():
         root = os.path.dirname(os.path.realpath(__file__))  # installation dir (path to xas99)
         includes = [os.path.join(root, 'lib')] + (opts.inclpath.split(',') if opts.inclpath else [])
         opcodes = Opcodes(use_9995=opts.use_9995, use_f18a=opts.use_f18a)
-        asm = Assembler(program, opcodes, includes=includes,
-                        r_prefix=opts.r_prefix, strict=opts.strict, warnings=not opts.quiet, timing=not opts.use_9995)
+        asm = Assembler(program, opcodes, includes=includes, r_prefix=opts.r_prefix, strict=opts.strict,
+                        warnings=not opts.quiet, timing=not opts.use_9995, bank_cross_check=opts.x_checks,
+                        colors=opts.color)
         for source in opts.sources:
             dirname = os.path.dirname(source) or '.'
             basename = os.path.basename(source)
@@ -2747,16 +2955,17 @@ def main():
         name = opts.name or 'A'
 
     # link step
-    base = (xint(opts.base) if opts.base else
+    base = (Util.xint(opts.base) if opts.base else
             0xa000 if opts.image else
             0x6030 if opts.cart else
             0)
-    linker = Linker(program, base=base, warnings=not opts.quiet, resolve_conflicts=opts.linker_resolve)
+    linker = Linker(program, base=base, warnings=not opts.quiet, resolve_conflicts=opts.linker_resolve,
+                    colors=opts.color)
     try:
         if opts.linker or opts.linker_resolve:
-            data = [(filename, readdata(filename)) for filename in (opts.linker or opts.linker_resolve)]
+            data = [(filename, Util.readdata(filename)) for filename in (opts.linker or opts.linker_resolve)]
             linker.load(data)
-        linker.link()
+        linker.link(warn_about_unresolved_refs=opts.image or opts.bin or opts.embed or opts.text or opts.cart)
         if linker.console.entries:
             linker.console.print()
     except AsmError as e:
@@ -2771,33 +2980,34 @@ def main():
     out = []
     try:
         if opts.bin:
-            binaries = linker.generate_binaries()
-            for bank, save, addr, data in binaries:
-                addr_tag = f'_{save:04x}' if len(binaries) > linker.bank_count else ''
-                bank_tag = f'_b{bank}' if linker.bank_count > 1 else ''
-                if opts.output:
-                    name = '-' if opts.output == '-' else opts.output + addr_tag + bank_tag
-                else:
-                    name = barename + addr_tag + bank_tag + '.bin'
-                out.append((name, data, 'wb'))
+            binaries = linker.generate_binaries(minimize=opts.minchunk)
+            if not binaries:
+                out.append((Util.outname(barename, '.bin', redef=opts.output), bytes(0), 'wb'))
+            else:
+                use_base = Util.max_bins_per_bank(binaries) > 1
+                for bank, save, addr, data in binaries:
+                    tag = Util.name_suffix(base=addr, bank=bank, use_base=use_base, bank_count=linker.bank_count)
+                    name = Util.outname(barename, '.bin', tag=tag, redef=opts.output)
+                    out.append((name, data, 'wb'))
         elif opts.image:
             data = linker.generate_image()
-            for i, image in enumerate(data):
-                if opts.output:
-                    name = '-' if opts.output == '-' else sinc(opts.output, i)
-                else:
-                    name = sinc(barename, i) + '.img'
-                out.append((name, image, 'wb'))
+            if not data:
+                out.append((Util.outname(barename, '.img', redef=opts.output), bytes(0), 'wb'))
+            else:
+                for i, image in enumerate(data):
+                    name = Util.outname(Util.sinc(barename, i), '.img',
+                                        redef=opts.output, altname=Util.sinc(opts.output, i))
+                    out.append((name, image, 'wb'))
         elif opts.text:
             texts = linker.generate_text(opts.text.lower())
-            for bank, save, addr, text in texts:
-                addr_tag = f'_{save:04x}' if len(texts) > linker.bank_count else ''
-                bank_tag = f'_b{bank}' if linker.bank_count > 1 else ''
-                if opts.output:
-                    name = '-' if opts.output == '-' else opts.output + addr_tag + bank_tag
-                else:
-                    name = barename + addr_tag + bank_tag + '.dat'
-                out.append((name, text, 'w'))
+            if not texts:
+                out.append((Util.outname(barename, '.dat', redef=opts.output), '', 'w'))
+            else:
+                use_base = Util.max_bins_per_bank(texts) > 1
+                for bank, save, addr, text in texts:
+                    tag = Util.name_suffix(base=addr, bank=bank, use_base=use_base, bank_count=linker.bank_count)
+                    name = Util.outname(barename, '.dat', tag=tag, redef=opts.output)
+                    out.append((name, text, 'w'))
         elif opts.cart:
             data, layout, metainf = linker.generate_cartridge(name)
             output = opts.output or barename + '.rpk'
@@ -2815,12 +3025,12 @@ def main():
             out.append((name, data, 'wb'))
 
         for name, data, mode in out:
-            writedata(os.path.join(path, name), data, mode)
+            Util.writedata(os.path.join(path, name), data, mode)
         if opts.listing:
             listing = asm.listing.list() + (asm.symbols.list(opts.strict) if opts.symbols else '')
-            writedata(opts.listing, listing, 'w')
+            Util.writedata(opts.listing, listing, 'w')
         if opts.equs:
-            writedata(opts.equs, asm.symbols.list(opts.strict, equ=True), 'w')
+            Util.writedata(opts.equs, asm.symbols.list(opts.strict, equ=True), 'w')
     except AsmError as e:
         sys.exit(f'Error: {str(e):s}.')
     except IOError as e:

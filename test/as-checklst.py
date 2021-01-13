@@ -82,7 +82,7 @@ def runtest():
     source = os.path.join(Dirs.sources, 'aslist.asm')
     xas(source, '-o', Files.input, '-L', Files.output)
     ref = os.path.join(Dirs.refs, 'aslist.lst')
-    check_text_files_eq('listbytes', Files.output, ref)
+    check_text_files_eq('listbytes', Files.output, ref, skip=1)
 
     # symbols
     source = os.path.join(Dirs.sources, 'ashello.asm')
@@ -103,7 +103,8 @@ def runtest():
         reflines = [line.rstrip() for line in fref.readlines()]
     xas(source, '-R', '-o', Files.error, '-S', '-L', Files.output)
     with open(Files.output, 'r') as fout:
-        lines = [line.rstrip() for line in fout.readlines()][-len(reflines):]
+        lines = [line.rstrip() for line in fout.readlines()
+                 if line[:4] == '    '][-len(reflines):]
     if lines != reflines:
         error('auto', 'auto-const listing mismatch')
 

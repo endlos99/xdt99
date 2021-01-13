@@ -230,7 +230,7 @@ def runtest():
 
     # practical example
     source =  os.path.join(Dirs.sources, 'asstdlib.asm')
-    libs = ['vmbw.a99', 'vsbr.a99', 'vwbt.a99']
+    libs = ['vmbw.asm', 'vsbr.asm', 'vwbt.asm']
     with open(Files.error, 'w') as ferr:
         xas(source, *libs, '-R', '-o', Files.output, rc=0, stderr=ferr)
     check_file_empty(Files.error)

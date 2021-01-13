@@ -2,7 +2,7 @@
 
 # xgd99: A GPL disassembler
 #
-# Copyright (c) 2017-2020 Ralph Benzinger <xdt99@endlos.net>
+# Copyright (c) 2017-2021 Ralph Benzinger <xdt99@endlos.net>
 #
 # This program is part of the TI 99 Cross-Development Tools (xdt99).
 #

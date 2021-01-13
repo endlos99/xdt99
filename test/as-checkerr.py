@@ -4,7 +4,7 @@ import os
 import re
 
 from config import Dirs, Disks, Files
-from utils import xas, xdm, error, read_stderr, get_source_markers, check_errors
+from utils import xas, xdm, error, read_stderr, get_source_markers, check_errors, content, content_len
 
 
 # Main test
@@ -42,7 +42,7 @@ def runtest():
     # xdt99-specific errors (image generation)
     source = os.path.join(Dirs.sources, 'asxerrsb.asm')
     with open(Files.error, 'w') as ferr:
-        xas(source, '-R', '-b', '-o', Files.output, stderr=ferr, rc=1)
+        xas(source, '-R', '-b', '-X', '-o', Files.output, stderr=ferr, rc=1)
     xas_errors = read_stderr(Files.error)
     ref_errors = get_source_markers(source, tag=r';ERROR(:....)?')
     check_errors(ref_errors, xas_errors)
@@ -82,7 +82,7 @@ def runtest():
         xas(source, '-R', '-o', Files.output, stderr=ferr, rc=0)  # no error
     with open(Files.error, 'r') as fin:
         output = fin.read()
-    if output.strip()[-18:] != 'U1, U2, U3, U4, U5':
+    if 'U1, U2, U3, U4, U5' not in output:
         error('stdout', 'Bad listing of unreferenced symbols')
 
     with open(Files.error, 'w') as ferr:
@@ -91,6 +91,29 @@ def runtest():
         output = fin.read()
     if output.strip():
         error('stdout', 'Unwanted  listing of unreferenced symbols')
+
+    # unresolved references
+    source = os.path.join(Dirs.sources, 'asunref.asm')
+    with open(Files.error, 'w') as ferr:
+        xas(source, '-o', Files.output, stderr=ferr, rc=0)
+    if content_len(Files.error) > 0:
+        error('unresolved refs', 'Extra warning about unresolved refs')
+    with open(Files.error, 'w') as ferr:
+        xas(source, '-b', '-o', Files.output, stderr=ferr, rc=0)
+    if 'Unresolved references:' not in content(Files.error, 'r'):
+        error('unresolved refs', 'Missing warning about unresolved refs')
+    with open(Files.error, 'w') as ferr:
+        xas(source, '-t', 'a2', '-o', Files.output, stderr=ferr, rc=0)
+    if 'Unresolved references:' not in content(Files.error, 'r'):
+        error('unresolved refs', 'Missing warning about unresolved refs')
+
+    # misplaces auto-generated constants
+    source = os.path.join(Dirs.sources, 'asautoe.asm')
+    with open(Files.error, 'w') as ferr:
+        xas(source, '-R', '-o', Files.output, stderr=ferr, rc=1)
+    errs = re.findall('Auto-constant defined after AUTO directive', content(Files.error, 'r'))
+    if len(errs) != 4:
+        error('misplaced auto-cons', 'Missing error about auto-cons after AUTO')
 
     # STDOUT
     source = os.path.join(Dirs.sources, 'asstdout.asm')
