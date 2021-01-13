@@ -134,7 +134,7 @@ Please refer to the [xdt99 manual][4] for a detailed description of these
 features.
 
 
-Basic Usage: `xga99`                                        <a name="xgs99"></a>
+Basic Usage: `xga99`                                        <a name="xga99"></a>
 --------------------
 
 This is just a brief overview of the most common usages for `xga99`.  For
