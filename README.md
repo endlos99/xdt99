@@ -69,21 +69,20 @@ Download and Installation
 Download the latest [binary release][2] from GitHub.  Alternatively, clone the
 entire xdt99 GitHub [repository][3].
 
-All language tools -- `xas99` cross-assembler, `xga99` GPL cross-assembler, and
-`xbas99` BASIC tool -- are standalone self-contained Python programs.  The
-`xdm99` disk manager can also be used by its own, but the `xvm99` volume manager
-and the `xhm99` image manager require `xdm99` to function.  To be on the safe
-side, simply place all files somewhere in your `$PATH` or wherever your Python
-installation will find them.
+While almost all xdt99 tools are standalone, self-contained Python programs that
+can be used independently of each other, we strongly recommend placing all files
+together somewhere in your `$PATH` or wherever your Python installation will
+find them.
 
 The `xdt99-mode` and `xdt99 IDEA` plugins provide editor support and may be used
-independently of the other xdt99 tools.  Likewise, `xas99` and others may be
-used without these plugins.
+separately of the other xdt99 tools.  Likewise, `xas99` and others may be used
+without these plugins.  They do, however, provide useful assistance when
+creating or editing assembly, GPL, or TI (Extended) BASIC programs.
 
 First-time xdt99 users running Windows will find additional information about
-installation, and some tips on getting started in the [Windows tutorial][5].
-Users of other platforms who are unfamiliar with the command line may also find
-some tips in there.
+installation and getting started in the [Windows tutorial][5].  Users of other
+platforms who are unfamiliar with the command line may also benefit from that
+guide.
 
 
 Basic Usage: `xas99`                                        <a name="xas99"></a>
@@ -113,7 +112,7 @@ Generate raw binary data files:
 
     $ xbas99.py -b [--base <addr>] <source file>
 
-Generate list file diagnostic output:
+Generate list file showing assigned addresses and generated data:
 
     $ xas99.py <source file> -L <list file>
 
@@ -185,7 +184,7 @@ Decode BASIC program to source format (i.e., list to file):
 
     $ xbas99.py -d <program file> [-o <output file>]
 
-Create BASIC program in internal format for BASIC interpreter:
+Create BASIC program for interpreter from source listing:
 
     $ xbas99.py [-c] <source file> [-o <output file>]
 
@@ -195,6 +194,14 @@ List BASIC program stored on disk image (advanced use):
 
 For a complete overview of the available command-line options, see `xbas99.py
 -h`.
+
+`xbas99` also offers some advances features:
+
+ * Automatically joining split lines (i.e., "type-in listing mode")
+ * Using labels instead of line numbers
+
+Please refer to the [xdt99 manual][4] for a detailed description of these
+features.
 
 
 Basic Usage: `xda99`                                        <a name="xda99"></a>
