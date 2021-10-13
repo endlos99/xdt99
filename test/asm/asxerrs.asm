@@ -35,6 +35,26 @@ label4 clr  0
 label4:
        clr  1                 ;ERROR
 
+       ; .if/.endif nesting
+
+       .ifeq 1, 1
+       data 1
+       .else
+       data 2
+       .else                  ;ERROR
+       data 3
+       .endif
+
+       .else                  ;ERROR
+       .endif                 ;ERROR
+
+       .ifeq 1, 1
+       .else
+       .ifne 1, 2
+       .endif
+       .else                  ;ERROR
+       .endif
+       
        ; macros
 
        .defm mac1

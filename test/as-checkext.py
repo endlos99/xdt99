@@ -310,7 +310,7 @@ def runtest():
     ref = os.path.join(Dirs.refs, 'asfloat.ref')
     check_binary_files_eq('float', Files.output, ref)
 
-    # 9995 and F18A
+    # 9995, 99000 and F18A
     source1 = os.path.join(Dirs.sources, 'as9995.asm')
     xas(source1, '-R', '-b', '-5', '-o', Files.output)
     ref = os.path.join(Dirs.refs, 'as9995.ref')
@@ -327,6 +327,11 @@ def runtest():
         with open(Files.input, 'w') as fout:
             fout.writelines(lines1 + lines2)
     xas(Files.input, '-R', '-5', '-18', '-o', Files.output, rc=0)
+
+    source = os.path.join(Dirs.sources, 'as99000.asm')
+    xas(source, '-b', '-R', '--99000', '-o', Files.output)  # also option -105
+    ref = os.path.join(Dirs.refs, 'as99000.ref')
+    check_binary_files_eq('99000', Files.output, ref)
 
     # cleanup
     for fn in glob.glob("tmp/outpu*"):

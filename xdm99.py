@@ -739,7 +739,7 @@ class FileDescriptor:
         """return FDR as TIFILES header"""
         if sdd99_loadtype is None:
             if self.total_sectors > 0xffff:
-                raise FileError('File too large to TIFILES format (max. 16 MB)')
+                raise FileError('File too large for TIFILES format (max. 16 MB)')
             suffix = b' ' * 88
         else:
             suffix = (b' ' * 8 +

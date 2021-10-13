@@ -398,6 +398,23 @@ class Opcodes(object):
         'LWP': (0x0090, 8, op_wa, None, Timing(0, 0))
     }
 
+    opcodes_99000 = {
+        # 99105 and 99110 instructions
+        'MPYS': (0x01c0, 6, op_ga, None, Timing(0, 0)),  # Note that 9900 timing and 99000 timing
+        'DIVS': (0x0180, 6, op_ga, None, Timing(0, 0)),  # cannot be compared
+        'LST': (0x0080, 8, op_wa, None, Timing(0, 0)),
+        'LWP': (0x0090, 8, op_wa, None, Timing(0, 0)),
+        'BIND': (0x0140, 106, op_ga, None, Timing(0, 0)),
+        'BLSK': (0x00b0, 108, op_wa, op_imm, Timing(0, 0)),
+        'TMB': (0x0c09, 103, op_ga, op_cnt, Timing(0, 0)),
+        'TCMB': (0xc0a, 103, op_ga, op_cnt, Timing(0, 0)),
+        'TSMB': (0x0c0b, 103, op_ga, op_cnt, Timing(0, 0)),
+        'AM': (0x002a, 101, op_ga, op_ga, Timing(0, 0)),
+        'SM': (0x0029, 101, op_ga, op_ga, Timing(0, 0)),
+        'SLAM': (0x001d, 109, op_ga, op_scnt, Timing(0, 0)),
+        'SRAM': (0x001c, 109, op_ga, op_scnt, Timing(0, 0))
+    }
+
     pseudos = {
         # 13. pseudo instructions
         'NOP': ('JMP', ['$+2']),
@@ -406,13 +423,15 @@ class Opcodes(object):
         'PIX': ('XOP', None)
     }
 
-    def __init__(self, use_9995=False, use_f18a=False):
+    def __init__(self, use_9995=False, use_f18a=False, use_99000=False):
         """create opcode set; note that asm and parser might change over lifetime of opcodes"""
         self.opcodes = Opcodes.opcodes_9900
         if use_9995:
             self.opcodes.update(Opcodes.opcodes_9995)
         if use_f18a:
             self.opcodes.update(Opcodes.opcodes_f18a)
+        if use_99000:
+            self.opcodes.update(Opcodes.opcodes_99000)
         self.asm = None
 
     def use_asm(self, asm):
@@ -508,6 +527,34 @@ class Opcodes(object):
             b = opcode | r << 6 | ts << 4 | s
             t = timing.time1(ts, sa)
             self.asm.emit(b, sa, cycles=t)
+        # TMS99000
+        elif fmt == 101:  # AM/SM
+            ts, s, sa = arg1
+            td, d, da = arg2
+            b = td << 10 | d << 6 | ts << 4 | s
+            self.asm.emit(opcode, b, sa, da)
+        elif fmt == 103:  # T*B
+            ts, s, sa = arg1
+            if ts == 3:
+                raise AsmError('Indirect autoincrement addressing not defined for T*MB mnemonics')
+            disp = arg2
+            b = disp << 6 | ts << 4 | s
+            self.asm.emit(opcode, b, sa)
+        elif fmt == 106:  # BIND
+            ts, s, sa = arg1
+            b = opcode | ts << 4 | s
+            self.asm.emit(b, sa)
+        elif fmt == 108:  # BLSK
+            w = arg1
+            imm = arg2
+            b1 = opcode | w
+            b2 = imm
+            self.asm.emit(b1, b2)
+        elif fmt == 109:  # S*AM
+            ts, s, sa = arg1
+            scnt = arg2
+            b = scnt << 6 | ts << 4 | s
+            self.asm.emit(opcode, b, sa)
         else:
             raise AsmError('Invalid opcode format ' + str(fmt))
 
@@ -585,11 +632,10 @@ class Directives(object):
     def STRI(asm, label, ops):
         asm.process_label(label, tracked=True)
         Directives.check_ops(asm, ops, min_count=1)
-        for op in ops:
-            text = asm.parser.text(op)
-            asm.byte(len(text))
-            for char_ in text:
-                asm.byte(ord(char_))
+        text = ''.join(asm.parser.text(op) for op in ops)
+        asm.byte(len(text))
+        for char_ in text:
+            asm.byte(ord(char_))
 
     @staticmethod
     def FLOA(asm, label, ops):
@@ -1089,6 +1135,7 @@ class Preprocessor(object):
         self.parser = parser   # the parser object
         self.listing = listing  # the listing object
         self.parse = True  # is parsing in progress (or disabled by .ifX/.endif)?
+        self.parse_else = False  # has .else branch been parsed for current .if?
         self.parse_branches = []  # parse status before hitting .ifX
         self.parse_macro = None  # name of macro currently parsing
         self.macros = {}  # macros defined
@@ -1115,42 +1162,55 @@ class Preprocessor(object):
         raise AsmError('Found .ENDM without .DEFM')
 
     def IFDEF(self, asm, ops):
-        self.parse_branches.append(self.parse)
+        self.parse_branches.append((self.parse, self.parse_else))
         self.parse = asm.symbols.get_symbol(ops[0]) is not None if self.parse else None
+        self.parse_else = False
 
     def IFNDEF(self, asm, ops):
-        self.parse_branches.append(self.parse)
+        self.parse_branches.append((self.parse, self.parse_else))
         self.parse = asm.symbols.get_symbol(ops[0]) is None if self.parse else None
+        self.parse_else = False
 
     def IFEQ(self, asm, ops):
-        self.parse_branches.append(self.parse)
+        self.parse_branches.append((self.parse, self.parse_else))
         self.parse = Util.cmp(*self.args(ops)) == 0 if self.parse else None
+        self.parse_else = False
 
     def IFNE(self, asm, ops):
-        self.parse_branches.append(self.parse)
+        self.parse_branches.append((self.parse, self.parse_else))
         self.parse = Util.cmp(*self.args(ops)) != 0 if self.parse else None
+        self.parse_else = False
 
     def IFGT(self, asm, ops):
-        self.parse_branches.append(self.parse)
+        self.parse_branches.append((self.parse, self.parse_else))
         self.parse = Util.cmp(*self.args(ops)) > 0 if self.parse else None
+        self.parse_else = False
 
     def IFGE(self, asm, ops):
-        self.parse_branches.append(self.parse)
+        self.parse_branches.append((self.parse, self.parse_else))
         self.parse = Util.cmp(*self.args(ops)) >= 0 if self.parse else None
+        self.parse_else = False
 
     def IFLT(self, asm, ops):
-        self.parse_branches.append(self.parse)
+        self.parse_branches.append((self.parse, self.parse_else))
         self.parse = Util.cmp(*self.args(ops)) < 0 if self.parse else None
+        self.parse_else = False
 
     def IFLE(self, asm, ops):
-        self.parse_branches.append(self.parse)
+        self.parse_branches.append((self.parse, self.parse_else))
         self.parse = Util.cmp(*self.args(ops)) <= 0 if self.parse else None
 
     def ELSE(self, asm, ops):
+        if not self.parse_branches or self.parse_else:
+            raise AsmError("Misplaced .else")
         self.parse = not self.parse if self.parse is not None else None
+        self.parse_else = True
 
     def ENDIF(self, asm, ops):
-        self.parse = self.parse_branches.pop()
+        try:
+            self.parse, self.parse_else = self.parse_branches.pop()
+        except IndexError:
+            raise AsmError('Misplaced .endif')
 
     def PRINT(self, asm, ops):
         res = ' '.join(self.str_args(ops))
@@ -1245,10 +1305,14 @@ class Parser(object):
         """open new source file or macro buffer"""
         if len(self.suspended_files) > 100:
             raise AsmError('Too many nested files or macros')
+        if filename:
+            newfile = self.find(filename) if filename != '-' else '-'  # checks if file exists, throws exception if not
+            # CAUTION: don't suspend source if file does not exist!
+        else:
+            newfile = None
         if self.source is not None:
             self.suspended_files.append((self.filename, self.path, self.source, self.macro_args, self.lino))
         if filename:
-            newfile = '-' if filename == '-' else self.find(filename)
             self.path, self.filename = os.path.split(newfile)
             self.source = Util.readlines(newfile)  # might throw error
             self.in_macro_instantiation = False
@@ -1847,11 +1911,12 @@ class SymbolAssembler(object):
         """increase LC by block size"""
         self.symbols.LC += size
 
-    def emit(self, opcode, saddr=None, daddr=None, cycles=0):
+    def emit(self, *words, cycles=0):
         """increase LC according to machine code generated"""
         self.even()
-        self.symbols.LC += (2 + (2 if saddr is not None else 0) +
-                                (2 if daddr is not None else 0))
+        self.symbols.LC += sum(2 for word in words if word is not None)
+        # self.symbols.LC += (2 + (2 if saddr is not None else 0) +
+        #                         (2 if daddr is not None else 0))
 
     def process_label(self, label, real_LC=False, tracked=False):
         """register label at current LC"""
@@ -1989,13 +2054,18 @@ class Assembler(object):
         self.segment.set(self.symbols.LC, block)
         self.symbols.LC += size
 
-    def emit(self, opcode, saddr=None, daddr=None, cycles=0):
+    def emit(self, *words, cycles=0):
         """generate machine code"""
-        self.word(opcode, cycles)
-        if saddr is not None:
-            self.word(saddr)
-        if daddr is not None:
-            self.word(daddr)
+        for word in words:
+            if word is not None:
+                self.word(word)
+        # self.word(opcode, cycles)  TODO
+        # if mode is not None:
+        #     self.word(mode)
+        # if saddr is not None:
+        #     self.word(saddr)
+        # if daddr is not None:
+        #     self.word(daddr)
 
     def auto_constants(self):
         """create code stanza for auto-constants"""
@@ -2876,9 +2946,11 @@ def main():
     link.add_argument('-ll', '--link-resolve', dest='linker_resolve', metavar='<file>', nargs='+',
                       help='link object code file(s), resolving conflicts')
     args.add_argument('-5', '--9995', action='store_true', dest='use_9995',
-                      help='strict TI mode; disable xas99 extensions')
+                      help='add TMS9995-specific instructions')
     args.add_argument('-18', '--f18a', action='store_true', dest='use_f18a',
-                      help='strict TI mode; disable xas99 extensions')
+                      help='add F18A-specific instructions')
+    args.add_argument('-105', '--99000', action='store_true', dest='use_99000',
+                      help='add TMS99000-specific instructions')
     args.add_argument('-s', '--strict', action='store_true', dest='strict',
                       help='strict TI mode; disable xas99 extensions')
     args.add_argument('-n', '--name', dest='name', metavar='<name>',
@@ -2930,7 +3002,7 @@ def main():
     if opts.sources:
         root = os.path.dirname(os.path.realpath(__file__))  # installation dir (path to xas99)
         includes = [os.path.join(root, 'lib')] + (opts.inclpath.split(',') if opts.inclpath else [])
-        opcodes = Opcodes(use_9995=opts.use_9995, use_f18a=opts.use_f18a)
+        opcodes = Opcodes(use_9995=opts.use_9995, use_f18a=opts.use_f18a, use_99000=opts.use_99000)
         asm = Assembler(program, opcodes, includes=includes, r_prefix=opts.r_prefix, strict=opts.strict,
                         warnings=not opts.quiet, timing=not opts.use_9995, bank_cross_check=opts.x_checks,
                         colors=opts.color)
