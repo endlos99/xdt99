@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 # xbas99: TI BASIC and TI Extended BASIC tool
 #

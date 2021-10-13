@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 # xvm99: A volume manager for nanoPEB/CF7A flash cards
 #

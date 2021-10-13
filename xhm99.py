@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 # xhm99: An HFE image manager that focuses on the TI 99
 #

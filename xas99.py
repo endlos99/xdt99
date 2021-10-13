@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 # xas99: A TMS9900 cross-assembler
 #
@@ -27,7 +27,7 @@ import os.path
 from functools import reduce
 
 
-VERSION = '3.1.0'
+VERSION = '3.1.1'
 
 
 # Utilities
