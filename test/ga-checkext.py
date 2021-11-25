@@ -2,8 +2,9 @@
 
 import os
 
-from config import Dirs, Disks, Files
-from utils import xga, xdm, error, check_binary_files_eq, check_gbc_files_eq
+from config import Dirs, Disks, Files, XGA99_CONFIG
+from utils import (xga, xdm, error, clear_env, delfile, check_binary_files_eq, check_gbc_files_eq, content,
+                   content_lines, content_line_array)
 
 
 # check functions
@@ -26,6 +27,8 @@ def check_split_groms(base_grom, grom_count):
 def runtest():
     """run regression tests"""
 
+    clear_env(XGA99_CONFIG)
+
     # other syntax
     source = os.path.join(Dirs.gplsources, 'gahello_timt.gpl')
     xga(source, '-y', 'mizapf', '-o', Files.output)
@@ -35,7 +38,7 @@ def runtest():
 
     # preprocessor
     source = os.path.join(Dirs.gplsources, 'gaxprep.gpl')
-    xga(source, '-D', 'isdef=2', '-o', Files.output)
+    xga(source, '-D', 'isdef=2', '-q', '-o', Files.output)
     xdm(Disks.gplsrcs, '-e', 'GAXPREP-Q', '-o', Files.reference)
     check_gbc_files_eq(source, Files.output, Files.reference)
 
@@ -73,10 +76,28 @@ def runtest():
     xga(source, '-g', '-o', Files.output)
     check_split_groms(3, 3)
 
+    # unused symbols
+    source = os.path.join(Dirs.gplsources, 'gauusym.gpl')
+    with open(Files.error, 'w') as ferr:
+        xga(source, '--color', 'off', '-o', Files.output, stderr=ferr, rc=0)
+    expected = """> gauusym.gpl <1> **** - 
+ ***** Warning: Unused constants: s1:5
+ > gauusymi.gpl <1> **** - 
+ ***** Warning: Unused constants: si:1
+"""
+    if content_lines(Files.error) != expected:
+        error('unused', 'Incorrect warnings')
+
+    # relaxed parsing
+    source = os.path.join(Dirs.gplsources, 'gaxrelax.gpl')
+    xga(source, '-r', '-o', Files.output, '-L', Files.input)
+    if content(Files.output) != b'\xbe\x00\x0b\xbe\x8f\xa0\x0b\x00\x00\x03':
+        error('relaxed', 'Incorrect output')
+    if len(content_line_array(Files.input)) != 18:
+        error('relaxed', 'Incorrect list file length')
+
     # cleanup
-    os.remove(Files.input)
-    os.remove(Files.output)
-    os.remove(Files.reference)
+    delfile(Dirs.tmp)
 
 
 if __name__ == '__main__':

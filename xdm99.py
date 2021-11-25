@@ -23,128 +23,134 @@ import sys
 import re
 import datetime
 import os
+import platform
 
 
-VERSION = '3.0.1'
+VERSION = '3.2.0'
+
+CONFIG = 'XDM99_CONFIG'
 
 
 # Utility functions
 
-def ordn(bytes_):
-    """convert byte sequence into value"""
-    value = 0
-    for b in bytes_:
-        value = (value << 8) + b
-    return value
+class Util:
 
+    @staticmethod
+    def ordn(bytes_):
+        """convert byte sequence into value"""
+        value = 0
+        for b in bytes_:
+            value = (value << 8) + b
+        return value
 
-def chrn(value, size=2):
-    """convert value into byte sequence"""
-    return bytes(((value >> ((i - 1) * 8)) & 0xff) for i in range(size, 0, -1))
+    @staticmethod
+    def chrn(value, size=2):
+        """convert value into byte sequence"""
+        return bytes(((value >> ((i - 1) * 8)) & 0xff) for i in range(size, 0, -1))
 
+    @staticmethod
+    def ordwR(word):
+        """reverse word ord"""
+        return word[1] << 8 | word[0]
 
-def ordwR(word):
-    """reverse word ord"""
-    return word[1] << 8 | word[0]
+    @staticmethod
+    def bval(bytes_):
+        """n-length ord"""
+        return [b for b in bytes_]
 
+    @staticmethod
+    def pad(n, m):
+        """return increment to next multiple of m"""
+        return -n % m
 
-def bval(bytes_):
-    """n-length ord"""
-    return [b for b in bytes_]
+    @staticmethod
+    def used(n, m):
+        """integer division rounding up"""
+        return (n + m - 1) // m
 
+    @staticmethod
+    def upmod(n, mod):
+        """modulo, but 1..mod"""
+        return n % mod or mod
 
-def pad(n, m):
-    """return increment to next multiple of m"""
-    return -n % m
+    @staticmethod
+    def xint(s):
+        """return hex or decimal value"""
+        return int(s.lstrip('>'), 16 if s[:2] == '0x' or s[:1] == '>' else 10)
 
+    @staticmethod
+    def id_function(x):
+        """identity function"""
+        return x
 
-def used(n, m):
-    """integer division rounding up"""
-    return (n + m - 1) // m
+    @staticmethod
+    def tiname(s):
+        """create TI filename from local filename"""
+        return Util.to_ti(os.path.splitext(os.path.basename(s))[0][:10].upper())
 
+    @staticmethod
+    def to_pc(n):
+        """escaoe TI filename for PC"""
+        return None if n is None else n.replace('/', '.')
 
-def upmod(n, mod):
-    """modulo, but 1..mod"""
-    return n % mod or mod
+    @staticmethod
+    def to_ti(n):
+        """escape PC name for TI"""
+        return None if n is None else n.replace('.', '/')
 
+    @staticmethod
+    def strinc(s):
+        """create new string by increasing last char"""
+        return s[:-1] + chr(ord(s[-1]) + 1)
 
-def xint(s):
-    """return hex or decimal value"""
-    return int(s.lstrip('>'), 16 if s[:2] == '0x' or s[:1] == '>' else 10)
+    @staticmethod
+    def chop(s, n):
+        """generator that produces n-sized parts of s"""
+        while True:
+            part, s = s[:n], s[n:]
+            if not part:
+                break
+            yield part
 
-
-def id_function(x):
-    """identity function"""
-    return x
-
-
-def tiname(s):
-    """create TI filename from local filename"""
-    return to_ti(os.path.splitext(os.path.basename(s))[0][:10].upper())
-
-
-def to_pc(n):
-    """escaoe TI filename for PC"""
-    return None if n is None else n.replace('/', '.')
-
-
-def to_ti(n):
-    """escape PC name for TI"""
-    return None if n is None else n.replace('.', '/')
-
-
-def sseq(s, i):
-    """create string sequence"""
-    return s[:-1] + chr(ord(s[-1]) + i)
-
-
-def chop(s, n):
-    """generator that produces n-sized parts of s"""
-    while True:
-        part, s = s[:n], s[n:]
-        if not part:
-            break
-        yield part
-
-
-def writedata(filename, data, encoding=None):
-    """write data to file or STDOUT"""
-    if encoding is None:
-        if filename == '-':
-            sys.stdout.buffer.write(data)
-        else:
-            with open(filename, 'wb') as f:
-                f.write(data)
-    else:
-        try:
+    @staticmethod
+    def writedata(filename, data, encoding=None):
+        """write data to file or STDOUT"""
+        if encoding is None:
             if filename == '-':
-                sys.stdout.write(data.decode(encoding))
+                sys.stdout.buffer.write(data)
             else:
-                with open(filename, 'w') as f:
-                    f.write(data.decode(encoding))
-        except UnicodeDecodeError:
-            sys.exit('Bad encoding: ' + encoding)
-
-
-def readdata(filename, data=None, encoding=None):
-    """read data from file or STDIN (or return supplied data)"""
-    if encoding is None:
-        if filename == '-':
-            return data or sys.stdin.buffer.read()
+                with open(filename, 'wb') as f:
+                    f.write(data)
         else:
-            with open(filename, 'rb') as f:
-                data = f.read()
-                return data
-    else:
-        try:
+            try:
+                if filename == '-':
+                    sys.stdout.write(data.decode(encoding))
+                else:
+                    with open(filename, 'w') as f:
+                        f.write(data.decode(encoding))
+            except UnicodeDecodeError:
+                sys.exit('Bad encoding: ' + encoding)
+
+    @staticmethod
+    def readdata(filename, data=None, encoding=None):
+        """read data from file or STDIN (or return supplied data)"""
+        if encoding is None:
             if filename == '-':
-                return data or sys.stdin.read().encode(encoding)
+                return data or sys.stdin.buffer.read()
             else:
-                with open(filename, 'r') as f:
+                with open(filename, 'rb') as f:
                     data = f.read()
-                return data.encode(encoding)
-        except UnicodeDecodeError:
-            sys.exit('Bad encoding: ' + encoding)
+                    return data
+        else:
+            try:
+                if filename == '-':
+                    return data or sys.stdin.read().encode(encoding)
+                else:
+                    with open(filename, 'r') as f:
+                        data = f.read()
+                    return data.encode(encoding)
+            except UnicodeDecodeError:
+                sys.exit('Bad encoding: ' + encoding)
 
 
 # Sector-based disk image
@@ -162,58 +168,71 @@ class Disk:
     MAX_SECTORS = 1600
     BLANK_BYTE = b'\xe5'
 
-    def __init__(self, image):
+    DISK_NAME_LEN = 0x0a
+    TOTAL_SECTORS = 0x0a
+    TOTAL_SECTORS_END = 0x0c
+    SECTORS_PER_TRACK = 0x0c
+    DSK_ID = 0x0d
+    DSK_ID_END = 0x10
+    DISK_PROTECTED = 0x10
+    TRACKS_PER_SIDE = 0x11
+    SIDES = 0x12
+    DENSITY = 0x13
+    ALLOC_BITMAP = 0x38
+    RESERVED = 0x14
+    DATA = 0x100
+
+    def __init__(self, image, console=None):
         if len(image) < 2 * Disk.BYTES_PER_SECTOR:
             raise DiskError('Invalid disk image')
         self.image = image
+        self.console = console or Console()
+        self.catalog = {}
         self.read_sectors = []
-        self.warnings = {}
         # meta data
         sector_0 = self.get_sector(0)
         if sector_0[0] == 0x00 and sector_0[21:23] == b'\x00\xfe':
             raise DiskError('Track dump images not supported')
         try:
-            self.name = sector_0[:0x0a].decode()
+            self.name = sector_0[:self.DISK_NAME_LEN].decode()
         except UnicodeDecodeError:
             self.name = 'INVALID   '
-            self.warn('Disk name contains invalid Unicode', 'image')
-        self.total_sectors = ordn(sector_0[0x0a:0x0c])
-        self.sectors_per_track = sector_0[0x0c]
-        self.dsk_id = sector_0[0x0d:0x10]
-        self.protected = sector_0[0x10]  # int, not boolean
-        self.tracks_per_side = sector_0[0x11]
-        self.sides = sector_0[0x12]
-        self.density = sector_0[0x13]
-        self.alloc_bitmap = sector_0[0x38:]
-        # derived values and sanity checks
+            self.console.warn('Disk name contains invalid Unicode', category=Console.CAT_IMAGE)
+        self.total_sectors = Util.ordn(sector_0[Disk.TOTAL_SECTORS:Disk.TOTAL_SECTORS_END])
+        self.sectors_per_track = sector_0[Disk.SECTORS_PER_TRACK]
+        self.dsk_id = sector_0[Disk.DSK_ID:Disk.DSK_ID_END]
+        self.protected = sector_0[Disk.DISK_PROTECTED]  # int, not boolean
+        self.tracks_per_side = sector_0[Disk.TRACKS_PER_SIDE]
+        self.sides = sector_0[Disk.SIDES]
+        self.density = sector_0[Disk.DENSITY]
+        self.alloc_bitmap = sector_0[Disk.ALLOC_BITMAP:]
         if self.dsk_id != b'DSK':
-            self.warn('Disk image not initialized', 'image')
+            self.console.warn('Disk image not initialized', category=Console.CAT_IMAGE)
         if len(self.image) < self.total_sectors * Disk.BYTES_PER_SECTOR:
-            self.warn('Disk image truncated', 'image')
-        self.check_geometry()
+            self.console.warn('Disk image truncated', category=Console.CAT_IMAGE)
         self.used_sectors = 0
         try:
-            for i in range(used(self.total_sectors, 8)):
+            for i in range(Util.used(self.total_sectors, 8)):
                 self.used_sectors += bin(self.alloc_bitmap[i]).count('1')
         except IndexError:
-            self.warn('Allocation map corrupted', 'allocation')
-        self.catalog = {}
+            self.console.warn('Allocation map corrupted', category=Console.CAT_ALLOC)
+        self.check_geometry()
         self.init_catalog()
         self.check_allocation()
 
     def check_geometry(self):
         """check geometry against sector count"""
         if self.total_sectors != self.sides * self.tracks_per_side * self.sectors_per_track:
-            self.warn('Sector count does not match disk geometry', 'geometry')
+            self.console.warn('Sector count does not match disk geometry', category=Console.CAT_GEOMETRY)
         if self.total_sectors % 8 != 0:
-            self.warn('Sector count is not multiple of 8', 'geometry')
+            self.console.warn('Sector count is not multiple of 8', category=Console.CAT_GEOMETRY)
 
     def rename(self, name):
         """rename disk"""
         self.name = name
-        if len(self.name.encode()) > 10:
+        if len(self.name.encode()) > Disk.DISK_NAME_LEN:
             raise DiskError('Encoded name is too long')
-        self.image = self.name.encode() + b' ' * (10 - len(self.name)) + self.image[0x0a:]
+        self.image = self.name.encode() + b' ' * (Disk.DISK_NAME_LEN - len(self.name)) + self.image[Disk.DISK_NAME_LEN:]
 
     def init_catalog(self):
         """read all files from disk"""
@@ -221,50 +240,47 @@ class Disk:
         sector_count = 0
         for i in range(0, Disk.BYTES_PER_SECTOR, 2):
             # get file descriptor
-            fd_index = ordn(sector_1[i:i + 2])
+            fd_index = Util.ordn(sector_1[i:i + 2])
             if fd_index == 0:
                 break
             try:
                 fd_sector = self.get_sector(fd_index, b'FDR#%d' % fd_index)
             except IndexError:
-                self.warn('File descriptor index corrupted')
+                self.console.warn('File descriptor index corrupted')
                 continue
-            fd = FileDescriptor().from_fdr_sector(fd_sector)
+            fd = FileDescriptor.create_from_fdr_sector(fd_sector)
             # get file contents
-            data, error = self.read_file(fd.name, fd.total_sectors, fd.eof_offset, fd.clusters)
-            if error:
-                fd.error = True
-            self.catalog[fd.name] = File(fd=fd, data=data)
+            data = self.read_file(fd)
+            self.catalog[fd.name] = File(fd=fd, data=data, console=self.console)
             sector_count += fd.total_sectors + 1
         # consistency check
         if sector_count != self.used_sectors - 2:
-            self.warn('Used sector mismatch: found {} file sectors, expected {}'.format(
-                    sector_count, self.used_sectors - 2))
+            self.console.warn('Used sector mismatch: found {} file sectors, expected {}'.format(
+                sector_count, self.used_sectors - 2))
 
-    def read_file(self, name, sectors, eof, clusters):
+    def read_file(self, fd):
         """read file contents based on FDR cluster data"""
         parts = []
         offset = -1
-        error = False
-        for i in range(0, len(clusters) - 2, 3):
-            start = clusters[i] | (clusters[i + 1] & 0x0f) << 8
+        for i in range(0, len(fd.clusters) - 2, 3):
+            start = fd.clusters[i] | (fd.clusters[i + 1] & 0x0f) << 8
             if start == 0:
                 break
             prev_offset = offset
-            offset = clusters[i + 1] >> 4 | clusters[i + 2] << 4
+            offset = fd.clusters[i + 1] >> 4 | fd.clusters[i + 2] << 4
             for j in range(offset - prev_offset):
                 try:
-                    parts.append(self.get_sector(start + j, name))
+                    parts.append(self.get_sector(start + j, fd.name))
                 except IndexError:
-                    self.warn(f'{name:s}: File contents corrupted')
-                    error = True
+                    self.console.warn(f'{fd.name:s}: File contents corrupted')
+                    fd.error = True
                     continue
         data = b''.join(parts)
-        return data, error
+        return data
 
     def glob_files(self, patterns):
         """return listing of filenames matching glob pattern"""
-        wildcards = [pattern for pattern in patterns if re.search('[?*]', pattern)]
+        wildcards = [pattern for pattern in patterns if re.search(r'[?*]', pattern)]
         glob_re = '|'.join(re.escape(p).replace(r'\*', '.*').replace(r'\?', '.')
                            for p in wildcards) + '$'
         matches = [name for name in self.catalog if re.match(glob_re, name)]
@@ -275,19 +291,19 @@ class Disk:
         """rebuild disk metadata after changes to file catalog"""
         required_sectors = sum(self.catalog[n].fd.total_sectors for n in self.catalog)
         # preferred start at sector >22
-        first_free = next_free = min(max(2 + len(self.catalog), 0x22), self.total_sectors - required_sectors)
+        first_free = next_free_sector = min(max(2 + len(self.catalog), 0x22), self.total_sectors - required_sectors)
         if first_free < 2 + len(self.catalog):
             raise DiskError('Disk full, lacking {} sectors'.format(2 + len(self.catalog) - first_free))
         sector_1 = b''
         index = 2
         for idx, file_ in sorted(self.catalog.items()):
             # put file data into single cluster
-            data = file_.data + bytes(pad(len(file_.data), Disk.BYTES_PER_SECTOR))
+            data = file_.data + bytes(Util.pad(len(file_.data), Disk.BYTES_PER_SECTOR))
             for i in range(file_.fd.total_sectors):
-                self.set_sector(next_free + i, data[Disk.BYTES_PER_SECTOR * i:Disk.BYTES_PER_SECTOR * (i + 1)])
+                self.set_sector(next_free_sector + i, data[Disk.BYTES_PER_SECTOR * i:Disk.BYTES_PER_SECTOR * (i + 1)])
             # build file descriptor
             if file_.fd.total_sectors > 0:
-                start = next_free
+                start = next_free_sector
                 offset = file_.fd.total_sectors - 1
             else:
                 start = offset = 0
@@ -295,45 +311,47 @@ class Disk:
                                  bytes(Disk.BYTES_PER_SECTOR - 0x1c - 3))
             self.set_sector(index, file_.fd.get_disk_or_v9t9_header())
             # update FDR index in sector 1
-            sector_1 += chrn(index)
-            next_free += file_.fd.total_sectors
+            sector_1 += Util.chrn(index)
+            next_free_sector += file_.fd.total_sectors
             index += 1
         sector_1 += bytes(Disk.BYTES_PER_SECTOR - len(sector_1))
         self.set_sector(1, sector_1)
         # update allocation bitmap in sector 0 (used: 0..i-1, ff..nf-1)
-        assert 0 < index <= first_free <= next_free
-        mask = int('1' * (next_free - first_free) +
+        assert 0 < index <= first_free <= next_free_sector
+        mask = int('1' * (next_free_sector - first_free) +
                    '0' * (first_free - index) + '1' * index, 2)  # bitmap as bits, parsed into (very large) int
         bytes_ = []
         for i in range(self.total_sectors // 8):
             bytes_.append(bytes((mask & 0xff,)))  # byte-ize int from the tail
             mask >>= 8
-        self.alloc_bitmap = b''.join(bytes_) + b'\xff' * (Disk.BYTES_PER_SECTOR - 0x38 - len(bytes_))
+        self.alloc_bitmap = b''.join(bytes_) + b'\xff' * (Disk.BYTES_PER_SECTOR - Disk.ALLOC_BITMAP - len(bytes_))
         sector_0 = self.get_sector(0)
-        self.set_sector(0, sector_0[:0x38] + self.alloc_bitmap)
+        self.set_sector(0, sector_0[:self.ALLOC_BITMAP] + self.alloc_bitmap)
 
     @staticmethod
     def extend_sectors(image, new_size):
         """increase total number of sectors and clear alloc map (for xvm99)"""
-        current = ordn(image[0x0a:0x0c])
+        current = Util.ordn(image[Disk.TOTAL_SECTORS:Disk.TOTAL_SECTORS_END])
         if not current <= new_size <= Disk.MAX_SECTORS:
             raise DiskError(f'Invalid size {new_size:d} for sector increase')
         if current % 8 != 0:
             raise DiskError('Sector count must be multiple of 8')
-        bitmap = image[0x38:0x38 + current // 8] + b'\xff' * (Disk.BYTES_PER_SECTOR - 0x38 - current // 8)
-        return image[:0x0a] + chrn(new_size) + image[0x0c:0x38] + bitmap + image[0x100:]
+        bitmap = (image[Disk.ALLOC_BITMAP:Disk.ALLOC_BITMAP + current // 8] +
+                  b'\xff' * (Disk.BYTES_PER_SECTOR - Disk.ALLOC_BITMAP - current // 8))
+        return (image[:Disk.DISK_NAME_LEN] + Util.chrn(new_size) + image[Disk.SECTORS_PER_TRACK:Disk.ALLOC_BITMAP] +
+                bitmap + image[Disk.DATA:])
 
     @staticmethod
     def trim_sectors(image):
         """shrink image to actually existing sectors"""
-        total_sectors = ordn(image[0x0a:0x0c])
+        total_sectors = Util.ordn(image[Disk.TOTAL_SECTORS:Disk.TOTAL_SECTORS_END])
         return image[:total_sectors * Disk.BYTES_PER_SECTOR]
 
     def get_sector(self, sector_no, context=None):
         """retrieve sector from image"""
         if sector_no > 0 and sector_no >= self.total_sectors:
             if sector_no < len(self.image) // Disk.BYTES_PER_SECTOR:
-                self.warn('Total sectors not set properly')
+                self.console.warn('Total sectors not set properly')
             else:
                 raise IndexError('Invalid sector number')
         if context:
@@ -402,7 +420,7 @@ class Disk:
         """check sector allocation for consistency"""
         reads = {n: [] for n in range(self.total_sectors)}
         allocated = []
-        for i in range(used(self.total_sectors, 8)):
+        for i in range(Util.used(self.total_sectors, 8)):
             try:
                 b = self.alloc_bitmap[i]
             except IndexError:
@@ -413,18 +431,16 @@ class Disk:
         for sector_no, context in self.read_sectors:
             reads[sector_no].append(context)
             if context and not allocated[sector_no]:
-                self.warn(f'{context}: Used sector {sector_no} not allocated')
-                file_ = self.catalog.get(context)
-                if file_:
+                self.console.warn(f'{context}: Used sector {sector_no} not allocated')
+                if file_ := self.catalog.get(context):
                     file_.fd.error = True
         # sectors allocated to multiple files
         for sector_no, files in reads.items():
             if len(files) <= 1:
                 continue
-            self.warn(f"Sector {sector_no} claimed by multiple files: {'/'.join(files)}")
+            self.console.warn(f"Sector {sector_no} claimed by multiple files: {'/'.join(files)}")
             for name in files:
-                file_ = self.catalog.get(name)
-                if file_:
+                if file_ := self.catalog.get(name):
                     file_.fd.error = True
 
     def resize_disk(self, new_size):
@@ -437,8 +453,8 @@ class Disk:
         self.total_sectors = new_size
         self.used_sectors = 0
         self.rebuild_disk()
-        self.image = (self.image[:0x0a] + chrn(new_size) +
-                      self.image[0x0c:new_size * self.BYTES_PER_SECTOR] +
+        self.image = (self.image[:Disk.DISK_NAME_LEN] + Util.chrn(new_size) +
+                      self.image[Disk.SECTORS_PER_TRACK:new_size * self.BYTES_PER_SECTOR] +
                       self.BLANK_BYTE * ((new_size - old_size) * self.BYTES_PER_SECTOR))
 
     def set_geometry(self, sides, density, tracks):
@@ -450,10 +466,10 @@ class Disk:
         if tracks:
             self.tracks_per_side = tracks
         self.sectors_per_track = Disk.DEFAULT_SECTORS_PER_TRACK * self.density
-        self.image = (self.image[:0x0c] + bytes((self.sectors_per_track,)) +
-                      self.image[0x0d:0x11] + bytes((self.tracks_per_side, self.sides, self.density)) +
-                      self.image[0x14:])
-        self.clear_warnings('geometry')
+        self.image = (self.image[:Disk.SECTORS_PER_TRACK] + bytes((self.sectors_per_track,)) +
+                      self.image[Disk.DSK_ID:Disk.TRACKS_PER_SIDE] +
+                      bytes((self.tracks_per_side, self.sides, self.density)) + self.image[Disk.RESERVED:])
+        self.console.clear_warnings(Console.CAT_GEOMETRY)
         self.check_geometry()
 
     def fix_disk(self):
@@ -498,7 +514,7 @@ class Disk:
     @staticmethod
     def blank_image(geometry, name):
         """return initialized disk image"""
-        sectors, layout = Disk.parse_geometry(geometry)
+        sectors, layout = Disk.parse_geometry(geometry, need_sectors=True)
         if layout:
             sides, density, tracks = layout
         else:
@@ -508,39 +524,39 @@ class Disk:
         if not 2 < sectors <= Disk.MAX_SECTORS or sectors % 8 != 0 or not (sides and density):
             raise DiskError('Invalid disk size')
         sector_0 = (b'%-10b%2b%cDSK ' % (name.encode()[:10],
-                                         chrn(sectors),
+                                         Util.chrn(sectors),
                                          Disk.DEFAULT_SECTORS_PER_TRACK * density) +  # header
                     bytes((tracks or Disk.DEFAULT_TRACKS, sides, density)) +
                     bytes(0x24) +  # reserved
                     b'\x03' + bytes(sectors // 8 - 1) +  # allocation map
-                    b'\xff' * (Disk.BYTES_PER_SECTOR - sectors // 8 - 0x38))
+                    b'\xff' * (Disk.BYTES_PER_SECTOR - sectors // 8 - Disk.ALLOC_BITMAP))
         return (sector_0 +
                 bytes(Disk.BYTES_PER_SECTOR) +  # blank sector 1
                 Disk.BLANK_BYTE * ((sectors - 2) * Disk.BYTES_PER_SECTOR))  # sectors 2 and up
 
     @staticmethod
-    def parse_geometry(geometry):
+    def parse_geometry(geometry, need_sectors=False):
         """get disk size and layout from geometry string"""
         if geometry.upper() == 'CF':
             return 1600, (1, 1, Disk.DEFAULT_TRACKS)
         try:
-            sectors = xint(geometry)
+            sectors = Util.xint(geometry)
             return sectors, None
         except ValueError:
             pass
         sides = density = tracks = None
-        parse = lambda s: 1 if s == 'S' else 2 if s == 'D' else int(s)
         geometry_parts = re.split(r'(\d+|[SD])([SDT])', geometry.upper())
         if ''.join(geometry_parts[::3]) not in ('', '/'):
             raise DiskError('Invalid disk geometry ' + geometry)
         try:
-            for val, part in zip(geometry_parts[1::3], geometry_parts[2::3]):
+            for spec, part in zip(geometry_parts[1::3], geometry_parts[2::3]):
+                val = 1 if spec == 'S' else 2 if spec == 'D' else int(spec)
                 if part == 'S' and sides is None:
-                    sides = parse(val)
+                    sides = val
                 elif part == 'D' and density is None:
-                    density = parse(val)
+                    density = val
                 elif part == 'T' and tracks is None:
-                    tracks = parse(val)
+                    tracks = val
                 else:
                     raise DiskError('Invalid disk geometry: ' + geometry)
         except (IndexError, ValueError):
@@ -548,28 +564,11 @@ class Disk:
         try:
             sectors = sides * (tracks or Disk.DEFAULT_TRACKS) * Disk.DEFAULT_SECTORS_PER_TRACK * density
         except TypeError:
-            sectors = None
+            if need_sectors:
+                raise DiskError('Unspecified disk geometry: ' + geometry)
+            else:
+                sectors = None
         return sectors, (sides, density, tracks)
-
-    def warn(self, text, category='main'):
-        """issue warning; categories are used to delete warnings selectively"""
-        if category not in self.warnings:
-            self.warnings[category] = []
-        if text not in self.warnings[category]:
-            self.warnings[category].append(text)
-
-    def clear_warnings(self, category):
-        """clear all warnings in given category"""
-        try:
-            del self.warnings[category]
-        except KeyError:
-            pass
-
-    def get_warnings(self):
-        """return warnings issued while processing disk image"""
-        return ''.join(f'Warning: {w}\n'
-                       for c in self.warnings.keys()
-                       for w in self.warnings[c])
 
 
 # Files
@@ -589,95 +588,55 @@ class FileDescriptor:
     VARIABLE = 0x80
     PROTECTED = 0x08
 
-    def __init__(self, hostfn=None):
+    FILE_NAME_LEN = 0x0a
+    FLAGS = 0x0c
+    RECORDS_PER_SECTOR = 0x0d
+    TOTAL_SECTORS = 0x0e
+    TOTAL_SECTORS_END = 0x10
+    EOF_OFFSET = 0x10
+    RECORD_LEN = 0x11
+    LV3_RECORDS_LOW = 0x12
+    LV3_RECORDS_HIGH = 0x13
+    FILE_CLUSTER = 0x1c
+    CREATED = 0x14
+    CREATED_END = 0x18
+    MODIFIED = 0x18
+    MODIFIED_END = 0x1c
+
+    TIF_TOTAL_SECTORS = 0x08
+    TIF_TOTAL_SECTORS_END = 0x0a
+    TIF_FLAGS = 0x0a
+    TIF_RECORDS_PER_SECTOR = 0x0b
+    TIF_EOF_OFFSET = 0x0c
+    TIF_RECORD_LEN = 0x0d
+    TIF_LV3_RECORDS_LOW = 0x0e
+    TIF_LV3_RECORDS_HIGH = 0x0f
+    TIF_FILE_NAME = 0x10
+    TIF_CREATED = 0x1e
+    TIF_CREATED_END = 0x22
+    TIF_MODIFIED = 0x22
+    TIF_MODIFIED_END = 0x26
+
+    def __init__(self, flags=0, format_=None, records_per_sector=0, total_sectors=0, eof_offset=0, record_len=0,
+                 lv3_records=0, name=None, created=None, modified=None, clusters=None, hostfn=None):
         self.error = False
-        self.hostfn = hostfn
-        self.name = None
         self.type = None
         self.mode = None
-        self.format = None  # display format
-        self.flags = None
-        self.total_sectors = 0
-        self.eof_offset = 0
-        self.lv3_records = 0  # don't read record count, obtain from data
-        self.size = 0
         self.protected = False
-        self.records_per_sector = None
-        self.record_len = None
-        self.created = None  # time and date
-        self.modified = None
-        self.clusters = None
-
-    def from_fdr_sector(self, sector):
-        """create file descriptor from FDR sector"""
-        if len(sector) < 0x20:
-            raise FileError('Invalid file descriptor')
-        try:
-            self.name = sector[:0x0a].decode().rstrip()
-        except UnicodeDecodeError:
-            raise FileError('Invalid Unicode filename')
-        self.flags = sector[0x0c]
-        self.records_per_sector = sector[0x0d]
-        self.total_sectors = ordn(sector[0x0e:0x10])
-        self.eof_offset = sector[0x10]
-        self.record_len = sector[0x11]
-        self.created = sector[0x14:0x18]  # time, date
-        self.modified = sector[0x18:0x1c]
-        self.clusters = sector[0x1c:]
-        self.lv3_records = (sector[0x13] << 8) | sector[0x12]  # only correct for FIXED files
-        self.init_fd()
-        return self
-
-    def from_tif_header(self, header):
-        """create file descriptor from TIFILES header"""
-        if len(header) < 0x26 or not File.is_tifiles(header):
-            raise FileError('Invalid TIFILES header')
-        self.total_sectors = ordn(header[0x08:0x0a])
-        self.flags = header[0x0a] & 0x83
-        self.records_per_sector = header[0x0b]
-        self.eof_offset = header[0x0c]
-        self.record_len = header[0x0d]
-        self.lv3_records = (header[0xf] << 8) | header[0xe]  # only correct for FIXED files
-        if header[0x10] == 0x00:
-            # short TIFILES: use file properties
-            self.name = tiname(self.hostfn)
-            dt = datetime.datetime.fromtimestamp(os.path.getctime(self.hostfn))
-            self.created = self.encode_date(dt)
-            dt = datetime.datetime.fromtimestamp(os.path.getmtime(self.hostfn))
-            self.modified = self.encode_date(dt)
-        else:
-            # long TIFILES: use header data
-            self.name = header[0x10:0x1a].decode().rstrip()
-            self.created = header[0x1e:0x22]
-            self.modified = header[0x22:0x26]
-        self.init_fd()
-        return self
-
-    def new(self, name, format_):
-        """create new empty file descriptor"""
         self.name = name
-        m_fmt = re.match(r'([PDIB])[ROGAMISNT]*(?:/?([VF])[ARIX]*\s*(\d+))?', format_.upper())
-        if not m_fmt:
-            raise FileError('Unknown file format: ' + format_)
-        # build flags for specified format
-        fmt_type = m_fmt.group(1)
-        if fmt_type == 'P':  # P, D, or I
-            self.flags = FileDescriptor.PROGRAM
-            self.record_len = self.records_per_sector = 0
-        else:
-            fmt_mode = m_fmt.group(2)  # F or V
-            self.flags = ((FileDescriptor.INTERNAL if fmt_type == 'I' else FileDescriptor.DISPLAY) |
-                          (FileDescriptor.FIXED if fmt_mode == 'F' else FileDescriptor.VARIABLE))
-            fmt_len = m_fmt.group(3)
-            self.record_len = int(fmt_len) if fmt_len else 80
-            self.records_per_sector = ((Disk.BYTES_PER_SECTOR if fmt_mode == 'F' else Disk.BYTES_PER_SECTOR - 2) //
-                                       self.record_len) % Disk.BYTES_PER_SECTOR  # mod for DF1
-        self.created = self.modified = self.encode_date(datetime.datetime.now())
-        self.init_fd()
-        return self
-
-    def init_fd(self):
-        """initialize internal data structures"""
+        self.flags = flags
+        self.format = format_  # display format
+        self.total_sectors = total_sectors
+        self.eof_offset = eof_offset
+        self.lv3_records = lv3_records
+        self.size = 0
+        self.records_per_sector = records_per_sector
+        self.record_len = record_len
+        self.created = created  # time and date
+        self.modified = modified
+        self.clusters = clusters
+        self.hostfn = hostfn
+        # compute dependent values
         self.type = (FileDescriptor.DISPLAY, FileDescriptor.PROGRAM,
                      FileDescriptor.INTERNAL, FileDescriptor.UNKNOWN)[self.flags & 0x03]
         self.mode = FileDescriptor.VARIABLE if self.flags & 0x80 else FileDescriptor.FIXED
@@ -687,10 +646,85 @@ class FileDescriptor:
         self.protected = self.flags & 0x08
         self.size = self.get_filesize()
 
+    @staticmethod
+    def create(name, format_):
+        """create new empty file descriptor"""
+        m_fmt = re.match(r'([PDIB])[ROGAMISNT]*(?:/?([VF])[ARIX]*\s*(\d+))?', format_.upper())
+        if not m_fmt:
+            raise FileError('Unknown file format: ' + format_)
+        # build flags for specified format
+        fmt_type = m_fmt.group(1)
+        if fmt_type == 'P':  # P, D, or I
+            flags = FileDescriptor.PROGRAM
+            record_len = records_per_sector = 0
+        else:
+            fmt_mode = m_fmt.group(2)  # F or V
+            flags = ((FileDescriptor.INTERNAL if fmt_type == 'I' else FileDescriptor.DISPLAY) |
+                     (FileDescriptor.FIXED if fmt_mode == 'F' else FileDescriptor.VARIABLE))
+            fmt_len = m_fmt.group(3)
+            record_len = int(fmt_len) if fmt_len else 80
+            records_per_sector = ((Disk.BYTES_PER_SECTOR if fmt_mode == 'F' else Disk.BYTES_PER_SECTOR - 2) //
+                                  record_len) % Disk.BYTES_PER_SECTOR  # mod for DF1
+        created = modified = FileDescriptor.encode_date(datetime.datetime.now())
+        return FileDescriptor(name=name, format_=format_, flags=flags, record_len=record_len,
+                              records_per_sector=records_per_sector, created=created, modified=modified)
+
+    @staticmethod
+    def create_from_fdr_sector(sector):
+        """create file descriptor from FDR sector"""
+        if len(sector) < 0x20:
+            raise FileError('Invalid file descriptor')
+        try:
+            name = sector[:FileDescriptor.FILE_NAME_LEN].decode().rstrip()
+        except UnicodeDecodeError:
+            raise FileError('Invalid Unicode filename')
+        flags = sector[FileDescriptor.FLAGS]
+        records_per_sector = sector[FileDescriptor.RECORDS_PER_SECTOR]
+        total_sectors = Util.ordn(sector[FileDescriptor.TOTAL_SECTORS:FileDescriptor.TOTAL_SECTORS_END])
+        eof_offset = sector[FileDescriptor.EOF_OFFSET]
+        record_len = sector[FileDescriptor.RECORD_LEN]
+        created = sector[FileDescriptor.CREATED:FileDescriptor.CREATED_END]  # time, date
+        modified = sector[FileDescriptor.MODIFIED:FileDescriptor.MODIFIED_END]
+        clusters = sector[FileDescriptor.FILE_CLUSTER:]
+        lv3_records = ((sector[FileDescriptor.LV3_RECORDS_HIGH] << 8) |
+                       sector[FileDescriptor.LV3_RECORDS_LOW])  # only correct for FIXED files
+        return FileDescriptor(name=name, flags=flags, records_per_sector=records_per_sector,
+                              total_sectors=total_sectors, eof_offset=eof_offset, record_len=record_len,
+                              created=created, modified=modified, clusters=clusters, lv3_records=lv3_records)
+
+    @staticmethod
+    def create_from_tif_header(header, hostfn=None):
+        """create file descriptor from TIFILES header"""
+        if len(header) < 0x26 or not File.is_tifiles(header):
+            raise FileError('Invalid TIFILES header')
+        total_sectors = Util.ordn(header[FileDescriptor.TIF_TOTAL_SECTORS:FileDescriptor.TIF_TOTAL_SECTORS_END])
+        flags = header[FileDescriptor.TIF_FLAGS] & 0x83
+        records_per_sector = header[FileDescriptor.TIF_RECORDS_PER_SECTOR]
+        eof_offset = header[FileDescriptor.TIF_EOF_OFFSET]
+        record_len = header[FileDescriptor.TIF_RECORD_LEN]
+        lv3_records = ((header[FileDescriptor.TIF_LV3_RECORDS_HIGH] << 8) |
+                       header[FileDescriptor.TIF_LV3_RECORDS_LOW])  # only correct for FIXED files
+        if header[0x10] == 0x00:
+            # short TIFILES: use file properties
+            name = Util.tiname(hostfn)
+            dt = datetime.datetime.fromtimestamp(os.path.getctime(hostfn))
+            created = FileDescriptor.encode_date(dt)
+            dt = datetime.datetime.fromtimestamp(os.path.getmtime(hostfn))
+            modified = FileDescriptor.encode_date(dt)
+        else:
+            # long TIFILES: use header data
+            name = header[FileDescriptor.TIF_FILE_NAME:
+                          FileDescriptor.TIF_FILE_NAME + FileDescriptor.FILE_NAME_LEN].decode().rstrip()
+            created = header[FileDescriptor.TIF_CREATED:FileDescriptor.TIF_CREATED_END]
+            modified = header[FileDescriptor.TIF_MODIFIED:FileDescriptor.TIF_MODIFIED_END]
+        return FileDescriptor(name=name, flags=flags, records_per_sector=records_per_sector, eof_offset=eof_offset,
+                              total_sectors=total_sectors, record_len=record_len, lv3_records=lv3_records,
+                              created=created, modified=modified)
+
     def get_filesize(self):
         """returns file size, excluding FDR (supports SDD99 extension)"""
         return (self.total_sectors * Disk.BYTES_PER_SECTOR -
-                pad(self.eof_offset, Disk.BYTES_PER_SECTOR))  # excludes FDR
+                Util.pad(self.eof_offset, Disk.BYTES_PER_SECTOR))  # excludes FDR
 
     def toggle_protection(self):
         self.protected = not self.protected
@@ -701,13 +735,13 @@ class FileDescriptor:
         """convert datetime object into FDR date and time word"""
         date = (dt.year % 100) << 9 | dt.month << 5 | dt.day
         time = dt.hour << 11 | dt.minute << 5 | dt.second // 2
-        return chrn(time) + chrn(date)
+        return Util.chrn(time) + Util.chrn(date)
 
     @staticmethod
     def decode_date(qword):
         """extract date and time information from header data"""
-        time = ordn(qword[0:2])
-        date = ordn(qword[2:4])
+        time = Util.ordn(qword[0:2])
+        date = Util.ordn(qword[2:4])
         try:
             return datetime.datetime(
                     (date >> 9) + (1900 if date >> 9 >= 70 else 2000),  # 1970 is cut-off year for 1900s
@@ -732,7 +766,7 @@ class FileDescriptor:
                        self.eof_offset,
                        self.record_len,
                        records & 0xff, records >> 8,
-                       *bval(self.created + self.modified))) +
+                       *Util.bval(self.created + self.modified))) +
                 (bytes(100) if v9t9 else self.clusters))
 
     def get_tifiles_header(self, sdd99_loadtype=None):
@@ -745,7 +779,7 @@ class FileDescriptor:
             suffix = (b' ' * 8 +
                       b'SDD99\x01' +
                       bytes((sdd99_loadtype, 0, (self.total_sectors >> 24) & 0xff, (self.total_sectors >> 16) & 0xff)) +
-                      chrn(self.lv3_records, 2) +
+                      Util.chrn(self.lv3_records, 2) +
                       b' ' * 0x44)
         records = self.total_sectors if self.mode == FileDescriptor.VARIABLE else self.lv3_records  # per definition
         return (b'\x07TIFILES' +
@@ -756,7 +790,7 @@ class FileDescriptor:
                        self.record_len,
                        records & 0xff, (records >> 8) & 0xff)) +
                 b'%-10b' % self.name.encode()[:10] +
-                bytes((0, 0, 0xff, 0xff, *bval(self.created + self.modified), 0, 0)) +
+                bytes((0, 0, 0xff, 0xff, *Util.bval(self.created + self.modified), 0, 0)) +
                 suffix)
 
     def get_info(self):
@@ -778,49 +812,56 @@ class FileDescriptor:
 class File:
     """main file object with FDR metadata and sector contents"""
 
-    def __init__(self, fd=None, data=None):
-        self.warnings = []
-        self.records = None
-        if fd is not None and data is not None:
-            self.fd = fd
-            self.data = data
-            self.records = self.unpack_records()
-        else:
+    HEADER_LEN = 0x80
+
+    def __init__(self, fd=None, records=None, data=None, console=None):
+        self.console = console or Console()
+        self.fd = fd
+        self.records = records
+        self.data = data
+        if fd is None or data is None:
             self.fd = self.data = None
+        else:
+            if records is None:
+                self.records = self.unpack_records(fd, data)
 
-    def new(self, name, format_, data, hostfn=None):
+    @staticmethod
+    def create_new(name, format_, data, console=None):
         """create plain file"""
-        self.fd = FileDescriptor(hostfn=hostfn).new(name=name, format_=format_)
-        self.records = self.split_contents(data)
-        self.data = self.pack_records()  # also sets file size information
-        return self
+        fd = FileDescriptor.create(name, format_)
+        records = File.split_contents(fd, data)
+        data_ = File.pack_records(fd, records, console=console)  # repack, also sets file size information
+        return File(fd=fd, records=records, data=data_, console=console)
 
-    def from_tif_image(self, image, hostfn=None):
+    @staticmethod
+    def create_from_tif_image(image, hostfn=None, console=None):
         """create TIFILES file"""
         if not File.is_tifiles(image):
             raise FileError('Invalid TIFILES image')
-        self.fd = FileDescriptor(hostfn=hostfn).from_tif_header(image[:0x80])
-        self.data = image[0x80:]
-        self.records = self.unpack_records()
-        return self
+        fd = FileDescriptor.create_from_tif_header(image[:File.HEADER_LEN], hostfn=hostfn)
+        data = image[File.HEADER_LEN:]
+        records = File.unpack_records(fd, data)
+        return File(fd=fd, data=data, records=records, console=console)
 
-    def from_v9t9_image(self, image):
+    @staticmethod
+    def create_from_v9t9_image(image, console=None):
         """create v9t9 file"""
         if not File.is_v9t9(image):
             raise FileError('Invalid v9t9 image')
-        self.fd = FileDescriptor().from_fdr_sector(image[:0x80])
-        self.data = image[0x80:]
-        self.records = self.unpack_records()
-        return self
+        fd = FileDescriptor.create_from_fdr_sector(image[:File.HEADER_LEN])
+        data = image[File.HEADER_LEN:]
+        records = File.unpack_records(fd, data)
+        return File(fd=fd, data=data, records=records, console=console)
 
-    def split_contents(self, data):
+    @staticmethod
+    def split_contents(fd, data):
         """split blob into records"""
-        if self.fd.type == FileDescriptor.PROGRAM:
+        if fd.type == FileDescriptor.PROGRAM:
             return data
-        elif self.fd.mode == FileDescriptor.FIXED:
-            reclen = self.fd.record_len
+        elif fd.mode == FileDescriptor.FIXED:
+            reclen = fd.record_len
             return [data[i:i + reclen] for i in range(0, len(data), reclen)]
-        elif self.fd.type == FileDescriptor.DISPLAY:
+        elif fd.type == FileDescriptor.DISPLAY:
             return data.splitlines()
         else:
             records = []
@@ -831,83 +872,84 @@ class File:
                 i += reclen
             return records
 
-    def unpack_records(self):
+    @staticmethod
+    def unpack_records(fd, data):
         """extract list of records from sector image (-e)"""
         records = []
-        if self.fd.type == FileDescriptor.PROGRAM:
-            records = self.data[:self.fd.eof_offset - Disk.BYTES_PER_SECTOR] if self.fd.eof_offset else self.data
-            self.fd.lv3_records = 0
-        elif self.fd.mode == FileDescriptor.FIXED:
-            records_per_sector = self.fd.records_per_sector or Disk.BYTES_PER_SECTOR
-            recno = recs_added_to_sector = sector = 0
-            while recno < self.fd.lv3_records:
+        if fd.type == FileDescriptor.PROGRAM:
+            records = data[:fd.eof_offset - Disk.BYTES_PER_SECTOR] if fd.eof_offset else data
+            fd.lv3_records = 0
+        elif fd.mode == FileDescriptor.FIXED:
+            records_per_sector = fd.records_per_sector or Disk.BYTES_PER_SECTOR
+            record_count = recs_added_to_sector = sector = 0
+            while record_count < fd.lv3_records:
                 if recs_added_to_sector >= records_per_sector:
                     sector += 1
                     recs_added_to_sector = 0
                     continue
-                idx = sector * Disk.BYTES_PER_SECTOR + recs_added_to_sector * self.fd.record_len
-                records.append(self.data[idx:idx + self.fd.record_len])
-                recno += 1
+                idx = sector * Disk.BYTES_PER_SECTOR + recs_added_to_sector * fd.record_len
+                records.append(data[idx:idx + fd.record_len])
+                record_count += 1
                 recs_added_to_sector += 1
-            self.fd.lv3_records = recno
+            fd.lv3_records = record_count
         else:  # VARIABLE
-            recno = offset_in_sector = sector = 0
-            while sector < self.fd.total_sectors:
+            record_count = offset_in_sector = sector = 0
+            while sector < fd.total_sectors:
                 idx = sector * Disk.BYTES_PER_SECTOR + offset_in_sector
-                reclen = self.data[idx] if idx < len(self.data) else -1
-                if (reclen == 0xff and offset_in_sector > 0) or reclen == -1:
+                record_len = data[idx] if idx < len(data) else -1
+                if (record_len == 0xff and offset_in_sector > 0) or record_len == -1:
                     sector += 1
                     offset_in_sector = 0
                     continue
-                records.append(self.data[idx + 1:idx + 1 + reclen])  # store w/o record length
-                recno += 1
-                if reclen == 0xff and offset_in_sector == 0:  # DIS/VAR255
+                records.append(data[idx + 1:idx + 1 + record_len])  # store w/o record length
+                record_count += 1
+                if record_len == 0xff and offset_in_sector == 0:  # DIS/VAR255
                     sector += 1
                 else:
-                    offset_in_sector += reclen + 1
-            self.fd.lv3_records = recno
+                    offset_in_sector += record_len + 1
+            fd.lv3_records = record_count
         return records
 
-    def pack_records(self):
+    @staticmethod
+    def pack_records(fd, records, console=None):
         """create sector image from listing of records (-a), sets size information"""
-        if self.fd.type == FileDescriptor.PROGRAM:
-            data = self.records
-            self.fd.eof_offset = len(data) % Disk.BYTES_PER_SECTOR
-            sectors = used(len(data), Disk.BYTES_PER_SECTOR)
-            self.fd.lv3_records = 0
-        elif self.fd.mode == FileDescriptor.FIXED:
-            parts = []
-            recno = sectors = offset_in_sector = 0
-            for record in self.records:
-                if len(record) > self.fd.record_len:
-                    self.warn(f'Record #{recno} too long, truncating {len(record) - self.fd.record_len} bytes')
-                    record = record[:self.fd.record_len]
-                if offset_in_sector + self.fd.record_len > Disk.BYTES_PER_SECTOR:
+        parts = []
+        record_count = sectors = offset_in_sector = 0
+        if fd.type == FileDescriptor.PROGRAM:
+            data = records
+            fd.eof_offset = len(data) % Disk.BYTES_PER_SECTOR
+            sectors = Util.used(len(data), Disk.BYTES_PER_SECTOR)
+            fd.lv3_records = 0
+        elif fd.mode == FileDescriptor.FIXED:
+            for record in records:
+                if len(record) > fd.record_len:
+                    if console:
+                        console.warn(f'Record #{record_count} too long, truncating {len(record) - fd.record_len} bytes')
+                    record = record[:fd.record_len]
+                if offset_in_sector + fd.record_len > Disk.BYTES_PER_SECTOR:
                     parts.append(bytes(Disk.BYTES_PER_SECTOR - offset_in_sector))
                     sectors += 1
                     offset_in_sector = 0
-                padlen = self.fd.record_len - len(record)
-                parts.append(record + (bytes(padlen) if self.fd.type == FileDescriptor.INTERNAL else b' ' * padlen))
-                offset_in_sector += self.fd.record_len
-                recno += 1
+                pad_len = fd.record_len - len(record)
+                parts.append(record + (bytes(pad_len) if fd.type == FileDescriptor.INTERNAL else b' ' * pad_len))
+                offset_in_sector += fd.record_len
+                record_count += 1
             data = b''.join(parts)
-            self.fd.eof_offset = offset_in_sector % Disk.BYTES_PER_SECTOR
+            fd.eof_offset = offset_in_sector % Disk.BYTES_PER_SECTOR
             sectors = sectors + 1
-            self.fd.lv3_records = recno
+            fd.lv3_records = record_count
         else:  # VARIABLE
-            parts = []
-            recno = 0
-            sectors = offset_in_sector = 0
-            for record in self.records:
-                if len(record) > self.fd.record_len:
-                    self.warn(f'Record #{recno} too long, truncating {len(record) - self.fd.record_len} bytes')
-                    record = record[:self.fd.record_len]
+            for record in records:
+                if len(record) > fd.record_len:
+                    if console:
+                        console.warn(f'Record #{record_count} too long, truncating {len(record) - fd.record_len} bytes')
+                    record = record[:fd.record_len]
                 if offset_in_sector + 1 + len(record) + 1 > Disk.BYTES_PER_SECTOR and offset_in_sector > 0:
                     parts.append(b'\xff' + bytes(Disk.BYTES_PER_SECTOR - offset_in_sector - 1))
                     sectors += 1
                     offset_in_sector = 0
                 parts.append(bytes((len(record),)) + record)
-                recno += 1
+                record_count += 1
                 if len(record) == Disk.BYTES_PER_SECTOR - 1:  # VAR255
                     sectors += 1
                     offset_in_sector = 0
@@ -917,11 +959,12 @@ class File:
                 parts.append(b'\xff')  # EOF marker
                 sectors += 1
             data = b''.join(parts)
-            self.fd.eof_offset = offset_in_sector
-            self.fd.lv3_records = recno
-        self.fd.total_sectors = sectors
-        self.fd.size = self.fd.total_sectors * Disk.BYTES_PER_SECTOR - pad(self.fd.eof_offset, Disk.BYTES_PER_SECTOR)
-        return data + bytes(pad(len(data), Disk.BYTES_PER_SECTOR))
+            fd.eof_offset = offset_in_sector
+            fd.lv3_records = record_count
+        fd.total_sectors = sectors
+        fd.size = (fd.total_sectors * Disk.BYTES_PER_SECTOR -
+                   Util.pad(fd.eof_offset, Disk.BYTES_PER_SECTOR))
+        return data + bytes(Util.pad(len(data), Disk.BYTES_PER_SECTOR))
 
     def get_contents(self, encoding=None):
         """return file contents as serialized records"""
@@ -958,7 +1001,7 @@ class File:
         if self.fd.type == FileDescriptor.PROGRAM:
             cutoff = eof - Disk.BYTES_PER_SECTOR if eof else None
         elif self.fd.mode == FileDescriptor.FIXED:
-            records_in_last_sector = upmod(self.fd.lv3_records, self.fd.records_per_sector or 256)
+            records_in_last_sector = Util.upmod(self.fd.lv3_records, self.fd.records_per_sector or 256)
             cutoff = records_in_last_sector * self.fd.record_len - Disk.BYTES_PER_SECTOR or None
         elif self.fd.mode == FileDescriptor.VARIABLE:
             eof += 1 if eof else 0  # include >ff byte for VARIABLE files
@@ -966,7 +1009,7 @@ class File:
         else:
             raise FileError('Unknown file type for ' + self.fd.name)
         payload = self.data[:cutoff]
-        return payload + bytes(pad(len(payload), Disk.BYTES_PER_SECTOR))
+        return payload + bytes(Util.pad(len(payload), Disk.BYTES_PER_SECTOR))
 
     @staticmethod
     def is_tifiles(image):
@@ -976,202 +1019,249 @@ class File:
     @staticmethod
     def is_v9t9(image):
         """check if file image has v9t9 header"""
-        return all(32 <= c < 127 for c in image[:10]) and image[0x30:0x80] == bytes(0x50)
+        return all(32 <= c < 127 for c in image[:10]) and image[0x30:File.HEADER_LEN] == bytes(0x50)
 
     def get_info(self):
         """return file meta data"""
         return self.fd.get_info()
 
-    def warn(self, text):
-        """issue non-critical warning"""
-        if text not in self.warnings:
-            self.warnings.append(text)
 
-    def get_warnings(self):
-        """return warnings issued while processing file"""
-        return ''.join(f'Warning: {w:s}\n' for w in self.warnings)
+class Console:
+    """collects errors and warnings"""
+
+    CAT_WARNING = 0
+    CAT_ALLOC = 1
+    CAT_GEOMETRY = 2
+    CAT_IMAGE = 3
+
+    ERROR = 2  # severity
+
+    def __init__(self, disable_warnings=False, colors=None):
+        self.enabled_warnings = not disable_warnings
+        self.warnings = {}  # category x list
+        self.errors = []
+        if colors is None:
+            self.colors = platform.system() in ('Linux', 'Darwin')  # no auto color on Windows
+        else:
+            self.colors = colors == 'on'
+
+    def warn(self, message, category=CAT_WARNING):
+        """record warning message"""
+        try:
+            if message not in self.warnings[category]:
+                self.warnings[category].append(message)
+        except KeyError:
+            self.warnings.setdefault(category, []).append(message)
+
+    def error(self, message):
+        """record error message"""
+        self.errors.append(message)
+
+    def clear_warnings(self, category):
+        """clear all warnings in given category"""
+        try:
+            del self.warnings[category]
+        except KeyError:
+            pass
+
+    def print(self):
+        """print all warnings and errors"""
+        if self.enabled_warnings:
+            for cat in self.warnings.keys():
+                for text in self.warnings[cat]:
+                    sys.stderr.write(self.color(f'Warning: {text}', severity=1) + '\n')
+        for text in self.errors:
+            sys.stderr.write(self.color(f'Error: {text}', severity=2) + '\n')
+
+    def color(self, message, severity=0):
+        if not self.colors:
+            return message
+        elif severity == 1:
+            return '\x1b[33m' + message + '\x1b[0m'  # yellow
+        elif severity == 2:
+            return '\x1b[31m' + message + '\x1b[0m'  # red
+        else:
+            return message
 
 
 # Command line processing
 
-def dump(s):
-    """format binary string as hex dump (for -S)"""
-    result = []
-    for i in range(0, len(s), 16):
-        bs = b''  # use bytes, like all other functions do
-        cs = b''
-        for j in range(16):
-            try:
-                bs += b'%02X ' % s[i + j]
-                cs += bytes((s[i + j],)) if 32 <= s[i + j] < 127 else b'.'
-            except IndexError:
-                bs += b'   '
-                cs += b' '
-            if j % 4 == 3:
-                bs += b' '
-                cs += b' '
-        result.append(b'%02X:  %b %b\n' % (i, bs, cs))
-    return b''.join(result)
+class Processor:
+    """execute supplied commands"""
 
+    def __init__(self, console):
+        self.console = console
 
-def image_cmds(opts, external_data=None):
-    """disk image manipulation"""
-    rc = 0
-    result = []  # data x filename x is disk?
-    format_ = opts.format.upper() if opts.format else 'PROGRAM'
+    def process_dump(self, s):
+        """format binary string as hex dump (for -S)"""
+        result = []
+        for i in range(0, len(s), 16):
+            bs = b''  # use bytes, like all other functions do
+            cs = b''
+            for j in range(16):
+                try:
+                    bs += b'%02X ' % s[i + j]
+                    cs += bytes((s[i + j],)) if 32 <= s[i + j] < 127 else b'.'
+                except IndexError:
+                    bs += b'   '
+                    cs += b' '
+                if j % 4 == 3:
+                    bs += b' '
+                    cs += b' '
+            result.append(b'%02X:  %b %b\n' % (i, bs, cs))
+        return b''.join(result)
 
-    # get disk image
-    if opts.init:
-        barename = os.path.splitext(os.path.basename(opts.filename))[0]
-        image = Disk.blank_image(opts.init, to_ti(opts.name) or barename[:10].upper())
-        result = (image, opts.filename, True),
-    else:
-        image = external_data or readdata(opts.filename)
-    disk = Disk(image)
+    def process_image_command(self, opts, external_data=None):
+        """disk image manipulation"""
+        rc = 0
+        result = []  # data x filename x is disk?
+        format_ = opts.format.upper() if opts.format else 'PROGRAM'
 
-    # apply command to image
-    if opts.print_:
-        files = disk.glob_files(opts.print_)
-        contents = (disk.get_file(name).get_contents() for name in files)
-        sys.stdout.buffer.write(b''.join(contents))
-    elif opts.extract:
-        files = disk.glob_files(opts.extract)
-        if opts.output and len(files) > 1 and not os.path.isdir(opts.output):
-            sys.exit('Error: -o must provide directory when extracting multiple files')
-        if opts.astifiles:
-            result = ((disk.get_tifiles_file(name),
-                       to_pc(name).upper() if opts.tinames else to_pc(name).lower() + '.tfi',
-                       False)
-                      for name in files)
-        elif opts.assdd99 is not None:
-            result = ((disk.get_sdd99_file(name, loadtype=xint(opts.assdd99)),
-                       to_pc(name).upper() if opts.tinames else to_pc(name).lower() + '.tfi',
-                       False)
-                      for name in files)
-        elif opts.asv9t9:
-            result = ((disk.get_v9t9_file(name),
-                       to_pc(name).upper() if opts.tinames else to_pc(name).lower() + '.v9t9',
-                       False)
-                      for name in files)
+        # get disk image
+        if opts.init:
+            barename = os.path.splitext(os.path.basename(opts.filename))[0]
+            image = Disk.blank_image(opts.init, Util.to_ti(opts.name) or barename[:10].upper())
+            result = (image, opts.filename, True),
         else:
-            files = ((to_pc(name), disk.get_file(name)) for name in files)
-            result = ((file_.get_contents(),
-                       name.upper() if opts.tinames else name.lower(),
-                       False)
-                      for name, file_ in files)
-    elif opts.add:
-        seq_no = 0
-        for name in opts.add:
-            data = readdata(name, encoding=opts.encoding)
-            if name == '-':
-                name = 'STDIN'
+            image = external_data or Util.readdata(opts.filename)
+        disk = Disk(image, console=self.console)
+
+        # apply command to image
+        if opts.print_:
+            files = disk.glob_files(opts.print_)
+            contents = (disk.get_file(name).get_contents() for name in files)
+            sys.stdout.buffer.write(b''.join(contents))
+        elif opts.extract:
+            files = disk.glob_files(opts.extract)
+            if opts.output and len(files) > 1 and not os.path.isdir(opts.output):
+                sys.exit(self.console.color('Error: -o must provide directory when extracting multiple files',
+                                            severity=Console.ERROR))
             if opts.astifiles:
-                disk.add_file(File().from_tif_image(data, hostfn=name))
+                contentfn = disk.get_tifiles_file
+                namefn, extension = Util.to_pc, '.tfi'
+            elif opts.assdd99 is not None:
+                contentfn = lambda name: disk.get_sdd99_file(name, loadtype=Util.xint(opts.assdd99))
+                namefn, extension = Util.to_pc, '.tfi'
             elif opts.asv9t9:
-                disk.add_file(File().from_v9t9_image(data))
+                contentfn = disk.get_v9t9_file
+                namefn, extension = Util.to_pc, '.v9t9'
             else:
-                name = sseq(to_ti(opts.name), seq_no) if opts.name else tiname(name)
-                file_ = File().new(name, format_, data)
-                seq_no += 1
-                if file_.warnings and not opts.quiet:
-                    sys.stderr.write(file_.get_warnings())
-                disk.add_file(file_)
-        result = (disk.image, opts.filename, True),
-    elif opts.rename:
-        names = [to_ti(arg).split(':') for arg in opts.rename]
-        disk.rename_files(names)
-        result = (disk.image, opts.filename, True),
-    elif opts.delete:
-        files = disk.glob_files(opts.delete)
-        for name in files:
-            disk.remove_file(name)
-        result = (disk.image, opts.filename, True),
-    elif opts.protect:
-        files = disk.glob_files(opts.protect)
-        for name in files:
-            disk.protect_file(name)
-        result = (disk.image, opts.filename, True),
-    elif opts.resize:
-        size, layout = Disk.parse_geometry(opts.resize)
-        disk.resize_disk(size)
-        if layout:
-            sides, density, tracks = layout
-            disk.set_geometry(sides, density, tracks or Disk.DEFAULT_TRACKS)
-        result = (disk.image, opts.filename, True),
-    elif opts.geometry:
-        size, layout = Disk.parse_geometry(opts.geometry)
-        try:
-            disk.set_geometry(*layout)
-        except TypeError:
-            raise DiskError('Invalid disk geometry: ' + opts.geometry)
-        result = (disk.image, opts.filename, True),
-    elif opts.checkonly:
-        rc = 1 if disk.warnings else 0
-    elif opts.repair:
-        disk.fix_disk()
-        result = (disk.image, opts.filename, True),
-    elif opts.sector:
-        opts.quiet = True
-        try:
-            sector_no = xint(opts.sector)
-            sector = disk.get_sector(sector_no)
-        except (IndexError, ValueError):
-            raise DiskError(f'Invalid sector: {opts.sector}')
-        result = (dump(sector), '-', False),
-    elif opts.name and not opts.init:
-        # at this point, '-n' is supplied without command, so rename disk
-        disk.rename(to_ti(opts.name))
-        result = (disk.image, opts.filename, True),
-    elif opts.info or not opts.init:
-        sys.stdout.write(disk.get_info())
-        sys.stdout.write('-' * 76 + '\n')
-        sys.stdout.write(disk.get_catalog())
-    if not opts.quiet:
-        sys.stderr.write(disk.get_warnings())
-    return rc, result
+                contentfn = lambda name: disk.get_file(name).get_contents()
+                namefn, extension = Util.to_pc, ''
+            result = ((contentfn(name),
+                       namefn(name).upper() if opts.tinames else namefn(name).lower() + extension,
+                       False)
+                      for name in files)
+        elif opts.add:
+            for name in opts.add:
+                data = Util.readdata(name, encoding=opts.encoding)
+                if name == '-':
+                    name = 'STDIN'
+                if opts.astifiles:
+                    disk.add_file(File.create_from_tif_image(data, hostfn=name, console=self.console))
+                elif opts.asv9t9:
+                    disk.add_file(File.create_from_v9t9_image(data, console=self.console))
+                else:
+                    name = Util.to_ti(opts.name) if opts.name else Util.tiname(name)
+                    if opts.name:
+                        opts.name = Util.strinc(opts.name)
+                    file_ = File.create_new(name, format_, data, console=self.console)
+                    disk.add_file(file_)
+            result = (disk.image, opts.filename, True),
+        elif opts.rename:
+            names = [Util.to_ti(arg).split(':') for arg in opts.rename]
+            disk.rename_files(names)
+            result = (disk.image, opts.filename, True),
+        elif opts.delete:
+            files = disk.glob_files(opts.delete)
+            for name in files:
+                disk.remove_file(name)
+            result = (disk.image, opts.filename, True),
+        elif opts.protect:
+            files = disk.glob_files(opts.protect)
+            for name in files:
+                disk.protect_file(name)
+            result = (disk.image, opts.filename, True),
+        elif opts.resize:
+            size, layout = Disk.parse_geometry(opts.resize, need_sectors=True)
+            disk.resize_disk(size)
+            if layout:
+                sides, density, tracks = layout
+                disk.set_geometry(sides, density, tracks or Disk.DEFAULT_TRACKS)
+            result = (disk.image, opts.filename, True),
+        elif opts.geometry:
+            size, layout = Disk.parse_geometry(opts.geometry)
+            try:
+                disk.set_geometry(*layout)
+            except TypeError:
+                raise DiskError('Invalid disk geometry: ' + opts.geometry)
+            result = (disk.image, opts.filename, True),
+        elif opts.checkonly:
+            rc = 1 if self.console.errors or self.console.warnings else 0
+        elif opts.repair:
+            disk.fix_disk()
+            result = (disk.image, opts.filename, True),
+        elif opts.sector:
+            opts.quiet = True
+            try:
+                sector_no = Util.xint(opts.sector)
+                sector = disk.get_sector(sector_no)
+            except (IndexError, ValueError):
+                raise DiskError(f'Invalid sector: {opts.sector}')
+            result = (self.process_dump(sector), '-', False),
+        elif opts.name and not opts.init:
+            # at this point, '-n' is supplied without command, so rename disk
+            disk.rename(Util.to_ti(opts.name))
+            result = (disk.image, opts.filename, True),
+        elif opts.info or not opts.init:
+            sys.stdout.write(disk.get_info())
+            sys.stdout.write('-' * 76 + '\n')
+            sys.stdout.write(disk.get_catalog())
+        return rc, result
 
+    def process_file_command(self, opts):
+        """file manipulation"""
+        result = []
+        # files to process (opts are mutually exclusive)
+        files = opts.fromfiad or opts.tofiad or opts.printfiad or opts.infofiad
+        if opts.output and len(files) > 1 and not os.path.isdir(opts.output):
+            sys.exit(self.console.color('Error: -o must provide directory when providing multiple files',
+                                        severity=Console.ERROR))
+        fmt = opts.format.upper() if opts.format else 'PROGRAM'
 
-def file_cmds(opts):
-    """file manipulation"""
-    rc = 0
-    result = []
-    # files to process (opts are mutually exclusive)
-    files = opts.fromfiad or opts.tofiad or opts.printfiad or opts.infofiad
-    if opts.output and len(files) > 1 and not os.path.isdir(opts.output):
-        sys.exit('Error: -o must provide directory when providing multiple files')
-    fmt = opts.format.upper() if opts.format else 'PROGRAM'
-
-    for idx, filename in enumerate(files):
-        image = readdata(filename)
-        if opts.tofiad:
-            name = sseq(to_ti(opts.name), idx) if opts.name else tiname(filename)
-            file_ = File().new(name, fmt, image)
-            if opts.asv9t9:
-                result.append((file_.get_as_v9t9(),
-                               to_pc(name).upper() if opts.tinames else to_pc(name).lower() + '.v9t9',
-                               False))
-            elif opts.assdd99 is not None:  # could be zero
-                result.append((file_.get_as_sdd99(xint(opts.assdd99)),
-                               to_pc(name).upper() if opts.tinames else to_pc(name).lower() + '.sdd99',
-                               False))
+        for idx, filename in enumerate(files):
+            image = Util.readdata(filename)
+            if opts.tofiad:
+                name = Util.to_ti(opts.name) or Util.tiname(filename)
+                if opts.name:
+                    opts.name = Util.strinc(opts.name)
+                file_ = File.create_new(name, fmt, image, console=self.console)
+                if opts.asv9t9:
+                    result.append((file_.get_as_v9t9(),
+                                   Util.to_pc(name).upper() if opts.tinames else Util.to_pc(name).lower() + '.v9t9',
+                                   False))
+                elif opts.assdd99 is not None:  # could be zero
+                    result.append((file_.get_as_sdd99(Util.xint(opts.assdd99)),
+                                   Util.to_pc(name).upper() if opts.tinames else Util.to_pc(name).lower() + '.sdd99',
+                                   False))
+                else:
+                    result.append((file_.get_as_tifiles(),
+                                   Util.to_pc(name).upper() if opts.tinames else Util.to_pc(name).lower() + '.tfi',
+                                   False))
             else:
-                result.append((file_.get_as_tifiles(),
-                               to_pc(name).upper() if opts.tinames else to_pc(name).lower() + '.tfi',
-                               False))
-        else:
-            if opts.astifiles or opts.assdd99 or File.is_tifiles(image):
-                file_ = File().from_tif_image(image, hostfn=filename)
-            elif opts.asv9t9 or File.is_v9t9(image):
-                file_ = File().from_v9t9_image(image)
-            else:
-                raise FileError('Unknown file format')
-            if opts.fromfiad:
-                result.append((file_.get_contents(), os.path.splitext(filename)[0], False))
-            elif opts.printfiad:
-                result.append((file_.get_contents(), '-', False))
-            else:
-                sys.stdout.write(file_.get_info())
-    return rc, result
+                if opts.astifiles or opts.assdd99 or File.is_tifiles(image):
+                    file_ = File.create_from_tif_image(image, hostfn=filename, console=self.console)
+                elif opts.asv9t9 or File.is_v9t9(image):
+                    file_ = File.create_from_v9t9_image(image, console=self.console)
+                else:
+                    raise FileError('Unknown file format')
+                if opts.fromfiad:
+                    result.append((file_.get_contents(), os.path.splitext(filename)[0], False))
+                elif opts.printfiad:
+                    result.append((file_.get_contents(), '-', False))
+                else:
+                    sys.stdout.write(file_.get_info())
+        return 0, result
 
 
 def main(argv, external_data=None):
@@ -1253,19 +1343,32 @@ def main(argv, external_data=None):
                       help='set output filename or target directory')
     args.add_argument('-q', '--quiet', action='store_true', dest='quiet',
                       help='suppress all warnings')
-    opts = args.parse_args(argv)
+    args.add_argument('--color', action='store', dest='color', choices=['off', 'on'],
+                      help='enable or disable color output')
+
+    try:
+        default_opts = os.environ[CONFIG].split()
+    except KeyError:
+        default_opts = []
+    opts = args.parse_args(args=default_opts + sys.argv[1:])  # passed opts override default opts
+
+    console = Console(disable_warnings=opts.quiet, colors=opts.color)
+    process = Processor(console)
 
     # process image
     try:
         if opts.fromfiad or opts.tofiad or opts.printfiad or opts.infofiad:
-            rc, result = file_cmds(opts)
+            rc, result = process.process_file_command(opts)
         else:
             if not opts.filename:
                 args.error('Missing disk image')
-            rc, result = image_cmds(opts, external_data)
+            rc, result = process.process_image_command(opts, external_data)
     except (IOError, DiskError, FileError) as e:
         # note that some generators haven't been evaluated yet!
-        sys.exit('Error: ' + str(e))
+        sys.exit(console.color('Error: ' + str(e), severity=Console.ERROR))
+
+    # show error and warning messages
+    console.print()
 
     # process result
     if external_data:
@@ -1278,14 +1381,14 @@ def main(argv, external_data=None):
         opts.output = None
     else:
         path = ''
-        barename = id_function
+        barename = Util.id_function
 
     try:
-        for data, name, _ in result:
+        for data, name, _is_disk in result:  # _is_disk used by xvm, xhm
             outname = os.path.join(path, opts.output or barename(name))
-            writedata(outname, data, encoding=opts.encoding)
+            Util.writedata(outname, data, encoding=opts.encoding)
     except (IOError, DiskError, FileError) as e:
-        sys.exit('Error: ' + str(e))
+        sys.exit(console.color('Error: ' + str(e), severity=Console.ERROR))
 
     # return status
     return rc

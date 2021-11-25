@@ -24,7 +24,9 @@ import re
 import os.path
 
 
-VERSION = '3.0.0'
+VERSION = '3.2.0'
+
+CONFIG = 'XDA_CONFIG'
 
 
 # Utility functions
@@ -117,23 +119,38 @@ class XdaLogger(object):
 class Symbols(object):
     """symbol table"""
 
+    SYM_LABEL = 1  # used for B, JMP, ...
+    SYM_VALUE = 2  # used for MOV, ADD, ...
+
     def __init__(self, symfiles=None):
         # pre-defined symbols
-        self.symbols = {
-            0x210c: 'VSBW', 0x2110: 'VMBW',
-            0x2114: 'VSBR', 0x2118: 'VMBR',
-            0x211c: 'VWTR', 0x2108: 'KSCAN',
-            0x2100: 'GPLLNK', 0x2104: 'XMLLNK',
-            0x2120: 'DSRLNK', 0x2124: 'LOADER',
-            0x2022: 'UTLTAB', 0x000e: 'SCAN',
-            0x8300: 'PAD', 0x83e0: 'GPLWS',
-            0x8400: 'SOUND',
-            0x8800: 'VDPRD', 0x8802: 'VDPST',
-            0x8c00: 'VDPWD', 0x8c02: 'VDPWA',
-            0x9000: 'SPCHRD', 0x9400: 'SPCHWT',
-            0x9800: 'GRMRD', 0x9802: 'GRMRA',
-            0x9c00: 'GRMWD', 0x9c02: 'GRMWA'
+        self.predef_symbols = {
+            0x210c: {'VSBW', Symbols.SYM_LABEL},
+            0x2110: {'VMBW', Symbols.SYM_LABEL},
+            0x2114: {'VSBR', Symbols.SYM_LABEL},
+            0x2118: {'VMBR', Symbols.SYM_LABEL},
+            0x211c: {'VWTR',  Symbols.SYM_LABEL},
+            0x2108: {'KSCAN', Symbols.SYM_LABEL},
+            0x2100: {'GPLLNK', Symbols.SYM_LABEL},
+            0x2104: {'XMLLNK', Symbols.SYM_LABEL},
+            0x2120: {'DSRLNK',  Symbols.SYM_LABEL},
+            0x2124: {'LOADER', Symbols.SYM_LABEL},
+            0x000e: {'SCAN', Symbols.SYM_LABEL},
+            0x8300: {'PAD',  Symbols.SYM_VALUE},
+            0x83e0: {'GPLWS', Symbols.SYM_VALUE},
+            0x8400: {'SOUND', Symbols.SYM_VALUE},
+            0x8800: {'VDPRD', Symbols.SYM_VALUE},
+            0x8802: {'VDPST', Symbols.SYM_VALUE},
+            0x8c00: {'VDPWD', Symbols.SYM_VALUE},
+            0x8c02: {'VDPWA', Symbols.SYM_VALUE},
+            0x9000: {'SPCHRD', Symbols.SYM_VALUE},
+            0x9400: {'SPCHWT', Symbols.SYM_VALUE},
+            0x9800: {'GRMRD', Symbols.SYM_VALUE},
+            0x9802: {'GRMRA', Symbols.SYM_VALUE},
+            0x9c00: {'GRMWD',  Symbols.SYM_VALUE},
+            0x9c02: {'GRMWA', Symbols.SYM_VALUE}
             }
+        self.symbols = {}
         # additional symbols loaded from file(s)
         if symfiles:
             for sf in symfiles:
@@ -155,12 +172,17 @@ class Symbols(object):
                 XdaLogger.warn(f'Symbol for >{addr:04X} already defined, overwritten')
             self.symbols[addr] = symbol
 
-    def resolve(self, value):
+    def resolve(self, value, context=SYM_VALUE):
         """find symbol name for given value, or return >xx/xxxx value """
         try:
             symbol = self.symbols[value]
         except KeyError:
-            return f'>{value:04X}'
+            try:
+                symbol, symbol_context = self.predef_symbols[value]
+                if context != symbol_context:
+                    raise KeyError
+            except KeyError:
+                return f'>{value:04X}'
         self.used[symbol] = value  # mark symbol as used for EQU prelude
         return symbol
 
@@ -361,7 +383,7 @@ class Opcodes(object):
         elif instr_format == 2:
             disp = -(~word & 0x00ff) - 1 if word & 0x0080 else word & 0x007f
             a = addr + 2 + 2 * disp
-            return Operand(None, None, 0, symbols.resolve(a), dest=a),
+            return Operand(None, None, 0, symbols.resolve(a, context=Symbols.SYM_LABEL), dest=a),
         # III. logical instructions
         elif instr_format == 3:
             d = (word >> 6) & 0x0f
@@ -794,7 +816,7 @@ class Disassembler(object):
                 lidx = start_idx + m_start // 2
                 program.register(lidx, Literal(program.idx2addr(lidx),
                                                program.code[lidx].word,
-                                            chunk[m_start:m_end], program.symbols))
+                                               chunk[m_start:m_end], program.symbols))
             start_idx = i + 1
 
     def make_program(self, program):
@@ -820,9 +842,9 @@ def main():
                       help='machine code file')
     cmd = args.add_mutually_exclusive_group()
     cmd.add_argument('-r', '--run', metavar='<addr>', dest='runs', nargs='+',
-                      help='run from additional addresses')
+                     help='run from additional addresses')
     cmd.add_argument('-f', '--from', metavar='<addr>', dest='frm',
-                      help="disassemble top-down from address, or 'start'")
+                     help="disassemble top-down from address, or 'start'")
     args.add_argument('-a', '--address', metavar='<addr>', dest='addr',
                       help='address of first word')
     args.add_argument('-t', '--to', metavar='<addr>', dest='to',
@@ -853,7 +875,11 @@ def main():
                       help='verbose messages')
     args.add_argument('-o', '--output', metavar='<file>', dest='outfile',
                       help='output filename')
-    opts = args.parse_args()
+    try:
+        default_opts = os.environ[CONFIG].split()
+    except KeyError:
+        default_opts = []
+    opts = args.parse_args(args=default_opts + sys.argv[1:])  # passed opts override default opts
 
     # setup
     basename = os.path.basename(opts.binary)

@@ -4,8 +4,8 @@ import os
 import shutil
 import random
 
-from config import Dirs, Disks, Files
-from utils import xdm, error, check_files_eq, check_text_files_eq
+from config import Dirs, Disks, Files, XDM99_CONFIG
+from utils import xdm, error, clear_env, delfile, check_files_eq, check_text_files_eq
 
 
 # Utility functions
@@ -65,7 +65,9 @@ def check_trunc(infile, lines, length):
 
 def runtest():
     """check reading and writing of random data"""
-    
+
+    clear_env(XDM99_CONFIG)
+
     # setup
     shutil.copyfile(Disks.blank, Disks.work)
     shutil.copyfile(Disks.blank, Disks.tifiles)
@@ -159,11 +161,7 @@ def runtest():
     # remove temporary files
     for name, path, fmt in files + bigFiles:
         os.remove(path)
-    os.remove(Files.output)
-    os.remove(Files.tifile)
-    os.remove(Files.reference)
-    os.remove(Disks.work)
-    os.remove(Disks.tifiles)
+    delfile(Dirs.tmp)
 
 
 if __name__ == '__main__':

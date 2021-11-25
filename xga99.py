@@ -27,7 +27,9 @@ import math
 import re
 
 
-VERSION = '3.0.1'
+VERSION = '3.2.0'
+
+CONFIG = 'XGA99_CONFIG'
 
 
 # Utility functions
@@ -98,7 +100,7 @@ class AsmError(Exception):
     pass
 
 
-class Address(object):
+class Address:
     """absolute GROM address"""
 
     def __init__(self, addr, local=False):
@@ -123,7 +125,7 @@ class Address(object):
         return not self == other
 
 
-class Local(object):
+class Local:
     """local label reference"""
 
     def __init__(self, name, distance):
@@ -131,7 +133,7 @@ class Local(object):
         self.distance = distance
 
 
-class Operand(object):
+class Operand:
     """general source or destination address or imm value"""
 
     def __init__(self, addr, vram=False, grom=False, vreg=False, imm=0, indirect=False, index=None):
@@ -190,11 +192,11 @@ class Operand(object):
 
 # Opcodes and Directives
 
-class Opcodes(object):
+class Opcodes:
     op_imm = lambda parser, x: (parser.expression(x[0]),)
     op_imm_gs = lambda parser, x: (parser.expression(x[0]),
                                    parser.gaddress(x[1], is_gs=True))
-    op_opt = lambda d: lambda parser, x: (parser.expression(x[0]) if x else d,)
+    op_opt_255 = lambda parser, x: (parser.expression(x[0]) if x else 255,)
     op_gd = lambda parser, x: (parser.gaddress(x[0], is_gs=False),)
     op_gs_gd = lambda parser, x: (parser.gaddress(x[0], is_gs=True),
                                   parser.gaddress(x[1], is_gs=False))
@@ -282,7 +284,7 @@ class Opcodes(object):
         'COINC': (0xed, 1, op_gs_dgd),
         'BACK': (0x04, 2, op_imm),
         'ALL': (0x07, 2, op_imm),
-        'RAND': (0x02, 2, op_opt(255)),
+        'RAND': (0x02, 2, op_opt_255),
         'SCAN': (0x03, 5, None),
         'XML': (0x0f, 2, op_imm),
         'EXIT': (0x0b, 5, None),
@@ -385,7 +387,7 @@ class Opcodes(object):
             raise AsmError(f'Unsupported opcode format {fmt}')
 
 
-class Directives(object):
+class Directives:
     @staticmethod
     def EQU(asm, label, ops):
         value = asm.parser.expression(ops[0])
@@ -393,37 +395,37 @@ class Directives(object):
 
     @staticmethod
     def DATA(asm, label, ops):
-        asm.process_label(label)
+        asm.process_label(label, tracked=True)
         asm.emit(*[Address(asm.parser.expression(op)) for op in ops])
 
     @staticmethod
     def BYTE(asm, label, ops):
-        asm.process_label(label)
+        asm.process_label(label, tracked=True)
         asm.emit(*[asm.parser.expression(op) & 0xff for op in ops])
 
     @staticmethod
     def TEXT(asm, label, ops):
-        asm.process_label(label)
+        asm.process_label(label, tracked=True)
         for op in ops:
             text = asm.parser.text(op)
             asm.emit(*[ord(c) for c in text])
 
     @staticmethod
     def STRI(asm, label, ops):
-        asm.process_label(label)
+        asm.process_label(label, tracked=True)
         text = ''.join(asm.parser.text(op) for op in ops)
         asm.emit(len(text), *[ord(c) for c in text])
 
     @staticmethod
     def FLOAT(asm, label, ops):
-        asm.process_label(label)
+        asm.process_label(label, tracked=True)
         for op in ops:
             bytes_ = asm.parser.radix100(op)
             asm.emit(*bytes_)
 
     @staticmethod
     def BSS(asm, label, ops):
-        asm.process_label(label)
+        asm.process_label(label, tracked=True)
         size = asm.parser.expression(ops[0])
         asm.emit(*[0x00 for _ in range(size)])
 
@@ -478,14 +480,14 @@ class Directives(object):
     @staticmethod
     def COPY(asm, label, ops):
         asm.process_label(label)
-        filename = asm.parser.filename_text(ops[0])
+        filename = asm.parser.get_filename(ops[0])
         asm.parser.open(filename=filename)
 
     @staticmethod
     def BCOPY(asm, label, ops):
         """extension: include binary file as BYTE stream"""
         asm.process_label(label)
-        filename = asm.parser.filename_text(ops[0])
+        filename = asm.parser.get_filename(ops[0])
         path = asm.parser.find(filename)  # might throw exception
         with open(path, 'rb') as f:
             bs = f.read()
@@ -495,7 +497,7 @@ class Directives(object):
     def END(asm, label, ops):
         asm.process_label(label)
         if ops:
-            asm.parser.program.entry = asm.symbols.get_symbol(ops[0], required=True)
+            asm.program.entry = asm.symbols.get_symbol(ops[0], required=True)
         asm.parser.stop()
 
     ignores = [
@@ -521,11 +523,12 @@ class Directives(object):
 
 # Symbol table
 
-class Symbols(object):
+class Symbols:
     """symbol table and line counter"""
 
     def __init__(self, definitions=None):
-        self.symbols = {}
+        self.symbols = {}  # name: (value, used)
+        self.symbol_def_location = {}  # symbol definition location (lino, filename)
         self.updated = False  # has at least one value changed?
         self.pass_no = 0
         self.LC = 0
@@ -568,7 +571,7 @@ class Symbols(object):
         """is name a valid symbol name?"""
         return (name[:1].isalpha() or name[0] == '_') and not re.search(r'[-+*/#!@"\']', name)
 
-    def add_symbol(self, name, value, tracked=False, check=True):
+    def add_symbol(self, name, value, tracked=False, check=True, lino=None, filename=None):
         """add symbol to symbol table or update existing symbol"""
         curr_value, unused = self.symbols.get(name, (None, False))
         if self.pass_no == 0:
@@ -577,14 +580,15 @@ class Symbols(object):
             if curr_value is not None:
                 raise AsmError(f'Multiple symbols: {name}')
             self.symbols[name] = value, tracked or None
+            self.symbol_def_location[name] = None if lino is None else (lino, filename)
         elif curr_value != value:
             self.symbols[name] = value, unused
             self.updated = True
         return name
 
-    def add_label(self, label, tracked=False, check=True):
+    def add_label(self, label, tracked=False, check=True, lino=None, filename=None):
         """add label, in every pass to update its LC"""
-        name = self.add_symbol(label, Address(self.LC), tracked=tracked, check=check)
+        name = self.add_symbol(label, Address(self.LC), tracked=tracked, check=check, lino=lino, filename=filename)
         if (self.lidx, name) not in self.locations:
             self.locations.append((self.lidx, name))
 
@@ -607,7 +611,9 @@ class Symbols(object):
         if self.pass_no == 0 and not for_pass_0:  # required in pass 0
             return rc_pass_0
         try:
-            value, _ = self.symbols[name]
+            value, unused = self.symbols[name]
+            if unused:
+                self.symbols[name] = value, False
         except KeyError:
             value = self.definitions.get(name)
             if required and value is None:
@@ -630,9 +636,20 @@ class Symbols(object):
             return None
         return self.get_symbol(fullname)
 
-    def get_unused(self):
+    def get_unused_symbols(self):
         """return all symbol names that have not been used"""
-        return [name for name, (_, unused) in self.symbols.items() if unused]
+        unused_symbols = {}  # filename x symbols
+        for symbol, (_, unused) in self.symbols.items():
+            if not unused or symbol[:2] == '_%':
+                continue  # skip used symbols and internal names
+            try:
+                lino, filename = self.symbol_def_location[symbol]
+                name = f'{symbol}:{lino}'
+            except (TypeError, KeyError):
+                filename = None
+                name = symbol
+            unused_symbols.setdefault(filename, []).append(name)
+        return unused_symbols
 
     def is_symbol(self, name):
         return name in self.symbols or name in self.definitions
@@ -651,12 +668,12 @@ class Symbols(object):
 
 # Parser and Preprocessor
 
-class SyntaxVariant(object):
+class SyntaxVariant:
     def __init__(self, **entries):
         self.__dict__.update(entries)
 
 
-class Syntax(object):
+class Syntax:
     """various syntax conventions"""
 
     @staticmethod
@@ -709,7 +726,7 @@ class Syntax(object):
         )
 
 
-class Preprocessor(object):
+class Preprocessor:
     """xdt99-specific preprocessor extensions"""
 
     def __init__(self, parser):
@@ -822,15 +839,16 @@ class Preprocessor(object):
             return self.parse, operands, line
 
 
-class Parser(object):
+class Parser:
     """scanner and parser class"""
 
-    def __init__(self, symbols, console, syntax, path, includes=None):
+    def __init__(self, symbols, console, syntax, path, includes=None, relaxed=False):
         self.symbols = symbols
         self.console = console
         self.syntax = Syntax.get(syntax)
         self.path = self.initial_path = path  # preserve initial path
         self.includes = includes or []  # do not include '.'
+        self.relaxed = relaxed
         self.prep = Preprocessor(self)
         self.text_literals = []
         self.filename = None
@@ -920,19 +938,23 @@ class Parser(object):
         """parse single source line"""
         if not line or line[0] == '*':
             return None, None, None, None, False
-        code, *sep_comments = self.escape(line).split(';')
-        label, *parts = re.split(r'\s+', code, maxsplit=1)
-        instruction = parts[0] if parts else ''
+        instruction, *line_comment = self.escape(line).split(';', maxsplit=1)
+        comment = line_comment[0] if line_comment else ''
+        label, *remainder = re.split(r'\s+', instruction, maxsplit=1)
+        instrtext = remainder[0] if remainder else ''
         # convert to native syntax
         for pat, repl in self.syntax.repls:
-            instruction = re.sub(pat, repl, instruction)
+            instrtext = re.sub(pat, repl, instrtext)
         # analyze instruction
-        mnemonic, *args = re.split(r'\s+', instruction, maxsplit=1)
-        argtext = args[0] if args else ''
-        # operands (argtext may still contain non-delimited comments)
-        opfield, *inl_comments = re.split(r' {2,}|\t', argtext, maxsplit=1)
-        operands = [op.strip() for op in opfield.split(',')] if opfield else []
-        comment = ' '.join(inl_comments) + ';'.join(sep_comments)
+        mnemonic, *opsremainder = re.split(r'\s+', instrtext, maxsplit=1)
+        opfield = opsremainder[0] if opsremainder else ''
+        # operands
+        if self.relaxed:
+            operands = [op.strip() for op in opfield.split(',')] if opfield else []
+        else:  # opfield may still contain non-delimited comments
+            optext, *inl_comments = re.split(r' {2,}|\t', opfield, maxsplit=1)
+            operands = [op.strip() for op in optext.split(',')] if optext else []
+            comment = ' '.join(inl_comments) + comment
         return label, mnemonic, operands, comment, True
 
     def escape(self, text):
@@ -1159,7 +1181,7 @@ class Parser(object):
         # return radix-100 format
         return bytes_
 
-    def filename_text(self, op):
+    def get_filename(self, op):
         """parse double-quoted filename"""
         if len(op) < 3:
             raise AsmError('Invalid filename: ' + op)
@@ -1178,7 +1200,7 @@ class Parser(object):
 
 # Code generation
 
-class Program(object):
+class Program:
     """code and related properties, including externals
        NOTE: A program consists of multiple program units,
              a program unit consists of multiple segments.
@@ -1197,7 +1219,7 @@ class Program(object):
         self.segments = []
 
 
-class Segment(object):
+class Segment:
     """stores the code of an xORG segment with meta information,
        also represents the top level unit of all generated code
     """
@@ -1208,18 +1230,21 @@ class Segment(object):
         self.code = code  # {LC: word}
 
 
-class Assembler(object):
+class Assembler:
     """generate GPL virtual machine code"""
 
-    def __init__(self, syntax, grom, aorg, target, path, includes=None, definitions=(), warnings=True, listing=False):
+    def __init__(self, syntax, grom, aorg, target, path, includes=None, definitions=(), warnings=True, listing=False,
+                 colors=None, relaxed=False):
         self.syntax = syntax
         self.includes = includes
         self.grom = grom
         self.offset = aorg
+        self.relaxed = relaxed
         self.program = Program()
         self.symbols = Symbols(definitions + ('_xga99_' + target,))
-        self.console = Console(enable_warnings=warnings)
-        self.parser = Parser(self.symbols, self.console, syntax=self.syntax, path=path, includes=self.includes)
+        self.console = Console(enable_warnings=warnings, colors=colors)
+        self.parser = Parser(self.symbols, self.console, syntax=self.syntax, relaxed=relaxed, path=path,
+                             includes=self.includes)
         self.listing = Listing(enable=listing)
         self.segment = None
         self.code = None
@@ -1270,11 +1295,11 @@ class Assembler(object):
                 Directives.process(self, label, mnemonic, operands) or \
                     Opcodes.process(self, label, mnemonic, operands)
             except AsmError as e:
-                self.console.error(filename, 0, lino, line, str(e))
+                self.console.error(str(e), filename=filename, pass_no=0, lino=lino, line=line)
         if self.parser.prep.parse_branches:
-            self.console.error(filename, 0, None, None, '***** Error: Missing .endif')
+            self.console.error('***** Error: Missing .endif', filename=filename, pass_no=0)
         if self.parser.prep.parse_macro:
-            self.console.error(filename, 0, None, None, '***** Error: Missing .endm')
+            self.console.error('***** Error: Missing .endm', filename=filename, pass_no=0)
         return source
 
     def pass_n(self, source):
@@ -1289,7 +1314,6 @@ class Assembler(object):
             self.org(self.grom, self.offset)
             prev_label = prev_filename = None
             abort = False
-
             self.symbols.pass_no += 1
             if self.symbols.pass_no > 32:
                 sys.exit('Too many assembly passes, aborting. :-(')
@@ -1317,23 +1341,23 @@ class Assembler(object):
                     Directives.process(self, label, mnemonic, operands) or \
                         Opcodes.process(self, label, mnemonic, operands)
                 except AsmError as e:
-                    self.console.error(filename, self.symbols.pass_no, lino, line, str(e))
+                    self.console.error(str(e), filename=filename, pass_no=self.symbols.pass_no, lino=lino, line=line)
                     abort = True
                 for msg in self.parser.warnings:
-                    self.console.warn(filename, self.symbols.pass_no, lino, line, msg)
+                    self.console.warn(msg, filename=filename, pass_no=self.symbols.pass_no, lino=lino, line=line)
                 self.parser.warnings = []
             if self.parser.fmt_mode:
-                self.console.warn(None, self.symbols.pass_no, None, None, 'Source ends with open FMT block')
+                self.console.warn('Source ends with open FMT block', pass_no=self.symbols.pass_no)
             if abort or not self.symbols.updated:
                 break
 
-    def process_label(self, label):
+    def process_label(self, label, tracked=False):
         if not label:
             return
         if label[0] == '!':
             self.symbols.add_local_label(label[1:])
         else:
-            self.symbols.add_label(label)
+            self.symbols.add_label(label, tracked=tracked, lino=self.parser.lino, filename=self.parser.filename)
 
     def org(self, grom, offset):
         """create new code segment"""
@@ -1359,9 +1383,12 @@ class Assembler(object):
         """wrap-up code generation"""
         if self.segment:
             self.segment.LC = self.symbols.LC
+        for fn, symbols in self.symbols.get_unused_symbols().items():
+            symbols_text = ', '.join(symbols)
+            self.console.warn('Unused constants: ' + symbols_text.lower(), pass_no=1, filename=fn)
 
 
-class Linker(object):
+class Linker:
     """generate byte code"""
 
     def __init__(self, program, symbols):
@@ -1502,7 +1529,7 @@ class Linker(object):
         return (None, '\n'.join(text for grom, text in result)),
 
 
-class Word(object):
+class Word:
     """auxiliary class for word arithmetic"""
 
     def __init__(self, value, pass_no=None):
@@ -1542,26 +1569,29 @@ class Word(object):
 
 # Console and Listing
 
-class Console(object):
-    """collects warnings"""
+class Console:
+    """collects errors and warnings"""
 
-    def __init__(self, enable_warnings=True, use_colors=False):
+    def __init__(self, enable_warnings=True, colors=None):
         self.console = []
         self.filename = None
         self.enabled = enable_warnings
         self.errors = False
-        self.use_colors = use_colors or platform.system() in ('Linux', 'Darwin')  # no automatic color on Windows
+        if colors is None:
+            self.colors = platform.system() in ('Linux', 'Darwin')  # no auto color on Windows
+        else:
+            self.colors = colors == 'on'
 
-    def warn(self, filename, pass_no, lino, line, message):
-        if self.enabled and pass_no > 0:
-            self.console.append(('W', filename, pass_no, lino, line, message))
+    def warn(self, message, pass_no=None, filename=None, lino=None, line=None):
+        if self.enabled and pass_no != 0:
+            self.console.append(('W', message, pass_no, filename, lino, line))
 
-    def error(self, filename, pass_no, lino, line, message):
-        self.console.append(('E', filename, pass_no, lino, line, message))
+    def error(self, message, pass_no=None, filename=None, lino=None, line=None):
+        self.console.append(('E', message, pass_no, filename, lino, line))
         self.errors = True
 
     def color(self, severity):
-        if not self.use_colors:
+        if not self.colors:
             return ''
         elif severity == 0:
             return '\x1b[0m'  # reset to normal
@@ -1574,17 +1604,23 @@ class Console(object):
 
     def print(self):
         """print all console messages to stderr"""
-        for kind, filename, pass_no, lino, line, message in self.console:
+        for kind, message, pass_no, filename, lino, line in self.console:
             text, severity = ('Error', 2) if kind == 'E' else ('Warning', 1)
             s_filename = filename or '---'
             s_pass = pass_no or '-'
             s_lino = f'{lino:04d}' if lino is not None else '****'
             s_line = line or ''
             sys.stderr.write(f'> {s_filename} <{s_pass}> {s_lino} - {s_line}\n' +
-                             self.color(severity) + f'***** {text:s}: {message}\n' + self.color(0))
+                             self.color(severity) + f'***** {text:s}: {message}' + self.color(0) + '\n')
+        error_count = sum(1 for kind, *_ in self.console if kind == 'E')
+        sys.stderr.write(self.color(0))
+        if error_count == 1:
+            sys.stderr.write('1 Error found.\n')
+        elif error_count > 1:
+            sys.stderr.write(f'{error_count} Errors found.\n')
 
 
-class Listing(object):
+class Listing:
     """listing file"""
 
     def __init__(self, enable=False):
@@ -1697,6 +1733,8 @@ def main():
                       help='set AORG offset in GROM for byte code')
     args.add_argument('-y', '--syntax', dest='syntax', metavar='<style>',
                       help='set syntax style (xdt99, rag, mizapf)')
+    args.add_argument('-r', '--relaxed', action='store_true', dest='relaxed',
+                      help='relaxed syntax mode with extra whitespace and explicit comments')
     args.add_argument('-I', '--include', dest='inclpath', metavar='<paths>',
                       help='listing of include search paths')
     args.add_argument('-D', '--define-symbol', nargs='+', dest='defs', metavar='<sym=val>',
@@ -1711,9 +1749,15 @@ def main():
                       help='put symbols in EQU file')
     args.add_argument('-q', '--quiet', action='store_true', dest='quiet',
                       help='quiet; do not show warnings')
+    args.add_argument('--color', action='store', dest='color', choices=['off', 'on'],
+                      help='enable or disable color output')
     args.add_argument('-o', '--output', dest='output', metavar='<file>',
                       help='set output file name')
-    opts = args.parse_args()
+    try:
+        default_opts = os.environ[CONFIG].split()
+    except KeyError:
+        default_opts = []
+    opts = args.parse_args(args=default_opts + sys.argv[1:])  # passed opts override default opts
 
     # setup
     dirname = os.path.dirname(opts.source) or '.'
@@ -1735,7 +1779,9 @@ def main():
                     includes=includes,
                     definitions=tuple(opts.defs) if opts.defs else (),
                     warnings=not opts.quiet,
-                    listing=opts.listing)
+                    listing=opts.listing,
+                    colors=opts.color,
+                    relaxed=opts.relaxed)
     try:
         # assemble
         asm.assemble(basename)

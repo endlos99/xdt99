@@ -10,8 +10,8 @@
 
 import os
 
-from config import Dirs, Disks, Files
-from utils import xga, xdm, check_files_eq, check_gbc_files_eq, error
+from config import Dirs, Disks, Files, XGA99_CONFIG
+from utils import xga, xdm, clear_env, delfile, check_gbc_files_eq, error
 from zipfile import ZipFile
 
 
@@ -19,6 +19,8 @@ from zipfile import ZipFile
 
 def runtest():
     """check cross-generated output against native reference files"""
+
+    clear_env(XGA99_CONFIG)
 
     # object code
     for infile, opts, reffile in (
@@ -50,8 +52,7 @@ def runtest():
             error('GPL cart', 'Missing layout or meta-inf files in RPK')
 
     # cleanup
-    os.remove(Files.output)
-    os.remove(Files.reference)
+    delfile(Dirs.tmp)
 
 
 if __name__ == '__main__':

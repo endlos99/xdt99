@@ -3,8 +3,8 @@
 import os
 import shutil
 
-from config import Dirs, Disks, Files
-from utils import xvm, xdm, error, check_files_eq
+from config import Dirs, Disks, Files, XVM99_CONFIG
+from utils import xvm, xdm, error, clear_env, delfile, check_files_eq, content_len
 
 
 # Check functions
@@ -25,6 +25,8 @@ def check_file_len(infile, minlines=-1, maxlines=99999):
 
 def runtest():
     """check command line interface"""
+
+    clear_env(XVM99_CONFIG)
 
     # setup
     with open(Disks.volumes, 'wb') as v:
@@ -79,12 +81,29 @@ def runtest():
     xvm(Disks.volumes, '1', '-e', 'GLOBB2', '-o', Files.output)
     xvm(Disks.volumes, '1', '-e', 'GLOBB3', '-o', Files.output)
 
+    # default options
+    xdm(Files.output, '-q', '-X', 'CF')
+    with open(Files.reference, 'w') as f:
+        f.write('contents')
+    xdm(Files.output, '-a', Files.reference, '-n', 'FILE', '-q')
+    with open(Files.output, 'rb') as fin, open(Files.input, 'wb') as fout:
+        disk = fin.read()
+        fout.write(b''.join(bytes((b, 0)) for b in disk))  # spread disk image
+
+    os.environ[XVM99_CONFIG] = '-Z-non-existing'
+    with open(Files.output, 'w') as fout, open(Files.error, 'w') as ferr:
+        xvm(Files.input, '1', stdout=fout, stderr=ferr, rc=2)
+
+    delfile(Files.output)
+    delfile(Files.error)
+    os.environ[XVM99_CONFIG] = '-o ' + Files.error
+    with open(Files.output, 'w') as fout, open(Files.error, 'w') as ferr:
+        xvm(Files.input, '1', '-e', 'FILE', '-o', Files.output, rc=0)
+    if content_len(Files.error) > 0 or content_len(Files.output) <= 0:
+        error('defaults', 'default options override not working')
+
     # cleanup
-    # os.remove(Files.output)
-    # os.remove(Files.reference)
-    # os.remove(Files.error)
-    # os.remove(Disks.work)
-    # os.remove(Disks.volumes)
+    delfile(Dirs.tmp)
 
 
 if __name__ == '__main__':

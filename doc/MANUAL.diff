@@ -1,0 +1,285 @@
+Additions for Release 3.2.0
+===========================
+
+xas99
+-----
+
+Note that following a long Unix tradition, multiple options may also be merged
+into a single hyphenated expression.  Similarly, a string argument following an
+option may be appended without a separating space.  Thus, following these
+rules, above command line may also be written as:
+
+    $ xas99.py -RCS ashello.asm -Lashello.lst -oashello-c.obj
+
+or even
+
+    $ xas99.py -RCSLashello.lst ashello.asm -oashello-c.obj
+
+This abbreviated format applies to all xdt99 tools.
+
+
+Most warnings are also associated with one of these groups: optimizations,
+potentially incorrect usages of arguments, and unused symbols.  Each group
+can be disabled individually with `--quiet-opts`, `--quiet-usage`, or
+`--quiet-unused-syms`, resp.
+
+
+Frequently used options, such as `-R` or `--color on/off` can be stored in the
+`xas99`-specific environment variable `XAS99_CONFIG`.  On most platforms, this
+variable is set with a command like this:
+
+    $ set XAS99_CONFIG="--color off"
+
+The contents of this environment variable will be prepended to the option list
+of any `xas99` invocation.
+
+    $ xas99.py aserrs.asm
+
+shows error messages without color.
+
+Options from the environment can be overriden if a matching counter-option
+exists, e.g.,
+
+    $ xas99.py aserrs.asm --color on
+
+shows error messages with color, overriding the `--color off` option in the
+environment.  Options like `-R` cannot be overridden.
+
+
+The use of _whitespace_ has been relaxed.  Single spaces may be used judiciously
+within the operand field to increase the legibility of expressions.  Two or more
+spaces as well as a tab character introduce the comment field.
+
+    label  data addr + len - 1  comment
+           movb @addr + 2(r1), *r2+ ; comment
+
+_Technical note:_ It is not possible to detect the beginning of the comment
+field based on the current instruction, as the example
+
+    maxval equ 8 * 9 would be too big
+
+shows.  Where does the comment start, and what is the value of `maxval`?
+
+To deal with this problem, a new _relaxed syntax_ enabled by option `-r` has
+been introduced.  With relaxed syntax, there are no restrictions on whitespace,
+i.e., any mount of whitespace might be used anywhere.  On the other hand,
+comments after the operand fields must be introduced with a semicolon `;`.
+
+    label  li    r0   ,   2*      max_val  +     1 ; comment
+
+
+#### Pragmas
+
+_Pragmas_ are special kinds of comments that affect the assembly process in a
+certain way.  They are introduced by `;:` and separated by `,` if they appear on
+the same line, e.g.,
+
+    label clr 0    ;: warn-usage = off, warn-symbol = off
+
+Pragmas do not require an instruction to attach to.
+
+    ;: warn-unused-syms = on
+
+Comments and pragmas can occur on the same line, but pragmas must succeed
+comments.
+
+          inc 0   ; advance to next item ;: warnings = off
+
+All pragmas, except cycle counting pragmas, consist of a name and a value, both
+of which are case-insentitive.  Whitespace is ignored.
+
+The currently defined pragmas are
+
+    warnings = { on | off }
+    warn-opts = { on | off }
+    warn-usage = { on | off }
+    warn-symbols = { on | off }
+    lwpi = <value>
+
+and the special short-form pragmas
+
+    s{+ | -}
+    d{+ | -}
+
+The pragmas `warning`, `warn-opts`, `warn-usage`, and `warn-symbols` correspond
+to the options `-q`, `--quiet-opts`, `--quiet-usage`, and `--quiet-unused-syms`,
+respectively.  The difference between options and pragmas are that the latter
+don't affect the entire file and can be turned on and off at any line in the
+source file.
+
+The other pragmas affect the cycle counter and are described there.
+
+
+### Support for other processors
+
+`xas99` also supports the _TMS99000_ and _TMS99105_ opcodes
+
+    BIND <ga>
+    BLSK <wa>, <imm>
+    TMB  <ga>, <cnt>
+    TCMB <ga>, <cnt>
+    TSMB <ga>, <cnt>
+    AM   <gas>, <gad>
+    SM   <gas>, <gad>
+    SLAM <ga>, <cnd>
+    SRAM <ga>, <cnd>
+
+when using the `-105` option.
+
+
+### Cycle Counting
+
+The _cycle counter_ of `xas99` determines how many clock cycles the CPU inside
+the TI 99/4A computer will take to execute a given assembly instruction.  Cycle
+counting happens automatically during assembly, and the results are shown in the
+fourth column of the list file as number of clock cycles.
+
+    0050 0060 06A0  24        BL   @KSCAN
+         0062 0000e
+    0051 0064 9220  22        CB   @KCODE,R8
+         0066 8375
+    0052 0068 13F9  10        JEQ  KEYSC
+    0053
+    0054 006A D020  22        MOVB @KCODE,R0
+         006C 8375
+    0055 006E 0980  28        SRL  R0,8
+    0056 0070 0240  14        ANDI R0,>000F
+         0072 000F
+
+The cycle counter examines each instruction individually and does not track
+branches or loops.  Thus, the cycle counter does not report the overall run time
+of the program.  The cycle counter is most useful for examining small fragments
+of time-critical code, where it may help to sort multiple variants of some
+algorithm by performance.
+
+To determine accurate cycle counts, the cycle counter needs to know if accesses
+to memory involve the multiplexer or not, as multiplexed memory accesses occur a
+time penalty of 4 extra cycles, so called "wait states".
+
+On the standard TI 99/4A, address ranges `>2000->7FFF` and `>A000->FFFF` are
+multiplexed.  The general convention is to place code in multiplexed address
+regions and to locate registers in the un-multiplexed address range
+`>8300->83FF`.  This is also the default assumption of the cycle counter,
+although it can be fine-tuned to other models.
+
+During cycle counting, `xas99` keeps track of the address of the current
+instruction as well as the current workspace register pointing to register `R0`.
+With this information, the cycle counter can accurately apply wait states when
+neccessary in many cases.
+
+For `BLWP` subroutines, however, the cycle counter cannot keep track of the
+workspace register, especially if the subroutine is called indirectly.  In these
+cases, the developer can annote changes to the workspace register with the
+`LWPI` pragma:
+
+	      blwp *r1
+		  ...
+
+	vrfr  data >vrfrs
+		  data >2080     ;: lwpi=>2080
+	vrfrs clr  r5
+	      ...
+
+In this example, the cycle counter will use multiplexed address `>2080` as
+workspace register for the instruction in the subroutine starting at label
+`vrfrs`.
+
+For a given instruction, most memory accesses are caused by its operands.  Their
+exact target memory address, and whether they are multiplexed or not, are
+determined by their target addresses and adressing modes.  Unfortunately, the
+target address is not always explicitly known.
+
+For these addressing modes, the operand target address is known and the memory
+accesses can be cycle-counted correctly:
+
+   - register addressing, `Rn`
+   - symbolic addressing, `@symbol`
+
+For other addressing modes, however, target addresses cannot be inferred without
+actually running the assembly program:
+
+   - indirect addressing, `*Rn`
+   - indirect addressing with increment, `*Rn+`
+   - indexed addressing, `@offset(Rn)`
+
+In those cases, the cycle counter will assume the worst and apply wait states to
+all unknown memory accesses, unless the developer provides additional
+information.  The short-form pragmas `s+`, `s-`, `d+`, and `d-` tell the cycle
+counter that the corresponding source or destination operand's target memory
+access incurs wait states (`+`) or not (`-`).
+
+	  mov *r1+, *r2     ;: s+d-
+
+Here, register `R1` points to a multiplexed address, whereas `R2` does not.
+
+	  c *r1+, @>10(r2)  ;: s-
+
+`R1` points to a non-multiplexed address, whereas the destination operand does.
+Note that since unknown target addresses are always multiplexed, pragmas `s+`
+and `d+` are redundant.
+
+	  cb r1, @symbol    ;: s-d-
+
+For known target addresses, annotations have no effect.
+
+	  inc *r1           ;: s-
+
+For single-operand mnemonics, only the `s+` and `s-` pragmas have an
+effect.
+
+Unlike other pragmas such as `LWPI` or `WARN-OPTS`, these target address pragmas
+only affect the line they are directly attached to.
+
+Note that using pragmas `s+`, `s-`, `d+`, and `d-`, the cycle counter can also
+accomodate architectures other than the TI 99/4A.
+
+
+xga99
+-----
+
+The native `xga99` syntax style is more "modern" in that it supports lower case
+sources, extended expressions, relaxed labels, local labels, and relaxed use of
+whitespace, including the relaxed syntax mode, similar to `xas99`.  Both
+cross-assemblers also share the same preprocessor.
+
+As for `xas99`, warnings and errors are _colored_ by default, which may be
+controlled with the `--color` option.  Frequently used options can be stored in
+the `xga99`-specific environment variable `XGA99_CONFIG`.  For details, refer
+to `xas99`.
+
+
+xbas99
+------
+
+As for `xas99`, warnings and errors are _colored_ by default, which may be
+controlled with the `--color` option.  Frequently used options can be stored in
+the `xbas99`-specific environment variable `XBAS99_CONFIG`.  For details, refer
+to `xas99`.
+
+
+xdm99
+-----
+
+As for `xas99`, warnings and errors are _colored_ by default, which may be
+controlled with the `--color` option.  Frequently used options can be stored in
+the `xdm99`-specific environment variable `XDM99_CONFIG`.  For details, refer
+to `xas99`.
+
+
+
+xhm99
+-----
+
+As for `xas99`, warnings and errors are _colored_ by default, which may be
+controlled with the `--color` option.  Frequently used options can be stored in
+the `xhm99`-specific environment variable `XHM99_CONFIG`.  For details, refer
+to `xas99`.
+
+
+xvm99
+-----
+
+As for `xas99`, warnings and errors are _colored_ by default, which may be
+controlled with the `--color` option.  Frequently used options can be stored in
+the `xvm99`-specific environment variable `XVM99_CONFIG`.  For details, refer
+to `xas99`.

@@ -2,14 +2,16 @@
 
 import os
 
-from config import Dirs, Files
-from utils import xda, xas, error, content
+from config import Dirs, Files, XDA99_CONFIG
+from utils import xda, xas, error, clear_env, delfile, content
 
 
 # Main test
 
 def runtest():
     """check cross-generated output against native reference files"""
+
+    clear_env(XDA99_CONFIG)
 
     source = os.path.join(Dirs.sources, 'dasource.asm')
     xas(source, '-b', '-R', '-q', '-o', Files.reference, '-E', Files.input)
@@ -53,13 +55,7 @@ def runtest():
         error('badfile', 'Bad input file not caught')
 
     # Cleanup
-    os.remove(Files.input)
-    os.remove(Files.error)
-    os.remove(Files.reference)
-    try:
-        os.remove(Files.output)
-    except FileNotFoundError:
-        pass
+    delfile(Dirs.tmp)
 
 
 if __name__ == '__main__':

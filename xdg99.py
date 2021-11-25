@@ -24,7 +24,9 @@ import re
 import os.path
 
 
-VERSION = '3.0.0'
+VERSION = '3.2.0'
+
+CONFIG = 'XDG99_CONFIG'
 
 
 # Utility functions
@@ -1006,9 +1008,9 @@ def main():
                       help='GPL binary code')
     cmd = args.add_mutually_exclusive_group(required=True)
     cmd.add_argument('-r', '--run', metavar='<addr>', dest='runs', nargs='+',
-                      help="disassemble running from addresses, or 'start'")
+                     help="disassemble running from addresses, or 'start'")
     cmd.add_argument('-f', '--from', metavar='<addr>', dest='frm',
-                      help="disassemble top-down from address or 'start'")
+                     help="disassemble top-down from address or 'start'")
     args.add_argument('-a', '--address', metavar='<addr>', dest='addr',
                       help='GROM address of first byte')
     args.add_argument('-t', '--to', metavar='<addr>', dest='to',
@@ -1035,7 +1037,11 @@ def main():
                       help='verbose messages')
     args.add_argument('-o', '--output', metavar='<file>', dest='outfile',
                       help='output filename')
-    opts = args.parse_args()
+    try:
+        default_opts = os.environ[CONFIG].split()
+    except KeyError:
+        default_opts = []
+    opts = args.parse_args(args=default_opts + sys.argv[1:])  # passed opts override default opts
 
     # setup
     basename = os.path.basename(opts.source)

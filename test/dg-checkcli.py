@@ -3,8 +3,8 @@
 import os
 import re
 
-from config import Dirs, Files
-from utils import (xdg, xga, error, check_indent, count_mnemonics, check_source, check_origins,
+from config import Dirs, Files, XDG99_CONFIG
+from utils import (xdg, xga, error, clear_env, delfile, check_indent, count_mnemonics, check_source, check_origins,
                    count_bytes, check_ellipsis)
 
 
@@ -45,6 +45,8 @@ def check_move(fn, syntax_name):
 
 def runtest():
     """check disassembly"""
+
+    clear_env(XDG99_CONFIG)
 
     # source with sym file
     source = os.path.join(Dirs.gplsources, 'dgsource.gpl')
@@ -108,7 +110,7 @@ def runtest():
 
     # strings
     source = os.path.join(Dirs.gplsources, 'dgtext.gpl')
-    xga(source, '-o', Files.reference)
+    xga(source, '-q', '-o', Files.reference)
     xdg(Files.reference, '-a', '8000', '-r', '8000', '-n', '-p', '-o', Files.output)
     mnems = count_mnemonics(Files.output)
     if mnems.get('byte') != 8:
@@ -170,9 +172,7 @@ def runtest():
     check_indent(Files.output, 1)
         
     # cleanup
-    os.remove(Files.input)
-    os.remove(Files.output)
-    os.remove(Files.reference)
+    delfile(Dirs.tmp)
 
 
 if __name__ == '__main__':

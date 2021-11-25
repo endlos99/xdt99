@@ -23,11 +23,13 @@ import sys
 import platform
 import re
 import math
-import os.path
+import os
 from functools import reduce
 
 
-VERSION = '3.1.1'
+VERSION = '3.2.0'
+
+CONFIG = 'XAS99_CONFIG'
 
 
 # Utilities
@@ -147,7 +149,40 @@ class AsmError(Exception):
 
 # Misc. Objects
 
-class Address(object):
+class Warnings:
+    """warnings categories and which ones to suppress"""
+
+    ALL = 0
+    OPTIMIZATIONS = 1
+    BAD_USAGE = 2
+    UNUSED_SYMBOLS = 3
+    _MAX = 4
+
+    def __init__(self, all=None, optimizations=None, bad_usage=None, unused_symbols=None):
+        """set state for warning categories"""
+        self.enabled = None
+        self._initial = {i: (False if all else True) for i in range(Warnings._MAX)}
+        if optimizations:
+            self._initial[Warnings.OPTIMIZATIONS] = False
+        if bad_usage:
+            self._initial[Warnings.BAD_USAGE] = False
+        if unused_symbols:
+            self._initial[Warnings.UNUSED_SYMBOLS] = False
+        self.reset()
+
+    def reset(self):
+        """restore initial state"""
+        self.enabled =  {i: self._initial[i] for i in range(Warnings._MAX)}
+
+    def all(self, state):
+        """enable or disable all warnings"""
+        self.enabled = {i: False for i in range(Warnings._MAX)}
+
+    def __getitem__(self, category):
+        return self.enabled[category]
+
+
+class Address:
     """absolute or relocatable address"""
 
     def __init__(self, addr, bank=None, reloc=False, unit_id=0):
@@ -166,7 +201,7 @@ class Address(object):
                 self.unit_id == other.unit_id)
 
 
-class Local(object):
+class Local:
     """local label reference"""
 
     def __init__(self, name, distance):
@@ -194,28 +229,28 @@ class AutoConstant(Address):
         return self.addr
 
 
-class Reference(object):
+class Reference:
     """external reference"""
 
     def __init__(self, name):
         self.name = name
 
 
-class Value(object):
+class Value:
     """wraps value of auto-constants"""
 
     def __init__(self, value):
         self.value = value
 
 
-class Block(object):
+class Block:
     """reserved block of bytes"""
 
     def __init__(self, size):
         self.size = size
 
 
-class Word(object):
+class Word:
     """auxiliary class for word arithmetic"""
 
     def __init__(self, value):
@@ -255,43 +290,173 @@ class Word(object):
 
 # Opcodes and Directives
 
-class Timing(object):
+class Timing:
 
-    WAITSTATES = 4
+    OPCODE = 1
+    MEMORY = 2
+    MEMORY_2 = 3
+    REGISTER = 4  # e.g., write without read-before-write
+    REGISTER_2 = 5  # e.g., read-before-write
+    ROM = 6
+    CRU = 7
+    UNKNOWN_S = 8  # e.g., *r1, @s(r1)
+    UNKNOWN_D = 9
 
-    def __init__(self, cycles, mem_accesses, read=False, byte=False, x2=False):
-        """capture the basic timing information for instruction execution,
-           under the assumption that
-          - registers reside in scratchpad RAM, and
-          - instructions reside in waitstate RAM.
+    MUX_WAITSTATES = 4
+
+    asm = None  # current assembler
+
+    def __init__(self, cycles, mem_accesses, byte=False, read=False):
+        """capture the basic timing information for instruction execution
+           All timing data is derived from TMS 9900 Microprocessor Data Manual, section 3.6.
+           mem_accesses does not include accesses for arguments, including register accesses.
+           Do not modify these instance variables, since this instrance is shared among all
+           usages of a certain mnemonic.
         """
-        self.cycles = cycles
-        self.mem_accesses = mem_accesses
-        self.addl_cycles = (0, 4, 8, 6) if byte else (0, 4, 8, 8)  # value for each addressing mode
-        self.addl_mem = ((0, 2, 4, 2) if x2 else
-                         (0, 1, 2, 1) if read else
-                         (0, 2, 3, 2))
+        self.LC = 0
+        self.WP = 0
+        self.byte = byte  # is byte-access?
+        self.read = read  # if single argument read or write?
+        self.cycles = cycles  # number of cycles needed w/o arguments
+        self.mem_accesses = mem_accesses  # number of memory accesses needed w/o arguments
 
-    def time0(self):
-        """compute number of cycles for execution (no args)"""
-        return self.cycles + self.WAITSTATES * self.mem_accesses
+    @staticmethod
+    def demuxed(addr):
+        """addr is muxed (slow) or not (fast)?"""
+        # don't know if demuxed for not-integer addresses (e.g., None when memory access for B *R11)
+        return 0x2000 <= addr < 0x8000 or 0x9000 <= addr if isinstance(addr, int) else True
 
-    def time1(self, tx, xa):
-        """compute number of cycles for execution (one arg)"""
-        # NOTE: represents tables A/B: [0, 1, 1/2, 2], but compensates
-        #       for register read with zero wait state
-        c = self.cycles + self.addl_cycles[tx]
-        m = self.mem_accesses + self.addl_mem[tx]
-        return c + self.WAITSTATES * m
+    @staticmethod
+    def unknown(dest=False, count=1):
+        """unknown memory accesses (could be demuxed or not)"""
+        return (Timing.UNKNOWN_D,) * count if dest else (Timing.UNKNOWN_S,) * count
 
-    def time2(self, ts, sa, td, da):
-        """compute number of cycles for execution (one arg)"""
-        c = self.cycles + self.addl_cycles[ts] + self.addl_cycles[td]
-        m = self.mem_accesses + [0, 1, 2, 1][ts] + [0, 2, 3, 2][td]
-        return c + self.WAITSTATES * m
+    def operand_cycles(self, t, byte=False):
+        """additional cycles for operand (cycles in table A and B)
+           Note that the additional cycles for writing the result has already been included in the
+           base number of cycles in Opcodes, which corresponds to the listing in the Data Manual.
+        """
+        return (2, 6, 10, 8)[t] if byte else (2, 6, 10, 10)[t]  # symbolic and indexed have same number of cycles
+
+    def operand_mem_accesses(self, t, index=0, read=False, dest=False):
+        """additional memory accesses for operand (mem accesses in table A and B)
+           Here we still need to add an additional memory access for write arguments.
+        """
+        # note that for write access, only the last address is written to
+        if t == 0b00:  # register
+            return (Timing.REGISTER,) if read else (Timing.REGISTER_2,)
+        elif t == 0b01:  # indirect
+            # read/write register and target addr
+            return (Timing.REGISTER,) + self.unknown(dest) if read else (Timing.REGISTER,) + self.unknown(dest, count=2)
+        elif t == 0b11:  # indirect auto-increment
+            # read/write register and target addr, then write register
+            return ((Timing.REGISTER_2,) + self.unknown(dest) if read else
+                    (Timing.REGISTER_2,) + self.unknown(dest, count=2))
+        elif t == 0b10:  # symbolic/indexed
+            if index:
+                # indexed: read/write symbol value, register, and target addr
+                return ((Timing.REGISTER, Timing.OPCODE,) + self.unknown(dest) if read else
+                        (Timing.REGISTER, Timing.OPCODE,) + self.unknown(dest, count=2))
+            else:
+                # symbolic: read/write symbol value and target addr
+                return (Timing.OPCODE, Timing.MEMORY) if read else (Timing.OPCODE, Timing.MEMORY_2)
+
+    def memory_cycles(self, accesses, addr=None):
+        """number of waitstates based on address"""
+        cycles = 0
+        for access in accesses:
+            if access == Timing.OPCODE:
+                cycles += Timing.MUX_WAITSTATES if Timing.demuxed(self.LC) else 0
+            elif access == Timing.REGISTER:
+                cycles += Timing.MUX_WAITSTATES if Timing.demuxed(self.WP) else 0
+            elif access == Timing.REGISTER_2:
+                cycles += 2 * Timing.MUX_WAITSTATES if Timing.demuxed(self.WP) else 0  # read and write
+            elif access == Timing.MEMORY:
+                cycles += Timing.MUX_WAITSTATES if Timing.demuxed(addr) else 0
+            elif access == Timing.MEMORY_2:
+                cycles += 2 * Timing.MUX_WAITSTATES if Timing.demuxed(addr) else 0  # read and write
+            elif access == Timing.ROM:
+                pass  # no waitstates for ROM >0000->1FFF
+            elif access == Timing.CRU:
+                pass  # no waitstates for CRU
+            elif access == Timing.UNKNOWN_S:  # source memory access to unknown address
+                if self.asm.demux['S']:
+                    cycles += Timing.MUX_WAITSTATES
+            elif access == Timing.UNKNOWN_D:  # destination memory access to unknown address
+                if self.asm.demux['D']:
+                    cycles += Timing.MUX_WAITSTATES
+        return cycles
+
+    def time_noop(self):
+        """number of cycles for execution (no operands)"""
+        if self.asm.symbols.pass_no == 1:
+            return 0
+        return self.cycles + self.memory_cycles(self.mem_accesses)
+
+    def time_1op(self, ts, s, sa):
+        """number of cycles for execution (one operand)"""
+        if self.asm.symbols.pass_no == 1:
+            return 0
+        # NOTE: represents tables A/B, but compensates for register read with zero wait state
+        cycles = self.cycles + self.operand_cycles(ts, byte=self.byte)
+        mem_cycles = (self.memory_cycles(self.mem_accesses, addr=Util.val(sa)) +
+                      self.memory_cycles(self.operand_mem_accesses(ts, index=s, read=self.read), addr=Util.val(sa)))
+        return cycles + mem_cycles
+
+    def time_2ops(self, ts, s, sa, td, d, da):
+        """number of cycles for execution (two operands)"""
+        if self.asm.symbols.pass_no == 1:
+            return 0
+        cycles = self.cycles + self.operand_cycles(ts, byte=self.byte) + self.operand_cycles(td, byte=self.byte)
+        mem_cycles = (self.memory_cycles(self.mem_accesses) +
+                      self.memory_cycles(self.operand_mem_accesses(ts, index=s, read=True),
+                                         addr=Util.val(sa)) +
+                      self.memory_cycles(self.operand_mem_accesses(td, index=d, read=self.read, dest=True),
+                                         addr=Util.val(da)))
+        return cycles + mem_cycles
+
+    def time_shift(self, count):
+        """number of cycles for shift instruction"""
+        if self.asm.symbols.pass_no == 1:
+            return 0
+        mem_accesses = self.mem_accesses + (Timing.REGISTER_2,)
+        if count == 0:
+            count = 16  # worst case, since contents of R0 unknown
+            mem_accesses += (Timing.REGISTER,)  # also read R0
+            self.cycles += 8  # more cycles for processing R0
+        cycles = self.cycles + 2 * count
+        mem_cycles = self.memory_cycles(mem_accesses)
+        return cycles + mem_cycles
+
+    def time_mcru(self, ts, s, sa, count, ldcr=False):
+        """number of cycles for multi-cru instructions"""
+        if self.asm.symbols.pass_no == 1:
+            return 0
+        if count == 0:
+            count = 16  # worst case, since contents of R0 unknown
+        byte_ = count <= 8  # do not modify self, as this object is shared among all LDCR or STCR mnemonics, resp.
+        cycles = self.cycles + self.operand_cycles(ts, byte=byte_)
+        mem_cycles = (self.memory_cycles(self.mem_accesses) +
+                      self.memory_cycles(self.operand_mem_accesses(ts, index=s, read=self.read), addr=Util.val(sa)))
+        if ldcr:  # LDCR
+            cru_cycles = 2 * count
+        else:  # STCR
+            if count <= 8:
+                cru_cycles = 2 * 8  # C and C' subtract each other out
+            else:
+                cru_cycles = 2 * 16
+            if count == 8 or count == 16:
+                cru_cycles += 2  # extra cycle if no shifting required
+        return cycles + cru_cycles + mem_cycles
+
+    @staticmethod
+    def process(asm, mnemonic, source, destination):
+        """check for special mnemonics"""
+        if mnemonic == 'LWPI':
+            asm.symbols.WP = source
 
 
-class Opcodes(object):
+class Opcodes:
     op_ga = lambda parser, x: parser.address(x)  # [0x0000 .. 0xFFFF]
     op_wa = lambda parser, x: parser.register(x)  # [0 .. 15]
     op_imm = lambda parser, x: parser.expression(x, iop=True)  # [0x0000 .. 0xFFFF]
@@ -303,124 +468,126 @@ class Opcodes(object):
 
     opcodes_9900 = {
         # 6. arithmetic
-        'A': (0xa000, 1, op_ga, op_ga, Timing(14, 1)),
-        'AB': (0xb000, 1, op_ga, op_ga, Timing(14, 1, byte=True)),
-        'ABS': (0x0740, 6, op_ga, None, Timing(14, 1)),  # 4 in E/A Manual
-        'AI': (0x0220, 8, op_wa, op_imm, Timing(14, 2)),
-        'DEC': (0x0600, 6, op_ga, None, Timing(10, 1)),
-        'DECT': (0x0640, 6, op_ga, None, Timing(10, 1)),
-        'DIV': (0x3c00, 9, op_ga, op_wa, Timing(124, 1, read=True)),
-        'INC': (0x0580, 6, op_ga, None, Timing(10, 1)),
-        'INCT': (0x05c0, 6, op_ga, None, Timing(10, 1)),
-        'MPY': (0x3800, 9, op_ga, op_wa, Timing(52, 1, read=True)),
-        'NEG': (0x0500, 6, op_ga, None, Timing(12, 1)),
-        'S': (0x6000, 1, op_ga, op_ga, Timing(14, 1)),
-        'SB': (0x7000, 1, op_ga, op_ga, Timing(14, 1, byte=True)),
+        'A': (0xa000, 1, op_ga, op_ga, Timing(10, (Timing.OPCODE,))),
+        'AB': (0xb000, 1, op_ga, op_ga, Timing(10, (Timing.OPCODE,), byte=True)),
+        'ABS': (0x0740, 6, op_ga, None, Timing(12, (Timing.OPCODE,))),  # timing for worst case
+        'AI': (0x0220, 8, op_wa, op_imm, Timing(14, (Timing.OPCODE,) * 2 + (Timing.REGISTER_2,))),
+        'DEC': (0x0600, 6, op_ga, None, Timing(8, (Timing.OPCODE,))),
+        'DECT': (0x0640, 6, op_ga, None, Timing(8, (Timing.OPCODE,))),
+        'DIV': (0x3c00, 9, op_ga, op_wa, Timing(122, (Timing.OPCODE,) + (Timing.REGISTER_2,) * 2, read=True)),
+        'INC': (0x0580, 6, op_ga, None, Timing(8, (Timing.OPCODE,))),
+        'INCT': (0x05c0, 6, op_ga, None, Timing(8, (Timing.OPCODE,))),
+        'MPY': (0x3800, 9, op_ga, op_wa, Timing(52, (Timing.OPCODE, Timing.REGISTER_2, Timing.REGISTER), read=True)),
+        'NEG': (0x0500, 6, op_ga, None, Timing(8, (Timing.OPCODE,))),
+        'S': (0x6000, 1, op_ga, op_ga, Timing(10, (Timing.OPCODE,))),
+        'SB': (0x7000, 1, op_ga, op_ga, Timing(10, (Timing.OPCODE,), byte=True)),
         # 7. jump and branch
-        'B': (0x0440, 6, op_ga, None, Timing(8, 1, read=True)),
-        'BL': (0x0680, 6, op_ga, None, Timing(12, 1, read=True)),
-        'BLWP': (0x0400, 6, op_ga, None, Timing(26, 1, read=True, x2=True)),
-        'JEQ': (0x1300, 2, op_disp, None, Timing(10, 1)),
-        'JGT': (0x1500, 2, op_disp, None, Timing(10, 1)),
-        'JHE': (0x1400, 2, op_disp, None, Timing(10, 1)),
-        'JH': (0x1b00, 2, op_disp, None, Timing(10, 1)),
-        'JL': (0x1a00, 2, op_disp, None, Timing(10, 1)),
-        'JLE': (0x1200, 2, op_disp, None, Timing(10, 1)),
-        'JLT': (0x1100, 2, op_disp, None, Timing(10, 1)),
-        'JMP': (0x1000, 2, op_disp, None, Timing(10, 1)),
-        'JNC': (0x1700, 2, op_disp, None, Timing(10, 1)),
-        'JNE': (0x1600, 2, op_disp, None, Timing(10, 1)),
-        'JNO': (0x1900, 2, op_disp, None, Timing(10, 1)),
-        'JOP': (0x1c00, 2, op_disp, None, Timing(10, 1)),
-        'JOC': (0x1800, 2, op_disp, None, Timing(10, 1)),
-        'RTWP': (0x0380, 7, None, None, Timing(14, 1)),
-        'X': (0x0480, 6, op_ga, None, Timing(8, 1, read=True)),  # approx.
-        'XOP': (0x2c00, 9, op_ga, op_xop, Timing(36, 2)),
+        'B': (0x0440, 6, op_ga, None, Timing(6, (Timing.OPCODE,), read=True)),
+        'BL': (0x0680, 6, op_ga, None, Timing(10, (Timing.OPCODE, Timing.REGISTER), read=True)),
+        'BLWP': (0x0400, 6, op_ga, None, Timing(24, (Timing.OPCODE,) + (Timing.REGISTER,) * 3, read=False)),
+                                         # "new PC" memory read depends on operand, so treat it as write argument
+        'JEQ': (0x1300, 2, op_disp, None, Timing(10, (Timing.OPCODE,))),  # 8 cycles if jump not taken
+        'JGT': (0x1500, 2, op_disp, None, Timing(10, (Timing.OPCODE,))),
+        'JHE': (0x1400, 2, op_disp, None, Timing(10, (Timing.OPCODE,))),
+        'JH': (0x1b00, 2, op_disp, None, Timing(10, (Timing.OPCODE,))),
+        'JL': (0x1a00, 2, op_disp, None, Timing(10, (Timing.OPCODE,))),
+        'JLE': (0x1200, 2, op_disp, None, Timing(10, (Timing.OPCODE,))),
+        'JLT': (0x1100, 2, op_disp, None, Timing(10, (Timing.OPCODE,))),
+        'JMP': (0x1000, 2, op_disp, None, Timing(10, (Timing.OPCODE,))),
+        'JNC': (0x1700, 2, op_disp, None, Timing(10, (Timing.OPCODE,))),
+        'JNE': (0x1600, 2, op_disp, None, Timing(10, (Timing.OPCODE,))),
+        'JNO': (0x1900, 2, op_disp, None, Timing(10, (Timing.OPCODE,))),
+        'JOP': (0x1c00, 2, op_disp, None, Timing(10, (Timing.OPCODE,))),
+        'JOC': (0x1800, 2, op_disp, None, Timing(10, (Timing.OPCODE,))),
+        'RTWP': (0x0380, 7, None, None, Timing(14, (Timing.OPCODE,) + (Timing.REGISTER,) * 3)),
+        'X': (0x0480, 6, op_ga, None, None),  # cannot measure reliably
+        'XOP': (0x2c00, 9, op_ga, op_xop,  # timing difference between Datasheet and Hardware Design
+                Timing(34, (Timing.OPCODE,) + (Timing.ROM,) * 2 + (Timing.REGISTER,) * 4, read=True)),
         # 8. compare instructions
-        'C': (0x8000, 1, op_ga, op_ga, Timing(14, 1, read=True)),
-        'CB': (0x9000, 1, op_ga, op_ga, Timing(14, 1, read=True, byte=True)),
-        'CI': (0x0280, 8, op_wa, op_imm, Timing(14, 2)),
-        'COC': (0x2000, 3, op_ga, op_wa, Timing(14, 1)),
-        'CZC': (0x2400, 3, op_ga, op_wa, Timing(14, 1)),
+        'C': (0x8000, 1, op_ga, op_ga, Timing(10, (Timing.OPCODE,), read=True)),
+        'CB': (0x9000, 1, op_ga, op_ga, Timing(10, (Timing.OPCODE,), byte=True, read=True)),
+        'CI': (0x0280, 8, op_wa, op_imm, Timing(14, (Timing.OPCODE,) * 2 + (Timing.REGISTER,), read=True)),
+        'COC': (0x2000, 3, op_ga, op_wa, Timing(10, (Timing.OPCODE,), read=True)),
+        'CZC': (0x2400, 3, op_ga, op_wa, Timing(10, (Timing.OPCODE,), read=True)),
         # 9. control and cru instructions
-        'LDCR': (0x3000, 4, op_ga, op_cnt, Timing(52, 1)),
-        'SBO': (0x1d00, 2, op_cru, None, Timing(12, 2)),
-        'SBZ': (0x1e00, 2, op_cru, None, Timing(12, 2)),
-        'STCR': (0x3400, 4, op_ga, op_cnt, Timing(60, 1)),
-        'TB': (0x1f00, 2, op_cru, None, Timing(12, 2)),
-        'CKOF': (0x03c0, 7, None, None, Timing(12, 1)),
-        'CKON': (0x03a0, 7, None, None, Timing(12, 1)),
-        'IDLE': (0x0340, 7, None, None, Timing(12, 1)),
-        'RSET': (0x0360, 7, None, None, Timing(12, 1)),
-        'LREX': (0x03e0, 7, None, None, Timing(12, 1)),
+        'LDCR': (0x3000, 4, op_ga, op_cnt, Timing(18, (Timing.OPCODE, Timing.REGISTER), read=True)),
+        'SBO': (0x1d00, 2, op_cru, None, Timing(12, (Timing.OPCODE, Timing.REGISTER), read=True)),
+        'SBZ': (0x1e00, 2, op_cru, None, Timing(12, (Timing.OPCODE, Timing.REGISTER), read=True)),
+        'STCR': (0x3400, 4, op_ga, op_cnt, Timing(24, (Timing.OPCODE, Timing.REGISTER))),
+        'TB': (0x1f00, 2, op_cru, None, Timing(12, (Timing.OPCODE, Timing.REGISTER), read=True)),  # read R12
+        'CKOF': (0x03c0, 7, None, None, Timing(12, (Timing.OPCODE,))),
+        'CKON': (0x03a0, 7, None, None, Timing(12, (Timing.OPCODE,))),
+        'IDLE': (0x0340, 7, None, None, Timing(12, (Timing.OPCODE,))),
+        'RSET': (0x0360, 7, None, None, Timing(12, (Timing.OPCODE,))),
+        'LREX': (0x03e0, 7, None, None, Timing(12, (Timing.OPCODE,))),
         # 10. load and move instructions
-        'LI': (0x0200, 8, op_wa, op_imm, Timing(12, 2)),
-        'LIMI': (0x0300, 81, op_imm, None, Timing(16, 2)),
-        'LWPI': (0x02e0, 81, op_imm, None, Timing(10, 2)),
-        'MOV': (0xc000, 1, op_ga, op_ga, Timing(14, 1)),
-        'MOVB': (0xd000, 1, op_ga, op_ga, Timing(14, 1, byte=True)),
-        'STST': (0x02c0, 8, op_wa, None, Timing(8, 1)),
-        'STWP': (0x02a0, 8, op_wa, None, Timing(8, 1)),
-        'SWPB': (0x06c0, 6, op_ga, None, Timing(10, 1)),
+        'LI': (0x0200, 8, op_wa, op_imm, Timing(12, (Timing.OPCODE,) * 2 + (Timing.REGISTER,))),  # no read-before-write
+        'LIMI': (0x0300, 81, op_imm, None, Timing(14, (Timing.OPCODE,) * 2, read=True),),
+        'LWPI': (0x02e0, 82, op_imm, None, Timing(10, (Timing.OPCODE,) * 2, read=True)),
+        'MOV': (0xc000, 1, op_ga, op_ga, Timing(10, (Timing.OPCODE,))),
+        'MOVB': (0xd000, 1, op_ga, op_ga, Timing(10, (Timing.OPCODE,), byte=True)),
+        'STST': (0x02c0, 8, op_wa, None, Timing(8, (Timing.OPCODE,))),  # writes internally
+        'STWP': (0x02a0, 8, op_wa, None, Timing(8, (Timing.OPCODE,))),  # writes internally
+        'SWPB': (0x06c0, 6, op_ga, None, Timing(8, (Timing.OPCODE,))),
         # 11. logical instructions
-        'ANDI': (0x0240, 8, op_wa, op_imm, Timing(14, 2)),
-        'ORI': (0x0260, 8, op_wa, op_imm, Timing(14, 2)),
-        'XOR': (0x2800, 3, op_ga, op_wa, Timing(14, 1, read=True)),
-        'INV': (0x0540, 6, op_ga, None, Timing(10, 1)),
-        'CLR': (0x04c0, 6, op_ga, None, Timing(10, 1)),
-        'SETO': (0x0700, 6, op_ga, None, Timing(10, 1)),
-        'SOC': (0xe000, 1, op_ga, op_ga, Timing(14, 1)),
-        'SOCB': (0xf000, 1, op_ga, op_ga, Timing(14, 1, byte=True)),
-        'SZC': (0x4000, 1, op_ga, op_ga, Timing(14, 1)),
-        'SZCB': (0x5000, 1, op_ga, op_ga, Timing(14, 1, byte=True)),
+        'ANDI': (0x0240, 8, op_wa, op_imm, Timing(14, (Timing.OPCODE,) * 2 + (Timing.REGISTER_2,))),
+        'ORI': (0x0260, 8, op_wa, op_imm, Timing(14, (Timing.OPCODE,) * 2 + (Timing.REGISTER_2,))),
+        'XOR': (0x2800, 3, op_ga, op_wa, Timing(10, (Timing.OPCODE,))),
+        'INV': (0x0540, 6, op_ga, None, Timing(8, (Timing.OPCODE,))),
+        'CLR': (0x04c0, 6, op_ga, None, Timing(8, (Timing.OPCODE,))),
+        'SETO': (0x0700, 6, op_ga, None, Timing(8, (Timing.OPCODE,))),
+        'SOC': (0xe000, 1, op_ga, op_ga, Timing(10, (Timing.OPCODE,))),
+        'SOCB': (0xf000, 1, op_ga, op_ga, Timing(10, (Timing.OPCODE,), byte=True)),
+        'SZC': (0x4000, 1, op_ga, op_ga, Timing(10, (Timing.OPCODE,))),
+        'SZCB': (0x5000, 1, op_ga, op_ga, Timing(10, (Timing.OPCODE,), byte=True)),
         # 12. shift instructions
-        'SRA': (0x0800, 5, op_wa, op_scnt, Timing(52, 1)),
-        'SRL': (0x0900, 5, op_wa, op_scnt, Timing(52, 1)),
-        'SLA': (0x0a00, 5, op_wa, op_scnt, Timing(52, 1)),
-        'SRC': (0x0b00, 5, op_wa, op_scnt, Timing(52, 1))
+        'SRA': (0x0800, 5, op_wa, op_scnt, Timing(12, (Timing.OPCODE,))),  # CNT stored in opcode
+        'SRL': (0x0900, 5, op_wa, op_scnt, Timing(12, (Timing.OPCODE,))),  # ops and count timing added
+        'SLA': (0x0a00, 5, op_wa, op_scnt, Timing(12, (Timing.OPCODE,))),  # in special time function
+        'SRC': (0x0b00, 5, op_wa, op_scnt, Timing(12, (Timing.OPCODE,)))
         # end of opcodes
     }
 
     opcodes_f18a = {
         # F18A GPU instructions
-        'CALL': (0x0c80, 6, op_ga, None, Timing(0, 0)),
-        'RET': (0x0c00, 7, None, None, Timing(0, 0)),
-        'PUSH': (0x0d00, 6, op_ga, None, Timing(0, 0)),
-        'POP': (0x0f00, 6, op_ga, None, Timing(0, 0)),
-        'SLC': (0x0e00, 5, op_wa, op_scnt, Timing(0, 0))
+        'CALL': (0x0c80, 6, op_ga, None, None),
+        'RET': (0x0c00, 7, None, None, None),
+        'PUSH': (0x0d00, 6, op_ga, None, None),
+        'POP': (0x0f00, 6, op_ga, None, None),
+        'SLC': (0x0e00, 5, op_wa, op_scnt, None)
     }
 
     opcodes_9995 = {
         # 9995 instructions
-        'MPYS': (0x01c0, 6, op_ga, None, Timing(0, 0)),  # Note that 9900 timing and 9995 timing
-        'DIVS': (0x0180, 6, op_ga, None, Timing(0, 0)),  # cannot be compared
-        'LST': (0x0080, 8, op_wa, None, Timing(0, 0)),
-        'LWP': (0x0090, 8, op_wa, None, Timing(0, 0))
+        'MPYS': (0x01c0, 6, op_ga, None, None),  # Note that 9900 timing and 9995 timing
+        'DIVS': (0x0180, 6, op_ga, None, None),  # cannot be compared
+        'LST': (0x0080, 8, op_wa, None, None),
+        'LWP': (0x0090, 8, op_wa, None, None)
     }
 
     opcodes_99000 = {
         # 99105 and 99110 instructions
-        'MPYS': (0x01c0, 6, op_ga, None, Timing(0, 0)),  # Note that 9900 timing and 99000 timing
-        'DIVS': (0x0180, 6, op_ga, None, Timing(0, 0)),  # cannot be compared
-        'LST': (0x0080, 8, op_wa, None, Timing(0, 0)),
-        'LWP': (0x0090, 8, op_wa, None, Timing(0, 0)),
-        'BIND': (0x0140, 106, op_ga, None, Timing(0, 0)),
-        'BLSK': (0x00b0, 108, op_wa, op_imm, Timing(0, 0)),
-        'TMB': (0x0c09, 103, op_ga, op_cnt, Timing(0, 0)),
-        'TCMB': (0xc0a, 103, op_ga, op_cnt, Timing(0, 0)),
-        'TSMB': (0x0c0b, 103, op_ga, op_cnt, Timing(0, 0)),
-        'AM': (0x002a, 101, op_ga, op_ga, Timing(0, 0)),
-        'SM': (0x0029, 101, op_ga, op_ga, Timing(0, 0)),
-        'SLAM': (0x001d, 109, op_ga, op_scnt, Timing(0, 0)),
-        'SRAM': (0x001c, 109, op_ga, op_scnt, Timing(0, 0))
+        'MPYS': (0x01c0, 6, op_ga, None, None),  # Note that 9900 timing and 99000 timing
+        'DIVS': (0x0180, 6, op_ga, None, None),  # cannot be compared
+        'LST': (0x0080, 8, op_wa, None, None),
+        'LWP': (0x0090, 8, op_wa, None, None),
+        'BIND': (0x0140, 106, op_ga, None, None),
+        'BLSK': (0x00b0, 108, op_wa, op_imm, None),
+        'TMB': (0x0c09, 103, op_ga, op_cnt, None),
+        'TCMB': (0xc0a, 103, op_ga, op_cnt, None),
+        'TSMB': (0x0c0b, 103, op_ga, op_cnt, None),
+        'AM': (0x002a, 101, op_ga, op_ga, None),
+        'SM': (0x0029, 101, op_ga, op_ga, None),
+        'SLAM': (0x001d, 109, op_ga, op_scnt, None),
+        'SRAM': (0x001c, 109, op_ga, op_scnt, None)
     }
 
     pseudos = {
         # 13. pseudo instructions
-        'NOP': ('JMP', ['$+2']),
-        'RT': ('B', ['*<R>11']),
-        'SLL': ('SRL', None),
-        'PIX': ('XOP', None)
+        'NOP': ('JMP', ['$+2'], 0),
+        'RT': ('B', ['*<R>11'], 0),
+        'SLL': ('SRL', None, 2),
+        'PIX': ('XOP', None, 2)
     }
 
     def __init__(self, use_9995=False, use_f18a=False, use_99000=False):
@@ -437,95 +604,104 @@ class Opcodes(object):
     def use_asm(self, asm):
         """set assembler to use"""
         self.asm = asm
+        Timing.asm = asm
 
     def process(self, label, mnemonic, operands):
         """get assembly asm for mnemonic"""
         self.asm.even()
         self.asm.process_label(label)
-        if mnemonic in Opcodes.pseudos:
-            m, ops = Opcodes.pseudos[mnemonic]
+        try:
+            m, ops, op_count = Opcodes.pseudos[mnemonic]
+            if self.asm.symbols.pass_no == 2 and self.asm.relaxed and len(operands) != op_count:
+                raise AsmError('Bad operand count')
             if ops is not None:
                 ops = [o.replace('<R>', 'R' if self.asm.parser.r_prefix else '') for o in ops]
             mnemonic, operands = m, ops or operands
-        elif mnemonic in self.asm.parser.symbols.xops:
-            mode = self.asm.parser.symbols.xops[mnemonic]
-            mnemonic, operands = 'XOP', [operands[0], mode]
-        if mnemonic in self.opcodes:
+        except KeyError:
             try:
-                opcode, fmt, parse_op1, parse_op2, timing = self.opcodes[mnemonic]
-                if parse_op1 and len(operands) != (1 if parse_op2 is None else 2):
-                    raise AsmError('Bad operand count')
-                arg1 = parse_op1(self.asm.parser, operands[0]) if parse_op1 else None
-                arg2 = parse_op2(self.asm.parser, operands[1]) if parse_op2 else None
-                Optimizer.process(self.asm, mnemonic, opcode, fmt, arg1, arg2)
-                self.generate(opcode, fmt, arg1, arg2, timing)
-                return True
-            except (IndexError, ValueError, TypeError):
-                raise AsmError('Syntax error')
-        else:
+                mode = self.asm.parser.symbols.xops[mnemonic]
+                mnemonic, operands = 'XOP', [operands[0], mode]
+            except KeyError:
+                pass
+        try:
+            opcode, fmt, parse_op1, parse_op2, timing = self.opcodes[mnemonic]
+        except KeyError:
             raise AsmError('Invalid mnemonic: ' + mnemonic)
+        if parse_op1 and len(operands) != (1 if parse_op2 is None else 2):
+            raise AsmError('Bad operand count')
+        arg1 = parse_op1(self.asm.parser, operands[0]) if parse_op1 else None
+        arg2 = parse_op2(self.asm.parser, operands[1]) if parse_op2 else None
+        Optimizer.process(self.asm, mnemonic, opcode, fmt, arg1, arg2)
+        Timing.process(self.asm, mnemonic, arg1, arg2)
+        self.generate(opcode, fmt, arg1, arg2, timing)
+        return True
 
     def generate(self, opcode, fmt, arg1, arg2, timing):
         """generate byte asm"""
+        if timing is not None:
+            timing.LC = self.asm.symbols.effective_LC()
+            timing.WP = self.asm.symbols.WP
         # I. two general address instructions
         if fmt == 1:
             ts, s, sa = arg1
             td, d, da = arg2
             b = opcode | td << 10 | d << 6 | ts << 4 | s
-            t = timing.time2(ts, sa, td, da)
+            t = 0 if timing is None else timing.time_2ops(ts, s, sa, td, d, da)
             self.asm.emit(b, sa, da, cycles=t)
         # II. jump and bit I/O instructions
         elif fmt == 2:
             b = opcode | arg1 & 0xff
-            t = timing.time0()
+            t = 0 if timing is None else timing.time_noop()
             self.asm.emit(b, cycles=t)
         # III. logical instructions
         elif fmt == 3:
             ts, s, sa = arg1
             d = arg2
             b = opcode | d << 6 | ts << 4 | s
-            t = timing.time1(ts, sa)
+            t = 0 if timing is None else timing.time_1op(ts, s, sa)
             self.asm.emit(b, sa, cycles=t)
         # IV. CRU multi-bit instructions
         elif fmt == 4:
             ts, s, sa = arg1
             c = arg2
             b = opcode | c << 6 | ts << 4 | s
-            t = timing.time1(ts, sa)
+            t = 0 if timing is None else timing.time_mcru(ts, s, sa, c, ldcr=opcode == 0x3000)
             self.asm.emit(b, sa, cycles=t)
         # V. register shift instructions
         elif fmt == 5:
             w = arg1
             c = arg2
             b = opcode | c << 4 | w
-            t = timing.time0()
+            t = 0 if timing is None else timing.time_shift(c)
             self.asm.emit(b, cycles=t)
         # VI. single address instructions
         elif fmt == 6:
             ts, s, sa = arg1
             b = opcode | ts << 4 | s
-            t = timing.time1(ts, sa)
+            t = 0 if timing is None else timing.time_1op(ts, s, sa)
             self.asm.emit(b, sa, cycles=t)
         # VII. control instructions
         elif fmt == 7:
             b = opcode
-            t = timing.time0()
+            t = 0 if timing is None else timing.time_noop()
             self.asm.emit(b, cycles=t)
         # VIII. immediate instructions
         elif fmt == 8:
             b = opcode | arg1
-            t = timing.time0()
+            t = 0 if timing is None else timing.time_noop()
             self.asm.emit(b, arg2, cycles=t)
-        elif fmt == 81:
+        elif fmt == 81 or fmt == 82:
             b = opcode
-            t = timing.time0()
+            t = 0 if timing is None else timing.time_noop()
             self.asm.emit(b, arg1, cycles=t)
+            if fmt == 82:
+                self.asm.symbols.WP = arg1  # change workspace
         # IX. extended operations; multiply and divide
         elif fmt == 9:
             ts, s, sa = arg1
             r = arg2
             b = opcode | r << 6 | ts << 4 | s
-            t = timing.time1(ts, sa)
+            t = 0 if timing is None else timing.time_1op(ts, s, sa)
             self.asm.emit(b, sa, cycles=t)
         # TMS99000
         elif fmt == 101:  # AM/SM
@@ -559,7 +735,7 @@ class Opcodes(object):
             raise AsmError('Invalid opcode format ' + str(fmt))
 
 
-class Directives(object):
+class Directives:
 
     ignores = ['', 'PSEG', 'PEND', 'CSEG', 'CEND', 'DSEG', 'DEND', 'UNL', 'LIST', 'PAGE', 'TITL', 'LOAD', 'SREF']
 
@@ -588,7 +764,7 @@ class Directives(object):
         if not label:
             raise AsmError('Missing label')
         value = asm.parser.expression(ops[0], well_defined=True)
-        asm.symbols.add_symbol(label, value, equ=Symbols.EQU)
+        asm.symbols.add_symbol(label, value, equ=Symbols.EQU, lino=asm.parser.lino, filename=asm.parser.filename)
 
     @staticmethod
     def WEQU(asm, label, ops):
@@ -600,7 +776,7 @@ class Directives(object):
         if not label:
             raise AsmError('Missing label')
         value = asm.parser.expression(ops[0], well_defined=True)
-        asm.symbols.add_symbol(label, value, equ=Symbols.WEQU)
+        asm.symbols.add_symbol(label, value, equ=Symbols.WEQU, lino=asm.parser.lino, filename=asm.parser.filename)
 
     @staticmethod
     def DATA(asm, label, ops):
@@ -712,7 +888,7 @@ class Directives(object):
         if asm.parser.symbols.pass_no == 2:
             return
         Directives.check_ops(asm, ops, min_count=1, max_count=1)
-        filename = asm.parser.filename_text(ops[0])
+        filename = asm.parser.get_filename(ops[0])
         asm.parser.open(filename=filename)
 
     @staticmethod
@@ -763,7 +939,7 @@ class Directives(object):
         """extension: include binary file as BYTE stream"""
         Directives.check_ops(asm, ops, min_count=1, max_count=1)
         asm.process_label(label)
-        filename = asm.parser.filename_text(ops[0])
+        filename = asm.parser.get_filename(ops[0])
         path = asm.parser.find(filename)
         try:
             with open(path, 'rb') as f:
@@ -788,7 +964,7 @@ class Directives(object):
         if max_count and len(ops) > max_count:
             if warning_only:
                 asm.parser.warn('Ignoring extra operands')
-            else:
+            elif asm.symbols.pass_no == 1:
                 raise AsmError('Bad operand count')
 
     @staticmethod
@@ -809,7 +985,7 @@ class Directives(object):
 
 # Symbol table
 
-class Externals(object):
+class Externals:
     """externally defined and referenced symbols"""
 
     def __init__(self, target, definitions=None):
@@ -847,14 +1023,14 @@ class Externals(object):
                 self.definitions[name] = Address(value, reloc=False), -1
 
 
-class Symbols(object):
+class Symbols:
     """symbol table and line counter
        Each symbol entry is a tuple (value, equ-kind, used).
        Equ-kind symbols may be redefined, if EQU by the same value only.
        Used tracks if a symbol has been used (True/False).  If set to None, usage is not tracked.
        Each program unit owns its own symbol table.
     """
-    unit_id = 0
+    g_unit_id = 0
 
     # symbol kind
     NONE = 0  # not an EQU symbol
@@ -868,18 +1044,19 @@ class Symbols(object):
         self.registers = {'R' + str(i): i for i in range(16)} if add_registers else {}
         self.strict = strict
         self.symbols = {n: (v, False, None) for n, v in self.registers.items()}  # registers are just symbols
+        self.symbol_def_location = {}  # symbol locations (lino, filename)
         self.saved_LC = {True: 0, False: 0}  # key == relocatable
         self.xops = {}
         self.locations = []
-        self.interm_source = []
-        self.unit_id = Symbols.unit_id
-        Symbols.unit_id += 1
+        self.unit_id = Symbols.g_unit_id
+        Symbols.g_unit_id += 1
         self.local_lid = 0
         self.pass_no = 0
         self.lidx = 0
         self.autoconsts = set()  # set of auto-generated constants
         self.autos_defined = set()
         self.autos_generated = set()
+        self.WP = None  # current workspace pointer (for timing)
         self.LC = None  # current line counter
         self.bank = None  # current bank, or None
         self.bank_LC = None  # next LC for each bank
@@ -890,6 +1067,7 @@ class Symbols(object):
     def reset(self):
         """reset some properties for assembly pass 2"""
         self.LC = 0
+        self.WP = 0x83e0
         self.bank = None
         self.segment_reloc = True
         self.xorg_offset = None
@@ -924,7 +1102,7 @@ class Symbols(object):
         return ((not self.strict and name != '$' and name[0] not in "!@" and not re.search(r'[-+*/#"\']', name[1:])) or
                 (name[0].isalpha() and name.isalnum()))
 
-    def add_symbol(self, name, value, tracked=False, check=True, equ=None):
+    def add_symbol(self, name, value, lino=None, filename=None, tracked=False, check=True, equ=None):
         """add symbol to symbol table"""
         if equ is None:
             equ = Symbols.NONE  # workaround for Python limitation
@@ -949,10 +1127,11 @@ class Symbols(object):
         if isinstance(value, Address):
             value.unit_id = self.unit_id
         self.symbols[name] = value, equ, unused
+        self.symbol_def_location[name] = None if lino is None else (lino, filename)
         return name
 
     def _valid_redefinition(self, defined_value, defined_equ, name, value, equ):
-        """check if redefinition of symbol is allowed"""
+        """check if redefinition of symbol is allowed (only pass 1)"""
         if equ == Symbols.NONE or defined_equ == Symbols.NONE:  # either symbol not an EQU
             return None  # duplicate symbol
         if defined_equ == Symbols.EQU:  # defined symbol is EQU
@@ -973,19 +1152,19 @@ class Symbols(object):
                 return value, equ
         return None
 
-    def add_label(self, label, real_LC=False, tracked=False, check=True):
+    def add_label(self, label, real_LC=False, tracked=False, check=True, lino=None, filename=None):
         """add a new label symbol to symbol table"""
         addr = Address(self.LC if real_LC else self.effective_LC(),
                        self.bank,
                        self.segment_reloc and (real_LC or not self.xorg_offset),
                        self.unit_id)
-        name = self.add_symbol(label, addr, tracked=tracked, check=check)
+        name = self.add_symbol(label, addr, lino=lino, filename=filename, tracked=tracked, check=check)
         self.locations.append((self.lidx, name))
 
     def add_local_label(self, label):
         """add a new local label symbol to symbol table"""
         self.local_lid += 1
-        self.add_label(label + '$' + str(self.local_lid), check=False)
+        self.add_label('_%l' + label + '$' + str(self.local_lid), check=False)
 
     def add_autoconst(self, auto: AutoConstant):
         """create auto-constant in symbol table"""
@@ -1030,7 +1209,7 @@ class Symbols(object):
         try:
             value, equ, unused = self.symbols[name]
             if unused:
-                self.symbols[name] = (value, equ, False)  # symbol has been used
+                self.symbols[name] = value, equ, False  # symbol has been used
         except KeyError:
             try:
                 value, _ = self.externals.definitions.get(name)
@@ -1038,9 +1217,9 @@ class Symbols(object):
                 value = None
         return value
 
-    def get_local(self, name, distance):
+    def get_locals(self, name, distance):
         """return local label specified by current position and distance +/-n"""
-        targets = [(loc, sym) for (loc, sym) in self.locations if sym[:len(name) + 1] == name + '$']
+        targets = [(loc, sym) for (loc, sym) in self.locations if sym[3:len(name) + 4] == name + '$']
         try:
             i, lidx = next((j, loc) for j, (loc, name) in enumerate(targets) if loc >= self.lidx)
             if distance > 0 and lidx > self.lidx:
@@ -1086,9 +1265,20 @@ class Symbols(object):
         self.bank = bank
         return addr
 
-    def get_unused(self):
-        """return all symbol names that have not been used"""
-        return [name for name, (_, _, unused) in self.symbols.items() if unused]
+    def get_unused_symbols(self):
+        """return all symbol names that have not been used, grouped by filename"""
+        unused_symbols = {}  # filename x symbols
+        for symbol, (_, _, unused) in self.symbols.items():
+            if not unused or symbol[:2] == '_%':
+                continue  # skip used symbols and internal names
+            try:
+                lino, filename = self.symbol_def_location[symbol]
+                name = f'{symbol}:{lino}'
+            except (TypeError, KeyError):
+                filename = None
+                name = symbol
+            unused_symbols.setdefault(filename, []).append(name)
+        return unused_symbols
 
     def list(self, strict, equ=False):
         """generate symbol overview"""
@@ -1126,7 +1316,7 @@ class Symbols(object):
 
 # Parser and Preprocessor
 
-class Preprocessor(object):
+class Preprocessor:
     """xdt99-specific preprocessor extensions
        The preprocessor is only called for pass 1, in pass 2 all dot-commands have been eliminated!
     """
@@ -1275,12 +1465,12 @@ class Preprocessor(object):
             return self.parse, False, operands, line  # normal statement
 
 
-class Parser(object):
+class Parser:
     """scanner and parser class"""
     OPEN = '$OPEN'  # constants inserted into source to denote new or resumes source units
     RESUME = '$RESM'
 
-    def __init__(self, symbols, listing, console, path, includes=None, strict=False, r_prefix=False,
+    def __init__(self, symbols, listing, console, path, includes=None, strict=False, relaxed=False, r_prefix=False,
                  bank_cross_check=False):
         self.symbols = symbols
         self.listing = listing
@@ -1288,8 +1478,10 @@ class Parser(object):
         self.path = path
         self.includes = includes or []  # do not include '.' -- current path added implicitly in find()
         self.prep = Preprocessor(self, listing)
+        self.processed_source = []  # parsed source by pass 1 #TODO
         self.text_literals = []
         self.strict = strict
+        self.relaxed = relaxed
         self.r_prefix = r_prefix
         self.bank_cross_check = bank_cross_check
         self.warnings = []  # per line
@@ -1320,14 +1512,14 @@ class Parser(object):
             self.source = self.prep.macros[macro]
             self.macro_args = macro_args or []
             self.in_macro_instantiation = True
-        self.symbols.interm_source.append((0, 0, None, Parser.OPEN, None, None, filename or macro, None))
+        self.processed_source.append((0, 0, None, Parser.OPEN, None, None, None, filename or macro, None))
         self.lino = 0
 
     def resume(self):
         """close current source file and resume previous one"""
         try:
             self.filename, self.path, self.source, self.macro_args, self.lino = self.suspended_files.pop()
-            self.symbols.interm_source.append((0, 0, None, Parser.RESUME, None, None, self.filename, None))
+            self.processed_source.append((0, 0, None, Parser.RESUME, None, None, None, self.filename, None))
             return True
         except IndexError:
             self.source = None  # indicates end-of-source to pass; keep self.path!
@@ -1376,17 +1568,24 @@ class Parser(object):
         if self.strict:
             # blanks separate fields
             fields = re.split(r'\s+', self.escape(line), maxsplit=3)
-            label, mnemonic, optext, comment = fields + [''] * (4 - len(fields))
+            label, mnemonic, opfield, comment = fields + [''] * (4 - len(fields))
             label = label[:6]
-            operands = re.split(',', optext) if optext else []
+            operands = re.split(',', opfield) if opfield else []
+        elif self.relaxed:
+            # arbitrary whitespace in operands, explicit ; comments
+            instruction, *remainder = self.escape(line).split(';', maxsplit=1)
+            fields = re.split(r'\s+', instruction, maxsplit=2)
+            label, mnemonic, opfield = fields + [''] * (3 - len(fields))
+            operands = [op.strip() for op in opfield.split(',')]
+            comment = remainder[0] if remainder else ''
         else:
             # comment field separated by two blanks
             parts = self.escape(line).split(';')
             fields = re.split(r'\s+', parts[0], maxsplit=2)
-            label, mnemonic, optext = fields + [''] * (3 - len(fields))
-            opfields = re.split(r' {2,}|\t', optext, maxsplit=1)
-            operands = [op.strip() for op in opfields[0].split(',')] if opfields[0] else []
-            comment = ' '.join(opfields[1:]) + ';'.join(parts[1:])
+            label, mnemonic, opfield = fields + [''] * (3 - len(fields))
+            optexts = re.split(r' {2,}|\t', opfield, maxsplit=1)
+            operands = [op.strip() for op in optexts[0].split(',')] if optexts[0] else []
+            comment = ' '.join(optexts[1:]) + ';'.join(parts[1:])
         return label, mnemonic, operands, comment, True
 
     def escape(self, text):
@@ -1403,6 +1602,8 @@ class Parser(object):
 
     def address(self, op):
         """parse general address into t-field, register, address value"""
+        if not op:
+            raise AsmError('Empty address')
         if op[0] == '@':  # memory addressing
             i = op.find('(')
             if i >= 0 and op[-1] == ')':
@@ -1411,7 +1612,7 @@ class Parser(object):
                     raise AsmError('Cannot index with register 0')
                 offset = self.expression(op[1:i])
                 if offset == 0:
-                    self.warn('Using indexed address @0, could use *R instead')
+                    self.warn('Using indexed address @0, could use *R instead', category=Warnings.BAD_USAGE)
                 return 0b10, register, offset
             else:
                 return 0b10, 0, self.expression(op[1:])
@@ -1453,17 +1654,18 @@ class Parser(object):
         value = Word(0)
         stack = []
         reloc_count = 0
-        sep_pattern = r"([-+*/])" if self.strict else r"([-+/%~&|^()]|\*\*?|[BW]#)"
+        sep_pattern = r'([-+*/])' if self.strict else r'([-+/%~&|^()]|\*\*?|[BW]#)'
         terms = ['+'] + [tok.strip() for tok in re.split(sep_pattern, expr)]
         i = 0
         while i < len(terms):
             op, term = terms[i:i + 2]
             i += 2
             negate = False
-            corr = 0
+            complement_correction = 0
             if op == ')':
-                v, reloc = value.value, reloc_count
-                value, reloc_count, op, negate, corr = stack.pop()
+                v = value.value
+                reloc = reloc_count
+                value, reloc_count, op, negate, complement_correction = stack.pop()
             else:
                 # unary operators
                 while not term and i < len(terms) and terms[i] in '+-~(':
@@ -1471,19 +1673,26 @@ class Parser(object):
                     if terms[i] == '-':
                         negate = not negate
                     elif terms[i] == '~':
-                        corr += 1 if negate else -1
+                        complement_correction += 1 if negate else -1
                         negate = not negate
                     elif terms[i] == '(':
-                        stack.append((value, reloc_count, op, negate, corr))
-                        op, term, negate, corr = '+', terms[i + 1], False, 0
-                        value, reloc_count = Word(0), 0
+                        stack.append((value, reloc_count, op, negate, complement_correction))
+                        try:
+                            term = terms[i + 1]
+                        except IndexError:
+                            raise AsmError('Syntax error')
+                        op = '+'
+                        negate = False
+                        complement_correction = 0
+                        value = Word(0)
+                        reloc_count = 0
                     i += 2
                 # process next term between operators
                 term_val, x_bank_access = self.term(term, well_defined=well_defined, iop=iop, relaxed=relaxed,
                                                     allow_r0=allow_r0)
                 if isinstance(term_val, Local):
                     dist = -term_val.distance if negate else term_val.distance
-                    term_val = self.symbols.get_local(term_val.name, dist)
+                    term_val = self.symbols.get_locals(term_val.name, dist)
                     if term_val is None:
                         raise AsmError('Invalid local target')
                     negate = False
@@ -1500,11 +1709,13 @@ class Parser(object):
                         raise AsmError('Invalid cross-bank access')
                         # NOTE: Jumping from bank into shared is safe, but shared into bank in general isn't.
                         #       But if we didn't allow shared to bank, we couldn't leave shared sections!
-                    v, reloc = term_val.addr, 1 if term_val.reloc else 0
+                    v = term_val.addr
+                    reloc = 1 if term_val.reloc else 0
                 else:
-                    v, reloc = term_val, 0
+                    v = term_val
+                    reloc = 0
 
-            w = Word((-v if negate else v) + corr)
+            w = Word((-v if negate else v) + complement_correction)
             if op == '+':
                 value.add(w)
                 reloc_count += reloc if not negate else -reloc
@@ -1524,7 +1735,8 @@ class Parser(object):
                 if reloc_count > 0:
                     raise AsmError('Cannot use relocatable address in expression: ' + expr)
             elif op == '**':
-                base, exp = Word(1), w.value
+                base = Word(1)
+                exp = w.value
                 for j in range(exp):
                     base.mul('*', value)
                 value = base
@@ -1536,20 +1748,31 @@ class Parser(object):
 
     def term(self, op, well_defined=False, iop=False, relaxed=False, allow_r0=False):
         """parse constant or symbol"""
+        if not op:
+            raise AsmError('Syntax Error')
         cross_bank_access = False
         if op[0] == '>':
-            return int(op[1:], 16), False
+            try:
+                return int(op[1:], 16), False
+            except ValueError:
+                raise AsmError('Invalid hex integer literal: ' + op[1:])
         elif op == '$':
             return Address(self.symbols.effective_LC(),
                            self.symbols.bank,
                            self.symbols.segment_reloc and not self.symbols.xorg_offset,
                            self.symbols.unit_id), False
         elif op[0] == ':':
-            return int(op[1:], 2), False
+            try:
+                return int(op[1:], 2), False
+            except ValueError:
+                raise AsmError('Invalid binary integer literal: ' + op[1:])
         elif op.isdigit():
             return int(op), False
-        elif op[0] == op[-1] == "'":
-            c = self.text_literals[int(op[1:-1])]
+        elif op[0] == op[-1] == "'" and len(op) > 1:
+            try:
+                c = self.text_literals[int(op[1:-1])]
+            except (ValueError, IndexError):
+                raise AsmError('Invalid text literal')
             if len(c) == 1:
                 return ord(c[0]), False
             elif len(c) == 2:
@@ -1559,7 +1782,7 @@ class Parser(object):
             else:
                 raise AsmError('Invalid text literal: ' + c)
         elif op[0] == '!':
-            m = re.match('(!+)(.*)', op)
+            m = re.match(r'(!+)(.*)', op)
             return Local(m.group(2), len(m.group(1))), False
         elif op[:2] in ('B#', 'W#'):
             raise AsmError('Invalid auto-constant expression')
@@ -1576,7 +1799,7 @@ class Parser(object):
             if op[0] == '@':
                 raise AsmError("Invalid '@' found in expression")
             if iop and op in self.symbols.registers and not (op == 'R0' and allow_r0):
-                self.warn(f'Register {op:s} used as immediate operand')
+                self.warn(f'Register {op:s} used as immediate operand', category=Warnings.BAD_USAGE)
             v = self.symbols.get_symbol(op[:6] if self.strict else op)
             if v is None and (self.symbols.pass_no > 1 or well_defined):
                 if relaxed:
@@ -1595,6 +1818,8 @@ class Parser(object):
         if self.symbols.pass_no == 1:
             return 1  # don't return 0, as this is invalid for indexes @A(Rx)
         op = op.strip()
+        if not op:
+            raise AsmError('Empty register')
         try:
             if op[0] == '>':
                 r = int(op[1:], 16)
@@ -1610,19 +1835,21 @@ class Parser(object):
                     raise AsmError('Unknown symbol: ' + op)
                 if isinstance(r, Address):
                     raise AsmError('Invalid term for register')
-        except TypeError:
+        except (TypeError, ValueError):
             raise AsmError('Invalid register:' + op)
         if self.r_prefix and op[0].upper() != 'R':
-            self.warn('Treating as register, did you intend an @address?')
+            self.warn('Treating as register, did you intend an @address?', category=Warnings.BAD_USAGE)
         if not 0 <= r <= 15:
             raise AsmError('Invalid register: ' + op)
         return r
 
     def bank(self, op):
         """parse bank: number or 'all'"""
-        if op.isdigit():
+        try:
             return int(op)
-        elif op.lower() == 'all':
+        except ValueError:
+            pass
+        if op.upper() == 'ALL':
             return Symbols.BANK_ALL
         else:
             raise AsmError('Invalid bank value: ' + op)
@@ -1655,7 +1882,7 @@ class Parser(object):
         if not int_part:
             if not frac_part:
                 return [0] * 8  # op is zero
-            while frac_part[:2] == '00':  # only faction
+            while frac_part[:2] == '00':  # no integer part
                 frac_part = frac_part[2:]
         elif len(int_part) % 2 == 1:
             int_part = '0' + int_part
@@ -1666,7 +1893,7 @@ class Parser(object):
         try:
             exponent = int(math.floor(math.log(float(digits), 100)))  # digits != 0
         except ValueError:
-            raise AsmError('Bad format for floating point number: ' + op)
+            raise AsmError('Cannot convert floating point number to Radix 100: ' + op)
         # invert first word if negative
         bytes_ = [exponent + 0x40] + hundreds
         if sign < 0:
@@ -1675,7 +1902,7 @@ class Parser(object):
         # return radix-100 format
         return bytes_
 
-    def filename_text(self, op):
+    def get_filename(self, op):
         """parse double-quoted filename"""
         if not (len(op) >= 3 and op[0] == op[-1] == "'"):
             raise AsmError('Invalid filename: ' + op)
@@ -1693,8 +1920,13 @@ class Parser(object):
         except ValueError:
             return op
 
-    def warn(self, message):
-        self.warnings.append(message)
+    def warn(self, message, category=Warnings.ALL, force=False):
+        if self.symbols.pass_no == 2 or force:
+            self.warnings.append((message, category))
+
+    def check_strict_comment(self):
+        """check if statement is label with comment in strict mode"""
+        pass
 
     @staticmethod
     def raise_invalid_statement():
@@ -1702,9 +1934,68 @@ class Parser(object):
         raise AsmError('Invalid statement')
 
 
+class Pragmas:
+    """pragmas affecting the assembler"""
+
+    def __init__(self, parser):
+        self.parser = parser  # need access to parser state
+
+    def evaluate(self, name, value):
+        """enable or disable variables"""
+        if name == 'WARNINGS':
+            self.parser.console.enabled_warnings.all(value == 'ON')
+        elif name == 'WARN-OPTS':
+            self.parser.console.enabled_warnings.enabled[Warnings.OPTIMIZATIONS] = value == 'ON'
+        elif name == 'WARN-USAGE':
+            self.parser.console.enabled_warnings.enabled[Warnings.BAD_USAGE] = value == 'ON'
+        elif name == 'WARN-SYMBOLS':
+            self.parser.console.enabled_warnings.enabled[Warnings.UNUSED_SYMBOLS] = value == 'ON'
+        elif name == 'LWPI':
+            try:
+                self.parser.symbols.WP = Util.xint(value)  # set workspace address
+            except ValueError:
+                self.parser.warn('Bad value for LWPI pragma')
+        else:
+            self.parser.warn('Unknown pragma name')
+
+    def set_operand_demuxer(self, asm, ops):
+        """set memory speed for 'unknown' operand targets"""
+        for op in ops:
+            if op is not None:
+                asm.demux[op[0].upper()] = op[1] == '+'
+
+    def process(self, asm, pragmas):
+        """process list of pragmas (have been uppercased previously)"""
+        if pragmas is None:
+            return  # open and resuming of sources
+        for pragma in pragmas:
+            m = re.match(r'(S[+-])?(D[+-])?$', pragma)
+            if m:
+                self.set_operand_demuxer(asm, m.groups())
+            else:
+                try:
+                    name, value = pragma.split('=')
+                    self.evaluate(name.strip(), value.strip())
+                except TypeError:
+                    self.parser.warn(f'Malformed pragma {pragma}')
+
+    def retrieve(self, comment):
+        """retrieve all pragmas from comment"""
+        if not comment:
+            return []  # no comment
+        if comment[0] != ':':  # ';' already stripped
+            try:
+                _, pragmas = comment.split(';:', maxsplit=1)  # comment and pragma
+            except ValueError:
+                return []  # no pragma
+        else:
+            pragmas = comment[1:]
+        return [pragma.strip() for pragma in pragmas.split(',')]
+
+
 # Code generation
 
-class Program(object):
+class Program:
     """code and related properties, including externals
        NOTE: A program consists of multiple program units,
              a program unit consists of multiple segments.
@@ -1788,7 +2079,7 @@ class Program(object):
         return offsets
 
 
-class Segment(object):
+class Segment:
     """stores the code of an xORG segment with meta information,
        also represents the top level unit of all generated code
     """
@@ -1817,14 +2108,15 @@ class Segment(object):
             self.code[LC + 1] = value & 0xff
 
 
-class SymbolAssembler(object):
+class SymbolAssembler:
     """dummy code generation for keeping track of line counter"""
 
-    def __init__(self, program, opcodes, symbols, parser, console):
+    def __init__(self, program, opcodes, symbols, parser, pragmas, console):
         self.program = program
         self.opcodes = opcodes
         self.symbols = symbols
         self.parser = parser
+        self.pragmas = pragmas
         self.console = console
         self.segment = False  # no actual Segment required for symbols
 
@@ -1840,20 +2132,22 @@ class SymbolAssembler(object):
             # get next source line
             lino, line, filename = self.parser.read()
             self.symbols.lidx += 1
-            self.console.filename_text = filename
+            self.console.get_filename = filename
             self.console.lino = lino
             if lino is None:
                 break
             try:
                 # break line into fields
                 label, mnemonic, operands, comment, stmt = self.parser.line(line)
+                pragmas = self.pragmas.retrieve(comment)  # get all pragmas from comment into list
                 keep, add_label, operands, line = self.parser.prep.process(self, label, mnemonic, operands, line)
                 if add_label:
-                    self.symbols.interm_source.append((lino, self.symbols.lidx, label, "", [], line, label, True))
+                    self.parser.processed_source.append((lino, self.symbols.lidx, label, "", [], None, line, label,
+                                                         True))
                 if not keep:
                     continue
-                self.symbols.interm_source.append((lino, self.symbols.lidx, label, mnemonic, operands,
-                                                   line, filename, stmt))
+                self.parser.processed_source.append((lino, self.symbols.lidx, label, mnemonic, operands, pragmas, line,
+                                                     filename, stmt))
                 if not stmt:
                     continue
                 # process continuation label
@@ -1869,6 +2163,7 @@ class SymbolAssembler(object):
                 # process mnemonic
                 Directives.process(self, label, mnemonic, operands) or \
                     self.opcodes.process(label, mnemonic, operands) or \
+                    self.parser.check_strict_comment() or \
                     Parser.raise_invalid_statement()
             except AsmError as e:
                 self.console.error(str(e), 1, filename, lino, line)
@@ -1876,6 +2171,8 @@ class SymbolAssembler(object):
             self.console.error('***** Error: Missing .endif', 1, filename)
         if self.parser.prep.parse_macro:
             self.console.error('***** Error: Missing .endm', 1, filename)
+        for message, category in self.parser.warnings:
+            self.console.warn(message, 1, filename, lino, line, category=category)  # move warnings
 
     def org(self, base, reloc=False, bank=None, dummy=False, xorg=False):
         """open new segment"""
@@ -1915,8 +2212,6 @@ class SymbolAssembler(object):
         """increase LC according to machine code generated"""
         self.even()
         self.symbols.LC += sum(2 for word in words if word is not None)
-        # self.symbols.LC += (2 + (2 if saddr is not None else 0) +
-        #                         (2 if daddr is not None else 0))
 
     def process_label(self, label, real_LC=False, tracked=False):
         """register label at current LC"""
@@ -1925,7 +2220,8 @@ class SymbolAssembler(object):
         if label[0] == '!':
             self.symbols.add_local_label(label[1:])
         else:
-            self.symbols.add_label(label, real_LC, tracked=tracked)
+            self.symbols.add_label(label, real_LC=real_LC, tracked=tracked, lino=self.parser.lino,
+                                   filename=self.parser.filename)
 
     def auto_constants(self):
         """compure addresses of all constants, no further defs allowed"""
@@ -1944,29 +2240,34 @@ class SymbolAssembler(object):
         self.symbols.autos_defined.add(self.symbols.bank)
 
 
-class Assembler(object):
+class Assembler:
     """generate object code"""
 
-    def __init__(self, program, opcodes, includes=None, r_prefix=False, strict=False, warnings=True, timing=True,
-                 bank_cross_check=False, colors=None):
+    def __init__(self, program, opcodes, includes=None, warnings=None, r_prefix=False, strict=False, relaxed=False,
+                 timing=True, bank_cross_check=False, colors=None):
         self.program = program
         self.opcodes = opcodes
         self.includes = includes or []
         self.console = Console(warnings, colors=colors)
-        self.symbols = None
-        self.parser = None
-        self.symasm = None
         self.listing = Listing(timing=timing)
         self.strict = strict
+        self.relaxed = relaxed
         self.r_prefix = r_prefix
         self.bank_cross_check = bank_cross_check
+        self.symbols = None
+        self.parser = None
+        self.pragmas = None
+        self.symasm = None
         self.segment = None
+        self.demux = None  # are unknown accesses for source, dest operand demuxed?
 
     def assemble(self, path, srcname):
         self.symbols = Symbols(self.program.externals, self.console, add_registers=self.r_prefix)
         self.parser = Parser(self.symbols, self.listing, self.console, path, includes=self.includes,
-                             r_prefix=self.r_prefix, bank_cross_check=self.bank_cross_check, strict=self.strict)
-        self.symasm = SymbolAssembler(self.program, self.opcodes, self.symbols, self.parser, self.console)  # pass 1
+                             r_prefix=self.r_prefix, bank_cross_check=self.bank_cross_check, strict=self.strict,
+                             relaxed=self.relaxed)
+        self.pragmas = Pragmas(self.parser)
+        self.symasm = SymbolAssembler(self.program, self.opcodes, self.symbols, self.parser, self.pragmas, self.console)
         self.opcodes.use_asm(self.symasm)
         self.symasm.assemble_pass_1(srcname)  # continue even with errors, to display them all
         self.opcodes.use_asm(self)
@@ -1974,11 +2275,12 @@ class Assembler(object):
         self.finalize()
 
     def assemble_pass_2(self):
-        """second pass: generate machine code"""
+        """second pass: generate machine code, ignore symbol definitions"""
         self.symbols.pass_no = 2
         self.symbols.reset()
+        self.console.enabled_warnings.reset()
         self.org(0, reloc=True, root=True)  # create root segment
-        for lino, lidx, label, mnemonic, operands, line, filename, stmt in self.symbols.interm_source:
+        for lino, lidx, label, mnemonic, operands, pragmas, line, filename, is_stmt in self.parser.processed_source:
             if mnemonic == Parser.OPEN or mnemonic == Parser.RESUME:
                 if mnemonic == Parser.OPEN:
                     self.listing.open(self.symbols.LC, filename)
@@ -1987,9 +2289,11 @@ class Assembler(object):
                 self.console.filename = filename
                 continue
             self.symbols.lidx = lidx
-            self.parser.warnings = []
+            self.parser.warnings = []  # warnings per line
+            self.demux_reset()
+            self.pragmas.process(self, pragmas)
             self.listing.prepare(self.symbols.LC, Line(lino=lino, line=line))
-            if not stmt:
+            if not is_stmt:
                 continue
             if label and label[-1] == ':' and not mnemonic:
                 continue
@@ -1999,14 +2303,15 @@ class Assembler(object):
                     Parser.raise_invalid_statement()
             except AsmError as e:
                 self.console.error(str(e), 2, filename, lino, line)
-            for msg in self.parser.warnings:
-                self.console.warn(msg, 2, filename, lino, line)
-        unused = sorted(self.symbols.get_unused())
-        if unused:
-            self.console.warn('Unused constants: ' + ', '.join(unused), 2)
+            for message, category in self.parser.warnings:
+                self.console.warn(message, 2, filename, lino, line, category=category)  # move warnings
+        for fn, symbols in self.symbols.get_unused_symbols().items():
+            symbols_text = ', '.join(symbols)
+            self.console.warn('Unused constants: ' + (symbols_text if self.strict else symbols_text.lower()),
+                              pass_no=2, filename=fn, category=Warnings.UNUSED_SYMBOLS)
 
     def process_label(self, label, real_LC=False, tracked=False):
-        """only in pass 1"""
+        """no new symbols in pass 2"""
         pass
 
     def org(self, base, bank=None, reloc=False, dummy=False, xorg=False, root=False):
@@ -2056,16 +2361,12 @@ class Assembler(object):
 
     def emit(self, *words, cycles=0):
         """generate machine code"""
-        for word in words:
+        if not words:
+            return
+        self.word(words[0], cycles)  # opcode with timing information
+        for word in words[1:]:
             if word is not None:
                 self.word(word)
-        # self.word(opcode, cycles)  TODO
-        # if mode is not None:
-        #     self.word(mode)
-        # if saddr is not None:
-        #     self.word(saddr)
-        # if daddr is not None:
-        #     self.word(daddr)
 
     def auto_constants(self):
         """create code stanza for auto-constants"""
@@ -2098,6 +2399,10 @@ class Assembler(object):
         """complete code generation"""
         if self.segment:
             self.segment.close(self.symbols.LC)
+
+    def demux_reset(self):
+        """reset operand demuxed state"""
+        self.demux = {'S': True, 'D': True}  # memory demuxed for operands?
 
 
 class Records:
@@ -2170,26 +2475,32 @@ class Records:
         return b''.join(lines)
 
 
-class Optimizer(object):
-    """object code analysis and optimization (currently only checks)"""
+class Optimizer:
+    """object code analysis and optimization, currently checks only (in both passes)"""
 
     def __init__(self, console):
         self.console = console
 
     @staticmethod
     def process(asm, mnemonic, opcode, fmt, arg1, arg2):
-        if mnemonic == 'B':
-            if (arg1[0] == 0b10 and arg1[1] == 0 and isinstance(arg1[2], int) and
-                    -128 <= (arg1[2] - (asm.symbols.effective_LC() + 2)) // 2 <= 128):
+        if asm.symbols.pass_no == 2 and mnemonic == 'B':  # need forward symbols for branch optimization
+            t, index, *_ = arg1
+            if not (t == 0b10 and index == 0):  # @symbol, no index
+                return
+            addr = Util.val(arg1[2])  # branch address
+            # since branches cannot cross bank boundaries, no cross-bank check is necessary
+            if not isinstance(addr, int):
+                return
+            if -128 <= (addr - asm.symbols.effective_LC() - 2) // 2 <= 128:
                 # upper bound is 128 instead of 127, since replacing B by JMP
                 # would also eliminate one word (the target of B)
-                asm.parser.warn('Possible branch/jump optimization')
+                asm.parser.warn('Possible branch/jump optimization', category=Warnings.OPTIMIZATIONS, force=True)
 
 
-class Linker(object):
+class Linker:
     """Object code and binary handling"""
 
-    def __init__(self, program, base=0, warnings=True, resolve_conflicts=False, colors=False):
+    def __init__(self, program, base=0, warnings=None, resolve_conflicts=False, colors=False):
         self.program = program
         self.reloc_base = base
         self.console = Console(warnings, colors=colors)
@@ -2770,20 +3081,22 @@ class Linker(object):
 
 # Console and Listing
 
-class Console(object):
-    """collects warnings"""
+class Console:
+    """collects errors and warnings"""
 
-    def __init__(self, enable_warnings=True, colors=None):
+    def __init__(self, warnings=None, colors=None):
         self.console = []
         self.filename = None
-        self.enabled = enable_warnings
+        self.enabled_warnings = warnings or Warnings()
         self.errors = False
         self.entries = False
-        self.colors = ((platform.system() in ('Linux', 'Darwin')) if colors is None else  # no auto color on Windows
-                       (colors == 'on'))
+        if colors is None:
+            self.colors = platform.system() in ('Linux', 'Darwin')  # no auto color on Windows
+        else:
+            self.colors = colors == 'on'
 
-    def warn(self, message, pass_no=None, filename=None, lino=None, line=None):
-        if self.enabled and pass_no != 1:
+    def warn(self, message, pass_no=None, filename=None, lino=None, line=None, category=Warnings.ALL):
+        if self.enabled_warnings[category]:
             self.console.append(('W', message, pass_no, filename, lino, line))
             self.entries = True
 
@@ -2812,16 +3125,15 @@ class Console(object):
             s_lino = f'{lino:04d}' if lino is not None else '****'
             s_line = line or ''
             sys.stderr.write(f'> {s_filename} <{s_pass}> {s_lino} - {s_line}\n' +
-                             self.color(severity) + f'***** {text:s}: {message}\n' + self.color(0))
+                             self.color(severity) + f'***** {text:s}: {message}' + self.color(0) + '\n')
         error_count = sum(1 for kind, *_ in self.console if kind == 'E')
-        sys.stderr.write(self.color(0))
         if error_count == 1:
             sys.stderr.write('1 Error found.\n')
         elif error_count > 1:
             sys.stderr.write(f'{error_count} Errors found.\n')
 
 
-class Listing(object):
+class Listing:
     """listing file"""
 
     def __init__(self, timing=True):
@@ -2910,7 +3222,7 @@ class Listing(object):
         return 'XAS99 CROSS-ASSEMBLER   VERSION ' + VERSION + '\n' + '\n'.join(listing) + '\n'
 
 
-class Line(object):
+class Line:
     """source code line"""
 
     def __init__(self, lino=None, line=None, text1=None, text2=None, timing=None):
@@ -2949,10 +3261,12 @@ def main():
                       help='add TMS9995-specific instructions')
     args.add_argument('-18', '--f18a', action='store_true', dest='use_f18a',
                       help='add F18A-specific instructions')
-    args.add_argument('-105', '--99000', action='store_true', dest='use_99000',
+    args.add_argument('-105', '--99105', action='store_true', dest='use_99000',
                       help='add TMS99000-specific instructions')
     args.add_argument('-s', '--strict', action='store_true', dest='strict',
                       help='strict TI mode; disable xas99 extensions')
+    args.add_argument('-r', '--relaxed', action='store_true', dest='relaxed',
+                      help='relaxed syntax mode with extra whitespace and explicit comments')
     args.add_argument('-n', '--name', dest='name', metavar='<name>',
                       help='set program name, e.g., for cartridge')
     args.add_argument('-R', '--register-symbols', action='store_true', dest='r_prefix',
@@ -2971,6 +3285,12 @@ def main():
                       help='enable cross-bank checks for banked programs')
     args.add_argument('-q', action='store_true', dest='quiet',
                       help='quiet, do not print warnings')
+    args.add_argument('--quiet-opts', action='store_true', dest='quiet_opt',
+                      help='quiet, do not print optimization warnings')
+    args.add_argument('--quiet-unused-syms', action='store_true', dest='quiet_use',
+                      help='quiet, do not print unused symbols warnings')
+    args.add_argument('--quiet-usage', action='store_true', dest='quiet_ops',
+                      help='quiet, do not print potential incorrect usage of arguments warnings')
     args.add_argument('-a', '--base', dest='base', metavar='<addr>',
                       help='set base address for relocatable code')
     args.add_argument('-I', '--include', dest='inclpath', metavar='<paths>',
@@ -2982,7 +3302,11 @@ def main():
                       help='enable or disable color output')
     args.add_argument('-o', '--output', dest='output', metavar='<file>',
                       help='set output file name or target directory')
-    opts = args.parse_args()
+    try:
+        default_opts = os.environ[CONFIG].split()
+    except KeyError:
+        default_opts = []
+    opts = args.parse_args(args=default_opts + sys.argv[1:])  # passed opts override default opts
 
     if not (opts.sources or opts.linker or opts.linker_resolve):
         args.error('One of <source> or -l/-ll is required.')
@@ -2996,6 +3320,9 @@ def main():
               'bin' if opts.bin else
               'xb' if opts.embed else
               'obj')
+    foreign_architecture = opts.use_9995 or opts.use_f18a or opts.use_99000
+    warnings = Warnings(all=opts.quiet, optimizations=opts.quiet_opt, bad_usage=opts.quiet_ops,
+                        unused_symbols=opts.quiet_use)
 
     # assembly step
     program = Program(target=target, definitions=opts.defs)
@@ -3003,16 +3330,16 @@ def main():
         root = os.path.dirname(os.path.realpath(__file__))  # installation dir (path to xas99)
         includes = [os.path.join(root, 'lib')] + (opts.inclpath.split(',') if opts.inclpath else [])
         opcodes = Opcodes(use_9995=opts.use_9995, use_f18a=opts.use_f18a, use_99000=opts.use_99000)
-        asm = Assembler(program, opcodes, includes=includes, r_prefix=opts.r_prefix, strict=opts.strict,
-                        warnings=not opts.quiet, timing=not opts.use_9995, bank_cross_check=opts.x_checks,
-                        colors=opts.color)
+        asm = Assembler(program, opcodes, includes=includes, warnings=warnings, r_prefix=opts.r_prefix,
+                        strict=opts.strict, relaxed=opts.relaxed, timing=not foreign_architecture,
+                        bank_cross_check=opts.x_checks, colors=opts.color)
         for source in opts.sources:
             dirname = os.path.dirname(source) or '.'
             basename = os.path.basename(source)
             try:
                 asm.assemble(dirname, basename)
             except IOError as e:
-                sys.exit('File error: {}: {}.'.format(e.filename_text, e.strerror))
+                sys.exit('File error: {}: {}.'.format(e.get_filename, e.strerror))
             except AsmError as e:
                 sys.exit('Error: {}.'.format(e))
             if asm.console.entries:
@@ -3031,7 +3358,7 @@ def main():
             0xa000 if opts.image else
             0x6030 if opts.cart else
             0)
-    linker = Linker(program, base=base, warnings=not opts.quiet, resolve_conflicts=opts.linker_resolve,
+    linker = Linker(program, base=base, warnings=warnings, resolve_conflicts=opts.linker_resolve,
                     colors=opts.color)
     try:
         if opts.linker or opts.linker_resolve:
@@ -3106,7 +3433,7 @@ def main():
     except AsmError as e:
         sys.exit(f'Error: {str(e):s}.')
     except IOError as e:
-        sys.exit('File error: {:s}: {:s}.'.format(e.filename_text, e.strerror))
+        sys.exit('File error: {:s}: {:s}.'.format(e.get_filename, e.strerror))
 
     # return status
     return 1 if errors else 0

@@ -2,6 +2,18 @@ import os.path
 import platform
 
 
+# Definitions
+
+XAS99_CONFIG = 'XAS99_CONFIG'
+XGA99_CONFIG = 'XGA99_CONFIG'
+XBAS99_CONFIG = 'XBAS99_CONFIG'
+XDA99_CONFIG = 'XDA99_CONFIG'
+XDG99_CONFIG = 'XDG99_CONFIG'
+XDM99_CONFIG = 'XDM99_CONFIG'
+XHM99_CONFIG = 'XHM99_CONFIG'
+XVM99_CONFIG = 'XVM99_CONFIG'
+
+
 # Executables
 
 if platform.system() == 'Windows':
@@ -101,3 +113,4 @@ class Masks:
     # mask extended header, dates, and unsed blocks in FIAD files
     TIFile = [(0x1b, 0x80)]
     v9t9 = [(0x14, 0x1000000)]
+    v9t9_all = [(0x14, 0x80)]

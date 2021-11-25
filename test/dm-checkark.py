@@ -4,8 +4,8 @@ import sys
 sys.path.append('..')  # what an ugly kludge, just to import xdm99 here ...
 
 from xdm99 import Archive, BitStream
-from config import Dirs, Disks, Files
-from utils import xdm, error
+from config import Dirs, Disks, Files, XDM99_CONFIG
+from utils import xdm, error, clear_env, delfile
 
 
 # Check functions
@@ -15,7 +15,9 @@ from utils import xdm, error
 
 def runtest():
     """check handling of ARK archives"""
-    
+
+    clear_env(XDM99_CONFIG)
+
     # bitstreams
     bs = BitStream(b'\xab\xcd\xef', 3)
     bits = [b for b in bs]
@@ -33,8 +35,7 @@ def runtest():
         error('bitstream', 'Bad bitstream bits (width 1)')
 
     # remove temporary files
-    # os.remove(Files.output)
-    # os.remove(Files.reference)
+    delfile(Dirs.tmp)
 
 
 if __name__ == '__main__':

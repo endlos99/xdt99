@@ -4,8 +4,8 @@ import os
 import re
 import glob
 
-from config import Dirs, Files
-from utils import (xda, xas, error, check_indent, count_mnemonics, check_source, check_origins,
+from config import Dirs, Files, XDA99_CONFIG
+from utils import (xda, xas, error, clear_env, delfile, check_indent, count_mnemonics, check_source, check_origins,
                    check_binary_files_eq, check_ellipsis)
 
 
@@ -50,6 +50,8 @@ def count_datas(fn):
 
 def runtest():
     """check cross-generated output against native reference files"""
+
+    clear_env(XDA99_CONFIG)
 
     # source and symbol EQU file
     source = os.path.join(Dirs.sources, 'dasource.asm')
@@ -174,12 +176,7 @@ def runtest():
     # no condensed output when disassembling as program (-p)
 
     # Cleanup
-    os.remove(Files.input)
-    os.remove(Files.symbols)
-    for f in glob.glob(Files.output + '*'):
-        os.remove(f)
-    for f in glob.glob(Files.reference + '*'):
-        os.remove(f)
+    delfile(Dirs.tmp)
 
 
 if __name__ == '__main__':

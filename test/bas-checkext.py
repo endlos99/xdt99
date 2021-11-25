@@ -2,8 +2,8 @@
 
 import os
 
-from config import Files, Dirs
-from utils import xbas, error, check_binary_files_eq
+from config import Files, Dirs, XBAS99_CONFIG
+from utils import xbas, error, delfile, check_binary_files_eq
 
 
 # Check functions
@@ -29,12 +29,14 @@ def check_unused_labels(errfile):
 def runtest():
     """check extensions to BASIC editor"""
 
+    os.environ[XBAS99_CONFIG] = '--color off'
+
     # labels
     for name in ('baslab1', 'baslab2', 'baslab3'):
         source = os.path.join(Dirs.basic, name + '.bas')
         ref = os.path.join(Dirs.basic, name + 'n.bas')
-        xbas(source, '-l', '-c', '-o', Files.output)
-        xbas(ref, '-c', '-o', Files.reference)
+        xbas(source, '-l', '-c', '-q', '-o', Files.output)
+        xbas(ref, '-c', '-q', '-o', Files.reference)
         check_binary_files_eq('labels', Files.output, Files.reference)
 
     source = os.path.join(Dirs.basic, 'niml.bas')
@@ -46,13 +48,12 @@ def runtest():
     # bad labels
     source = os.path.join(Dirs.basic, 'baslaberr.bas')
     with open(Files.error, 'w') as ferr:
-        xbas(source, '-c', '-l', '-o', Files.output, rc=1, stderr=ferr)
+        xbas(source, '-c', '-l', '--color', 'off', '-o', Files.output, stderr=ferr, rc=1)
     check_errors(Files.error)
     check_unused_labels(Files.error)
 
     # cleanup
-    os.remove(Files.output)
-    os.remove(Files.reference)
+    delfile(Dirs.tmp)
 
 
 if __name__ == '__main__':

@@ -116,6 +116,24 @@ def error(tid, msg):
     sys.exit('ERROR: ' + tid + ': ' + msg)
 
 
+def clear_env(var):
+    """clear specific config from environment"""
+    try:
+        del os.environ[var]
+    except KeyError:
+        pass
+
+
+def delfile(*filenames):
+    """delete files or directories, if exist"""
+    for filename in filenames:
+        if os.path.isfile(filename):
+            os.remove(filename)
+        elif os.path.isdir(filename):
+            for filename_ in os.listdir(filename):
+                os.remove(os.path.join(filename, filename_))
+
+
 # Common check functions
 
 def content(fn, mode='rb'):
@@ -132,9 +150,19 @@ def content_lines(fn):
     return lines
 
 
+def content_line_array(fn):
+    """return lines of file"""
+    with open(fn, 'r') as f:
+        lines = f.readlines()
+    return lines
+
+
 def content_len(fn):
     """return length of file"""
-    return os.path.getsize(fn)
+    try:
+        return os.path.getsize(fn)
+    except FileNotFoundError:
+        return -1
 
 
 def check_file_exists(fn):

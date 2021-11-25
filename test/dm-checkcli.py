@@ -4,8 +4,8 @@ import os
 import shutil
 import re
 
-from config import Dirs, Disks, Files, Masks
-from utils import xdm, error, check_files_eq, check_file_matches, check_file_exists
+from config import Dirs, Disks, Files, Masks, XDM99_CONFIG
+from utils import xdm, error, clear_env, delfile, check_files_eq, check_file_matches, check_file_exists
 
 
 # Check functions
@@ -52,6 +52,8 @@ def check_lines_start(reffile, starts, skip=0):
 
 def runtest():
     """check command line interface"""
+
+    os.environ[XDM99_CONFIG] = '--color off'
 
     # setup
     shutil.copyfile(Disks.recsgen, Disks.work)
@@ -107,7 +109,7 @@ def runtest():
     shutil.copyfile(Disks.recsgen, Disks.work)
     xdm(Disks.work, '-e', 'DF127*', 'PROG00001', 'PROG00002')
     if (not os.path.isfile('df127x001') or not os.path.isfile('df127x010') or
-        not os.path.isfile('df127x020p')):
+            not os.path.isfile('df127x020p')):
         error('CLI', 'DF127*: Missing files')
 
     xdm(Disks.work, '-d', 'PROG*', 'D?010X060')
@@ -125,8 +127,8 @@ def runtest():
     xdm(Disks.work, '-e', 'MULTK', '-o', Files.output)
     check_files_eq('CLI', 'prog00002', Files.output, 'P')
 
-    xdm('-T', 'prog00001', ref_prog, 'prog00002', '-n', 'MULTFI')  # -n applies to internal names!
-    xdm(Disks.work, '-t', '-a', 'prog00001.tfi', ref_prog + '.tfi', 'prog00002.tfi')
+    xdm('-T', 'prog00001', ref_prog, 'prog00002', '-n', 'MULTFI')  # -n applies to internal name and filename!
+    xdm(Disks.work, '-t', '-a', 'multfi.tfi', 'multfj.tfi', 'multfk.tfi')
     xdm(Disks.work, '-e', 'MULTFI', '-o', Files.output)
     check_files_eq('CLI', 'prog00001', Files.output, 'P')
     xdm(Disks.work, '-e', 'MULTFJ', '-o', Files.output)
@@ -135,7 +137,7 @@ def runtest():
     check_files_eq('CLI', 'prog00002', Files.output, 'P')
 
     xdm('-T', ref_prog, 'prog00002', '-9', '-n', 'MULV9T')
-    xdm(Disks.work, '-9', '-a', ref_prog + '.v9t9', 'prog00002.v9t9')
+    xdm(Disks.work, '-9', '-a', 'mulv9t.v9t9', 'mulv9u.v9t9')
     xdm(Disks.work, '-e', 'MULV9T', '-o', Files.output)
     check_files_eq('CLI', ref_prog, Files.output, 'P')
     xdm(Disks.work, '-e', 'MULV9U', '-o', Files.output)
@@ -161,15 +163,15 @@ def runtest():
     xdm(Disks.work, '--initialize', 'SSSD', '-n', 'SSSD')
     check_file_size(Disks.work, 360 * 256)
     check_files_eq('CLI', Disks.work, Disks.blank, 'P')
-    xdm(Disks.work, '--initialize', '800', '-n', 'INIT')
+    xdm(Disks.work, '--initialize', '800', '-n', 'INIT', '-q')
     with open(Files.output, 'w') as f:
         xdm(Disks.work, '-i', '-q', stdout=f)
-    check_file_matches(Files.output, [(0, '\s2\s+used\s+798\s+free\s')])
+    check_file_matches(Files.output, [(0, r'\s2\s+used\s+798\s+free\s')])
     os.remove(Disks.work)
     xdm(Disks.work, '--initialize', 'CF', '-n', 'INIT', '-q')
     with open(Files.output, 'w') as f:
         xdm(Disks.work, '-i', '-q', stdout=f)
-    check_file_matches(Files.output, [(0, '\s2\s+used\s+1598\s+free\s')])
+    check_file_matches(Files.output, [(0, r'\s2\s+used\s+1598\s+free\s')])
     with open(Files.error, 'w') as ferr:
         xdm(Disks.work, '--initialize', '1', stderr=ferr, rc=1)
         xdm(Disks.work, '--initialize', '1601', stderr=ferr, rc=1)
@@ -179,14 +181,14 @@ def runtest():
         xdm(Disks.work, '--initialize', 'SSSD', '-a', f, '-n', n)
         with open(Files.output, 'w') as fout:
             xdm(Disks.work, '-i', stdout=fout)
-        check_file_matches(Files.output, [(0, n + '\s+'), (2, n + '\s+')])
+        check_file_matches(Files.output, [(0, n + r'\s+'), (2, n + r'\s+')])
 
     # set geometry
-    xdm(Disks.work, '--initialize', '1600', '-n', 'GEO')
-    for g, p in [('1S1D', '1S/1D\s+40T'), ('99T8D7S', '7S/8D\s+99T'),
-                 ('22TDD', '7S/2D\s+22T'), ('DSSD', '2S/1D\s+22T'),
-                 ('1T', '2S/1D\s+1T'), ('3D10T9S', '9S/3D\s+10T'),
-                 ('SDDS', '2S/1D\s+10T'), ('SS', '1S/1D\s+10T')]:
+    xdm(Disks.work, '--initialize', '1600', '-n', 'GEO', '-q')
+    for g, p in [('1S1D', r'1S/1D\s+40T'), ('99T8D7S', r'7S/8D\s+99T'),
+                 ('22TDD', r'7S/2D\s+22T'), ('DSSD', r'2S/1D\s+22T'),
+                 ('1T', r'2S/1D\s+1T'), ('3D10T9S', r'9S/3D\s+10T'),
+                 ('SDDS', r'2S/1D\s+10T'), ('SS', r'1S/1D\s+10T')]:
         xdm(Disks.work, '--set-geometry', g, '-q')
         with open(Files.output, 'w') as fout:
             xdm(Disks.work, '-i', '-q', stdout=fout)
@@ -208,14 +210,14 @@ def runtest():
     for c, g, p in [
             ('--initialize', 'SSSD', r'358 free\s+90 KB\s+1S/1D\s+40T'),
             ('--resize', 'DS1D', r'718 free\s+180 KB\s+2S/1D\s+40T'),
-            ('--set-geometry', '80T', r'718 free\s+180 KB\s+2S/1D\s+80T'), # geom mismatch
+            ('--set-geometry', '80T', r'718 free\s+180 KB\s+2S/1D\s+80T'),  # geom mismatch
             ('--initialize', '408', r'406 free\s+102 KB\s+2S/1D\s+40T'),
             ('--resize', 'DSSD80T', r'1438 free\s+360 KB\s+2S/1D\s+80T'),
             ('--resize', '2DSS', r'718 free\s+180 KB\s+1S/2D\s+40T'),
             ('-Z', '208', r'206 free\s+52 KB\s+1S/2D\s+40T'),
             ('--set-geometry', 'SD80T', r'206 free\s+52 KB\s+1S/1D\s+80T'),
             ('-X', 'DSSD80T', r'1438 free\s+360 KB\s+2S/1D\s+80T'),
-            ('--set-geometry', '20T', r'1438 free\s+360 KB\s+2S/1D\s+20T')]: # geom mismatch
+            ('--set-geometry', '20T', r'1438 free\s+360 KB\s+2S/1D\s+20T')]:  # geom mismatch
         xdm(Disks.work, c, g, '-q')
         with open(Files.output, 'w') as fout:
             xdm(Disks.work, '-i', '-q', stdout=fout)
@@ -389,7 +391,7 @@ def runtest():
     with open(Files.reference, 'rb') as fin:
         xdm('-', '-e', 'T', '-o', Files.output, stdin=fin)
     check_files_eq('stdin/stdout', Files.output, ref, 'P')
-        
+
     # usage errors
     with open(Files.error, 'w') as ferr:
         xdm('-a', Files.output, stderr=ferr, rc=2)
@@ -399,18 +401,24 @@ def runtest():
             stderr=ferr, rc=1)
         xdm('-F', '-o', Files.output, stderr=ferr, rc=2)
 
+    # default options
+    disk = os.path.join(Dirs.disks, 'basic1.dsk')
+    os.environ[XDM99_CONFIG] = '-e NONEXIST ' + os.environ[XDM99_CONFIG]
+    with open(Files.error, 'w') as ferr:
+        xdm(disk, '-o', Files.output, stderr=ferr, rc=1)
+
+    delfile(Files.output)
+    delfile(Files.error)
+    xdm(disk, '-e', 'NUMBERS-L', '-o', Files.output, rc=0)
+
     # cleanup
-    os.remove(Files.output)
-    os.remove(Files.reference)
-    os.remove(Files.error)
-    os.remove(Disks.work)
-    os.remove(Disks.tifiles)
+    delfile(Dirs.tmp)
     for fn in [
-        'prog00001', 'prog00002', 'df127x001', 'df127x010', 'df127x020p', 'prog00001.tfi', 'prog00002.tfi',
-        'prog00255.tfi', 'dv064x010.tfi', 'prog00002.v9t9', 'prog00255.v9t9', 'dv064x010.v9t9', 'F16', 'V16',
-        'f16.tfi', 'v16.tfi', 'F1', 'f1.v9t9', 'V1'
+        'prog00001', 'prog00002', 'df127x001', 'df127x010', 'df127x020p', 'dv064x010.tfi', 'dv064x010',
+        'prog00255', 'prog00255.tfi', 'prog00255.v9t9', 'dv064x010.v9t9', 'F16', 'V16', 'multfi.tfi', 'multfj.tfi',
+        'multfk.tfi', 'mulv9t.v9t9', 'mulv9u.v9t9', 'f16.tfi', 'v16.tfi', 'F1', 'f1.v9t9', 'V1'
     ]:
-        os.remove(fn)
+        delfile(fn)
 
 
 if __name__ == '__main__':

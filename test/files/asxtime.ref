@@ -1,0 +1,66 @@
+    * part 1
+18        lwpi >8300
+22        limi 0
+18        mov  r1, r2
+46        movb @s, *r1
+54        a    @s, @2(r2)
+48        ab   *r1+, @s
+48        szcb @2(r1), *r2+
+38        c    *r1, *r2+
+70        mpy  *r1+, r2
+144       div  @s, r2
+34        seto @s
+14        clr  r1
+30        swpb *r1+
+34        inv  @2(r1)
+30        abs  *r1
+14        jne  $
+12        b    r1
+32        bl   @2(r1)
+46        blwp *r1+
+18        rtwp
+16        tb   1
+16        sbz  0
+40        ldcr r1, 8
+72        ldcr @2(r1), 0
+48        stcr r2, 8
+84        stcr @s, 0
+78        stcr *r2+, 15
+22        andi r1, 0
+22        ci   r1, 0
+20        li   r1, 0
+22        sla  r1, 3
+56        src  r1, 0
+    * part 2
+18        lwpi >2000
+14        limi 0
+26        mov  r1, r2
+38        movb @y, *r1
+42        a    @y, @2(r2)
+40        ab   *r1+, @y
+52        szcb @2(r1), *r2+
+46        c    *r1, *r2+
+86        mpy  *r1+, r2
+148       div  @y, r2
+18        seto @y
+18        clr  r1
+34        swpb *r1+
+30        inv  @2(r1)
+30        abs  *r1
+10        jne  $
+12        b    r1
+32        bl   @2(r1)
+62        blwp *r1+
+26        rtwp
+16        tb   1
+16        sbz  0
+44        ldcr r1, 8
+72        ldcr @2(r1), 0
+56        stcr r2, 8
+72        stcr @y, 0
+86        stcr *r2+, 15
+22        andi r1, 0
+18        ci   r1, 0
+16        li   r1, 0
+26        sla  r1, 3
+72        src  r1, 0

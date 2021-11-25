@@ -5,8 +5,8 @@ import shutil
 import re
 import gzip
 
-from config import Dirs, Disks, Files
-from utils import xhm, xdm, error, check_files_eq
+from config import Dirs, Disks, Files, XHM99_CONFIG
+from utils import xhm, xdm, error, clear_env, delfile, check_files_eq, check_bin_text_eq, content_len
 
 
 # Check functions
@@ -27,6 +27,8 @@ def check_file_contains(infile, pattern):
 
 def runtest():
     """check command line interface"""
+
+    clear_env(XHM99_CONFIG)
 
     # conversion HFE <-> disk pseudo-disks
     for n in ['rsssd', 'rdssd', 'rssdd', 'rdsdd', 'rsssd80t', 'rdssd80t', 'tiit80t']:
@@ -55,15 +57,15 @@ def runtest():
     check_files_eq('HFE', Files.output, ref, 'DV')
     with open(Files.output, 'wb') as fout:
         xhm(Disks.work, '-p', 'TESTFILE', stdout=fout)
-    check_files_eq('HFE', Files.output, ref, 'DV')
+    check_bin_text_eq('HFE', Files.output, ref)
 
     ref = os.path.join(Dirs.refs, 'V10R.tfi')
-    shutil.copyfile(ref, Files.reference)    
+    shutil.copyfile(ref, Files.reference)
     xhm(Disks.work, '-a', Files.reference, '-t')
     xhm(Disks.work, '-e', 'V10R', '-o', Files.output)
     xhm('-o', Files.output, Disks.work, '-e', 'V10R')
     ref = os.path.join(Dirs.refs, 'v10r.txt')
-    check_files_eq('HFE', Files.output, ref, 'DV')
+    check_bin_text_eq('HFE', Files.output, ref)
 
     # image resize
     with open(Files.output, 'w') as fout:
@@ -92,22 +94,35 @@ def runtest():
 
     # messy stuff
     xdm(Disks.work, '-X', 'sssd')
-    xdm(Disks.work, '--set-geometry', 'dssd')  # image too short now!
+    xdm(Disks.work, '-q', '--set-geometry', 'dssd')  # image too short now!
     xhm('-T', Disks.work, '-o', Files.input)
     with open(Files.output, 'w') as fout:
         xhm('--hfe-info', Files.input, stdout=fout)
     check_file_contains(Files.output, r'Tracks: 40')
     check_file_contains(Files.output, r'Sides: 2')  # DS
     check_file_contains(Files.output, r'Encoding: 2')  # SD
-    with open(Files.error, 'w') as ferr:  # quelch error msg
+    with open(Files.error, 'w') as ferr:  # suppress error msg
         xhm(Files.input, stderr=ferr, rc=1)  # invalid track count
 
+    # default options
+    source = os.path.join(Dirs.disks, 'recsdis.dsk')
+    shutil.copyfile(source, Files.input)
+    os.environ[XHM99_CONFIG] = '-T non-existing-file'
+    with open(Files.error, 'w') as ferr:
+        xhm('-F', Files.input, '-o', Files.output, stderr=ferr, rc=2)  # system error
+
+    delfile(Files.output)
+    delfile(Files.error)
+    source = os.path.join(Dirs.hfe, 'hfedisk_dsk.hfe.gz')
+    with gzip.open(source, 'rb') as fin, open(Files.input, 'wb') as fout:
+        fout.write(fin.read())
+    os.environ[XHM99_CONFIG] = '-o ' + Files.error
+    xhm(Files.input, '-e', 'HFEFILE', '-o', Files.output)
+    if content_len(Files.error) > 0 or content_len(Files.output) <= 0:
+        error('defaults', 'default options override not working')
+
     # cleanup
-    os.remove(Files.input)
-    os.remove(Files.output)
-    os.remove(Files.reference)
-    os.remove(Files.error)
-    os.remove(Disks.work)
+    delfile(Dirs.tmp)
 
 
 if __name__ == '__main__':

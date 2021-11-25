@@ -2,9 +2,8 @@
 
 import os
 
-from config import Dirs, Disks, Files
-from utils import (xas, xdm, error, check_files_eq, check_obj_code_eq, check_image_files_eq, read_stderr,
-                   get_source_markers, check_binary_files_eq, check_errors, content_len, check_file_empty)
+from config import Dirs, Disks, Files, XAS99_CONFIG
+from utils import xas, xdm, error, clear_env, delfile, check_obj_code_eq, check_binary_files_eq, check_file_empty
 
 
 # Main test
@@ -14,6 +13,8 @@ def runtest():
        NOTE: Programs commented out contain multiple xORGs, so the relocation of segments
              will lead to different object codes.
     """
+
+    clear_env(XAS99_CONFIG)
 
     for inp_file, opts, ref_file, compr_file, relaxed_check in [
             ('asdirs.asm', [], 'ASDIRS-O', 'ASDIRS-C', False),
@@ -236,14 +237,9 @@ def runtest():
     check_file_empty(Files.error)
 
     # cleanup
-    os.remove(Files.input)
-    os.remove(Files.input + 'a')
-    os.remove(Files.input + 'b')
-    os.remove(Files.input + 'c')
-    os.remove(Files.output)
-    os.remove(Files.reference)
-    os.remove(objname)
-    os.remove('a.obj')
+    delfile(Dirs.tmp)
+    delfile(objname)
+    delfile('a.obj')
 
 
 if __name__ == '__main__':

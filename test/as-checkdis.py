@@ -3,8 +3,8 @@
 import os
 import gzip
 
-from config import Dirs, Files
-from utils import xas, error
+from config import Dirs, Files, XAS99_CONFIG
+from utils import xas, error, clear_env, delfile
 
 
 # Setup
@@ -55,6 +55,8 @@ def check_image_files_eq(name, orig_path, image_paths):
 def runtest():
     """check cross-generated images files from disassembled data blobs"""
 
+    clear_env(XAS99_CONFIG)
+
     # disassembled image files
     for n in [
             'IMGRAND00', 'IMGRAND01', 'IMGRAND02', 'IMGRAND03',
@@ -79,14 +81,7 @@ def runtest():
         check_image_files_eq(n, os.path.join(Dirs.sources, 'dis', n + '.img'), Files.outputff)
 
     # cleanup
-    os.remove(Files.input)
-    os.remove(Files.output)
-    for fn in Files.outputff:
-        try:
-            os.remove(fn)
-        except OSError:
-            pass
-
+    delfile(Dirs.tmp)
 
 if __name__ == '__main__':
     runtest()

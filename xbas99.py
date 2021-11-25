@@ -22,60 +22,66 @@
 import sys
 import re
 import os.path
+import platform
 
 
-VERSION = '3.0.0'
+VERSION = '3.2.0'
+
+CONFIG = 'XBAS99_CONFIG'
 
 
 # Utility functions
 
-def ordw(word):
-    """word ord"""
-    return (word[0] << 8) | word[1]
+class Util:
 
+    @staticmethod
+    def ordw(word):
+        """word ord"""
+        return (word[0] << 8) | word[1]
 
-def chrw(word):
-    """word chr"""
-    return bytes((word >> 8, word & 0xff))
+    @staticmethod
+    def chrw(word):
+        """word chr"""
+        return bytes((word >> 8, word & 0xff))
 
+    @staticmethod
+    def xint(s):
+        """return hex or decimal value"""
+        return int(s.lstrip('>'), 16 if s[:2] == '0x' or s[:1] == '>' else 10)
 
-def xint(s):
-    """return hex or decimal value"""
-    return int(s.lstrip('>'), 16 if s[:2] == '0x' or s[:1] == '>' else 10)
+    @staticmethod
+    def trunc(i, m):
+        """round integer down to multiple of m"""
+        return i - i % m
 
+    @staticmethod
+    def sinc(s, i):
+        """string sequence increment"""
+        return s[:-1] + chr(ord(s[-1]) + i)
 
-def trunc(i, m):
-    """round integer down to multiple of m"""
-    return i - i % m
-
-
-def sinc(s, i):
-    """string sequence increment"""
-    return s[:-1] + chr(ord(s[-1]) + i)
-
-
-def readdata(filename, lines=False):
-    """read data from file or STDIN (or return supplied data)"""
-    if filename == '-':
-        if lines:
-            return sys.stdin.readlines()
+    @staticmethod
+    def readdata(filename, lines=False):
+        """read data from file or STDIN (or return supplied data)"""
+        if filename == '-':
+            if lines:
+                return sys.stdin.readlines()
+            else:
+                return sys.stdin.buffer.read()
         else:
-            return sys.stdin.buffer.read()
-    else:
-        with open(filename, 'r' if lines else 'rb') as f:
-            return f.readlines() if lines else f.read()
+            with open(filename, 'r' if lines else 'rb') as f:
+                return f.readlines() if lines else f.read()
 
-
-def writedata(filename, data, mode='wb'):
-    """write data to file or STDOUT"""
-    if filename == '-':
-        if 'b' in mode:
-            sys.stdout.buffer.write(data)
+    @staticmethod
+    def writedata(filename, data, mode='wb'):
+        """write data to file or STDOUT"""
+        if filename == '-':
+            if 'b' in mode:
+                sys.stdout.buffer.write(data)
+            else:
+                sys.stdout.write(data)
         else:
-            sys.stdout.write(data)
-    else:
-        with open(filename, mode) as f:
-            f.write(data)
+            with open(filename, mode) as f:
+                f.write(data)
 
 
 # Error handling
@@ -178,7 +184,7 @@ class Tokens:
             lino = 0
         if not 1 <= lino <= 32767:
             raise BasicError(f'Invalid line number: {s}')
-        return bytes((cls.LINO_VAL,)) + chrw(lino)
+        return bytes((cls.LINO_VAL,)) + Util.chrw(lino)
 
     @classmethod
     def literal(cls, tokens):
@@ -192,7 +198,7 @@ class Tokens:
                 lit_value = tokens[1]
                 return tokens[2:2 + lit_value].decode('ascii'), lit_type, lit_value + 2
             elif lit_type == 'ln':
-                return str(ordw(tokens[1:3])), lit_type, 3
+                return str(Util.ordw(tokens[1:3])), lit_type, 3
             else:
                 return lit_type, None, 1  # for all other cases, lit_type == token
         except UnicodeDecodeError:
@@ -206,30 +212,25 @@ class BasicProgram:
     # maximum number of bytes/tokens per BASIC line
     max_tokens_per_line = 254
 
-    def __init__(self, data=None, source=None, long_fmt=False, labels=False):
+    def __init__(self, data=None, source=None, long_fmt=False, labels=False, console=None):
         self.labels = labels
+        self.console = console or Console()
         self.lines = {}
         self.label_lino = {}
         self.text_literals = []
         self.rem_literals = []
-        self.errors = []
         self.curr_lino = 100
         if data is not None:
             # get source from token stream
             try:
                 self.load(data, long_fmt)
             except IndexError:
-                self.error('Cannot read program file')
+                self.console.error('Cannot read program file')
         elif source is not None:
             # get token stream from source
             if labels:
                 source = self.get_labels(source)
             self.parse(source)
-
-    def error(self, text):
-        """add error message"""
-        if text not in self.errors:
-            self.errors.append(text)
 
     # convert program to source
     def load(self, data, long_fmt):
@@ -244,19 +245,19 @@ class BasicProgram:
                 idx += n
             data = b'XX' + data[5:7] + data[3:5] + b'XX' + b''.join(program)
         # extract line number table and token table
-        ptr_tokens = ordw(data[2:4]) + 1
-        ptr_line_numbers = ordw(data[4:6])
+        ptr_tokens = Util.ordw(data[2:4]) + 1
+        ptr_line_numbers = Util.ordw(data[4:6])
         no_lines = (ptr_tokens - ptr_line_numbers) // 4
         line_numbers = data[8:8 + no_lines * 4]
         tokens = data[8 + no_lines * 4:]
         # process line token table
         for i in range(no_lines):
-            lino = ordw(line_numbers[4 * i:4 * i + 2])
-            ptr = ordw(line_numbers[4 * i + 2:4 * i + 4])
+            lino = Util.ordw(line_numbers[4 * i:4 * i + 2])
+            ptr = Util.ordw(line_numbers[4 * i + 2:4 * i + 4])
             j = ptr - 1 - ptr_tokens
             line_len = tokens[j]
             if tokens[j + line_len]:
-                self.error('Missing line termination')
+                self.console.error('Missing line termination')
             self.lines[lino] = tokens[j + 1:j + line_len]
 
     def merge(self, data):
@@ -270,7 +271,7 @@ class BasicProgram:
         """
         idx = 0
         while idx < len(data):
-            lino = ordw(data[idx:idx + 2])
+            lino = Util.ordw(data[idx:idx + 2])
             if lino == 0xffff:
                 break
             mark_idx = idx = idx + 2
@@ -287,12 +288,12 @@ class BasicProgram:
             elif data[idx + 1:idx + 3] == b'\r\n':  # \r must be start of \r\n
                idx += 3
             else:
-                self.error('Missing line termination')
+                self.console.error('Missing line termination')
 
     def get_source(self):
         """return textual representation of token sequence"""
         text = [' ']  # dummy element
-        for lino, tokens  in sorted(self.lines.items()):
+        for lino, tokens in sorted(self.lines.items()):
             text.append(f'{lino:d} ')
             softspace = False
             idx = 0
@@ -359,7 +360,8 @@ class BasicProgram:
                 if lino is not None:  # None for label definitions
                     self.lines[lino] = tokens
             except BasicError as e:
-                self.error(f'[{i + 1:d}] {line}\nError: {str(e):}')
+                self.console.info(f'[{i + 1:d}] {line}')
+                self.console.error(f'Error: {str(e):}')
             self.curr_lino += 10
 
     def line(self, line):
@@ -487,7 +489,7 @@ class BasicProgram:
         if long_fmt:
             size = sum(len(self.lines[i]) for i in self.lines) + 2 * len(self.lines)
             if size < 254:
-                self.error('Program too short, will pad')
+                self.console.error('Program too short, will pad')
                 pad_len = 254 - size
                 program.append((0, 32767, bytes((pad_len - 1, 0x83)) + b'\x21' * (pad_len - 3) + bytes(1)))
                 idx = pad_len
@@ -498,21 +500,21 @@ class BasicProgram:
         token_tab_addr = last_addr - idx
         lino_tab_addr = token_tab_addr - 4 * len(program)
         token_table = b''.join(tokens for p, lino, tokens in program)
-        lino_table = b''.join(chrw(lino) + chrw(token_tab_addr + i + 1) for i, lino, _ in program)
+        lino_table = b''.join(Util.chrw(lino) + Util.chrw(token_tab_addr + i + 1) for i, lino, _ in program)
         checksum = (token_tab_addr - 1) ^ lino_tab_addr
         assert lino_tab_addr + len(lino_table) + len(token_table) == last_addr
         if protected:
             checksum = -checksum % 0x10000
         if long_fmt:
-            header = (b'\xab\xcd' + chrw(lino_tab_addr) + chrw(token_tab_addr - 1) +
-                      chrw(checksum) + chrw(last_addr - 1))
+            header = (b'\xab\xcd' + Util.chrw(lino_tab_addr) + Util.chrw(token_tab_addr - 1) +
+                      Util.chrw(checksum) + Util.chrw(last_addr - 1))
             chunks = [(lino_table + token_table)[i:i + 254]
                       for i in range(0, len(lino_table + token_table), 254)]
             return (bytes((len(header),)) + header +
                     b''.join(bytes((len(c),)) + c for c in chunks))
         else:
-            header = (chrw(checksum) + chrw(token_tab_addr - 1) +
-                      chrw(lino_tab_addr) + chrw(last_addr - 1))
+            header = (Util.chrw(checksum) + Util.chrw(token_tab_addr - 1) +
+                      Util.chrw(lino_tab_addr) + Util.chrw(last_addr - 1))
             return header + lino_table + token_table
 
     def dump_tokens(self):
@@ -531,7 +533,7 @@ class BasicProgram:
                 elif t <= 0x80:
                     result.append(t.decode())
                 elif t == line:
-                    result.append('^' + str(ordw(tokens[idx + 1:idx + 3])))
+                    result.append('^' + str(Util.ordw(tokens[idx + 1:idx + 3])))
                     idx += 2
                 elif t == ssep:
                     result.append('::')
@@ -589,6 +591,42 @@ class BasicProgram:
         return [label for label, (lino, used) in self.label_lino.items() if not used]
 
 
+class Console:
+    """collects errors and warnings"""
+
+    def __init__(self, disable_warnings=False, colors=None):
+        self.enabled_warnings = not disable_warnings
+        self.errors = False
+        if colors is None:
+            self.colors = platform.system() in ('Linux', 'Darwin')  # no auto color on Windows
+        else:
+            self.colors = colors == 'on'
+
+    def info(self, message):
+        """issue plain message"""
+        self.color(message, severity=0)
+
+    def warn(self, message):
+        """issue warning message"""
+        if self.enabled_warnings:
+            self.color(message, severity=1)
+
+    def error(self, message):
+        """issue error message"""
+        self.errors = True
+        self.color(message, severity=2)
+
+    def color(self, message, severity=0):
+        if not self.colors:
+            sys.stderr.write(message + '\n')
+        elif severity == 1:
+            sys.stderr.write('\x1b[33m' + message + '\x1b[0m' + '\n')  # yellow
+        elif severity == 2:
+            sys.stderr.write('\x1b[31m' + message + '\x1b[0m' + '\n')  # red
+        else:
+            sys.stderr.write(message + '\n')
+
+
 # Command line processing
 
 def main():
@@ -618,7 +656,16 @@ def main():
                            '<delta> is max line number delta of consecutive lines')
     args.add_argument('-o', '--output', dest='output', metavar='<file>',
                       help='set output filename or target directory')
-    opts = args.parse_args()
+    args.add_argument('--color', action='store', dest='color', choices=['off', 'on'],
+                      help='enable or disable color output')
+    args.add_argument('-q', action='store_true', dest='quiet',
+                      help='quiet, do not print warnings')
+
+    try:
+        default_opts = os.environ[CONFIG].split()
+    except KeyError:
+        default_opts = []
+    opts = args.parse_args(args=default_opts + sys.argv[1:])  # passed opts override default opts
 
     if (opts.labels or opts.protect or opts.join) and not opts.create:
         args.error('Options --labels, --protect, --join only apply'
@@ -635,6 +682,8 @@ def main():
     else:
         path = ''
 
+    console = Console(opts.quiet, opts.color)
+
     try:
         if opts.print or opts.decode:
             # read program
@@ -644,17 +693,17 @@ def main():
                 with open(opts.source, 'rb') as fin:
                     image = fin.read()
             if opts.merge:
-                program = BasicProgram()
+                program = BasicProgram(console=console)
                 program.merge(image)
             else:
-                program = BasicProgram(data=image, long_fmt=opts.long_)
+                program = BasicProgram(data=image, long_fmt=opts.long_, console=console)
             data = program.get_source()
             name = '-' if opts.print else opts.output or barename + '.b99'
             mode = 'w'
         elif opts.dump:
             with open(opts.source, 'rb') as fin:
                 image = fin.read()
-            program = BasicProgram(data=image)
+            program = BasicProgram(data=image, console=console)
             data = program.dump_tokens()
             name = opts.output or '-'
             mode = 'w'
@@ -662,35 +711,35 @@ def main():
             # create program
             if opts.merge:
                 raise BasicError('Program creation in MERGE format is not supported')
-            lines = [l.rstrip('\n') for l in readdata(opts.source, lines=True)]
+            lines = [line.rstrip('\n') for line in Util.readdata(opts.source, lines=True)]
             if opts.join:
                 try:
                     count, delta = opts.join.split(',')
-                    max_line_delta = xint(count) if count else 3
-                    max_lino_delta = xint(delta) if delta else 10
+                    max_line_delta = Util.xint(count) if count else 3
+                    max_lino_delta = Util.xint(delta) if delta else 10
                     lines = BasicProgram.join(lines, max_line_delta=max_line_delta, max_lino_delta=max_lino_delta)
                 except ValueError:
                     raise BasicError('Invalid join parameter')
-            program = BasicProgram(source=lines, labels=opts.labels)
+            program = BasicProgram(source=lines, labels=opts.labels, console=console)
             data = program.get_image(long_fmt=opts.long_, protected=opts.protect)
             name = opts.output or barename + '.prg'
             mode = 'wb'
 
-        if program and program.errors:
-            sys.stderr.write('\n'.join(program.errors) + '\n')
-        writedata(os.path.join(path, name), data, mode=mode)
+        Util.writedata(os.path.join(path, name), data, mode=mode)
 
         unused_labels = program.get_unused_labels()
         if unused_labels:
-            sys.stderr.write('Warning: Unused labels: {}\n'.format(' '.join(unused_labels)))
+            console.warn('Warning: Unused labels: {}'.format(' '.join(unused_labels)))
 
     except BasicError as e:
-        sys.exit(f'Error: {str(e)}.')
+        console.error('Error: ' + str(e))
+        return 1
     except IOError as e:
-        sys.exit(f'File error: {e.filename:s}: {e.strerror:s}.')
+        console.error(f'File error: {e.filename:s}: {e.strerror:s}')
+        return 1
 
     # return status
-    return 1 if program.errors else 0
+    return 1 if console.errors else 0
 
 
 if __name__ == '__main__':

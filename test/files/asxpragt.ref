@@ -1,0 +1,58 @@
+   * part 1
+18        lwpi >8300
+46        a    *r1, @2(r2)
+42        a    *r1, @2(r2)   ;: s-
+46        a    *r1, @2(r2)
+38        a    *r1, @2(r2)   ;: d-
+46        a    *r1, @2(r2)
+34        a    *r1, @2(r2)   ;: s-d-
+46        a    *r1, @2(r2)
+44        cb   @x, *r1+
+44        cb   @x, *r1+   ;: s-
+40        cb   @x, *r1+   ;: d-
+40        cb   @x, *r1+   ;: s-d-
+18        mov  r1, r2
+18        mov  r1, r2   ;: s-
+18        mov  r1, r2   ;: d-
+18        mov  r1, r2   ;: s-d-
+30        inc  *r1+
+22        inc  *r1+   ;: s-
+30        inc  *r1+   ;: d-
+22        inc  *r1+   ;: s-d-
+34        dec  @x
+34        dec  @x   ;: s-
+34        dec  @x   ;: d-
+34        dec  @x   ;: s-d-
+32        bl   @2(r1)
+28        bl   @2(r1)   ;: s-
+30        blwp r1
+30        blwp r1   ;: s-
+16        tb   0
+16        tb   0   ;: s-
+22        andi r1, 1
+22        andi r1, 1   ;: s-
+22        andi r1, 1   ;: d-
+22        andi r1, 1   ;: s-d-
+18        rtwp
+18        rtwp   ;: s-
+18        rtwp   ;: d-
+18        rtwp   ;: s-d-
+22        sla  r1, 3
+22        sla  r1, 3   ;: s-
+50        ldcr @2(r1), 5
+46        ldcr @2(r1), 5   ;: s-
+78        stcr *r1+, 10
+70        stcr *r1+, 10   ;: s-
+18        mov  r1, r2
+18        mov  r1, r2   ;: s+
+18        mov  r1, r2   ;: d+
+18        mov  r1, r2   ;: s+d+
+   * part 2
+10        lwpi >2000
+46        a    *r1, @2(r2)
+42        a    *r1, @2(r2)   ;: s-
+38        a    *r1, @2(r2)   ;: d-
+34        a    *r1, @2(r2)   ;: s-d-
+46        a    *r1, @2(r2)   ;: s+
+46        a    *r1, @2(r2)   ;: d+
+46        a    *r1, @2(r2)   ;: s+d+

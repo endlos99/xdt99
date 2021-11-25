@@ -3,9 +3,10 @@
 import os
 import glob
 
-from config import Dirs, Disks, Files
-from utils import (xas, xdm, check_obj_code_eq, check_binary_files_eq, read_stderr, check_errors, get_source_markers,
-                   check_dat_file_eq, content, content_lines, content_len, error)
+from config import Dirs, Disks, Files, XAS99_CONFIG
+from utils import (xas, xdm, error, clear_env, delfile, check_obj_code_eq, check_binary_files_eq, read_stderr,
+                   check_errors, get_source_markers, check_dat_file_eq, content, content_lines, content_len,
+                   content_line_array)
 
 
 # Check functions
@@ -85,10 +86,27 @@ def check_symbols(fn, values):
                     error('symbols', f'Value mismatch: {found} != {exp}')
 
 
+def check_timing(list_file, referece):
+    with open(referece, 'r') as f:
+        timings = [int(line[:4]) for line in f.readlines() if line[0] != ' ']
+    i = 0
+    with open(list_file, 'r') as f:
+        for line in f.readlines():
+            try:
+                cycles = int(line[14:18])
+            except ValueError:
+                continue
+            if timings[i] != cycles:
+                error('xtime', f'Incorrect number of cycles for {i}th item')
+            i += 1
+
+
 # Main test
 
 def runtest():
     """check xdt99 extensions"""
+
+    clear_env(XAS99_CONFIG)
 
     # xdt99 extensions
     source = os.path.join(Dirs.sources, 'asxext.asm')
@@ -333,11 +351,52 @@ def runtest():
     ref = os.path.join(Dirs.refs, 'as99000.ref')
     check_binary_files_eq('99000', Files.output, ref)
 
+    # cycle counting
+    source = os.path.join(Dirs.sources, 'asxtime.asm')
+    ref = os.path.join(Dirs.refs, 'asxtime.ref')
+    xas(source, '-R', '-b', '-o', Files.output, '-L', Files.input)
+    check_timing(Files.input, ref)
+
+    # pragmas: cycle timing
+    source = os.path.join(Dirs.sources, 'asxpragt.asm')
+    xas(source, '-R', '-b', '-o', Files.output, '-L', Files.input)
+    ref = os.path.join(Dirs.refs, 'asxpragt.ref')
+    check_timing(Files.input, ref)
+
+    # pragmas: warnings
+    source = os.path.join(Dirs.sources, 'asxpragw.asm')
+    with open(Files.error, 'w') as ferr:
+        xas(source, '-R', '--color', 'off', '-o', Files.output, stderr=ferr, rc=0)
+    expected = """> asxpragw.asm <2> 0005 - start  clr 0            ; WARN
+ ***** Warning: Treating as register, did you intend an @address?
+ > asxpragw.asm <2> 0010 -        b   @start       ;: warn-opts = off, usage=on
+ ***** Warning: Unknown pragma name
+ > asxpragw.asm <2> 0015 -        seto 2           ; WARN  ;: warn-usage=on, warn-opts=on
+ ***** Warning: Treating as register, did you intend an @address?
+"""  # extra spaces for content_lines
+    if content_lines(Files.error) != expected:
+        error('pragmas', 'Incorrect warnings shown')
+
+    with open(Files.error, 'w') as ferr:
+        xas(source, '-R', '--color', 'off', '--quiet-usage', '-o', Files.output, stderr=ferr, rc=0)  # no error
+    expected = """> asxpragw.asm <2> 0010 -        b   @start       ;: warn-opts = off, usage=on
+ ***** Warning: Unknown pragma name
+ > asxpragw.asm <2> 0015 -        seto 2           ; WARN  ;: warn-usage=on, warn-opts=on
+ ***** Warning: Treating as register, did you intend an @address?
+"""
+    if content_lines(Files.error) != expected:
+        error('pragmas', 'Incorrect warnings shown with --quiet-usage')
+
+    # relaxed parsing
+    source = os.path.join(Dirs.sources, 'asxrelax.asm')
+    xas(source, '-R', '-b', '-r', '-o', Files.output, '-L', Files.input)
+    if content(Files.output) != b'\x02\x01\x00\x10\x02\x02\x00\x0a\x00\x04':
+        error('relaxed', 'Incorrect output')
+    if len(content_line_array(Files.input)) != 13:
+        error('relaxed', 'Incorrect listing size')
+
     # cleanup
-    for fn in glob.glob("tmp/outpu*"):
-        os.remove(fn)
-    os.remove(Files.input)
-    os.remove(Files.reference)
+    delfile(Dirs.tmp)
 
 
 if __name__ == '__main__':

@@ -2,14 +2,16 @@
 
 import os
 
-from config import Files, Dirs
-from utils import xbas, check_binary_files_eq, error
+from config import Files, Dirs, XBAS99_CONFIG
+from utils import xbas, check_binary_files_eq, error, clear_env, delfile, content_len
 
 
 # Main test
 
 def runtest():
     """check xbas99 CLI"""
+
+    clear_env(XBAS99_CONFIG)
 
     # -o
     source = os.path.join(Dirs.basic, 'bashello.bas')
@@ -41,9 +43,20 @@ def runtest():
     program = os.path.join(Dirs.basic, 'sample-l.bin')
     xbas(program, '-d', '-L', '-o', Files.output, rc=0)  # useless. but OK
 
+    # default options
+    source = os.path.join(Dirs.basic, 'bashello.bas')
+    os.environ[XBAS99_CONFIG] = '-c'
+    xbas(source, '-o', Files.output, rc=0)
+
+    delfile(Files.output)
+    delfile(Files.error)
+    os.environ[XBAS99_CONFIG] = '-o ' + Files.error
+    xbas(source, '-c', '-o', Files.output)
+    if content_len(Files.error) > 0 or content_len(Files.output) <= 0:
+        error('defaults', 'default options override not working')
+
     # cleanup
-    os.remove(Files.output)
-    os.remove(Files.error)
+    delfile(Dirs.tmp)
 
 
 if __name__ == '__main__':

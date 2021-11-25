@@ -3,14 +3,36 @@
 import os
 import re
 
-from config import Dirs, Disks, Files
-from utils import xas, xdm, error, read_stderr, get_source_markers, check_errors, content, content_len
+from config import Dirs, Disks, Files, XAS99_CONFIG
+from utils import (xas, xdm, error, clear_env, delfile, read_stderr, get_source_markers, check_errors, content,
+                   content_len, content_line_array)
+
+
+def cutout(lines, start_char, frm=0, to=0, pattern=None):
+    occurences = dict()
+    for line in lines:
+        if line[0] != start_char:
+            continue
+        if pattern is None:
+            cut = line[frm:to]
+        else:
+            m = re.search(pattern, line)
+            if not m:
+                continue
+            cut = m.group(1)
+        try:
+            occurences[cut] += 1
+        except KeyError:
+            occurences[cut] = 1
+    return occurences
 
 
 # Main test
 
 def runtest():
     """check error messages against native assembler listing"""
+
+    clear_env(XAS99_CONFIG)
 
     # cross-assembler error messages
     source = os.path.join(Dirs.sources, 'aserrs.asm')
@@ -38,6 +60,18 @@ def runtest():
     xas_errors = read_stderr(Files.error)
     ref_errors = get_source_markers(source, r';ERROR(:....)?')
     check_errors(ref_errors, xas_errors)
+
+    source = os.path.join(Dirs.sources, 'assyntax.asm')
+    with open(Files.error, 'w') as ferr:
+        xas(source, '-R', '-o', Files.output, stderr=ferr, rc=1)
+    if content_line_array(Files.error)[-1][:2] != '1 ':
+        error('syntax', 'Incorrect number of errors')
+
+    source = os.path.join(Dirs.sources, 'assyntax.asm')
+    with open(Files.error, 'w') as ferr:
+        xas(source, '-R', '-r', '-o', Files.output, stderr=ferr, rc=1)
+    if content_line_array(Files.error)[-1][:2] != '3 ':
+        error('syntax', 'Incorrect number of errors')
 
     # xdt99-specific errors (image generation)
     source = os.path.join(Dirs.sources, 'asxerrsb.asm')
@@ -82,7 +116,7 @@ def runtest():
         xas(source, '-R', '-o', Files.output, stderr=ferr, rc=0)  # no error
     with open(Files.error, 'r') as fin:
         output = fin.read()
-    if 'U1, U2, U3, U4, U5' not in output:
+    if 'u1:2, u2:9, u3:11, u4:19, u5:20' not in output:
         error('stdout', 'Bad listing of unreferenced symbols')
 
     with open(Files.error, 'w') as ferr:
@@ -91,6 +125,67 @@ def runtest():
         output = fin.read()
     if output.strip():
         error('stdout', 'Unwanted  listing of unreferenced symbols')
+
+    # warning categories
+    source = os.path.join(Dirs.sources, 'asxwarn.asm')  # various warnings in different categories
+    with open(Files.error, 'w') as ferr:
+        xas(source, '-R', '--color', 'off', '-o', Files.output, stderr=ferr, rc=0)  # no error
+    filenames = cutout(content_line_array(Files.error), '>', 2, 10)
+    if filenames.get('asxwarn.') != 4 or filenames.get('asxwarni') != 1:
+        error('xwarn', 'Incorrect warning distribution across files')
+    lines = cutout(content_line_array(Files.error), '>', pattern='<\\d> (....) -')
+    if lines.get('0006') != 1 or lines.get('0007') != 1 or lines.get('0011') != 1 or lines.get('****') != 2:
+        error('xwarn', 'Incorrect line numbers for warnings')
+
+    with open(Files.error, 'w') as ferr:
+        xas(source, '-R', '--color', 'off', '--quiet-unused-syms', '-o', Files.output, stderr=ferr, rc=0)  # no error
+    filenames = cutout(content_line_array(Files.error), '>', 2, 10)
+    if filenames.get('asxwarn.') != 3 or filenames.get('asxwarni') is not None:
+        error('xwarn', 'Incorrect warning distribution across files for --quiet-unused-syms')
+    lines = cutout(content_line_array(Files.error), '>', pattern='<\\d> (....) -')
+    if lines.get('0006') != 1 or lines.get('0007') != 1 or lines.get('0011') != 1 or lines.get('****') is not None:
+        error('xwarn', 'Incorrect line numbers for warnings for --quiet-unused-syms')
+
+    with open(Files.error, 'w') as ferr:
+        xas(source, '-R', '--color', 'off', '--quiet-opts', '-o', Files.output, stderr=ferr, rc=0)  # no error
+    filenames = cutout(content_line_array(Files.error), '>', 2, 10)
+    if filenames.get('asxwarn.') != 3 or filenames.get('asxwarni') != 1:
+        error('xwarn', 'Incorrect warning distribution across files for --quiet-opts')
+    lines = cutout(content_line_array(Files.error), '>', pattern='<\\d> (....) -')
+    if lines.get('0006') != 1 or lines.get('0007') != 1 or lines.get('0011') is not None or lines.get('****') != 2:
+        error('xwarn', 'Incorrect line numbers for warnings for --quiet-opts')
+
+    with open(Files.error, 'w') as ferr:
+        xas(source, '-R', '--color', 'off', '--quiet-usage', '-o', Files.output, stderr=ferr, rc=0)  # no error
+    filenames = cutout(content_line_array(Files.error), '>', 2, 10)
+    if filenames.get('asxwarn.') != 2 or filenames.get('asxwarni') != 1:
+        error('xwarn', 'Incorrect warning distribution across files for --quiet-usage')
+    lines = cutout(content_line_array(Files.error), '>', pattern='<\\d> (....) -')
+    if lines.get('0006') is not None or lines.get('0007') is not None or lines.get('0011') != 1 or \
+            lines.get('****') != 2:
+        error('xwarn', 'Incorrect line numbers for warnings for --quiet-usage')
+
+    with open(Files.error, 'w') as ferr:
+        xas(source, '--color', 'off', '-o', Files.output, stderr=ferr, rc=0)  # no error
+    filenames = cutout(content_line_array(Files.error), '>', 2, 10)
+    if filenames.get('asxwarn.') != 2 or filenames.get('asxwarni') != 1:
+        error('xwarn', 'Incorrect warning distribution across files w/o -R')
+    lines = cutout(content_line_array(Files.error), '>', pattern=r'<\d> (....) -')
+    if lines.get('0006') is not None or lines.get('0007') is not None or lines.get('0011') != 1 or\
+            lines.get('****') != 2:
+        error('xwarn', 'Incorrect line numbers for warnings w/o -R')
+
+    # unused symbols w/locations
+    source = os.path.join(Dirs.sources, 'asxwarn.asm')  # various warnings in different categories
+    with open(Files.error, 'w') as ferr:
+        xas(source, '-R', '--color', 'off', '--quiet-usage', '--quiet-opts', '-o', Files.output, stderr=ferr, rc=0)
+    ocurrences = cutout(content_line_array(Files.error), '*', 33, -1)
+    try:
+        success = len(ocurrences) == 2 and ocurrences['s1:4'] == 1 or ocurrences['sinc:3'] == 1
+    except KeyError:
+        success = False
+    if not success:
+        error('xwarn', 'Incorrect unused symbols lists')
 
     # unresolved references
     source = os.path.join(Dirs.sources, 'asunref.asm')
@@ -125,8 +220,7 @@ def runtest():
         error('stdout', 'Invalid STDOUT output: ' + output)
 
     # cleanup
-    os.remove(Files.error)
-    os.remove(Files.reference)
+    delfile(Dirs.tmp)
 
 
 if __name__ == '__main__':

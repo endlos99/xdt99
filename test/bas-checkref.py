@@ -3,8 +3,8 @@
 import os
 import re
 
-from config import Disks, Files, Dirs
-from utils import xdm, xbas, error, check_binary_files_eq
+from config import Disks, Files, Dirs, XBAS99_CONFIG
+from utils import xdm, xbas, error, clear_env, delfile, check_binary_files_eq
 
 
 # Check functions
@@ -55,6 +55,8 @@ def check_line_numbers(file, linos):
 
 def runtest():
     """compare xbas99 generation to TI references"""
+
+    clear_env(XBAS99_CONFIG)
 
     for fn in ('KEYWORDS', 'STATMNTS', 'NUMBERS', 'COMMENTS', 'LOWRCASE', 'GIBBRISH'):
         # compare generated xbas99 listing with TI BASIC reference
@@ -114,9 +116,7 @@ def runtest():
     check_line_numbers(Files.output, [100, 110, 120, 125])
 
     # cleanup
-    os.remove(Files.input)
-    os.remove(Files.output)
-    os.remove(Files.reference)
+    delfile(Dirs.tmp)
 
 
 if __name__ == '__main__':

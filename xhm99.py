@@ -20,76 +20,82 @@
 # along with this program; if not, see <http://www.gnu.org/licenses/>.
 
 import sys
+import platform
 
 
-VERSION = '3.0.0'
+VERSION = '3.2.0'
+
+CONFIG = 'XHM99_CONFIG'
 
 
 # Utility functions
 
-def ordw(word):
-    """word ord"""
-    return (word[0] << 8) | word[1]
+class Util:
 
+    @staticmethod
+    def ordw(word):
+        """word ord"""
+        return (word[0] << 8) | word[1]
 
-def chrw(word):
-    """word chr"""
-    return bytes((word >> 8, word & 0xff))
+    @staticmethod
+    def chrw(word):
+        """word chr"""
+        return bytes((word >> 8, word & 0xff))
 
+    @staticmethod
+    def rordl(word):
+        """reverse long ord"""
+        return word[3] << 24 | word[2] << 16 | word[1] << 8 | word[0]
 
-def rordl(word):
-    """reverse long ord"""
-    return word[3] << 24 | word[2] << 16 | word[1] << 8 | word[0]
+    @staticmethod
+    def rchrw(word):
+        """reverse word chr"""
+        return bytes((word & 0xff, word >> 8))
 
+    @staticmethod
+    def chunk(data, size):
+        """split into chunks of equal size"""
+        return [data[i:i + size] for i in range(0, len(data), size)]
 
-def rchrw(word):
-    """reverse word chr"""
-    return bytes((word & 0xff, word >> 8))
+    @staticmethod
+    def flatten(list_of_lists):
+        """flattens listing of lists into listing"""
+        return [item for list_ in list_of_lists for item in list_]
 
-
-def chunk(data, size):
-    """split into chunks of equal size"""
-    return [data[i:i + size] for i in range(0, len(data), size)]
-
-
-def flatten(list_of_lists):
-    """flattens listing of lists into listing"""
-    return [item for list_ in list_of_lists for item in list_]
-
-
-def writedata(name, data, mode='wb'):
-    """write data to file or STDOUT"""
-    if name == '-':
-        if 'b' in mode:
-            sys.stdout.buffer.write(data)
+    @staticmethod
+    def writedata(name, data, mode='wb'):
+        """write data to file or STDOUT"""
+        if name == '-':
+            if 'b' in mode:
+                sys.stdout.buffer.write(data)
+            else:
+                sys.stdout.write(data)
         else:
-            sys.stdout.write(data)
-    else:
-        with open(name, mode) as f:
-            f.write(data)
+            with open(name, mode) as f:
+                f.write(data)
 
-
-def readdata(name, mode='rb'):
-    """read data from file or STDIN"""
-    if name == '-':
-        if 'b' in mode:
-            return sys.stdin.buffer.read()
+    @staticmethod
+    def readdata(name, mode='rb'):
+        """read data from file or STDIN"""
+        if name == '-':
+            if 'b' in mode:
+                return sys.stdin.buffer.read()
+            else:
+                return sys.stdin.read()
         else:
-            return sys.stdin.read()
-    else:
-        with open(name, mode) as f:
-            return f.read()
+            with open(name, mode) as f:
+                return f.read()
 
-
-def crc16(crc, stream):
-    """compute CRC-16 code"""
-    msb, lsb = crc >> 8, crc & 0xff
-    for b in stream:
-        x = b ^ msb
-        x ^= (x >> 4)
-        msb = (lsb ^ (x >> 3) ^ (x << 4)) & 0xff
-        lsb = (x ^ (x << 5)) & 0xff
-    return [msb, lsb]
+    @staticmethod
+    def crc16(crc, stream):
+        """compute CRC-16 code"""
+        msb, lsb = crc >> 8, crc & 0xff
+        for b in stream:
+            x = b ^ msb
+            x ^= (x >> 4)
+            msb = (lsb ^ (x >> 3) ^ (x << 4)) & 0xff
+            lsb = (x ^ (x << 5)) & 0xff
+        return [msb, lsb]
 
 
 class HFEError(Exception):
@@ -222,7 +228,7 @@ class SDFormat:
         """decode FM bit stream into bytes"""
         bytes_ = []
         for i in range(0, len(stream), 4):
-            enc_byte = rordl(stream[i:i + 4])
+            enc_byte = Util.rordl(stream[i:i + 4])
             # bit format:  ABCDEFGH <->  H...G... F...E... D...C... B...A...
             byte_ = ((0x01 if enc_byte & 0x80000000 else 0) |
                      (0x02 if enc_byte & 0x08000000 else 0) |
@@ -365,7 +371,7 @@ class DDFormat:
         lookup = {(word[0] << 8) | word[1]: i for i, word in enumerate(cls.MVM_CODES)}
         bytes_ = []
         for idx in range(0, len(stream), 2):
-            w = ordw(stream[idx:idx + 2])
+            w = Util.ordw(stream[idx:idx + 2])
             if w == cls.ADDRESS_MARK_WORD:  # address mark
                 b = cls.V_ADDRESS_MARK_BYTE
             else:
@@ -404,7 +410,7 @@ class HFEDisk:
     VALID_ENCODINGS = [0, 2]
 
     def __init__(self, image):
-        """create HFE disk from image"""
+        """create HFE disk from HFE image"""
         self.header = image[0:512]
         self.lut = image[512:1024]
         self.trackdata = image[1024:]
@@ -433,11 +439,11 @@ class HFEDisk:
         fmt = DDFormat if self.dd else SDFormat
         size = fmt.TRACK_LEN
         decode = fmt.decode
-        chunks = chunk(self.trackdata, 256)
+        chunks = Util.chunk(self.trackdata, 256)
         side_0 = b''.join(chunks[0::2])
         side_1 = b''.join(chunks[1::2])
-        tracks0 = chunk(decode(side_0), size)
-        tracks1 = chunk(decode(side_1), size) if self.sides == 2 else []
+        tracks0 = Util.chunk(decode(side_0), size)
+        tracks1 = Util.chunk(decode(side_1), size) if self.sides == 2 else []
         tracks1.reverse()
         return tracks0 + tracks1
 
@@ -484,17 +490,11 @@ class HFEDisk:
             # leadout
             h0, h1 = h1, h1 + fmt.LV_LEADOUT
             assert h1 == len(track)
-            sectors.extend(flatten(track_sectors[sector_id] for sector_id in sorted(track_sectors)))
+            sectors.extend(Util.flatten(track_sectors[sector_id] for sector_id in sorted(track_sectors)))
         return bytes(sectors)
 
     @classmethod
-    def create(cls, image):
-        """create HFE disk from disk image"""
-        hfe = cls.create_image(image)
-        return HFEDisk(hfe)
-
-    @classmethod
-    def create_image(cls, image):
+    def create_from_disk(cls, image):
         """create HFE image from disk image"""
         tracks = image[0x11]
         sides = image[0x12]
@@ -519,17 +519,17 @@ class HFEDisk:
                 bytes((0,  # revision
                        tracks, sides,
                        HFEDisk.HFE_DD_ENCODING if dd else HFEDisk.HFE_SD_ENCODING)) +
-                rchrw(HFEDisk.HFE_BIT_RATE) +  # bit rate
-                rchrw(0) +  # RPM (not used)
+                Util.rchrw(HFEDisk.HFE_BIT_RATE) +  # bit rate
+                Util.rchrw(0) +  # RPM (not used)
                 bytes((HFEDisk.HFE_INTERFACE_MODE, 1)) +
-                rchrw(1) +  # LUT offset // 512
+                Util.rchrw(1) +  # LUT offset // 512
                 (b'\x00' if protected else b'\xff'))
         return info + b'\xff' * (512 - len(info))
 
     @classmethod
     def create_lut(cls, tracks, dd):
         """create HFE LUT"""
-        lut = b''.join(rchrw(0x31 * i + 2) +
+        lut = b''.join(Util.rchrw(0x31 * i + 2) +
                        (bytes((0xc0, 0x61)) if dd else bytes((0xb0, 0x61)))
                        for i in range(tracks))
         return lut + b'\xff' * (512 - 4 * tracks)
@@ -547,8 +547,8 @@ class HFEDisk:
                     offset = ((s * tracks + j) * fmt.SECTORS + sector_id) * 256
                     sector = [b for b in sectors[offset:offset + 256]]
                     addr = [track_id, s, sector_id, 0x01]
-                    crc1 = crc16(0xffff, fmt.V_ADDRESS_MARK + addr)
-                    crc2 = crc16(0xffff, fmt.V_DATA_MARK + sector)
+                    crc1 = Util.crc16(0xffff, fmt.V_ADDRESS_MARK + addr)
+                    crc2 = Util.crc16(0xffff, fmt.V_DATA_MARK + sector)
                     sector_data.extend(
                         fmt.PREGAP +
                         fmt.ADDRESS_MARK +
@@ -562,6 +562,30 @@ class HFEDisk:
                 track_data[s].append(bytes(track))
         track_data[1].reverse()
         return b''.join(track_data[0]), b''.join(track_data[1])
+
+
+class Console:
+    """collects errors and warnings"""
+
+    def __init__(self, colors=None):
+        if colors is None:
+            self.colors = platform.system() in ('Linux', 'Darwin')  # no auto color on Windows
+        else:
+            self.colors = colors == 'on'
+
+    def error(self, message):
+        """record error message"""
+        sys.stderr.write(self.color(message, severity=2) + '\n')
+
+    def color(self, message, severity=0):
+        if not self.colors:
+            return message
+        elif severity == 1:
+            return '\x1b[33m' + message + '\x1b[0m'  # yellow
+        elif severity == 2:
+            return '\x1b[31m' + message + '\x1b[0m'  # red
+        else:
+            return message
 
 
 # main
@@ -597,66 +621,77 @@ def main(argv):
     cmd.add_argument('--dump', action=GlobStore, dest='dump', nargs='+',
                      metavar='<file>', help='dump raw decoded HFE data')
     # general options
+    args.add_argument('--color', action='store', dest='color', choices=['off', 'on'],
+                      help='enable or disable color output')
     args.add_argument('-o', '--output', dest='output', metavar='<file>',
                       help='set output filename')
-    opts, other = args.parse_known_args(argv)
+    try:
+        default_opts = os.environ[CONFIG].split()
+    except KeyError:
+        default_opts = []
+    opts, other = args.parse_known_args(default_opts + argv)
 
     result = []
+    console = Console(colors=opts.color)
+
     try:
         # delegate to xdm99
         if opts.filename:
             import xdm99 as xdm
             try:
-                image = readdata(opts.filename, 'rb')
+                image = Util.readdata(opts.filename, 'rb')
                 disk = HFEDisk(image).to_disk_image()
             except IOError:
                 disk = bytes(1)
             if opts.output:
                 other += ['-o', opts.filename]
             barename = os.path.splitext(os.path.basename(opts.filename))[0]
-            result = list(xdm.main([barename[:10].upper()] + other, disk))
+            color = [] if opts.color is None else ['--color', opts.color]
+            result = list(xdm.main([barename[:10].upper()] + other + color, disk))
             if len(result) == 1:
                 dsk, filename, is_disk = result[0]
                 if is_disk:  # disk modified?
-                    hfe = HFEDisk.create_image(dsk)
+                    hfe = HFEDisk.create_from_disk(dsk)
                     result = (hfe, opts.filename, False),
         # HFE/DSK conversion
         for name in opts.fromhfe or ():
-            image = readdata(name, 'rb')
-            dsk = HFEDisk(image).to_disk_image()
+            hfe_image = Util.readdata(name, 'rb')
+            dsk = HFEDisk(hfe_image).to_disk_image()
             barename = os.path.splitext(os.path.basename(name))[0]
             result.append((dsk, barename + '.dsk_id', False))
         for name in opts.tohfe or ():
-            image = readdata(name, 'rb')
-            hfe = HFEDisk.create_image(image)
+            dsk_image = Util.readdata(name, 'rb')
+            hfe = HFEDisk.create_from_disk(dsk_image)
             barename = os.path.splitext(os.path.basename(name))[0]
             result.append((hfe, barename + '.hfe', False))
         for name in opts.dump or ():
-            image = readdata(name, 'rb')
+            image = Util.readdata(name, 'rb')
             hfe = HFEDisk(image)
             tracks = hfe.get_tracks()
-            data = ''.join(chr(b) for b in flatten(tracks))
+            data = ''.join(chr(b) for b in Util.flatten(tracks))
             barename = os.path.splitext(os.path.basename(name))[0]
             result.append((data, barename + '.dump', False))
         # image analysis
         for name in opts.hfeinfo or ():
-            image = readdata(name, 'rb')
+            image = Util.readdata(name, 'rb')
             tracks, sides, encoding, if_mode = HFEDisk.get_hfe_params(image)
             sys.stdout.write(f'Tracks: {tracks}\nSides: {sides}\n')
             sys.stdout.write(f'Encoding: {encoding}\nInterface mode: {if_mode}\n')
             if encoding not in HFEDisk.VALID_ENCODINGS or if_mode != HFEDisk.HFE_INTERFACE_MODE:
-                sys.stdout.write('Not a suitable HFE image for the TI 99\n')
+                console.error('Not a suitable HFE image for the TI 99')
                 return 1
     except (IOError, HFEError) as e:
-        sys.exit(f'Error: {e}')
+        console.error('Error: ' + str(e))
+        sys.exit(1)
 
     # write result
     for data, name, _ in result:
         outname = opts.output or name
         try:
-            writedata(outname, data, 'wb')
+            Util.writedata(outname, data, 'wb')
         except IOError as e:
-            sys.exit(f'Error: {e}')
+            console.error('Error: ' + str(e))
+            sys.exit(1)
 
     # return status
     return 0

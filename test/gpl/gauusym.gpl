@@ -1,0 +1,13 @@
+* unused symbols
+
+       grom >6000
+
+s1     data  1
+s2     data  2
+s3     equ   >20            ; never unused
+       copy  "gauusymi.gpl"
+
+       dst   @s2, @>8300
+l1     dinc  @>8300         ; labels ignored
+
+       end

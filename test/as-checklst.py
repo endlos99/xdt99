@@ -1,10 +1,10 @@
 #!/usr/bin/env python
 
 import os
-import platform
 
-from config import Dirs, Disks, Files
-from utils import xas, xdm, error, check_list_files_eq, check_text_files_eq, check_list_against_binary
+from config import Dirs, Disks, Files, XAS99_CONFIG
+from utils import (xas, xdm, error, clear_env, delfile, check_list_files_eq, check_text_files_eq,
+                   check_list_against_binary)
 
 
 # Check functions
@@ -30,6 +30,8 @@ def check_sym_equ_equiv(outfile, reffile):
 
 def runtest():
     """check cross-generated output against native reference files"""
+
+    clear_env(XAS99_CONFIG)
 
     # check if listings match E/A
     for infile, opts, reffile in [
@@ -109,10 +111,7 @@ def runtest():
         error('auto', 'auto-const listing mismatch')
 
     # cleanup
-    os.remove(Files.output)
-    os.remove(Files.reference)
-    os.remove(Files.error)
-
+    delfile(Dirs.tmp)
 
 if __name__ == '__main__':
     runtest()

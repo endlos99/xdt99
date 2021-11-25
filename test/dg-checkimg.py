@@ -3,14 +3,16 @@
 import os
 import random
 
-from config import Dirs, Files
-from utils import xdg, xga, error, check_files_eq, count_bytes, check_bytes
+from config import Dirs, Files, XDG99_CONFIG
+from utils import xdg, xga, error, clear_env, delfile, check_files_eq, count_bytes, check_bytes
 
 
 # Main test
 
 def runtest():
     """check cross-generated output against native reference files"""
+
+    clear_env(XDG99_CONFIG)
 
     # run disassembler
     for srcfile, dopts, aopts in [
@@ -24,9 +26,9 @@ def runtest():
             ('gapass.gpl', ['-a', '0x6030', '-r', '6030'], [])
             ]:
         source = os.path.join(Dirs.gplsources, srcfile)
-        xga(*[source] + aopts + ['-o', Files.reference])
+        xga(*[source] + aopts + ['-q', '-o', Files.reference])
         xdg(*[Files.reference] + dopts + ['-p', '-o', Files.input])
-        xga(*[Files.input] + aopts + ['-o', Files.output])
+        xga(*[Files.input] + aopts + ['-q', '-o', Files.output])
         check_files_eq(srcfile, Files.output, Files.reference, 'PROGRAM')
         check_bytes(Files.input, source)
 
@@ -43,9 +45,9 @@ def runtest():
             ('gapass.gpl', ['-a', '0x6030', '-f', '>6030'], [])
             ]:
         source = os.path.join(Dirs.gplsources, srcfile)
-        xga(*[source] + aopts + ['-o', Files.reference])
+        xga(*[source] + aopts + ['-q', '-o', Files.reference])
         xdg(*[Files.reference] + dopts + ['-p', '-o', Files.input])
-        xga(*[Files.input] + aopts + ['-o', Files.output])
+        xga(*[Files.input] + aopts + ['-q', '-o', Files.output])
         check_files_eq(srcfile, Files.output, Files.reference, 'PROGRAM')
         xdg(*[Files.reference] + dopts + ['-o', Files.output])  # -p would introduce BYTEs where not disassembled
         if count_bytes(Files.output) > 0:
@@ -56,7 +58,7 @@ def runtest():
         source = os.path.join(Dirs.gplsources, srcfile)
         xga(*[source] + ['-o', Files.reference])
         xdg(*[Files.reference] + ['-a', '0', '-r', '0x0', '-p', '-o', Files.input])
-        xga(*[Files.input] + ['-o', Files.output])
+        xga(*[Files.input] + ['-q', '-o', Files.output])
         check_files_eq(srcfile, Files.output, Files.reference, 'PROGRAM')
         check_bytes(Files.input, source)
 
@@ -78,13 +80,11 @@ def runtest():
         with open(Files.reference, 'wb') as fref:
             fref.write(binary)
         xdg(Files.reference, '-a', '1000', '-f', '1000', '-p', '-o', Files.input)
-        xga(Files.input, '-o', Files.output)
+        xga(Files.input, '-q', '-o', Files.output)
         check_files_eq('random' + str(r), Files.reference, Files.output, 'PROGRAM')
 
     # cleanup
-    os.remove(Files.input)
-    os.remove(Files.output)
-    os.remove(Files.reference)
+    delfile(Dirs.tmp)
 
 
 if __name__ == '__main__':

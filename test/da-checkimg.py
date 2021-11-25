@@ -4,8 +4,8 @@ import os
 import random
 import glob
 
-from config import Dirs, Files
-from utils import xda, xas, error, check_binary_files_eq
+from config import Dirs, Files, XDA99_CONFIG
+from utils import xda, xas, error, clear_env, delfile, check_binary_files_eq
 
 
 # Check function
@@ -37,6 +37,8 @@ def check_eq(value1, value2, msg):
 def runtest():
     """check cross-generated output against native reference files"""
 
+    clear_env(XDA99_CONFIG)
+
     # disassembler: run
     for srcfile, aopts, addr, start in [
             #('asopcs.asm', ['-R'], '0000', '0000']), only for -d
@@ -49,7 +51,7 @@ def runtest():
         source = os.path.join(Dirs.sources, srcfile)
         xas(*[source, '-b'] + aopts + ['-q', '-o', Files.reference])
         xda(Files.reference, '-a', addr, '-r', start, '-p', '-o', Files.input)
-        xas(*[Files.input, '-b', '-R', '-o', Files.output])
+        xas(*[Files.input, '-b', '-R', '-q', '-o', Files.output])
         check_binary_files_eq(srcfile, Files.output, Files.reference)
 
     # disassembler: top-down
@@ -104,11 +106,7 @@ def runtest():
         check_binary_files_eq('random' + str(r) + '518', Files.reference, Files.output)
 
     # Cleanup
-    os.remove(Files.input)
-    for f in glob.glob(Files.output + '*'):
-        os.remove(f)
-    for f in glob.glob(Files.reference + '*'):
-        os.remove(f)
+    delfile(Dirs.tmp)
 
 
 if __name__ == '__main__':

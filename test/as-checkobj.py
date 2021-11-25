@@ -2,8 +2,8 @@
 
 import os
 
-from config import Dirs, Disks, Files
-from utils import (xas, xdm, sinc, error, ordw, content_len, check_obj_code_eq, check_image_set_eq,
+from config import Dirs, Disks, Files, XAS99_CONFIG
+from utils import (xas, xdm, sinc, error, clear_env, delfile, check_obj_code_eq, check_image_set_eq,
                    check_image_files_eq, read_stderr, get_source_markers, check_errors)
 
 
@@ -11,6 +11,8 @@ from utils import (xas, xdm, sinc, error, ordw, content_len, check_obj_code_eq, 
 
 def runtest():
     """check cross-generated output against native reference files"""
+
+    clear_env(XAS99_CONFIG)
 
     # object code
     for inp_file, opts, ref_file, compr_file in [
@@ -101,9 +103,7 @@ def runtest():
     check_obj_code_eq(Files.output, Files.reference)
 
     # cleanup
-    for i in range(4):
-        os.remove(Files.outputff[i])
-    os.remove(Files.reference)
+    delfile(Dirs.tmp)
 
 
 if __name__ == '__main__':

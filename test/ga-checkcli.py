@@ -3,8 +3,8 @@
 import os
 import re
 
-from config import Dirs, Disks, Files
-from utils import xga, xdm, error, check_files_eq, check_binary_files_eq
+from config import Dirs, Disks, Files, XGA99_CONFIG
+from utils import xga, xdm, error, clear_env, delfile, check_files_eq, check_binary_files_eq, content, content_len
 
 
 # check functions
@@ -67,7 +67,9 @@ def check_list_addr_data(infile, reffile, addr):
 # Main test
 
 def runtest():
-    '''check cross-generated output against native reference files'''
+    """check cross-generated output against native reference files"""
+
+    clear_env(XGA99_CONFIG)
 
     # input and output files
     source = os.path.join(Dirs.gplsources, 'gacart.gpl')
@@ -118,11 +120,36 @@ def runtest():
     check_binary_files_eq('listing', Files.output, Files.reference)  # checks code
     check_list_addr_data(Files.input, Files.reference, 0x0000)  # checks addr and data
 
+    # color
+    source = os.path.join(Dirs.gplsources, 'gaerrs1.gpl')
+    with open(Files.error, 'w') as ferr:
+        xga(source, '--color', 'on', '-o', Files.output, stderr=ferr, rc=1)
+    errors = content(Files.error, mode='r')
+    if '\x1b[31m' not in errors or '\x1b[33m' not in errors:
+        error('color', 'Missing color in errors and warnings')
+
+    # relaxed syntax
+    source = os.path.join(Dirs.gplsources, 'gaxrelax.gpl')
+    with open(Files.error, 'w') as ferr:
+        xga(source, '-r', '-o', Files.output, stderr=ferr, rc=0)
+
+    # default options
+    delfile(Files.input)
+    source = os.path.join(Dirs.gplsources, 'gahello.gpl')
+    os.environ[XGA99_CONFIG] = '-L ' + Files.input
+    xga(source, '-o', Files.output)
+    if content_len(Files.input) <= 0:
+        error('defaults', 'default options not working')
+
+    delfile(Files.input)
+    delfile(Files.error)
+    os.environ[XGA99_CONFIG] = '-L ' + Files.error
+    xga(source, '-o', Files.output, '-L', Files.input)
+    if content_len(Files.error) > 0:
+        error('defaults', 'default options override not working')
+
     # cleanup
-    os.remove(Files.input)
-    os.remove(Files.reference)
-    os.remove(Files.error)
-    os.remove(Files.output)
+    delfile(Dirs.tmp)
 
 
 if __name__ == '__main__':

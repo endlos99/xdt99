@@ -56,7 +56,7 @@ will find some platform-specific information in the [Windows tutorial][5].
 **Latest version: 3.1.0**
 
 The latest binary distribution of xdt99 is available on the project
-[releases page][2] on GitHub.  xdt99 requires [Python 3.6][6] or higher and runs
+[releases page][2] on GitHub.  xdt99 requires [Python 3.8][6] or higher and runs
 on any platform that Python supports, including Linux, Windows, and maxOS.
 
 xdt99 is released under the GNU GPLv2.  All sources are available on

@@ -3,9 +3,9 @@
 import os
 import re
 
-from config import Dirs, Disks, Files
-from utils import (chrw, ordw, xas, xdm, error, content, content_len, check_obj_code_eq, check_binary_files_eq,
-                   check_image_files_eq, check_list_files_eq)
+from config import Dirs, Disks, Files, XAS99_CONFIG
+from utils import (chrw, ordw, xas, xdm, error, clear_env, delfile, content, content_len, check_obj_code_eq,
+                   check_binary_files_eq, check_image_files_eq, check_list_files_eq)
 
 
 def remove(files):
@@ -79,6 +79,8 @@ def check_symbols(outfile, symspec):
 
 def runtest():
     """check command line interface"""
+
+    clear_env(XAS99_CONFIG)
 
     # input and output files
     source = os.path.join(Dirs.sources, 'ashellon.asm')
@@ -158,8 +160,21 @@ def runtest():
     source = os.path.join(Dirs.sources, 'assyms.asm')
     xas(source, '-b', '-R', '-o', Files.reference, '-E', Files.output)
     check_symbols(Files.output,
-                  (('VDPWA', 'SCAN'),  # referencecs
+                  (('VDPWA', 'SCAN'),  # references
                    (('START', '>0000'), ('S1', '>0001'), ('S2', '>0018'))))  # symbols
+
+    # color
+    source = os.path.join(Dirs.sources, 'aserrs.asm')
+    with open(Files.error, 'w') as ferr:
+        xas(source, '-R', '--color', 'on', '-o', Files.output, stderr=ferr, rc=1)
+    errors = content(Files.error, mode='r')
+    if '\x1b[31m' not in errors or '\x1b[33m' not in errors:
+        error('color', 'Missing color in errors and warnings')
+
+    # relaxed syntax
+    source = os.path.join(Dirs.sources, 'asxrelax.asm')
+    with open(Files.error, 'w') as ferr:
+        xas(source, '-R', '-r', '-o', Files.output, stderr=ferr, rc=0)
 
     # disable warnings
     source = os.path.join(Dirs.sources, 'aswarn.asm')
@@ -176,10 +191,23 @@ def runtest():
     with open(Files.error, "w") as ferr:
         xas('-l', Files.input, '-ll', Files.output, '-o', Files.reference, rc=2, stderr=ferr)  # mutually exclusive
 
+    # default options
+    delfile(Files.input)
+    source = os.path.join(Dirs.sources, 'ashello.asm')
+    os.environ[XAS99_CONFIG] = '-L ' + Files.input
+    xas(source, '-R', '-o', Files.output)
+    if content_len(Files.input) <= 0:
+        error('defaults', 'default options not working')
+
+    delfile(Files.input)
+    delfile(Files.error)
+    os.environ[XAS99_CONFIG] = '-L ' + Files.error
+    xas(source, '-R', '-o', Files.output, '-L', Files.input)
+    if content_len(Files.error) > 0:
+        error('defaults', 'default options override not working')
+
     # cleanup
-    os.remove(Files.output)
-    os.remove(Files.reference)
-    os.remove(Files.error)
+    delfile(Dirs.tmp)
 
 
 if __name__ == '__main__':

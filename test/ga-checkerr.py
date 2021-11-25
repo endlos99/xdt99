@@ -2,14 +2,16 @@
 
 import os
 
-from config import Dirs, Files
-from utils import xga, error, read_stderr, get_source_markers, check_errors
+from config import Dirs, Files, XGA99_CONFIG
+from utils import xga, error, clear_env, delfile, read_stderr, get_source_markers, check_errors
 
 
 # Main test
 
 def runtest():
     """run regression tests"""
+
+    clear_env(XGA99_CONFIG)
 
     # check for errors
     source = os.path.join(Dirs.gplsources, 'gaerrs.gpl')
@@ -54,8 +56,7 @@ def runtest():
     check_errors(exp_errors, act_errors)
 
     # cleanup
-    os.remove(Files.output)
-    os.remove(Files.error)
+    delfile(Dirs.tmp)
 
 
 if __name__ == '__main__':

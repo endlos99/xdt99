@@ -24,7 +24,9 @@ import re
 import xdm99
 
 
-VERSION = '3.0.0'
+VERSION = '3.2.0'
+
+CONFIG = 'XVM99_CONFIG'
 
 
 # Multi-disk volumes
@@ -80,7 +82,7 @@ class Volumes:
                         if extended:
                             total = (sector_0[0x0a * 2] << 8) | sector_0[0x0b * 2]
                             used = 0
-                            for j in range(xdm99.used(total, 8)):
+                            for j in range(xdm99.Util.used(total, 8)):
                                 used += bin(sector_0[(0x38 + j) * 2]).count('1')
                             info.append(f'[{volume:4d}]  {name:10s}:  {used:4d} used  {total-used:4d} free\n')
                         else:
@@ -112,7 +114,7 @@ def main():
     args.add_argument('device', type=str,
                       help='nanoPEB/CF7A flash cart device')
     args.add_argument('volumes', type=str, nargs='?',
-                      help='volume number or range')
+                      help='volume number or range, volume numbers starting with 1')
     cmd = args.add_mutually_exclusive_group()
     # volume management
     cmd.add_argument('-r', '--read-volume', dest='readvol', metavar='<output file>',
@@ -143,11 +145,18 @@ def main():
     cmd.add_argument('-R', '--repair', action='store_true', dest='repair',
                      help='attempt to repair disk image')
     # general options
-    args.add_argument('-o', '--output', dest='output', metavar='<file>',
-                      help='set output file name')
     args.add_argument('-q', '--quiet', action='store_true', dest='quiet',
                       help='suppress all warnings')
-    opts = args.parse_args()
+    args.add_argument('--color', action='store', dest='color', choices=['off', 'on'],
+                      help='enable or disable color output')
+    args.add_argument('-o', '--output', dest='output', metavar='<file>',
+                      help='set output file name')
+
+    try:
+        default_opts = os.environ[CONFIG].split()
+    except KeyError:
+        default_opts = []
+    opts = args.parse_args(args=default_opts + sys.argv[1:])  # passed opts override default opts
 
     if (opts.readvol or opts.writevol or opts.info or opts.print_ or opts.add or opts.extract or opts.delete or
             opts.checkonly or opts.repair) and not opts.volumes:
@@ -157,6 +166,7 @@ def main():
     device = Volumes(opts.device)
     fmt = opts.format or 'PROGRAM'
     tiname = lambda x: (opts.name or os.path.splitext(os.path.basename(x))[0][:10].upper())
+    console = xdm99.Console(disable_warnings=opts.quiet, colors=opts.color)
 
     # get range
     volumes = []
@@ -164,10 +174,10 @@ def main():
         parts = opts.volumes.split(',')
         try:
             for p in parts:
-                range_start, range_end = re.match('(\d+)(?:-(\d+))?$', p).group(1, 2)
+                range_start, range_end = re.match(r'(\d+)(?:-(\d+))?$', p).group(1, 2)
                 volumes.extend(range(int(range_start), (int(range_end) if range_end else int(range_start)) + 1))
         except AttributeError:
-            sys.exit('Invalid volume range: ' + opts.volumes)
+            sys.exit(console.color('Invalid volume range: ' + opts.volumes, severity=console.ERROR))
 
     # process device
     rc = 0
@@ -190,23 +200,23 @@ def main():
         elif opts.info:
             for volume in volumes:
                 image = device.get_volume(volume)
-                disk = xdm99.Disk(image)
+                disk = xdm99.Disk(image, console=console)
                 sys.stdout.write(f'[{volume:d}]' + disk.get_info())
                 sys.stdout.write('-' * 76 + '\n')
                 sys.stdout.write(disk.get_catalog())
         elif opts.print_:
             for volume in volumes:
                 image = device.get_volume(volume)
-                disk = xdm99.Disk(image)
+                disk = xdm99.Disk(image, console=console)
                 files = disk.glob_files(opts.print_)
                 contents = [disk.get_file(name).get_contents() for name in files]
                 sys.stdout.write(''.join(contents))
         elif opts.extract:
             if opts.output and len(opts.extract) > 1:
-                sys.exit('Error: Cannot use -o when extracting multiple files')
+                sys.exit(console.color('Error: Cannot use -o when extracting multiple files', severity=console.ERROR))
             for volume in volumes:
                 image = device.get_volume(volume)
-                disk = xdm99.Disk(image)
+                disk = xdm99.Disk(image, console=console)
                 files = disk.glob_files(opts.extract)
                 suffix = '_' + str(volume) if len(volumes) > 1 else ''
                 if opts.astif:
@@ -218,7 +228,7 @@ def main():
         elif opts.add:
             for volume in volumes:
                 image = device.get_volume(volume)
-                disk = xdm99.Disk(image)
+                disk = xdm99.Disk(image, console=console)
                 count = 0
                 for name in opts.add:
                     if name == '-':
@@ -228,16 +238,18 @@ def main():
                         with open(name, 'rb') as fin:
                             data = fin.read()
                     if opts.astif:
-                        disk.add_file(xdm99.File().from_tif_image(data))
+                        disk.add_file(xdm99.File.create_from_tif_image(data))
                     else:
-                        filename = xdm99.sseq(opts.name, count) if opts.name else tiname(name)
-                        disk.add_file(xdm99.File().new(name=filename, format_=fmt, data=data))
+                        filename = opts.name or tiname(name)
+                        if opts.name:
+                            opts.name = xdm99.Util.strinc(opts.name)
+                        disk.add_file(xdm99.File.create_new(name=filename, format_=fmt, data=data))
                         count += 1
                 device.write_volume(volume, disk.image)
         elif opts.delete:
             for volume in volumes:
                 image = device.get_volume(volume)
-                disk = xdm99.Disk(image)
+                disk = xdm99.Disk(image, console=console)
                 files = disk.glob_files(opts.delete)
                 for name in files:
                     disk.remove_file(name)
@@ -245,22 +257,21 @@ def main():
         elif opts.checkonly:
             for volume in volumes:
                 image = device.get_volume(volume)
-                disk = xdm99.Disk(image)
-                if not opts.quiet:
-                    sys.stderr.write(disk.get_warnings())
-                if disk.warnings:
-                    rc += 1
+                _ = xdm99.Disk(image, console=console)
+                console.print()
+                if console.warnings or console.errors:
+                    rc = 1
         elif opts.repair:
             for volume in volumes:
                 image = device.get_volume(volume)
-                disk = xdm99.Disk(image)
+                disk = xdm99.Disk(image, console=console)
                 disk.fix_disk()
                 device.write_volume(volume, disk.image)
         # default volume info operation
         else:
             sys.stdout.write(device.get_info(volumes))
     except (IOError, xdm99.DiskError, xdm99.FileError) as e:
-        sys.exit(f'Error: {e}')
+        sys.exit(console.color('Error: ' + str(e), severity=console.ERROR))
 
     # write result
     for data, name, mode in result:
@@ -272,7 +283,7 @@ def main():
                 with open(outname, mode) as fout:
                     fout.write(data)
             except IOError as e:
-                    sys.exit('Error: ' + str(e))
+                sys.exit(console.color('Error: ' + str(e), severity=console.ERROR))
 
     # return status
     return rc

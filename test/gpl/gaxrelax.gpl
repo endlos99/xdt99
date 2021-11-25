@@ -1,0 +1,9 @@
+* relaxed parsing
+
+l1     st     1  +   3     +7       ,           @>8300;foo
+l2;inc @0
+       st   0   ,@>2300  +      1         -           -1            +            9
+;    foo
+l3     ;foo
+       data                                   l2                                   ;
+       end ;foo

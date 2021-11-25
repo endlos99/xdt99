@@ -45,7 +45,7 @@ The latest xdt99 [binary release][3] is available on GitHub.  Experienced users
 may also clone the [xdt99 repository][2] instead.  The repository contains some
 additional test cases that are useful when extending or modifying xdt99.
 
-xdt99 requires a working installation of [Python 3.6][5] or later.  On most
+xdt99 requires a working installation of [Python 3.8][5] or later.  On most
 Linux systems, Python is available as a package.  For other platforms, we
 recommend installing the latest stable Python 3 release.  Please note that xdt99
 will not run on Python 2.
@@ -87,7 +87,7 @@ xdt99.
 
 The file `ashello.asm` contains a simple assembly program in classic syntax.
 When using the `xas99` _cross-assembler_ in base mode, it translates source code
-into _object code_. 
+into _object code_.
 
     $ xas99.py -R ashello.asm
 
@@ -103,9 +103,9 @@ we want to discuss them.
 The `-R` is a so-called _option_ that tells `xas99` to use registers with an
 `R` prefix instead of plain numerical values, just like the `R` option of the
 Editor/Assembler.
-  
+
 Invoking `xas99` without any arguments
- 
+
     $ xas99.py
     usage: xas99.py [-h] [-b | -i | -c | -t [<format>] | --embed-xb]
                     [-l <file> [<file> ...] | -ll <file> [<file> ...]] [-5] [-18]
@@ -128,7 +128,7 @@ description for each.
 
     positional arguments:
       <source>              assembly source code(s)
-    
+
     optional arguments:
       -h, --help            show this help message and exit
       -b, --binary          create program binaries
@@ -152,13 +152,13 @@ by spaces.
 
 If an option is shown as `-x <arg> [<arg> ...]` in the usage help, we know that
 it takes one or more arguments.
-  
+
 The order of options and any other parameters such as `ashello.asm` is
 generally not important, but any arguments must always stay together with their
 option.  There is, however, one caveat, which we will discuss later.
 
 Coming back to the assembly run (let's rerun it without `-a`)
- 
+
     $ xas99.py -R ashello.asm
 
 the resulting file `ashello.obj` contains uncompressed object code, which looks
@@ -187,7 +187,7 @@ object code_ with option `-C` reduces both size and loading time:
 
 In order to not overwrite our already existing `ashello.obj` file, we overrode
 the default output filename with the output option `-o`.
- 
+
 Compressed object code contains unprintable characters, but if we replace those
 by `.`, we can show the contents:
 
@@ -196,7 +196,7 @@ by `.`, we can show the contents:
     A.ZB.|B..B.tB. B..B. B.uB..B. B.uB..B.@B..B.`B..B. B..B..F
     5..SLOAD 5..SFIRST5.~SLAST 5..START 3.zVWTR  F
     3.FVMBW  3.0VSBW  3.bKSCAN F
-    :       xdt99 xas 
+    :       xdt99 xas
 
 Comparing both object files, we see that the size of the compressed version is
 only about three fifths of that of the uncompressed file:
@@ -269,8 +269,8 @@ The four columns before the source code show
  * the source line number,
  * the memory address,
  * the generated contents for that address, and
- * the number of cycles required to execute the instruction (under some
-   assumptions).
+ * the number of cycles required to execute the instruction (using some
+   assumptions, which can be changed)
 
 Some directives such as `EQU` do not generate machine code, so their second and
 third columns may be missing or show different information.
@@ -278,7 +278,7 @@ third columns may be missing or show different information.
 For more complex programs with `COPY` and/or macros, source indicators show to
 which source file a certain listing sequence belongs to:
 
-   XAS99 CROSS-ASSEMBLER   VERSION 3.1.0
+    XAS99 CROSS-ASSEMBLER   VERSION 3.1.0
         **** ****     > asmacs.asm
         ...
         **** ****     > MAC0
@@ -337,21 +337,21 @@ this command:
 The additional files provide the unresolved symbols.  Thus, our revised command
 does not print any warnings.
 
-Another, more common way to provide required E/A utility functions is to `COPY` 
+Another, more common way to provide required E/A utility functions is to `COPY`
 them in the source code.  For example, we could modify `ashello.asm` to look
 like
 
     ...
            ORI  R0,>0700
            BLWP @VWTR
-    
+
            JMP  NEXT
 
            COPY "vsbw_ea.asm"          |
            COPY "vmbw_ea.asm"          |   add these lines
            COPY "vwtr_ea.asm"          |   to provide utilities
            COPY "kscan_ea.asm"         |
-           
+
            END
 
 Note that both methods, command line files and `COPY`, yield identical output
@@ -370,7 +370,7 @@ properties and contents.
     $ xdm99.py work.dsk
     WORK      :     2 used  358 free   90 KB  1S/1D 40T  9 S/T
     ----------------------------------------------------------------------------
-    
+
 We see that the disk image with the name `WORK` has 2 used and 358 free sectors,
 has a capacity of 90 KB and is a formatted as one-sided, single density with 40
 tracks and 9 sectors per track.  Note that 2 sectors are always reserved for
@@ -407,7 +407,7 @@ the initialize option `-X`:
 
 The disk size can be descriptive like `SSSD`, `2s/2d`, `1s1d80t`, or `CF`, or
 explicit by specifying the number of sectors, e.g., `720`.  The maximum size
-for a disk image is 1600 sectors. 
+for a disk image is 1600 sectors.
 
 We can also combine the creation of a new image, and the addition of files into
 a single operation.
@@ -452,7 +452,7 @@ even though the emulator cannot write to disk images.  The native format of
 Classic 99 are so-called _files in a directory_ (FIAD) in _TIFILES_ format.
 
 `xdm99` can convert plain files and files on disk images into TIFILES format by
-using the TIFILES options `-T` and `-t`, resp.  
+using the TIFILES options `-T` and `-t`, resp.
 
 For plain files, `-T` converts one or more files into TIFILES format.  Unless we
 are creating files of type `PROGRAM`, we also have to provide the file type
@@ -468,7 +468,7 @@ option `-f`.
 By default, the converted files will have an additional `.tfi` extension.  In
 our case, we want upper-case filenames without extension for Classic 99, so
 we're using the `-o` option again.
- 
+
     $ xdm99.py -T ashello.obj -f DIS/FIX80 -o ASHELLO
     $ xdm99.py -T ashello5.img -o ASHELLO5
 
@@ -535,8 +535,8 @@ For Windows systems, we can use the `wmic` command (no admin rights required):
     VBOX HARDDISK ATA Device           \\.\PHYSICALDRIVE0  VBOX HARDDISK ATA Device   ...
     Generic- Compact Flash USB Device  \\.\PHYSICALDRIVE2  Generic- CF USB Device     ...
     Generic- SD/MMC USB Device         \\.\PHYSICALDRIVE1  Generic- SD/MMC USB Device ...
-    Generic- xD-Picture USB Device     \\.\PHYSICALDRIVE3  Generic- xD USB Device     ...   
-    
+    Generic- xD-Picture USB Device     \\.\PHYSICALDRIVE3  Generic- xD USB Device     ...
+
 Here, we see that the USB CF Card reader is connected to `\\.\PHYSICALDRIVE2`.
 
 We can also transfer single files if the target volume already contains a disk
@@ -563,7 +563,7 @@ Note that the volume can also be a list, e.g., `1,3` or a range, e.g., `1-3`.
 Any commands are then applied to all volumes specified.  For example,
 
     $ xvm99.py /dev/sdc 1,3-5 -a LICENSE -f DV80
-    
+
 will add the file `LICENSE` to volumes 1, 3, 4, and 5, assuming that each volume
 contains a valid disk image.
 
@@ -611,7 +611,7 @@ In order to add the GPL header, the source program must not use memory range
 higher directive or an `RORG` directive at the beginning of the program.  In
 case of using `RORG`, `xas99` automatically relocates the code to address
 `>6030`.
-  
+
 Additionally, the first instruction of the original source code must be
 executable, just like for option 5 programs, unless the program uses an `END`
 directive with label, pointing to the start address (see `ascart.asm`).
@@ -619,7 +619,7 @@ directive with label, pointing to the start address (see `ascart.asm`).
 As an aside note, we can manually relocate the relocatable segments of a program
 with the rebase option `-a`.  Thus, if a program is placed with only `RORG`, we
 can use `-a` to move it to any memory address.
- 
+
 The resulting file with extension `.rpk` can be used as-is with the MAME
 emulator:
 
@@ -654,7 +654,7 @@ As such, binary is arguably the simplest, and most versatile format.
 As we now know how to assemble programs into various formats, we should briefly
 discuss the use of E/A utility functions in each case.  These functions, such as
 `VSBW`, `VMBR`, or `VWTR` simplify the access to VDP memory and are thus used in
-most assembly programs. 
+most assembly programs.
 
 When creating object code for E/A option 3, the Editor/Assembler provides all
 utilities listed in the E/A manual automatically.  To use any function, we only
@@ -669,8 +669,8 @@ with `BLWP`.
 
 Remember the warning we got when assembling `ashello.asm`?  That was because we
 `REF`ed utility `VSBW`, but the function was not part of our code.  In case of
-option 3, this is fine, as the function is actually provided by E/A itself. 
-    
+option 3, this is fine, as the function is actually provided by E/A itself.
+
 For other output formats, including E/A option 5, E/A does _not_ supply
 utilities, so we must include them in our program.  For this, `xas99` provides
 a variety of utilities in the `lib/` directory.  To use any function, we must
@@ -693,7 +693,7 @@ the code
     li   r0, 160
     li   r1, >4000
     bl   @vsbw
-    
+
 and then include their source files on the command line:
 
     $ xas99.py -R -i program.asm vsbw.asm
@@ -737,7 +737,7 @@ equivalent and yield three identical files `whole.obj`.
     $ xas99.py part1.asm -l part2.obj -o whole.obj
     $ xas99.py part1.asm part2.asm -o whole.obj
 
-Note, however, that  
+Note, however, that
 
     $ xas99.py part2.asm -l part1.obj -o whole.obj
 
@@ -780,7 +780,7 @@ every little change.
 
 Luckily, with today's computers being unimaginably faster, we can choose either
 method without worrying about performance.  Thus, it is merely a personal choice
-which method we choose. 
+which method we choose.
 
 
 ### Creating GROM Cartridges
@@ -807,7 +807,7 @@ the binary format created by `xas99.py` with the `-b` option.
     ...
     00000150  ff 87 02 05 00 ff be 10  80 03 61 61 92 10 41 59  |..........aa..AY|
     00000160  00 0b                                             |..|
-  
+
 Note that `xga99` does not support relocatable code, and cannot create GPL
 object code.
 
@@ -817,7 +817,7 @@ example, `gahellog`.
 
 Other hardware, such as the GRAM Kracker, also use GPL byte code files, but
 additionally expect some header information `xga99` currently not provides.
- 
+
 For the MAME emulator, we cannot use `.gbc` files directly, but we can use them
 to build an RPK cartridge archives.
 
@@ -863,14 +863,14 @@ To convert this into a program we can load and run in TI BASIC, we must tokenize
 the listing with the create option `-c`.
 
     $ xbas99.py -c nim.bas
-    
+
 To run the resulting file `nim.prg` in an emulator, we again create a disk image
 
     $ xdm99.py basic.dsk -X sssd -a nim.prg
 
 and start the MAME emulator with it (again, as one line)
 
-    $ mame64 ti99_4a -ioport peb -ioport:peb:slot8 hfdc 
+    $ mame64 ti99_4a -ioport peb -ioport:peb:slot8 hfdc
              -ioport:peb:slot8:hfdc:f1 525dd -flop1 basic.dsk
 
 In TI BASIC, we can then load and run our Nim program from `DSK1`.
@@ -945,7 +945,7 @@ we can use labels for each line that is the target of a branch:
 
 A label must be alphanumeric and followed by a colon `:`.  The actual program
 lines must be indented by at least one blank.  Sadly, when using a label, e.g.,
-as part of a `GOTO` statement, we must prefix the label with an `@` sign. 
+as part of a `GOTO` statement, we must prefix the label with an `@` sign.
 The `@` prefix is needed to identify invalid, i.e., mistyped labels, or else
 invalid labels would become stray variables.
 
@@ -953,7 +953,7 @@ In order to tokenize a program with labels, the label option `-l` must be
 supplied.  `-l` can only be used together with `-c`.
 
     $ xbas99.py -c -l nim_labels.bas
-    
+
 Before tokenizing a program with labels, `xbas99` will apply line numbers to the
 program similar to what the BASIC command `RESEQUENCE 100,10` would do.
 Consequently, labels are not preserved in tokenized programs, so when we decode
@@ -1006,9 +1006,9 @@ For Windows, we can adapt above script like this, and call it `build.bat`:
 
     @echo off
     xas99.py prog1.asm prog2.asm -R -i -o program
-    if %errorlevel% neq 0 exit /b 
+    if %errorlevel% neq 0 exit /b
     xdm99.py -X sssd w.dsk -a "progra?"
-    if %errorlevel% neq 0 exit /b 
+    if %errorlevel% neq 0 exit /b
     mame64 ti99_4a -ioport peb -ioport:peb:slot2 32kmem -ioport:peb:slot8 hfdc ^
            -ioport:peb:slot8:hfdc:f1 525dd -cart EA.rpk -flop1 work.dsk
 
@@ -1031,7 +1031,7 @@ process takes.  The firmware of the [FinalGROM][6] cartridge, for example,
 comprises an assembly part and a GPL part, and each result is included in
 a C program, which is then compiled.  Executing the individual steps in the
 correct order quickly becomes a too complex task to merely rely on pressing
-Cursor-Up the correct number of times in the command line.     
+Cursor-Up the correct number of times in the command line.
 
 
 ### From Here On
@@ -1085,7 +1085,20 @@ The `xas99` options `-R` for register prefixes, `-L` for creating a listing,
 compressed object code correspond to the respective options of the
 Editor/Assembler.
 
-    $ xas99.py -R -C ashello,asm -L ashello.lst -S -o ashello-c.obj
+    $ xas99.py -R -C ashello.asm -L ashello.lst -S -o ashello-c.obj
+
+Note that following a long Unix tradition, multiple options may also be merged
+into a single hyphenated expression.  Similarly, a string argument following an
+option may be appended without a separating space.  Thus, following these
+rules, above command line may also be written as:
+
+    $ xas99.py -RCS ashello.asm -Lashello.lst -oashello-c.obj
+
+or even
+
+    $ xas99.py -RCSLashello.lst ashello.asm -oashello-c.obj
+
+This abbreviated format applies to all xdt99 tools.
 
 `xas99` will report any _errors_ to `stderr` during assembly.  A typical error
 may look like
@@ -1118,6 +1131,11 @@ The assembler may also issue a number of _warnings_, e.g.,
 Warnings indicate a likely error made by the developer.  Warnings are also
 written to `stderr`, unless they are suppressed with the quiet option `-q`.
 
+Most warnings are also associated with one of these groups: optimizations,
+potentially incorrect usages of arguments, and unused symbols.  Each group
+can be disabled individually with `--quiet-opts`, `--quiet-usage`, or
+`--quiet-unused-syms`, resp.
+
 Note that all examples above issues a warning we omitted so far:
 
     $ xas99.py -R ashello.asm
@@ -1133,8 +1151,29 @@ our program.
 On Linux and macOS platforms, all warnings and errors are _colored_ by default.
 Irrespective of platform, the use of color can be turned on or off by using the
 color options `--color on` or `--color off`, resp.  (Technical note: Colors
-require so-called ANSI escape sequences, something that Windows `cmd.exe` only 
+require so-called ANSI escape sequences, something that Windows `cmd.exe` only
 started to support very recently.)
+
+Frequently used options, such as `-R` or `--color on/off` can be stored in the
+`xas99`-specific environment variable `XAS99_CONFIG`.  On most platforms, this
+variable is set with a command like this:
+
+    $ set XAS99_CONFIG="--color off"
+
+The contents of this environment variable will be prepended to the option list
+of any `xas99` invocation.
+
+    $ xas99.py aserrs.asm
+
+shows error messages without color.
+
+Options from the environment can be overriden if a matching counter-option
+exists, e.g.,
+
+    $ xas99.py aserrs.asm --color on
+
+shows error messages with color, overriding the `--color off` option in the
+environment.  Options like `-R` cannot be overridden.
 
 
 ### Creating Program Images
@@ -1165,7 +1204,7 @@ will yield two images files of 10 bytes each, instead of a single file of about
 
 Note that the E/A option 5 loader happily loads non-contiguous image files, even
 though the original `SAVE` utility cannot generate such images.
-  
+
 For further control about the memory regions to include in the image, see the
 `SAVE` directive below.
 
@@ -1186,7 +1225,7 @@ will yield an image containing these bytes
 
 where the first six bytes are the image header.  We can see that the data from
 the `RORG` segments were relocated to `>A000` and `>A004`, resp.
- 
+
 All the usual restrictions for program images apply.  In particular, the first
 word of the first image file must be an executable instruction, and the E/A
 utility functions must be provided by the program.
@@ -1208,9 +1247,9 @@ Caveat: When creating an image with symbols `SFIRST`, `SLAST` and supplying
 utilities on the command line, e.g.,
 
     $ xas99.py -i source.asm vsbw.asm
-    
+
 the code of `vsbw.asm` will _not_ be included in the image, since it will be
-placed outside the `SFIRST`-`SLAST` range!  In this case, we should use `COPY`.   
+placed outside the `SFIRST`-`SLAST` range!  In this case, we should use `COPY`.
 
 
 ### Creating Binaries
@@ -1281,7 +1320,7 @@ using `-b` instead.
 The text option `-t` generates a textual representation of the binary that would
 be generated by `-b`.  Option `-t` has one parameter that specifies the format
 of the text.  One of the following characters sets the target platform of the
-generated text:    
+generated text:
 
 | Character | Generated statement | For use in        |
 | --------- | ------------------- | ----------------- |
@@ -1373,8 +1412,8 @@ Relocatable symbols are marked by `REL`.
 
 ### `xas99` Assembly Language
 
-The `xas99` is a complete TMS9900 assembler with additional support for TMS9995
-and F18A if option `-5` or `-18` is given, resp.
+The `xas99` is a complete TMS9900 assembler with additional support for TMS9995,
+TMS99000/105, and F18A if option `-5`, `-105`, or `-18` is given, resp.
 
 `xas99` understands all assembler directives described in the Editor/Assembler
 manual and supported by the E/A loader, i.e.,
@@ -1389,7 +1428,7 @@ The following directives are not supported by the E/A loader and are silently
 ignored by `xas99`:
 
     PSEG PEND CSEG CEND DSEG DEND LOAD SREF LIST UNL PAGE TITL
-    
+
 `xas99` also defines a number of new directives, which are described in the
 _xdt99 Extensions_ section.
 
@@ -1401,7 +1440,7 @@ current source unit.
 
 Its filename argument may be a native path such as `"~/ti99/asm/sound.asm"` or
 `"C:\TI Stuff\ASM\Sound.asm"`, but also a TI-style path such as `DSK1.SOUND` or
-`DSK.UTILS.SOUND`.  In the latter case, `xas99` will search for include files 
+`DSK.UTILS.SOUND`.  In the latter case, `xas99` will search for include files
 
     SOUND
     SOUND.A99
@@ -1440,6 +1479,43 @@ literals are still case-sensitive, though.
     LABEL2 TEXT 'Hello World'
     Label3 mov Label1(R1),Label2(r2)
 
+The use of _whitespace_ has been relaxed.  Single spaces may be used judiciously
+within the operand field to increase the legibility of expressions.  Two or more
+spaces as well as a tab character introduce the comment field.
+
+    label  data addr + len - 1  comment
+           movb @addr + 2(r1), *r2+ ; comment
+
+_Technical note:_ It is not possible to detect the beginning of the comment
+field based on the current instruction, as the example
+
+    maxval equ 8 * 9 would be too big
+
+shows.  Where does the comment start, and what is the value of `maxval`?
+
+To deal with this problem, a new _relaxed syntax_ enabled by option `-r` has
+been introduced.  With relaxed syntax, there are no restrictions on whitespace,
+i.e., any mount of whitespace might be used anywhere.  On the other hand,
+comments after the operand fields must be introduced with a semicolon `;`.
+
+    label  li    r0   ,   2*      max_val  +     1 ; comment
+
+The _extended expression_ syntax supports parentheses `(`, `)`, the modulo
+operator `%`, the exponentiation operator `**`, and binary operators bit-and
+`&`, bit-or `|`, bit-xor `^`, and bit-not `~` as well as binary literals
+introduced by `:`.
+
+    area    equ (xmax + 1) * (ymax + 1)
+    addr2   equ addr1 | >A000 & ~>001F
+    padding bss size % 8
+    binval  equ :01011010
+
+Remember that all operators have the _same precedence_, i.e., an expression such
+as `1 + 2 * 3 - 4 & 5` evaluates as `(((1 + 2) * 3) - 4) & 5`.  This may sound
+annoying, but changing the established order of evaluation would break
+compatibility with existing sources.  To adjust the order of evaluation,
+parentheses are used: `1 + (2 * 3) - (4 & 5)`.
+
 _Labels_ may be of arbitrary length and may contain arbitrary characters except
 for whitespace and operators (`+-*/$#!@'"`).  Labels not imported or exported by
 `REF` or `DEF`, resp., may even be in Unicode.  An optional colon `:` may be
@@ -1452,6 +1528,8 @@ continues the current line to the next:
         aorg >a000    ; assigns >a000 to my_label_2  /
     my_label_3        ; assigns >a000 to my_label_3  \  standard E/A
         aorg >b000    ; no label to assign >b000 to  /  behavior
+
+#### Local labels `!`
 
 _Local labels_ simplify the implementation of small loops and subroutines to be
 `COPY`ed.  A local label is introduced by an exclamation mark `!` and an
@@ -1490,42 +1568,14 @@ so
     !   inc  r1
         jmp  !
         end
-        
+
 yields error `Invalid local target`.
 
 Labels `label` and `!label` are entirely different and can be used without
 conflict in the same program.  Thus, local labels used in `COPY`ed source code
 cannot interfere with the main source.
 
-The use of _whitespace_ has been relaxed.  Single spaces may be used judiciously
-within the operand field to increase the legibility of expressions.  Two or more
-spaces as well as a tab character introduce the comment field.
-
-    label  data addr + len - 1  comment
-           movb @addr + 2(r1), *r2+ ; comment
-
-_Technical note:_ It is not possible to detect the beginning of the comment
-field based on the current instruction, as the example
- 
-    maxval equ 8 * 9 would be too big
-
-shows.  Where does the comment start, and what is the value of `maxval`?
-
-The _extended expression_ syntax supports parentheses `(`, `)`, the modulo
-operator `%`, the exponentiation operator `**`, and binary operators bit-and
-`&`, bit-or `|`, bit-xor `^`, and bit-not `~` as well as binary literals
-introduced by `:`.
-
-    area    equ (xmax + 1) * (ymax + 1)
-    addr2   equ addr1 | >A000 & ~>001F
-    padding bss size % 8
-    binval  equ :01011010
-
-Remember that all operators have the _same precedence_, i.e., an expression such
-as `1 + 2 * 3 - 4 & 5` evaluates as `(((1 + 2) * 3) - 4) & 5`.  This may sound
-annoying, but changing the established order of evaluation would break
-compatibility with existing sources.  To adjust the order of evaluation,
-parentheses are used: `1 + (2 * 3) - (4 & 5)`.
+#### Modifiers `#`
 
 `xas99` features a number of so-called _modifiers_ that apply to expressions.
 
@@ -1560,14 +1610,14 @@ modifier.  Parentheses can change this behavior, but doing so will yield
 meaningless results.  For example,
 
         mov (w#30) + 2, r0
-        
+
 is equivalent to
 
         mov @c_30 + 2, r0
     c_30:
         data 30
         data ???
-        
+
 which will store an unknown value `???` in `R0`.
 
 The assembler ensures that each value is added only once, so for constants
@@ -1699,6 +1749,8 @@ silently ignored.
 
 The exponent notation `1e9` is currently not supported.
 
+#### Banked output
+
 The `BANK` directive specifies the memory bank and optionally the base address
 for the following code segment, or a shared code segment if the special value
 `ALL` is used.  Banks count from zero.
@@ -1711,7 +1763,7 @@ for the following code segment, or a shared code segment if the special value
     func2 li  r1,>1234
           ...
 
-The address of a `BANK` directive defines the base address for other, 
+The address of a `BANK` directive defines the base address for other,
 addressless `BANK`s.  In the previous example, bank 1 also starts at `>6000`,
 since bank 0 defined that base address.
 
@@ -1720,11 +1772,11 @@ obtains the next available addresses for all banks, and then picks the biggest
 one as start address.  If a plain `BANK n` without address follows a shared
 segment, then its start is at the end of the shared segment.
 
-For example, the program 
+For example, the program
 
 Within each bank, all `*ORG` directives may be used, without leaving the current
 bank.
- 
+
 Note that the optional second argument of the `AORG` directive to specify the
 current bank has been removed, and is no longer available.  Programs with such
 a directive will fail during assembly.
@@ -1735,7 +1787,7 @@ files.  For example, assembling source file `asbank.asm` containing directives
     BANK 0
     BANK 1
     BANK ALL
-    
+
 into a binary will yield files `asbank_b0.bin` and `asbank_b1.bin`.
 
 `xas99` detects cross-bank accesses in address arguments.  Of those, accesses
@@ -1771,6 +1823,8 @@ relocated to a different memory address during runtime.
 
           bank 1
           b    @x#cont  ; OK, no error
+
+#### XORG
 
 The new _`XORG` directive_ sets the location counter to a new address but does
 not change the actual placement of the subsequent code segment.
@@ -1823,6 +1877,8 @@ Note that `XORG` does not place code directly at the target address.  Instead,
 we must copy all `XORG` segments during runtime, e.g., using the code template
 shown before.
 
+#### Output range
+
 The `SAVE` directive limits the memory range to output and controls the
 resulting files for the image `-i` and binary `-b` output.  For those formats,
 each `SAVE` directive will yield one file, containing only code in the memory
@@ -1842,7 +1898,7 @@ By default, the resulting binary will contain the entire address range of the
 SAVE(s), with bytes at unspecified addresses set to 0.
 
 When supplying the minimize option `-M`, however, save ranges are minimized,
-i.e., the resulting binary only contains those addresses contained in the 
+i.e., the resulting binary only contains those addresses contained in the
 program (and zero any gaps between them).
 
 As an example, the simple program
@@ -1856,7 +1912,7 @@ will contain >100 bytes normally, but only 8 bytes together with `-M`.
 Note that always the entire program is assembled, even if only a portion of it
 is SAVEed.
 
-In combination with banking, there will be one output file per SAVE per bank, 
+In combination with banking, there will be one output file per SAVE per bank,
 even if that file is empty.
 
 The arguments of `SAVE` may be expressions, and may be omitted to denote the
@@ -1870,6 +1926,9 @@ If no `SAVE` directives are provided, option `-b` will create one binary file
 for the entire program.  Option `-i` will save the region between symbols
 `SFIRST` and `SLAST`, if present, and generate one file for each segment
 otherwise.
+
+
+### Preprocessor
 
 The source code _preprocessor_ allows for conditional assembly based on
 well-defined conditional expressions.  The preprocessor commands `.ifdef` and
@@ -1909,10 +1968,12 @@ In addition to symbols defined by labels, `xas99` also sets exactly one of
     _xas99_image
     _xas99_bin
     _xas99_cart
-    _xas99_xb 
+    _xas99_xb
 
 depending on the assembler mode selected.  We can use these symbols to enable
 the generation of multiple formats from one source.
+
+#### Macros
 
 `xas99` supports _macros_.  The `.defm` preprocessor command introduces a new
 macro, which is terminated by the `.endm` command.  Inside the macro body, the
@@ -1971,14 +2032,76 @@ Preprocessor commands are always executed, even inside inactive `.ifdef`/
 
 instead of using `.defm` ... `.endm` inside `.ifdef` ... `.endif`.
 
+#### Pragmas
+
+_Pragmas_ are special kinds of comments that affect the assembly process in a
+certain way.  They are introduced by `;:` and separated by `,` if they appear on
+the same line, e.g.,
+
+    label clr 0    ;: warn-usage = off, warn-symbol = off
+
+Pragmas do not require an instruction to attach to.
+
+    ;: warn-unused-syms = on
+
+Comments and pragmas can occur on the same line, but pragmas must succeed
+comments.
+
+          inc 0   ; advance to next item ;: warnings = off
+
+All pragmas, except cycle counting pragmas, consist of a name and a value, both
+of which are case-insentitive.  Whitespace is ignored.
+
+The currently defined pragmas are
+
+    warnings = { on | off }
+    warn-opts = { on | off }
+    warn-usage = { on | off }
+    warn-symbols = { on | off }
+    lwpi = <value>
+
+and the special short-form pragmas
+
+    s{+ | -}
+    d{+ | -}
+
+The pragmas `warning`, `warn-opts`, `warn-usage`, and `warn-symbols` correspond
+to the options `-q`, `--quiet-opts`, `--quiet-usage`, and `--quiet-unused-syms`,
+respectively.  The difference between options and pragmas are that the latter
+don't affect the entire file and can be turned on and off at any line in the
+source file.
+
+The other pragmas affect the cycle counter and are described there.
+
+
+### Support for other processors
+
 `xas99` also supports _TMS9995_ opcodes
-    
+
     MPYS <gas>
     DIVS <gas>
     LWP  <wa>
     LST  <wa>
- 
-when using the `-5` option, and the _F18A GPU_ instruction set
+
+when using the `-5` option, and the _TMS99000_ and _TMS99105_ opcodes
+
+    MPYS <gas>
+    DIVS <gas>
+    LWP  <wa>
+    LST  <wa>
+    BIND <ga>
+    BLSK <wa>, <imm>
+    TMB  <ga>, <cnt>
+    TCMB <ga>, <cnt>
+    TSMB <ga>, <cnt>
+    AM   <gas>, <gad>
+    SM   <gas>, <gad>
+    SLAM <ga>, <cnd>
+    SRAM <ga>, <cnd>
+
+when using the `-105` option.
+
+The _F18A GPU_-specific instruction set
 
     CALL <gas>
     RET
@@ -1987,8 +2110,116 @@ when using the `-5` option, and the _F18A GPU_ instruction set
     SLC  <wa>, <count>
     PIX  <gas>, <wa>
 
-when using the `-18` option.  The `SPI` family of instructions is not supported;
-please use their equivalents `CKON`, ... instead.
+is supported when using the `-18` option.  Note that the `SPI` family of
+instructions is not supported; please use their equivalents `CKON`, ...
+instead.
+
+
+### Cycle Counting
+
+The _cycle counter_ of `xas99` determines how many clock cycles the CPU inside
+the TI 99/4A computer will take to execute a given assembly instruction.  Cycle
+counting happens automatically during assembly, and the results are shown in the
+fourth column of the list file as number of clock cycles.
+
+    0050 0060 06A0  24        BL   @KSCAN
+         0062 0000e    
+    0051 0064 9220  22        CB   @KCODE,R8
+         0066 8375     
+    0052 0068 13F9  10        JEQ  KEYSC
+    0053               
+    0054 006A D020  22        MOVB @KCODE,R0
+         006C 8375     
+    0055 006E 0980  28        SRL  R0,8
+    0056 0070 0240  14        ANDI R0,>000F
+         0072 000F     
+    
+The cycle counter examines each instruction individually and does not track
+branches or loops.  Thus, the cycle counter does not report the overall run time
+of the program.  The cycle counter is most useful for examining small fragments
+of time-critical code, where it may help to sort multiple variants of some
+algorithm by performance.
+
+To determine accurate cycle counts, the cycle counter needs to know if accesses
+to memory involve the multiplexer or not, as multiplexed memory accesses occur a
+time penalty of 4 extra cycles, so called "wait states".
+
+On the standard TI 99/4A, address ranges `>2000->7FFF` and `>A000->FFFF` are
+multiplexed.  The general convention is to place code in multiplexed address
+regions and to locate registers in the un-multiplexed address range
+`>8300->83FF`.  This is also the default assumption of the cycle counter,
+although it can be fine-tuned to other models.
+
+During cycle counting, `xas99` keeps track of the address of the current
+instruction as well as the current workspace register pointing to register `R0`.
+With this information, the cycle counter can accurately apply wait states when
+neccessary in many cases.
+
+For `BLWP` subroutines, however, the cycle counter cannot keep track of the
+workspace register, especially if the subroutine is called indirectly.  In these
+cases, the developer can annote changes to the workspace register with the
+`LWPI` pragma:
+
+	      blwp *r1
+		  ...
+
+	vrfr  data >vrfrs
+		  data >2080     ;: lwpi=>2080
+	vrfrs clr  r5
+	      ...
+
+In this example, the cycle counter will use multiplexed address `>2080` as
+workspace register for the instruction in the subroutine starting at label
+`vrfrs`.
+
+For a given instruction, most memory accesses are caused by its operands.  Their
+exact target memory address, and whether they are multiplexed or not, are
+determined by their target addresses and adressing modes.  Unfortunately, the
+target address is not always explicitly known.
+
+For these addressing modes, the operand target address is known and the memory
+accesses can be cycle-counted correctly:
+
+   - register addressing, `Rn`
+   - symbolic addressing, `@symbol`
+
+For other addressing modes, however, target addresses cannot be inferred without
+actually running the assembly program:
+
+   - indirect addressing, `*Rn`
+   - indirect addressing with increment, `*Rn+`
+   - indexed addressing, `@offset(Rn)`
+
+In those cases, the cycle counter will assume the worst and apply wait states to
+all unknown memory accesses, unless the developer provides additional
+information.  The short-form pragmas `s+`, `s-`, `d+`, and `d-` tell the cycle
+counter that the corresponding source or destination operand's target memory
+access incurs wait states (`+`) or not (`-`).
+
+	  mov *r1+, *r2     ;: s+d-
+
+Here, register `R1` points to a multiplexed address, whereas `R2` does not.
+
+	  c *r1+, @>10(r2)  ;: s-
+
+`R1` points to a non-multiplexed address, whereas the destination operand does.
+Note that since unknown target addresses are always multiplexed, pragmas `s+`
+and `d+` are redundant.
+
+	  cb r1, @symbol    ;: s-d-
+
+For known target addresses, annotations have no effect.
+
+	  inc *r1           ;: s-
+
+For single-operand mnemonics, only the `s+` and `s-` pragmas have an
+effect.
+
+Unlike other pragmas such as `LWPI` or `WARN-OPTS`, these target address pragmas
+only affect the line they are directly attached to.
+
+Note that using pragmas `s+`, `s-`, `d+`, and `d-`, the cycle counter can also
+accomodate architectures other than the TI 99/4A.
 
 
 ### Linker
@@ -2056,15 +2287,15 @@ code.  As an example, linking
         data 1
         aorg >a010
         data 2, 3
-        
+
         * program 2
         rorg >10
         data 4
-        
+
 creates a conflict at address `>A012`, since both `DATA 3` and `DATA 4` will be
 placed at that address.  (Note that for program 2, the next available
 relocatable address is `>A002`, and the `RORG` offset is >10.)
-  
+
 Option `-l` will not resolve this conflict, and the later instruction `DATA 4`
 will be placed at `>A012`.  Option `-ll`, on the other hand, resolves the
 conflict by moving the conflicting program unit towards higher addresses until
@@ -2077,13 +2308,13 @@ to all relocatable segments of one program unit.
 Safe linking is most useful when linking source or object code that someone else
 has written and which may contain unknown conflicts.  When linking our own
 program, normal linking should be sufficient.
-  
+
 
 ### Compatibility with E/A
 
 The strictness option `-s` disables most `xas99`-specific extensions, in
-particular the relaxed syntax, to improve backwards compatibility for legacy
-sources:
+particular the relaxed whitespace handling, to improve backwards compatibility
+for legacy sources:
 
     $ xas99.py -s ashello.asm
 
@@ -2119,7 +2350,7 @@ the byte code in GROM 0 by default.  We can override this with the GROM option
 `-G`.  For example, to place the byte code in the cartridge GROM,
 
     $ xga99.py gahello.gpl -G ">6000"
- 
+
 By default, `xga99` will yield one single file for the entire program, even if
 it spans multiple GROMs.  To generate one file per GROM, we can use the split
 GROM option `-g`.
@@ -2173,7 +2404,7 @@ As the Graphics Programming Language was never intended for public release,
 existing tools for assembling GPL source code differ substantially in the syntax
 they use.  `xga99` adopts a combination of the Ryte Data and the RAG GPL
 Assemblers' syntax as its native format.
-  
+
 We can choose other syntax styles, however, with the syntax parameter `-y`.
 Currently, the only extra syntax is the syntax of the TI Image Tool
 disassembler, available with name `mizapf` (named after the creator of the image
@@ -2186,8 +2417,13 @@ considered too arcane to be included in `xga99`.
 
 The native `xga99` syntax style is more "modern" in that it supports lower case
 sources, extended expressions, relaxed labels, local labels, and relaxed use of
-whitespace, similar to `xas99`.  Both cross-assemblers also share the same
-preprocessor.
+whitespace, including the relaxed syntax mode, similar to `xas99`.  Both
+cross-assemblers also share the same preprocessor.
+
+As for `xas99`, warnings and errors are _colored_ by default, which may be
+controlled with the `--color` option.  Frequently used options can be stored in
+the `xga99`-specific environment variable `XGA99_CONFIG`.  For details, refer
+to `xas99`.
 
 
 ### GPL Instructions
@@ -2212,7 +2448,7 @@ addresses, resp.:
 |   `#`    | VDP register      | VDP register       | `MOVE` only  |
 
 Note that indexes must be located in scratchpad RAM.  We can thus abbreviate an
-indexed address like `V@>100(@>83e0)` to `V@>100(@>e0)`. 
+indexed address like `V@>100(@>83e0)` to `V@>100(@>e0)`.
 
 There is no `G*<RAM>` GROM indirect address mode, but `G0(<Pad RAM>)` can be
 used for Scratchpad RAM addresses instead.
@@ -2312,7 +2548,7 @@ the GROM base address given by `GROM`.
 Instead of using the `GROM` and `AORG` directives, the location of the byte code
 may also be specified by the GROM option `-G` and AORG option `-A`, resp.  The
 cartridge option `-c` implies `-G 0x6000` and `-A 0x30`.
-  
+
 Options `-G` and `-A` will not override `GROM` or `AORG` directives, but set the
 GROM and address offset of the first line of the code.
 
@@ -2328,10 +2564,10 @@ extensions are backwards compatible so that any existing source code using
 suitable syntax should assemble as-is.
 
 The `xas99` extensions regarding _comments_, _labels_, _local labels_,
-_whitespace_, _expressions_, _external symbols_ and the _preprocessor_ also
-apply to `xga99`.  Note, however, that GPL macros use macro parameters `$1`,
-`$2`, ... instead of `#1`, `#2`, ..., as the `#` sign is used to denote VDP
-registers in GPL.
+_whitespace_, _relaxed syntax_ mode, _expressions_, _external symbols_ and the
+_preprocessor_ also apply to `xga99`.  Note, however, that GPL macros use macro
+parameters `$1`, `$2`, ... instead of `#1`, `#2`, ..., as the `#` sign is used
+to denote VDP registers in GPL.
 
 The _predefined symbols_ set by `xga99` are `_xga99_gbc` or `_xga99_cart`,
 depending on the output format chosen.
@@ -2385,7 +2621,7 @@ option `-t`.
 
 By default, `xda99` disassembles TMS9900 machine code.  We can, however, extend
 the recognized opcodes to TMS9995 and F18A by supplying options `-5` or `-18`,
-resp. 
+resp.
 
 The skip option `-k` skips some bytes at the beginning of the binary to
 disassemble.  For example, when disassembling an E/A option 5 image, we use `-k`
@@ -2401,7 +2637,7 @@ Using `xda99` with the from parameter `-f` will start the disassembly in
 _top-down mode_, which disassembles sequentially word by word.  This mode often
 yields bad results, as data segments will be translated into meaningless
 statements.
-  
+
 For example, if we change the from address in the `ascart.bin` example above to
 `-f 6000`, we get
 
@@ -2680,7 +2916,7 @@ resulting file can be loaded and run by one of the BASIC interpreters.
     $ xbas99.py -c bashello.bas
 
 `xbas99` uses the `.prg` extension for BASIC programs in tokenized format.
- 
+
 The print option `-p` lists the statements of a BASIC program in tokenized
 format on the screen.  Formatting is identical to the built-in BASIC `LIST`
 command modulo the line wrapping.
@@ -2714,7 +2950,7 @@ as simple as it seems, as this example in `DIS/VAR 40` shows:
     120 CALL KEY(0,KEY,STA):: IF KEY=9 THEN
     290 ELSE GOSUB 560
     130 CALL CHAR(96,"8040201008040201")
-    ... 
+    ...
 
 As we see, program line `120` is split in two rows, and the `THEN` target of the
 `IF-THEN-ELSE` statement happens to be wrapped to the start of the second row.
@@ -2738,7 +2974,7 @@ If we want to provide only one of these values, we can write `2,` or `,10`.
 Since the biggest line number difference is 10, `xbas99` knows that for the line
 starting with `290`, the `290` cannot be a line number, and thus the line must
 be part of the statement starting with `120`.
- 
+
 There are additional heuristics that `xbas99` applies, e.g., that line numbers
 must always increase.  If a translation using `-j` fails, we need to join the
 lines manually.
@@ -2754,10 +2990,10 @@ tokenized program.
     ...
 
 `xbas99` also supports a _label mode_ in which no line numbers are used.
-Instead, targets for branch statements such as `GOTO` or `THEN` are defined by 
+Instead, targets for branch statements such as `GOTO` or `THEN` are defined by
 labels.
 
-A label has to start at the beginning of the line and must end in a colon. 
+A label has to start at the beginning of the line and must end in a colon.
 Other lines must be indented by at least one blank.
 
     START:
@@ -2780,7 +3016,7 @@ Other lines must be indented by at least one blank.
 To tokenize a label-based program, we use the label option `-l`.
 
     $ xbas99.py -c -l prime.bas
-    
+
 Note that `-c` will convert label-based programs into regular line number-based
 programs, so decoding `-d` will never yield a label-based program.
 
@@ -2801,6 +3037,11 @@ The protection option `--protect` will add list protection to the generated
 program.  Programs with list protection cannot be listed or edited by the BASIC
 interpreters.  Note, however, that the print option `-p` of `xbas99` will _not_
 honor the protection flag.
+
+As for `xas99`, warnings and errors are _colored_ by default, which may be
+controlled with the `--color` option.  Frequently used options can be stored in
+the `xbas99`-specific environment variable `XBAS99_CONFIG`.  For details, refer
+to `xas99`.
 
 
 ### Running BASIC Programs
@@ -2838,7 +3079,13 @@ xdm99 Disk Manager                                          <a name="xdm99"></a>
 ------------------
 
 `xdm99` is a command-line tool for handling sector-based TI disk images and
-files in TIFILES or v9t9 format.
+files in TIFILES or v9t9 format.  The tool can also create files for the SDD 99
+hardware extension.
+
+As for `xas99`, warnings and errors are _colored_ by default, which may be
+controlled with the `--color` option.  Frequently used options can be stored in
+the `xdm99`-specific environment variable `XDM99_CONFIG`.  For details, refer
+to `xas99`.
 
 
 ### Cataloging Disks
@@ -2888,7 +3135,7 @@ We can override the default name with the output option `-o`.
 If `-o` specifies a directory, all output files are placed in that directory.
 
     $ xdm99.py work.dsk -e HELLO-O HELLO-S -o ti-stuff/
-    
+
 When extracting two or more files, `-o` may only be used with a directory
 argument.
 
@@ -2919,7 +3166,7 @@ This will extract all files matching the given pattern.
 
 Note that on Linux and macOS platforms, we have to quote our glob pattern to
 prevent the shell from expanding the pattern prematurely.
-    
+
 Extracting files will yield the file contents only.  In we also want to retain
 the metadata, i.e., file type and record length, we should extract files in
 TIFILES or v9t9 format, described below.
@@ -3002,7 +3249,7 @@ contains
     00000020  28 7b 6e b9 28 7b ff ff  20 20 20 20 20 20 20 20  |({n.({..        |
     00000030  20 20 20 20 20 20 20 20  20 20 20 20 20 20 20 20  |                |
     ...
-    
+
 and the v9t9 header contains
 
     00000000  41 53 48 45 4c 4c 4f 20  20 20 00 00 00 03 00 03  |ASHELLO   ......|
@@ -3045,7 +3292,7 @@ filename stored in the TIFILES or v9t9 metadata, and the host filename of the
 TIFILES or v9t9 file itself.  Renaming the file will not change the TI filename.
 The `-N` option changes the host filename, not the TI filename.  It is therefore
 only useful for short TIFILES files, e.g., for use with the Classic 99 emulator.
- 
+
 If we want to view the metadata information of a TIFILES or v9t9 file, we can
 use the info option `-I`.
 
@@ -3056,9 +3303,9 @@ If we want to see the contents, we use the print `-P` option instead.
 
     $ ../xdm99.py -P ashello.asm.tfi
     *  HELLO WORLD
-    
+
            IDT 'ASHELLO'
-           
+
            REF VSBW,VMBW,VWTR
            REF KSCAN
     ...
@@ -3167,7 +3414,7 @@ fragments of corrupted files.
     F0:  00 7A 00 7B  00 00 00 00  00 00 00 00  00 00 00 00   .z.{ .... .... ....
 
 Of course, we can redirect output with `-o`.
- 
+
     $ xdm99.py work.dsk -S 0x22 -o fdr.txt
 
 For convenience, integer arguments of `-S`, `-X` and `-Z` may be specified in
@@ -3180,6 +3427,11 @@ xhm99 HFE Image Manager                                     <a name="xhm99"></a>
 The `xhm99` _HFE image manager_ is an extension to the `xdm99` disk manager that
 is both a conversion tool and a manager for HFE images used by the HxC floppy
 emulators.
+
+As for `xas99`, warnings and errors are _colored_ by default, which may be
+controlled with the `--color` option.  Frequently used options can be stored in
+the `xhm99`-specific environment variable `XHM99_CONFIG`.  For details, refer
+to `xas99`.
 
 
 ### Converting Images
@@ -3245,6 +3497,11 @@ The `xvm99` _volume manager_ is an extension to the `xdm99` disk manager that is
 both a conversion tool and a manager for CF card volumes used by nanoPEB/CF7+
 devices.
 
+As for `xas99`, warnings and errors are _colored_ by default, which may be
+controlled with the `--color` option.  Frequently used options can be stored in
+the `xvm99`-specific environment variable `XVM99_CONFIG`.  For details, refer
+to `xas99`.
+
 
 ### Managing Volumes
 
@@ -3264,7 +3521,7 @@ names differ by platform, as well as the method to find out what the correct
 device name is.
 
 | Platform | Sample device name  | Command to get device name           |
-| -------- | ------------------- | ------------------------------------ |  
+| -------- | ------------------- | ------------------------------------ |
 | Linux    | /dev/sdc            | fdisk -l                             |
 | MacOS    | /dev/disk3          | diskutil list                        |
 | Windows  | \\.\PHYSICALDRIVE2  | wmic diskdrive list brief (DeviceID) |
