@@ -1,0 +1,129 @@
+<style>
+body { font-family: 'Liberation Sans', Helvetica, Calibri, sans-serif; padding: 1em; margin: auto; max-width: 60em; background: #fefefe; }
+p, ul, ol, pre { margin: 1em 0; line-height: 1.3em; }
+pre { border: 1px solid #b3d7ff; border-radius: 3px; overflow: auto; padding: 6px 10px; background-color: #e6f2ff; }
+code { border: 1px solid #b3d7ff; border-radius: 3px; margin: 0 2px; padding: 0 2px; background-color: #e6f2ff; }
+pre > code { border: 0; margin: 0; padding: 0; }
+table { text-align: left; }
+th { border-bottom: 1px dashed; padding-left: 1.5ex; }
+td { padding-left: 1.5ex; }
+a, a:visited { color: #11a; text-decoration: none; }
+</style>
+<h1>xdt99-Mode For GNU Emacs</h1>
+<p>The Emacs library <code>xdt99-mode</code> provides three major modes for editing assembly,
+GPL and TI Extended BASIC programs.  The assembly mode offers syntax
+highlighting and editing assistance, while the BASIC mode is currently limited
+to syntax highlighting.</p>
+<p>The xdt99 library currently supports all instructions supported by xdt99
+version 3.3.</p>
+<p>Please note that stock Emacs uses relatively simple technology for analyzing
+source code, so the level of functionality that <code>xdt99-mode</code> can offer is
+limited.  For advanced features such as semantic assistence please use the
+IntelliJ IDEA plugin instead.</p>
+<h2>Assembly Programs</h2>
+<p>Assembly support is provided by the <code>asm99-mode</code> major mode.  To activate this
+mode, press <code>M-x</code> (i.e., press the meta key plus the <code>X</code> key) and enter
+<code>asm99-mode</code> at the prompt.  Please refer to the installation section on how to
+automate this step.</p>
+<p><code>asm99-mode</code> highlights known TMS9900 and related mnemonics as well as various
+assembly constructs such as registers and strings.  The look and feel of the
+highlighting can be customized using the Emacs <code>font-lock</code> faces.</p>
+<p><img alt="Assembly program" src="img/emacs-assembly.png" title="Assembly" /></p>
+<p>Please note that library, unlike the IDEA plugin, cannot perform syntax checks.</p>
+<p>The <code>asm99-goto-def</code> command will jump to the location of the label that the
+cursor is currently positioned on.</p>
+<p><img alt="Goto symbol definition" src="img/emacs-goto-def.gif" title="Goto Symbol Definition" /></p>
+<p>The <code>asm99-show-def</code> command will show the label definition in the mini buffer.
+For easy navigation it is recommended to assign these commands to some shortcut
+keys of your choice (see below).</p>
+<p><img alt="Show symbol definition" src="img/emacs-show-def.png" title="Symbol Definition" /></p>
+<p>The <code>comment-region</code> command (typically bound to <code>C-c ;</code>) adds the <code>xas99</code>
+comment character <code>;</code> to a range of lines.  Conversely, the <code>uncomment-region</code>
+command removes a single <code>;</code> character from each line.</p>
+<p>Two minor modes provide support for formatting assistance.  The
+<code>asm99-smart-tab-mode</code> minor mode will</p>
+<ul>
+<li>automatically indent the current line based on the left-most character or
+   word, and</li>
+<li>advance the cursor to the next tab stop position, i.e., label, mnemonic,
+   argument, or comment field,</li>
+</ul>
+<p>whenever the user hits the <code>Tab</code> key.  You may edit the Emacs variable
+<code>tab-stop-list</code> to adjust the tab stop positions to your liking.  If
+<code>electric-indent-mode</code> mode is active, pressing <code>Return</code> will also indent the
+line just entered.</p>
+<p>The <code>asm99-smart-backspace-mode</code> minor mode will move the cursor back to the
+previous tab stop if there is only whitespace between the cursor and the tab
+stop.  In other words, the <code>Backspace</code> key acts as the inverse of the <code>Tab</code> key.</p>
+<p>Both minor modes are active for <code>asm99-mode</code> by default but may be toggled by
+<code>M-x asm99-smart-tab-mode</code> or <code>M-x asm99-smart-backspace-mode</code>, respectively.</p>
+<h2>GPL Programs</h2>
+<p>GPL support is provided by the <code>gpl99-mode</code> major mode.</p>
+<p>The GPL mode <code>gpl99-mode</code> is very similar to the Assembly mode and use the
+corresponding functions <code>xga99-goto-def</code>, <code>xga99-show-def</code>.</p>
+<p><img alt="GPL program" src="img/emacs-gpl.png" title="GPL" /></p>
+<p>Because of the large similarities between GPL and assembly, <code>gpl99-mode</code> reuses
+the settings for Smart Tab and Smart Backspace.</p>
+<h2>TI BASIC and TI Extended BASIC Programs</h2>
+<p>TI (Extended) BASIC support is provided by the <code>basic99-mode</code> major mode.  To
+activate this mode, press <code>M-x</code> and enter <code>basic99-mode</code>.  Please refer to the
+installation section on how to automate this step.</p>
+<p><code>basic99-mode</code> highlights known TI Extended BASIC keywords and various BASIC
+constructs such as line numbers and strings.  The look and feel of the
+highlighting can be customized using the Emacs <code>font-lock</code> faces.</p>
+<p><img alt="TI Extended BASIC" src="img/emacs-basic.png" title="TI Extended BASIC" /></p>
+<p><code>basic99-mode</code> also supports BASIC programs with labels instead of line numbers.</p>
+<p><img alt="TI Extended BASIC with Labels" src="img/emacs-basic-label.png" title="BASIC with labels" /></p>
+<p>There is currently no additional editor assistance for TI Extended BASIC beyond
+the built-in Emacs functionality.  It is also not possible to restrict the
+<code>basic99-mode</code> to TI BASIC only.</p>
+<h2>Installation</h2>
+<p>Emacs is configured by creating a <code>.emacs</code> file in your home directory.  For
+Windows-specific information about the home directory, please refer to the
+relevant [GNU FAQ item][5].</p>
+<p>Extensions are generally placed into the Emacs <code>site-lisp</code> directory or into
+your local <code>.emacs.d</code> directory.  When using a non-standard directory, you need
+to add its location to your library path in your <code>.emacs</code> config file, e.g.,</p>
+<pre><code>(add-to-list 'load-path "~/.emacs.d/")
+</code></pre>
+<p>To activate the xdt99 extension for Emacs, add</p>
+<pre><code>(autoload 'asm99-mode "xdt99-mode" "TMS9900 Assembly Mode" t)
+(autoload 'gpl99-mode "xdt99-mode" "GPL Mode" t)
+(autoload 'basic99-mode "xdt99-mode" "TI Extended BASIC Mode" t)
+</code></pre>
+<p>to your <code>.emacs</code> file.</p>
+<p>The xdt99 Emacs library has been tested with Emacs 24, but newer or reasonably
+older versions of Emacs should also work.</p>
+<h2>Customization</h2>
+<p>You can associate arbitrary file extensions to the major modes provided by
+xdt99:</p>
+<pre><code>(setq auto-mode-alist
+  (append '(("\\.a99$" . asm99-mode)    ; .a99 -&gt; assembly
+            ("\\.asm$" . asm99-mode)    ; .asm -&gt; assembly
+            ("\\.gpl$" . gpl99-mode)    ; .gpl -&gt; GPL
+            ("\\.b99$" . basic99-mode)  ; .b99 -&gt; TI BASIC
+            ("\\.bas$" . basic99-mode)  ; .bas -&gt; TI BASIC
+            ("\\.xb$" . basic99-mode)   ; .xb  -&gt; TI BASIC
+           ) auto-mode-alist))
+</code></pre>
+<p>Alternatively you can use <code>M-x asm99-mode</code>, <code>M-x gpl99-mode</code>, and
+<code>M-x basic99-mode</code> to activate or deactivate each mode for the active buffer.</p>
+<p>It is recommended to use <code>electric-indent-mode</code> with smart tabs, but it may not
+be enabled by default.  To use <code>electric-indent-mode</code>, add</p>
+<pre><code>(electric-indent-mode 1)
+</code></pre>
+<p>To permanently disable the smart tab and/or smart backspace minor modes, add one
+or both of these lines to your <code>.emacs</code> file:</p>
+<pre><code>(asm99-smart-tab-mode 0)
+(asm99-smart-backspace-mode 0)
+</code></pre>
+<p>You can always use <code>M-x asm99-smart-tab-mode</code> and <code>M-x
+asm99-smart-backspace-mode</code> to activate or deactivate each minor mode for the
+active buffer.</p>
+<p>For easy navigation you may assign label navigation to some convenient key
+shortcut:</p>
+<pre><code>(global-set-key [f3] 'asm99-goto-def)
+(global-set-key [S-f3] 'asm99-show-def)
+</code></pre>
+<p>These lines assign functions <code>asm99-goto-def</code> and <code>asm-show-def</code> to the <code>F3</code> and
+<code>Shift-F3</code> keys, respectively.</p>

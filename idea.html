@@ -1,0 +1,329 @@
+<style>
+body { font-family: 'Liberation Sans', Helvetica, Calibri, sans-serif; padding: 1em; margin: auto; max-width: 60em; background: #fefefe; }
+p, ul, ol, pre { margin: 1em 0; line-height: 1.3em; }
+pre { border: 1px solid #b3d7ff; border-radius: 3px; overflow: auto; padding: 6px 10px; background-color: #e6f2ff; }
+code { border: 1px solid #b3d7ff; border-radius: 3px; margin: 0 2px; padding: 0 2px; background-color: #e6f2ff; }
+pre > code { border: 0; margin: 0; padding: 0; }
+table { text-align: left; }
+th { border-bottom: 1px dashed; padding-left: 1.5ex; }
+td { padding-left: 1.5ex; }
+a, a:visited { color: #11a; text-decoration: none; }
+</style>
+<h1>xdt99 IDEA Plugin</h1>
+<p>The <em>xdt99 IDEA plugin</em> version 3.3 makes the IntelliJ IDEA IDE's advanced code
+assistance functionality available to TMS99xx assembly programs, GPL assembly
+programs, and TI BASIC and TI Extended BASIC programs.</p>
+<p>Unlike the pattern-based Emacs mode, this plugin knows the rules of TMS99xx
+assembly and GPL assembly and thus can highlight all errors that would cause the
+<code>xas99</code> or <code>xga99</code> assembler to issue errors.  For TI BASIC and TI Extended
+BASIC, only some errors are detected.</p>
+<h2>Setting up IntelliJ IDEA</h2>
+<p>The plugin should work in most Jetbrains IDEs, including the free community
+versions of IntelliJ IDEA and PyCharm.  If you don't already have any specific
+Jetbrains IDE installed, we recommend using <a href="https://www.jetbrains.com/idea">IntelliJ IDEA</a>.</p>
+<p>The plugin was developed with IntelliJ IDEA version 2021.2.3, but all versions
+from 2020.3 upwards should work.  For older versions, we recommend the previous
+version 1.1 of the plugin.</p>
+<p>Starting IntelliJ IDEA (or IDEA, for short) for the first time, we are greeted
+with the project selection window.</p>
+<p><img alt="IntelliJ IDEA" src="img/idea.png" title="IntelliJ IDEA" /></p>
+<p>As part of the installation process, we then have to install the xdt99 IDEA
+plugin by selecting <em>Plugins</em> in the left pane of the window.  After clicking
+the gear symbol on top, we choose <em>Install from file ...</em> and then select our
+plugin ZIP file.</p>
+<p><img alt="Install plugin" src="img/install-plugin.gif" title="Install Plugin" /></p>
+<p>Restarting the IDE will activate the plugin.</p>
+<p>IDEA offers various so-called <em>keymaps</em> that define which keys we have to press
+to perform certain functions.  To follow this manual, we recommend using the
+Eclipse keymap by clicking <em>Customize</em> and then selecting <code>Eclipse</code> in the
+<em>Keymap</em> drop down list.  Users familiar with Jetbrains IDEs can keep their
+usual keymap, of course.</p>
+<h2>Creating a Project</h2>
+<p>To create a new empty project or a project with already existing sources, we
+click the <em>Open ...</em> button and then choose the directory where are sources
+should be or already are.</p>
+<p><img alt="Open Project" src="img/open-project.png" title="Open Project" /></p>
+<p><strong>IMPORTANT!</strong> Do not use the <em>New Project</em> button.</p>
+<p>If we opened projects in the past, their list will appear in this window as
+shortcuts.  Clicking on one of the listed projects will open it.</p>
+<p>For this tutorial, we select the <code>examples/</code> directory of the xdt99 release,
+where we modified some files for instruction purposes.  After the project has
+been created, IDEA shows the project view.</p>
+<p><img alt="Project View" src="img/project.png" title="Project" /></p>
+<p>The left pane lists all the files contained in the project, i.e., in the project
+directory.  Each xdt99 file has an icon attached to it that denotes the type of
+that file:</p>
+<ul>
+<li><img alt="xas99" src="../ide/idea/src/main/resources/icons/xas99.png" /> Assembly (normal and strict syntax)</li>
+<li><img alt="xas99r" src="../ide/idea/src/main/resources/icons/xas99r.png" /> Assembly (relaxed syntax)</li>
+<li><img alt="xga99" src="../ide/idea/src/main/resources/icons/xga99.png" /> GPL (normal and strict syntax)</li>
+<li><img alt="xga99r" src="../ide/idea/src/main/resources/icons/xga99r.png" /> GPL (relaxed syntax)</li>
+<li><img alt="xbas99" src="../ide/idea/src/main/resources/icons/xbas99.png" /> TI Extended BASIC</li>
+<li><img alt="xbas99l" src="../ide/idea/src/main/resources/icons/xbas99l.png" /> TI Extended BASIC (using labels)</li>
+</ul>
+<p>For each language, there are two different file types available: normal/strict
+syntax and relaxed syntax for assembly and GPL, and line numbers and labels for
+BASIC.  To learn about <em>relaxed syntax</em> or <em>BASIC with labels</em>, please refer to
+the <a href="https://endlos99.github.io/xdt99">xdt99 manual</a>.</p>
+<p>Since the same extensions are attached to both variants of each language, the
+IDE randomly chooses either file type when creating a new project or adding new
+files to an existing project.  To change the assigned file type of a given file,
+we right-click on that file in the left pane and select <code>Override file type
+...</code>.</p>
+<p><img alt="Override file type" src="img/override-filetype.png" title="Override file type" /></p>
+<p>Unfortunately, the shown list of available file types is very long, and we have
+to scroll right to the end, where we see the six xdt99 file types: <code>Xas99</code> for
+assembly, <code>Xas99R</code> for assembly with relaxed syntax, <code>Xga99</code> for GPL, <code>Xga99R</code>
+for GPL with relaxed syntax, <code>Xbas99</code> for BASIC with line numbers, and <code>Xbas99L</code>
+for BASIC with labels.</p>
+<p><img alt="Select file type" src="img/select-filetype.png" title="Select file type" /></p>
+<p>All chosen file types are saved in the project, so we have to do this
+reassignment only once.</p>
+<p>If we want to switch projects, we first need to close the current project by
+selecting <em>File - Close Project</em> from the menu.  After this, the project
+selection window is shown again.</p>
+<h2>Assembly and GPL programs</h2>
+<p>Since the IDEA plugin features for TMS99xx assembly and GPL assembly are very
+similar, we will discuss both languages and all four variants together,
+referring to all of them as <em>assembly</em>.</p>
+<p>In general, the plugin supports the entire instruction set of <code>xas99</code> and
+<code>xga99</code>, with the exception of syntax variants for <code>xga99</code>.</p>
+<p>If we double-click on a file in the left pane, we will see its contents in the
+right pane.  The most obvious feature of the plugin then is <em>syntax
+highlighting</em>, which colors certain parts of a given program differently.</p>
+<p><img alt="Syntax Highlighting" src="img/syntax-highlight.png" title="Syntax Highlighting" /></p>
+<p>Also, syntax errors are marked by red squiggles, similar to those found in
+common word processors.</p>
+<p>The complete list of markings that provide information about errors and warnings
+is shown here:</p>
+<ul>
+<li><img alt="Squiggle" src="img/squiggle.png" /> Squiggles denote syntax errors, such as bad
+    operands, incorrect expressions, or erroneous spaces.</li>
+<li><img alt="Red Text" src="img/red-text.png" /> Read text highlight other errors, such as
+    undefined symbols.</li>
+<li><img alt="Grey Labels" src="img/grey-text.png" /> Grey labels represent unused labels.</li>
+<li><img alt="Colored Background" src="img/colored-background.png" /> A color background
+    highlights other warnings or errors, e.g., an undefined target for a local
+    label</li>
+</ul>
+<p>Hovering over any mark for errors or warnings provides additional information on
+why this part of the code has been flagged.</p>
+<p><img alt="Why the Error" src="img/hover-error.png" title="Why the Error" /></p>
+<p>Please note that <code>COPY</code>ed files that are not included in the project, e.g.,
+standard xdt99 library files, will not be processed, and symbols referring to
+definitions in such external files are shown as undefined, as in the example
+above.  To resolve external symbols, simply copy the those external files to the
+project directory.</p>
+<p>Symbols imported with a <code>REF</code> directive are defined, but further information
+about such external symbols will not be available.</p>
+<p>Syntax highlighting supports both light mode and dark mode, which may be
+activated in <em>File - Settings - Appearance - Theme</em>.</p>
+<p><img alt="Light Mode" src="img/light-mode.png" title="Light Mode" /></p>
+<p>Individual colors might be changed in <em>File - Settings - Color Settings</em> and
+then one of the file types.</p>
+<p>The semantic analysis of the IDEA plugin is not limited to syntax highlighting,
+though.  If we place the cursor on any of the symbols in the code, we see that
+all occurrences of that symbol will be highlighted.</p>
+<p><img alt="Symbol Highlighting" src="img/symbol-highlight.png" title="Symbol Highlighting" /></p>
+<p>It is worth pointing out that symbols are not identified by a simple search.
+Internally, IDEA builds a semantic model of the program, which tells it exactly
+what each part of the program, such as a symbol, represents.  We can best see
+this if we keep the cursor on this symbol and then press <code>Shift+F6</code>, which
+initiates <em>inline renaming</em> mode.</p>
+<p><img alt="Inline Renaming" src="img/inline-renaming.gif" title="Inline Renaming" /></p>
+<p>As we keep changing the symbol name, all other occurrences of that symbol, and
+only those, are safely modified in sync.  Safe renaming refers to the fact that
+inline renaming does not affect strings, comments, or other symbols that merely
+contain a part of the renamed symbol,</p>
+<p>Another very useful feature of this semantic understanding is locating the
+definition of any symbol, where definition here means the location of the symbol
+as label.  Placing the cursor on any label, pressing <code>F3</code> or selecting
+<em>Navigate - Declaration</em> will jump from our original position to the definition
+of the symbol as label.</p>
+<p><img alt="Go to Definition" src="img/goto-definition.gif" title="Go to Definition" /></p>
+<p>Conversely, we can navigate the other direction by pressing <code>Ctrl+G</code> or
+selecting <em>Edit - Find - Find Usages</em> to find all usages of the symbol
+definition under the cursor in our code.</p>
+<p><img alt="Usages" src="img/usages.png" title="List of Usages" /></p>
+<p>We can examine the list of usages in the bottom pane and jump to any find by
+double clicking.</p>
+<p>To go back to our previous position, we press <code>Alt+←</code>, which works in any
+context.  We can also close the usages pane by clicking <code>—</code> in the top right
+corner of the usages pane.</p>
+<p>If we want to know the definition of a symbol but don't want to leave our
+current position in the file, we can hover the mouse pointer over that symbol,
+and a popup with the definition will appear.</p>
+<p><img alt="Mouse Hover" src="img/mouse-hover.png" title="Definition by Mouse Hover" /></p>
+<p>The popup also contains any comments directly preceding the definition, which
+might be comments provided additional information about the symbol.</p>
+<p>And finally, if we do not remember which symbol we need to use at a given point
+in our program, we might write partial prefix and then press <code>Ctrl+Space</code> to
+invoke <em>code completion</em>.</p>
+<p><img alt="Code Completion" src="img/code-completion.gif" title="Code Completion" /></p>
+<p>If there is only one possible completion, it will be automatically inserted into
+the program.</p>
+<p>Code completion even suggests symbols when simply typing the start of a symbol,
+i.e., without explicitly invoking code completion.  Again, if only one possible
+completion exists, it will be automatically inserted.</p>
+<p>Symbols are tracked across all source files of a given file type within the
+project.  If we have split our program into multiple files -- be it for using
+the <code>COPY</code> directive or for linking several files together -- we can still
+navigate between files and rename symbols consistently.</p>
+<p><strong>IMPORTANT!</strong> It is recommended that for each file type, each project contains
+only files that belong to the same source unit.</p>
+<p>In the left margin of our code we see line numbers and <em>ranges</em>, denoted by a
+thin line that ends in small <code>-</code> symbols.  If we click on either <code>-</code>, the
+corresponding range is <em>collapsed</em> so that only the first line of that range
+remain visible, and a <code>+</code> symbol replaces the <code>-</code> symbols.</p>
+<p><img alt="Ranges" src="img/ranges.gif" title="Ranges" /></p>
+<p>Each range extends from a group of line comments to the start of the next group
+of line comments, including the start and the end of the source, resp.  The idea
+is that each important section of a program is introduced by a line comment
+explaining that section.  During development, we can hide irrelevant code
+sections by collapsing their ranges, e.g., to move two separate parts of the
+code together on the screen.</p>
+<p>When typing a program in IDEA, pressing <code>Tab</code> will automatically move the cursor
+to the next field.  Likewise, pressing <code>Backspace</code> will move the cursor to the
+previous field or the end of existing text, whichever is reached first.
+Pressing <code>Enter</code> will move the cursor to the mnemonic field in the next line.
+To move the cursor to the label field, we can press <code>Home</code>-</p>
+<p><strong>IMPORTANT!</strong> When observing a different behavior, we recommend to check and
+experiment with the <em>Editor - General - Smart Keys</em> settings, in particular
+<em>Enter - Smart Indent</em> and <em>Backspace</em>.</p>
+<p>If we type a <em>paired character</em> such as <code>(</code>, <code>'</code>, or <code>"</code>, the other character of
+that pair, i.e., <code>)</code>, <code>'</code>, or <code>"</code>, is automatically inserted.</p>
+<p><img alt="Paired Chars" src="img/pairs.gif" title="Paired Chars" /></p>
+<p>In this example, we only typed the first <code>'</code> character, and the second one was
+automatically inserted for us.</p>
+<p>We can then normally type the rest of the expression or string.  If we type the
+closing <code>)</code>, <code>'</code>, or <code>"</code>, no new character is inserted, but the cursor advances
+over the already present character.  Also, when we position the cursor over such
+a paired character, the other character is highlighted.</p>
+<p><img alt="Highlighted Pair" src="img/high-pair.gif" title="Highlighted Pair" /></p>
+<p>Selecting a few lines of our code and pressing <code>Ctrl+/</code> or selecting <em>Code -
+Comment with line comment</em>, we can <em>comment</em> and uncomment the selected lines
+with <code>;</code>.</p>
+<p>If no lines are selected, the current line is commented or uncommented.</p>
+<p>In case we are a rather sloppy developer writing more or less messy programs, we
+can easily get help to tidy up our code by pressing <code>Ctrl+Alt+L</code> or selecting
+<em>Code - Reformat Code</em>.</p>
+<p><img alt="Tidy Up Code" src="img/tidy-code.gif" title="Tidy Up Code" /></p>
+<p>The exact rules, in particular the starting positions of each field, the
+character case, and possibly the syntax variant (normal or strict, i.e., one or
+none spaces), can be configured in <em>File - Settings - Code Style - (xdt99
+language)</em>.</p>
+<p><img alt="Code Style Settings" src="img/code-style-settings.png" title="Code Style Settings" /></p>
+<p><strong>IMPORTANT!</strong> Should at any time any of the above feature stop working, we
+recommend to rebuild the index by choosing <em>File - Invalidate Caches</em> from the
+menu.</p>
+<h2>TI BASIC and TI Extended BASIC</h2>
+<p>The xdt99 IDEA plugin supports both line-based and label-based variants of TI
+BASIC and TI Extended BASIC (or <em>BASIC</em>, for short).  The label-based syntax is
+a special syntax provided by the <code>xbas99</code> tool.</p>
+<h3>BASIC with line numbers</h3>
+<p>The syntax highlighter colors different parts of BASIC programs according to
+their meaning.</p>
+<p><img alt="Syntax Highlighting" src="img/basic-highlight.png" title="Syntax Highlighting" /></p>
+<p>The highlighter also marks the following errors and warnings:</p>
+<ul>
+<li><img alt="Squiggle" src="img/squiggle-basic.png" /> Squiggles denote basic syntax errors and
+    string/number mismatches</li>
+<li><img alt="Red Text" src="img/red-basic.png" /> Read text highlights other errors, such as
+    variables that are never written to (and thus can be replaced by 0), or TI
+    Extended BASIC constructs used in a TI BASIC program</li>
+<li><img alt="Grey Variables" src="img/grey-vars.png" /> Grey variables are variables that are
+    never read (and thus are useless)</li>
+</ul>
+<p>Hovering over any mark for errors or warnings provides additional information on
+why this part of the code has been flagged.</p>
+<p><img alt="Why the Error" src="img/hover-error-basic.png" title="Why the Error" /></p>
+<p>The plugin understands most of the TI BASIC and TI Extended BASIC syntax and
+reports many syntax errors, but it does not implement the complete BASIC
+grammar.  As such, syntactically correct but nonsensical statements such as</p>
+<pre><code>10 CALL CLEAR(1):: CALL HCHAR(#1,"A"):: OPTION BASE 99
+</code></pre>
+<p>are not flagged.</p>
+<p>What symbols are for assembly support, line numbers and variables are the BASIC
+units for which navigation and renaming is supported.</p>
+<p>Placing the cursor on any line number</p>
+<p><img alt="Line Numbers" src="img/line-numbers.png" title="Line Numbers" /></p>
+<p>or variable</p>
+<p><img alt="Variables" src="img/variables.png" title="Variables" /></p>
+<p>highlights all occurrences within the current BASIC program.</p>
+<p>Similarly, pressing <code>Shift+F6</code> activates <em>inline renaming</em>, which will safely
+rename all instances of the currently selected line number or variable, without
+affecting numbers, strings, or comments.</p>
+<p><img alt="Inline Renaming" src="img/basic-renaming.gif" title="Inline Renaming" /></p>
+<p>Similarly, with the cursor on any line number or variable, pressing <code>Ctrl+B</code> or
+selecting <em>Navigate - Declaration</em> from the menu will navigate to the
+<em>definition</em> of that line number or variable.</p>
+<p><img alt="Show Line Number Definition" src="img/lino-definition.gif" title="Show Line Number Definition" /></p>
+<p><img alt="Show Variable Definition" src="img/variable-definition.gif" title="Show Variable Definition" /></p>
+<p>In case of a line number, definitions refers to the line with that line number,
+and in case of a variable, definition refers the first occurrence where that
+variable is written to.</p>
+<p>Conversely, pressing <code>Ctrl+Alt+B</code> or selecting <em>Edit - Find - Find Usages</em> will
+list all occurrences where the current line number or variable is used -- in
+case of a variable that includes both reading and writing instances.</p>
+<p><img alt="Variable Usages" src="img/variable-usages.png" title="Variable Usages" /></p>
+<p>Mouse hovers aren't supported for BASIC, as the "definition" of either line
+number or variable doesn't really provide any useful context information.</p>
+<p>If we are writing a BASIC program and we are unsure which variable we need to
+use at a certain point, we can press <code>Ctrl+Space</code> to invoke <em>code completion</em> to
+get a list of possible variables with a given prefix.</p>
+<p><img alt="Variable Completion" src="img/variable-completion.gif" title="Variable Completion" /></p>
+<p>Unfortunately, there is one particular quirk for completing string variables.
+When completion a string variable we not only have to specify a prefix, but we
+also have to type a string symbol <code>$</code> right after the cursor.</p>
+<p><img alt="String Variable Completion" src="img/string-completion.gif" title="String Variable Completion" /></p>
+<p>This special handling wouldn't be necessary if the <code>$</code> symbol were at the
+<em>beginning</em> of a string variable, but as it isn't, we'll have to live with that
+quirk.</p>
+<p>When we type a partial variable name, code completion is automatically invoked
+and suggests possible completions or, if there is only one completion,
+automatically inserts the completion.  Sadly, this also doesn't work for string
+variables.</p>
+<p>Obviously, code completion makes no sense for line numbers.</p>
+<p><strong>IMPORTANT!</strong> Unlike assembly labels, BASIC line numbers and variables are
+tracked for each file individually.  Thus, we can have many different BASIC
+programs independently within one project.</p>
+<p>Writing BASIC programs is straight-forward, so no special handling for <code>Tab</code>,
+<code>Enter</code>, or <code>Backspace</code> is offered.</p>
+<p>If we type a <em>paired character</em> such as <code>(</code> or <code>"</code>, the other character of that
+pair, i.e., <code>)</code> or <code>"</code>, is automatically inserted.</p>
+<p><img alt="BASIC Paired Chars" src="img/basic-pair.gif" title="BASIC Paired Chars" /></p>
+<p>We can then normally type the rest of the expression or string.  If we type the
+closing <code>)</code> or <code>"</code>, no new character is inserted, but the cursor advances over
+the already present character.  Also, when we position the cursor over such a
+paired character, the other character is highlighted.</p>
+<p><img alt="Highlighted Pair" src="img/highlighted-pair-basic.png" title="Highlighted Pair" /></p>
+<p>In case we are a rather sloppy developer writing more or less messy programs, we
+can easily get help to tidy up our code by pressing <code>Ctrl+Alt+L</code> or selecting
+<em>Code - Reformat Code</em>.</p>
+<p><img alt="Tidy Up BASIC Code" src="img/tidy-basic.gif" title="Tidy Up BASIC Code" /></p>
+<p>The only available formatting settings for BASIC concerns the character case.</p>
+<p>The other available code style setting controls whether the programs in the
+project are TI BASIC programs or TI Extended BASIC programs.</p>
+<p><img alt="TI BASIC or TI Extended BASIC" src="img/which-basic.png" title="TI BASIC or TI Extended BASIC" /></p>
+<p>If the TI Extended BASIC option is unchecked, all TI Extended BASIC constructs
+used in the programs are flagged as errors.  Note that after changing this
+setting, we might need a minor edit before the updated highlighting of the code
+takes effect.</p>
+<p><strong>IMPORTANT!</strong> Should at any time any of the above feature stop working, we
+recommend to rebuild the index by choosing <em>File - Invalidate Caches</em> from the
+menu.</p>
+<h3>BASIC with Labels</h3>
+<p>BASIC with labels is identical to regular BASIC with line numbers, but replaces
+line numbers with labels.</p>
+<p>There is no native support for BASIC with labels on the TI 99/4A, but the
+<code>xbas99</code> tool converts BASIC with labels into a regular BASIC programs.</p>
+<p>The IDEA plugin offers the same features for BASIC with labels as for BASIC with
+line numbers.</p>
+<p><img alt="Syntax Highlighting" src="img/label-highlight.png" title="Syntax Highlighting" /></p>
+<p>In addition, code completion for labels and marking unused labels is supported.</p>
+<h2>Contact Information</h2>
+<p>The xdt99 IDEA plugin is part of the <a href="https://endlos99.github.io/xdt99">TI 99 Cross-Development Tools</a>.  The
+tools are released under the GNU GPL, in the hope that TI 99 enthusiasts may
+find them useful.</p>
+<p>Please email feedback and bug reports to the developer at <a href="&#109;&#97;&#105;&#108;&#116;&#111;&#58;&#114;&#64;&#116;&#105;&#57;&#57;&#46;&#112;&#114;&#111;">&#114;&#64;&#116;&#105;&#57;&#57;&#46;&#112;&#114;&#111;</a>, or use
+the issue tracker on the project <a href="https://github.com/endlos99/xdt99">GitHub page</a>.</p>

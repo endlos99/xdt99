@@ -22,6 +22,7 @@
       <h1><a id="xdt99" class="anchor" href="#xdt99" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>xdt99: TI 99 Cross-Development Tools</h1>
 
 <!-- MAIN CONTENT -->
+<h1>xdt99: TI 99 Cross-Development Tools</h1>
 <p>The <strong>TI 99 Cross-Development Tools</strong> (xdt99) are a suite of programs that
 facilitate the development of programs for the TI 99 family of home computers
 and other TMS9900-based systems on modern computer systems.</p>
@@ -41,8 +42,8 @@ supports, including Linux, Windows, and macOS.</p>
 <p>Additionally, xdt99 provides TI-specific editor support for some freely
 available development environments:</p>
 <ul>
-<li><code>xdt99-mode</code>, a major mode for the GNU Emacs text editor, and</li>
-<li><code>xdt99 IDEA</code>, a plugin for the IntelliJ IDEA development environment.</li>
+<li><code>xdt99-mode</code>, a <a href="https://endlos99.github.io/xdt99/emacs.html">major mode</a> for the GNU Emacs text editor, and</li>
+<li><code>xdt99 IDEA</code>, a <a href="https://endlos99.github.io/xdt99/idea.html">plugin</a> for the IntelliJ IDEA development environment.</li>
 </ul>
 <p>The plugins offer syntax highlighting, source navigation, and semantic renaming
 for assembly, GPL, and TI (Extended) BASIC programs.  Note, however, that both
@@ -788,10 +789,8 @@ DONE:
  END
 </code></pre>
 <p>A label must be alphanumeric and followed by a colon <code>:</code>.  The actual program
-lines must be indented by at least one blank.  Sadly, when using a label, e.g.,
-as part of a <code>GOTO</code> statement, we must prefix the label with an <code>@</code> sign.
-The <code>@</code> prefix is needed to identify invalid, i.e., mistyped labels, or else
-invalid labels would become stray variables.</p>
+lines must be indented by at least one blank.  When used, e.g., as part of a
+<code>GOTO</code> statement, labels might be prefixed with an optional <code>@</code> sign.</p>
 <p>In order to tokenize a program with labels, the label option <code>-l</code> must be
 supplied.  <code>-l</code> can only be used together with <code>-c</code>.</p>
 <pre><code>$ xbas99.py -c -l nim_labels.bas
@@ -1253,7 +1252,10 @@ binval  equ :01011010
 as <code>1 + 2 * 3 - 4 &amp; 5</code> evaluates as <code>(((1 + 2) * 3) - 4) &amp; 5</code>.  This may sound
 annoying, but changing the established order of evaluation would break
 compatibility with existing sources.  To adjust the order of evaluation,
-parentheses are used: <code>1 + (2 * 3) - (4 &amp; 5)</code>.</p>
+parentheses are used: <code>1 + (2 * 3) - (4 &amp; 5)</code>.  To safeguard against accidental
+omission of parentheses, <code>xas99</code> warns about arithmetic expressions using
+non-standard evaluation.  These warnings can be disabled with option
+<code>--quiet-arith</code>.</p>
 <p><em>Labels</em> may be of arbitrary length and may contain arbitrary characters except
 for whitespace and operators (<code>+-*/$#!@'"</code>).  Labels not imported or exported by
 <code>REF</code> or <code>DEF</code>, resp., may even be in Unicode.  An optional colon <code>:</code> may be
@@ -1751,13 +1753,13 @@ the TI 99/4A computer will take to execute a given assembly instruction.  Cycle
 counting happens automatically during assembly, and the results are shown in the
 fourth column of the list file as number of clock cycles.</p>
 <pre><code>0050 0060 06A0  24        BL   @KSCAN
-     0062 0000e    
+     0062 0000e
 0051 0064 9220  22        CB   @KCODE,R8
-     0066 8375     
+     0066 8375
 0052 0068 13F9  10        JEQ  KEYSC
-0053               
+0053
 0054 006A D020  22        MOVB @KCODE,R0
-     006C 8375     
+     006C 8375
 0055 006E 0980  28        SRL  R0,8
 0056 0070 0240  14        ANDI R0,&gt;000F
      0072 000F
@@ -2090,7 +2092,8 @@ endow a label with a type:</p>
 <p><em>Expressions</em> are built using arithmetical operators <code>+</code>, <code>-</code>, <code>*</code>, <code>/</code>, <code>%</code>,
 and <code>**</code> and bit operators <code>&amp;</code>, <code>|</code>, <code>^</code>, and <code>~</code>.  Expressions are evaluated
 left-to-right with equal operator precedence; parentheses may be used to change
-the order of evaluation.  For further details, please refer to the <code>xas99</code>
+the order of evaluation.  As a safeguard, <code>xga99</code> warns about expressions with
+non-standard evaluation.  For further details, please refer to the <code>xas99</code>
 section on expressions.</p>
 <p><em>Literals</em> may be decimal numbers, hexadecimal numbers prefixed by <code>&gt;</code>, binary
 numbers prefixed by <code>:</code>, and text literals enclosed in single quotes <code>'</code>.</p>
