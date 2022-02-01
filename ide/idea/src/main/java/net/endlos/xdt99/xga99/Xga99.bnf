@@ -1,0 +1,180 @@
+{
+    parserClass="net.endlos.xdt99.xga99.parser.Xga99Parser"
+
+    extends="com.intellij.extapi.psi.ASTWrapperPsiElement"
+
+    psiClassPrefix="Xga99"
+    psiImplClassSuffix="Impl"
+    psiPackage="net.endlos.xdt99.xga99.psi"
+    psiImplPackage="net.endlos.xdt99.xga99.psi.impl"
+
+    elementTypeHolderClass="net.endlos.xdt99.xga99.psi.Xga99Types"
+    elementTypeClass="net.endlos.xdt99.xga99.psi.Xga99ElementType"
+    tokenTypeClass="net.endlos.xdt99.xga99.psi.Xga99TokenType"
+
+    psiImplUtilClass="net.endlos.xdt99.xga99.psi.impl.Xga99PsiImplUtil"
+}
+
+xga99File ::=
+    (line CRLF)*
+private line ::=
+    linecomment | label? statement?
+
+linecomment ::=  // used by folding builder
+    LCOMMENT
+    {pin=1}
+
+// label
+private label ::=
+    labeldef OP_COLON?
+labeldef ::=
+    IDENT
+    {mixin="net.endlos.xdt99.xga99.psi.impl.Xga99NamedElementImpl"
+     implements="net.endlos.xdt99.xga99.psi.Xga99NamedElement"
+     methods=[getName setName getNameIdentifier getPresentation]}
+
+// mnemonics
+private statement ::=
+    directive | instruction | preprocessor | unknown_mnem
+    {recoverWhile="statement_recover"}
+private statement_recover ::=
+    !CRLF
+directive ::=
+    DIR_L |
+    DIR_S args_dir_S |
+    DIR_M args_dir_N |
+    DIR_T args_dir_T |
+    DIR_C args_dir_C |
+    DIR_F args_dir_F
+    {pin=1}
+instruction ::=
+    INSTR_I args_I |
+    INSTR_II args_II |
+    INSTR_III args_III |
+    INSTR_V |
+    INSTR_VI args_VI |
+    INSTR_VII args_VII |
+    INSTR_VIII args_VIII |
+    INSTR_IX args_IX |
+    INSTR_X |
+    INSTR_F_I args_F_I |
+    INSTR_F_II args_F_II |
+    INSTR_F_III args_F_III |
+    INSTR_F_IV args_F_IV |
+    INSTR_F_V args_F_V |
+    INSTR_F_IX args_F_IX |
+    INSTR_F_X args_F_X
+    {pin=1}
+preprocessor ::=
+    PREP (PP_ARG | PP_SEP)*
+    {pin=1}
+unknown_mnem ::=
+    UNKNOWN
+    {pin=1}
+
+// arguments
+args_dir_S ::=
+    opValue
+args_dir_N ::=
+    expr (OP_SEP expr)*
+args_dir_T ::=
+    opText (OP_SEP opText)*
+args_dir_C ::=
+    opFilename
+args_dir_F ::=
+    opFloat
+args_I ::=
+    opGs OP_SEP opGd
+    {pin="OP_SEP"}
+args_II ::=
+    opValue
+args_III ::=
+    opAddress
+args_VI ::=
+    opGd
+args_VII ::=
+    opValue?  // special ops for RAND
+args_VIII ::=
+    opValue OP_SEP opGs  // special ops for I/O
+args_IX ::=
+    (opGs | opValue) OP_SEP opMs OP_SEP opMd  // MOVE instruction
+    {pin="OP_SEP"}
+
+args_F_I ::=
+    opValue
+args_F_II ::=
+    opValue | opGs
+args_F_III ::=
+    opValue OP_SEP opValue
+    {pin="OP_SEP"}
+args_F_IV ::=
+    opText
+args_F_V ::=
+    opValue
+args_F_IX::=
+    opValue OP_SEP opGs  // TODO: Gd?
+    {pin="OP_SEP"}
+args_F_X::=
+    opAddress?  // optional address only when closing FOR n statement
+
+// arguments
+opGd ::=
+    (VADDR | VINDR | OP_AT | OP_AST) OP_MINUS? sexpr opIndex?
+    {name="general destination address"}
+opGs ::=
+    opGd | opValue
+    {name="general source address"}
+opMs ::=
+    (GADDR | VADDR | VINDR | OP_AT | OP_AST) OP_MINUS? sexpr opIndex?
+    {name="MOVE source address"}
+opMd ::=
+    opMs | PP_PARAM  // PP_PARAM doubles as VREG#
+    {name="MOVE destination address"}
+opAddress ::=
+    // opAddress and opValue are interchangeable
+    expr
+    {name="address value"}
+opIndex ::=
+    // in xdt99 syntax variant, the @ in indices is optional
+    OP_LPAREN OP_AT? opValue OP_RPAREN
+    {name="index"}
+opValue ::=
+    // opValue and opAddress are interchangeable
+    expr
+    {name="value"}
+opFloat ::=
+    (OP_PLUS | OP_MINUS)? DIGIT* ("." DIGIT*)?
+opText ::=
+    OP_MINUS? (OP_QUOTE TEXT? OP_QUOTE | INT | PP_PARAM)
+    {name="text"}
+opFilename ::=
+    OP_FQUOTE FNAME OP_FQUOTE
+opLabel ::=
+    IDENT | LOCAL | OP_LC | PP_PARAM
+    {methods=[getName setName getNameIdentifier getReference]
+     name="label"}
+
+// expressions
+expr ::=
+    (OP_PLUS | OP_MINUS | OP_NOT) expr |
+    term (xop expr)*
+    {name="expression"}
+private term ::=
+    OP_LPAREN expr OP_RPAREN |
+    atom
+    {name="term"}
+private xop ::=
+    OP_PLUS | OP_MINUS | OP_AST | OP_MISC
+    {name="operator"}
+private atom ::=
+    opLabel | INT | OP_QUOTE TEXT? OP_QUOTE
+    {name="value"}
+
+sexpr ::=
+    (OP_PLUS | OP_MINUS | OP_NOT) sexpr |
+    atom (xop sexpr)*
+    {name="simple expressions"}
+
+// keep for syntax highlighter
+dummy ::=
+    COMMENT

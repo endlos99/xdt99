@@ -1,0 +1,156 @@
+<idea-plugin>
+    <id>net.endlos.xdt99.idea</id>
+    <name>xdt99 IDEA Editor Support</name>
+    <version>3.3.0</version>
+    <vendor email="r@ti99.pro" url="https://www.github.com/endlos99">Endlos 99</vendor>
+    <description><![CDATA[
+    TI 99 Cross-Development Tools (xdt99)
+    <br>
+    Copyright (c) 2015-2022 Ralph Benzinger
+    <br>
+    The xdt99 IntelliJ Plugin provides code assistance for developing TMS 9900
+    assembly, GPL, and TI (Extended) BASIC programs.
+    <br>
+    This program is free software; you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation; either version 3 of the License, or
+    (at your option) any later version.
+    <br>
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+    <br>
+    You should have received a copy of the GNU General Public License
+    along with this program; if not, see http://www.gnu.org/licenses/.
+    ]]></description>
+
+    <idea-version since-build="203"/>  <!-- 2020.3 or higher -->
+    <depends>com.intellij.modules.platform</depends>
+    <depends>com.intellij.modules.lang</depends>
+    <depends>com.intellij.java</depends>
+
+    <extensions defaultExtensionNs="com.intellij">
+        <!-- TMS 9900 Assembly -->
+        <fileType name="Xas99" implementationClass="net.endlos.xdt99.xas99.Xas99FileType" fieldName="INSTANCE" language="Xas99" extensions="asm;a99"/>
+        <lang.parserDefinition language="Xas99" implementationClass="net.endlos.xdt99.xas99.Xas99ParserDefinition"/>
+        <lang.syntaxHighlighterFactory language="Xas99" implementationClass="net.endlos.xdt99.xas99.Xas99SyntaxHighlighterFactory"/>
+        <colorSettingsPage implementation="net.endlos.xdt99.xas99.Xas99ColorSettingsPage"/>
+        <annotator language="Xas99" implementationClass="net.endlos.xdt99.xas99.Xas99Annotator"/>
+        <lang.refactoringSupport language="Xas99" implementationClass="net.endlos.xdt99.xas99.Xas99RefactoringSupportProvider"/>
+        <lang.findUsagesProvider language="Xas99" implementationClass="net.endlos.xdt99.xas99.Xas99FindUsagesProvider"/>
+        <lang.namesValidator language="Xas99" implementationClass="net.endlos.xdt99.xas99.Xas99NamesValidator"/>
+        <lang.foldingBuilder language="Xas99" implementationClass="net.endlos.xdt99.xas99.Xas99FoldingBuilder"/>
+        <lang.commenter language="Xas99" implementationClass="net.endlos.xdt99.xas99.Xas99Commenter"/>
+        <codeStyleSettingsProvider implementation="net.endlos.xdt99.xas99.Xas99CodeStyleSettingsProvider"/>
+        <langCodeStyleSettingsProvider implementation="net.endlos.xdt99.xas99.Xas99LanguageCodeStyleSettingsProvider"/>
+        <fileIndentOptionsProvider implementation="net.endlos.xdt99.xas99.Xas99FileIndentOptionsProvider"/>
+        <braceMatcher filetype="Xas99" implementationClass="net.endlos.xdt99.xas99.Xas99BraceMatcher"/>
+        <quoteHandler fileType="Xas99" className="net.endlos.xdt99.xas99.Xas99QuoteHandler"/>
+        <lang.formatter language="Xas99" implementationClass="net.endlos.xdt99.xas99.Xas99FormattingModelBuilder"/>
+        <gotoSymbolContributor implementation="net.endlos.xdt99.xas99.Xas99ChooseByNameContributor"/>
+        <lang.documentationProvider language="Xas99" implementationClass="net.endlos.xdt99.xas99.Xas99DocumentationProvider"/>
+        <postFormatProcessor implementation="net.endlos.xdt99.xas99.Xas99PostFormatProcessor"/>
+        <!-- relaxed assembly -->
+        <fileType name="Xas99R" implementationClass="net.endlos.xdt99.xas99r.Xas99RFileType" fieldName="INSTANCE" language="Xas99R" extensions="asm;a99"/>
+        <lang.parserDefinition language="Xas99R" implementationClass="net.endlos.xdt99.xas99r.Xas99RParserDefinition"/>
+        <lang.syntaxHighlighterFactory language="Xas99R" implementationClass="net.endlos.xdt99.xas99r.Xas99RSyntaxHighlighterFactory"/>
+        <colorSettingsPage implementation="net.endlos.xdt99.xas99r.Xas99RColorSettingsPage"/>
+        <annotator language="Xas99R" implementationClass="net.endlos.xdt99.xas99r.Xas99RAnnotator"/>
+        <lang.refactoringSupport language="Xas99R" implementationClass="net.endlos.xdt99.xas99r.Xas99RRefactoringSupportProvider"/>
+        <lang.findUsagesProvider language="Xas99R" implementationClass="net.endlos.xdt99.xas99r.Xas99RFindUsagesProvider"/>
+        <lang.namesValidator language="Xas99R" implementationClass="net.endlos.xdt99.xas99r.Xas99RNamesValidator"/>
+        <lang.foldingBuilder language="Xas99R" implementationClass="net.endlos.xdt99.xas99r.Xas99RFoldingBuilder"/>
+        <lang.commenter language="Xas99R" implementationClass="net.endlos.xdt99.xas99r.Xas99RCommenter"/>
+        <codeStyleSettingsProvider implementation="net.endlos.xdt99.xas99r.Xas99RCodeStyleSettingsProvider"/>
+        <langCodeStyleSettingsProvider implementation="net.endlos.xdt99.xas99r.Xas99RLanguageCodeStyleSettingsProvider"/>
+        <fileIndentOptionsProvider implementation="net.endlos.xdt99.xas99r.Xas99RFileIndentOptionsProvider"/>
+        <braceMatcher filetype="Xas99R" implementationClass="net.endlos.xdt99.xas99r.Xas99RBraceMatcher"/>
+        <quoteHandler fileType="Xas99R" className="net.endlos.xdt99.xas99r.Xas99RQuoteHandler"/>
+        <lang.formatter language="Xas99R" implementationClass="net.endlos.xdt99.xas99r.Xas99RFormattingModelBuilder"/>
+        <gotoSymbolContributor implementation="net.endlos.xdt99.xas99r.Xas99RChooseByNameContributor"/>
+        <lang.documentationProvider language="Xas99R" implementationClass="net.endlos.xdt99.xas99r.Xas99RDocumentationProvider"/>
+        <postFormatProcessor implementation="net.endlos.xdt99.xas99r.Xas99RPostFormatProcessor"/>
+
+        <!-- GPL -->
+        <fileType name="Xga99" implementationClass="net.endlos.xdt99.xga99.Xga99FileType" fieldName="INSTANCE" language="Xga99" extensions="gpl;g99"/>
+        <lang.parserDefinition language="Xga99" implementationClass="net.endlos.xdt99.xga99.Xga99ParserDefinition"/>
+        <lang.syntaxHighlighterFactory language="Xga99" implementationClass="net.endlos.xdt99.xga99.Xga99SyntaxHighlighterFactory"/>
+        <colorSettingsPage implementation="net.endlos.xdt99.xga99.Xga99ColorSettingsPage"/>
+        <annotator language="Xga99" implementationClass="net.endlos.xdt99.xga99.Xga99Annotator"/>
+        <lang.refactoringSupport language="Xga99" implementationClass="net.endlos.xdt99.xga99.Xga99RefactoringSupportProvider"/>
+        <lang.findUsagesProvider language="Xga99" implementationClass="net.endlos.xdt99.xga99.Xga99FindUsagesProvider"/>
+        <lang.namesValidator language="Xga99" implementationClass="net.endlos.xdt99.xga99.Xga99NamesValidator"/>
+        <lang.foldingBuilder language="Xga99" implementationClass="net.endlos.xdt99.xga99.Xga99FoldingBuilder"/>
+        <lang.commenter language="Xga99" implementationClass="net.endlos.xdt99.xga99.Xga99Commenter"/>
+        <codeStyleSettingsProvider implementation="net.endlos.xdt99.xga99.Xga99CodeStyleSettingsProvider"/>
+        <fileIndentOptionsProvider implementation="net.endlos.xdt99.xga99.Xga99FileIndentOptionsProvider"/>
+        <braceMatcher filetype="Xga99" implementationClass="net.endlos.xdt99.xga99.Xga99BraceMatcher"/>
+        <quoteHandler fileType="Xga99" className="net.endlos.xdt99.xga99.Xga99QuoteHandler"/>
+        <lang.formatter language="Xga99" implementationClass="net.endlos.xdt99.xga99.Xga99FormattingModelBuilder"/>
+        <gotoSymbolContributor implementation="net.endlos.xdt99.xga99.Xga99ChooseByNameContributor"/>
+        <lang.documentationProvider language="Xga99" implementationClass="net.endlos.xdt99.xga99.Xga99DocumentationProvider"/>
+        <postFormatProcessor implementation="net.endlos.xdt99.xga99.Xga99PostFormatProcessor"/>
+        <!-- relaxed GPL -->
+        <fileType name="Xga99R" implementationClass="net.endlos.xdt99.xga99r.Xga99RFileType" fieldName="INSTANCE" language="Xga99R" extensions="gpl;g99"/>
+        <lang.parserDefinition language="Xga99R" implementationClass="net.endlos.xdt99.xga99r.Xga99RParserDefinition"/>
+        <lang.syntaxHighlighterFactory language="Xga99R" implementationClass="net.endlos.xdt99.xga99r.Xga99RSyntaxHighlighterFactory"/>
+        <colorSettingsPage implementation="net.endlos.xdt99.xga99r.Xga99RColorSettingsPage"/>
+        <annotator language="Xga99R" implementationClass="net.endlos.xdt99.xga99r.Xga99RAnnotator"/>
+        <lang.refactoringSupport language="Xga99R" implementationClass="net.endlos.xdt99.xga99r.Xga99RRefactoringSupportProvider"/>
+        <lang.findUsagesProvider language="Xga99R" implementationClass="net.endlos.xdt99.xga99r.Xga99RFindUsagesProvider"/>
+        <lang.namesValidator language="Xga99R" implementationClass="net.endlos.xdt99.xga99r.Xga99RNamesValidator"/>
+        <lang.foldingBuilder language="Xga99R" implementationClass="net.endlos.xdt99.xga99r.Xga99RFoldingBuilder"/>
+        <lang.commenter language="Xga99R" implementationClass="net.endlos.xdt99.xga99r.Xga99RCommenter"/>
+        <codeStyleSettingsProvider implementation="net.endlos.xdt99.xga99r.Xga99RCodeStyleSettingsProvider"/>
+        <fileIndentOptionsProvider implementation="net.endlos.xdt99.xga99r.Xga99RFileIndentOptionsProvider"/>
+        <braceMatcher filetype="Xga99R" implementationClass="net.endlos.xdt99.xga99r.Xga99RBraceMatcher"/>
+        <quoteHandler fileType="Xga99R" className="net.endlos.xdt99.xga99r.Xga99RQuoteHandler"/>
+        <lang.formatter language="Xga99R" implementationClass="net.endlos.xdt99.xga99r.Xga99RFormattingModelBuilder"/>
+        <gotoSymbolContributor implementation="net.endlos.xdt99.xga99r.Xga99RChooseByNameContributor"/>
+        <lang.documentationProvider language="Xga99R" implementationClass="net.endlos.xdt99.xga99r.Xga99RDocumentationProvider"/>
+        <postFormatProcessor implementation="net.endlos.xdt99.xga99r.Xga99RPostFormatProcessor"/>
+
+        <!-- TI Extended BASIC -->
+        <fileType name="Xbas99" implementationClass="net.endlos.xdt99.xbas99.Xbas99FileType" fieldName="INSTANCE" language="Xbas99" extensions="bas;b99"/>
+        <lang.parserDefinition language="Xbas99" implementationClass="net.endlos.xdt99.xbas99.Xbas99ParserDefinition"/>
+        <lang.syntaxHighlighterFactory language="Xbas99" implementationClass="net.endlos.xdt99.xbas99.Xbas99SyntaxHighlighterFactory"/>
+        <colorSettingsPage implementation="net.endlos.xdt99.xbas99.Xbas99ColorSettingsPage"/>
+        <codeStyleSettingsProvider implementation="net.endlos.xdt99.xbas99.Xbas99CodeStyleSettingsProvider"/>
+        <langCodeStyleSettingsProvider implementation="net.endlos.xdt99.xbas99.Xbas99LanguageCodeStyleSettingsProvider"/>
+        <annotator language="Xbas99" implementationClass="net.endlos.xdt99.xbas99.Xbas99Annotator"/>
+        <lang.formatter language="Xbas99" implementationClass="net.endlos.xdt99.xbas99.Xbas99FormattingModelBuilder"/>
+        <lang.refactoringSupport language="Xbas99" implementationClass="net.endlos.xdt99.xbas99.Xbas99RefactoringSupportProvider"/>
+        <lang.findUsagesProvider language="Xbas99" implementationClass="net.endlos.xdt99.xbas99.Xbas99FindUsagesProvider"/>
+        <lang.namesValidator language="Xbas99" implementationClass="net.endlos.xdt99.xbas99.Xbas99NamesValidator"/>
+        <braceMatcher filetype="Xbas99" implementationClass="net.endlos.xdt99.xbas99.Xbas99BraceMatcher"/>
+        <quoteHandler fileType="Xbas99" className="net.endlos.xdt99.xbas99.Xbas99QuoteHandler"/>
+        <gotoSymbolContributor implementation="net.endlos.xdt99.xga99.Xga99ChooseByNameContributor"/>
+        <postFormatProcessor implementation="net.endlos.xdt99.xbas99.Xbas99PostFormatProcessor"/>
+        <!-- BASIC with labels -->
+        <fileType name="Xbas99L" implementationClass="net.endlos.xdt99.xbas99l.Xbas99LFileType" fieldName="INSTANCE" language="Xbas99L" extensions="bas;b99"/>
+        <lang.parserDefinition language="Xbas99L" implementationClass="net.endlos.xdt99.xbas99l.Xbas99LParserDefinition"/>
+        <lang.syntaxHighlighterFactory language="Xbas99L" implementationClass="net.endlos.xdt99.xbas99l.Xbas99LSyntaxHighlighterFactory"/>
+        <colorSettingsPage implementation="net.endlos.xdt99.xbas99l.Xbas99LColorSettingsPage"/>
+        <codeStyleSettingsProvider implementation="net.endlos.xdt99.xbas99l.Xbas99LCodeStyleSettingsProvider"/>
+        <langCodeStyleSettingsProvider implementation="net.endlos.xdt99.xbas99l.Xbas99LLanguageCodeStyleSettingsProvider"/>
+        <annotator language="Xbas99L" implementationClass="net.endlos.xdt99.xbas99l.Xbas99LAnnotator"/>
+        <lang.formatter language="Xbas99L" implementationClass="net.endlos.xdt99.xbas99l.Xbas99LFormattingModelBuilder"/>
+        <lang.refactoringSupport language="Xbas99L" implementationClass="net.endlos.xdt99.xbas99l.Xbas99LRefactoringSupportProvider"/>
+        <lang.findUsagesProvider language="Xbas99L" implementationClass="net.endlos.xdt99.xbas99l.Xbas99LFindUsagesProvider"/>
+        <lang.namesValidator language="Xbas99L" implementationClass="net.endlos.xdt99.xbas99l.Xbas99LNamesValidator"/>
+        <braceMatcher filetype="Xbas99L" implementationClass="net.endlos.xdt99.xbas99l.Xbas99LBraceMatcher"/>
+        <quoteHandler fileType="Xbas99L" className="net.endlos.xdt99.xbas99l.Xbas99LQuoteHandler"/>
+        <gotoSymbolContributor implementation="net.endlos.xdt99.xga99.Xga99ChooseByNameContributor"/>
+        <postFormatProcessor implementation="net.endlos.xdt99.xbas99l.Xbas99LPostFormatProcessor"/>
+
+        <!-- general -->
+        <editorActionHandler action="EditorTab" implementationClass="net.endlos.xdt99.common.Xdt99EditorWriteActionHandler"/>
+        <additionalTextAttributes scheme="Default" file="colorScheme/xdt99Colors.xml"/>
+        <additionalTextAttributes scheme="Darcula" file="colorScheme/xdt99Colors.xml"/>
+    </extensions>
+
+    <actions>
+        <!-- Add your actions here -->
+    </actions>
+</idea-plugin>

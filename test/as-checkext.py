@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 import os
 import glob
@@ -347,7 +347,7 @@ def runtest():
     xas(Files.input, '-R', '-5', '-18', '-o', Files.output, rc=0)
 
     source = os.path.join(Dirs.sources, 'as99000.asm')
-    xas(source, '-b', '-R', '--99000', '-o', Files.output)  # also option -105
+    xas(source, '-b', '-R', '--99105', '-o', Files.output)  # also option -105
     ref = os.path.join(Dirs.refs, 'as99000.ref')
     check_binary_files_eq('99000', Files.output, ref)
 

@@ -1,0 +1,15 @@
+* arith expression with non-standard precedence
+
+       grom >2000
+
+v1     equ  1
+v2     equ  2
+
+       clr  @>8300
+       st   1 + (2 * 3) * 4, @>8301       ;WARN
+       add  @>2000 + 2 * v1, @>8302       ;WARN
+       sll  (2 + 3) * 4 + 5, @>8303
+       i/o  v1 + (v2 + 9) * (v1 - 1), @v1 ;WARN
+       back (2 * 2) + (3 + 3) * (4 + 4)   ;WARN
+
+       end

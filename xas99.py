@@ -2,7 +2,7 @@
 
 # xas99: A TMS9900 cross-assembler
 #
-# Copyright (c) 2015-2021 Ralph Benzinger <r@0x01.de>
+# Copyright (c) 2015-2022 Ralph Benzinger <r@0x01.de>
 #
 # This program is part of the TI 99 Cross-Development Tools (xdt99).
 #
@@ -27,7 +27,7 @@ import os
 from functools import reduce
 
 
-VERSION = '3.2.0'
+VERSION = '3.2.1'
 
 CONFIG = 'XAS99_CONFIG'
 
@@ -54,7 +54,7 @@ class Util:
 
     @staticmethod
     def cmp(x, y):
-        return (x > y) - (x < y)
+        return (Util.val(x) > Util.val(y)) - (Util.val(x) < Util.val(y))
 
     @staticmethod
     def xint(s):
@@ -156,9 +156,10 @@ class Warnings:
     OPTIMIZATIONS = 1
     BAD_USAGE = 2
     UNUSED_SYMBOLS = 3
-    _MAX = 4
+    ARITH = 4
+    _MAX = 5
 
-    def __init__(self, all=None, optimizations=None, bad_usage=None, unused_symbols=None):
+    def __init__(self, all=None, optimizations=None, bad_usage=None, unused_symbols=None, arith_precedence=None):
         """set state for warning categories"""
         self.enabled = None
         self._initial = {i: (False if all else True) for i in range(Warnings._MAX)}
@@ -168,11 +169,13 @@ class Warnings:
             self._initial[Warnings.BAD_USAGE] = False
         if unused_symbols:
             self._initial[Warnings.UNUSED_SYMBOLS] = False
+        if arith_precedence:
+            self._initial[Warnings.ARITH] = False
         self.reset()
 
     def reset(self):
         """restore initial state"""
-        self.enabled =  {i: self._initial[i] for i in range(Warnings._MAX)}
+        self.enabled = {i: self._initial[i] for i in range(Warnings._MAX)}
 
     def all(self, state):
         """enable or disable all warnings"""
@@ -1099,7 +1102,8 @@ class Symbols:
 
     def valid(self, name):
         """is name a valid symbol name?"""
-        return ((not self.strict and name != '$' and name[0] not in "!@" and not re.search(r'[-+*/#"\']', name[1:])) or
+        return ((not self.strict and name != '$' and name[0] not in "!@" and
+                 not re.search(r'[-+*/&|^~()#"\',]', name[1:])) or
                 (name[0].isalpha() and name.isalnum()))
 
     def add_symbol(self, name, value, lino=None, filename=None, tracked=False, check=True, equ=None):
@@ -1333,6 +1337,10 @@ class Preprocessor:
     def args(self, ops):
         lhs = self.parser.expression(ops[0], well_defined=True, relaxed=True)
         rhs = self.parser.expression(ops[1], well_defined=True, relaxed=True) if len(ops) > 1 else 0
+        if isinstance(lhs, Reference) or isinstance(rhs, Reference):
+            raise AsmError('Cannot use reference in preprocessor condition')
+        if isinstance(lhs, Address) or isinstance(rhs, Address):
+            self.parser.warn('Comparing against relocatable address', category=Warnings.BAD_USAGE, force=True)
         return lhs, rhs
 
     def str_args(self, ops):
@@ -1478,7 +1486,7 @@ class Parser:
         self.path = path
         self.includes = includes or []  # do not include '.' -- current path added implicitly in find()
         self.prep = Preprocessor(self, listing)
-        self.processed_source = []  # parsed source by pass 1 #TODO
+        self.processed_source = []  # parsed source by pass 1
         self.text_literals = []
         self.strict = strict
         self.relaxed = relaxed
@@ -1656,6 +1664,7 @@ class Parser:
         reloc_count = 0
         sep_pattern = r'([-+*/])' if self.strict else r'([-+/%~&|^()]|\*\*?|[BW]#)'
         terms = ['+'] + [tok.strip() for tok in re.split(sep_pattern, expr)]
+        self.check_arith_precedence(terms[2::2])
         i = 0
         while i < len(terms):
             op, term = terms[i:i + 2]
@@ -1745,6 +1754,28 @@ class Parser:
         if not 0 <= reloc_count <= (0 if absolute else 1):
             raise AsmError('Invalid address: ' + expr)
         return Address(value.value, self.symbols.bank, True, self.symbols.unit_id) if reloc_count else value.value
+
+    def check_arith_precedence(self, operators, i=0):
+        """check if usual * over + arithmetic precedence is violated"""
+        possible_violation = False
+        while i < len(operators):
+            if operators[i] == ')':
+                return False, i + 1
+            elif operators[i] == '+' or operators[i] == '-':
+                possible_violation = True
+            elif operators[i] in '*/%' and possible_violation:
+                self.warn('Unexpected arithmetical precedence', category=Warnings.ARITH)
+                return True, None
+            elif operators[i] == '(':
+                violation, i = self.check_arith_precedence(operators, i + 1)
+                if violation:
+                    return True, None
+                else:
+                    continue
+            elif operators[i] in '&|^~':
+                possible_violation = False
+            i += 1
+        return False, None
 
     def term(self, op, well_defined=False, iop=False, relaxed=False, allow_r0=False):
         """parse constant or symbol"""
@@ -3284,13 +3315,15 @@ def main():
     args.add_argument('-X', '--cross-checks', action='store_true', dest='x_checks',
                       help='enable cross-bank checks for banked programs')
     args.add_argument('-q', action='store_true', dest='quiet',
-                      help='quiet, do not print warnings')
+                      help='quiet, do not show warnings')
     args.add_argument('--quiet-opts', action='store_true', dest='quiet_opt',
-                      help='quiet, do not print optimization warnings')
+                      help='quiet, do not show optimization warnings')
     args.add_argument('--quiet-unused-syms', action='store_true', dest='quiet_use',
-                      help='quiet, do not print unused symbols warnings')
+                      help='quiet, do not show unused symbols warnings')
     args.add_argument('--quiet-usage', action='store_true', dest='quiet_ops',
-                      help='quiet, do not print potential incorrect usage of arguments warnings')
+                      help='quiet, do not show potential incorrect usage of arguments warnings')
+    args.add_argument('--quiet-arith', action='store_true', dest='quiet_arith',
+                      help='quiet, do not show non-standard arithmetic precedence warnings')
     args.add_argument('-a', '--base', dest='base', metavar='<addr>',
                       help='set base address for relocatable code')
     args.add_argument('-I', '--include', dest='inclpath', metavar='<paths>',
@@ -3322,7 +3355,7 @@ def main():
               'obj')
     foreign_architecture = opts.use_9995 or opts.use_f18a or opts.use_99000
     warnings = Warnings(all=opts.quiet, optimizations=opts.quiet_opt, bad_usage=opts.quiet_ops,
-                        unused_symbols=opts.quiet_use)
+                        unused_symbols=opts.quiet_use, arith_precedence=opts.quiet_arith)
 
     # assembly step
     program = Program(target=target, definitions=opts.defs)

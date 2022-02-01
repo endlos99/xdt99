@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 import os
 
@@ -44,13 +44,6 @@ def runtest():
     ref = os.path.join(Dirs.basic, 'nim.bas')
     xbas(ref, '-c', '-o', Files.reference)
     check_binary_files_eq('labels', Files.output, Files.reference)
-
-    # bad labels
-    source = os.path.join(Dirs.basic, 'baslaberr.bas')
-    with open(Files.error, 'w') as ferr:
-        xbas(source, '-c', '-l', '--color', 'off', '-o', Files.output, stderr=ferr, rc=1)
-    check_errors(Files.error)
-    check_unused_labels(Files.error)
 
     # cleanup
     delfile(Dirs.tmp)

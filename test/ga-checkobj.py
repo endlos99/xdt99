@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 # How to update the gplsrcs.dsk:
 # - replace source file DIS/VAR 80 (no ext)

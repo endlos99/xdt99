@@ -1,12 +1,12 @@
-;;; xdt99-mode: xdt99 major modes for Emacs - Version 1.3
+;;; xdt99-mode: xdt99 major modes for Emacs - Version 1.4
 
-;; Copyright (c) 2015-2019 Ralph Benzinger <r@0x01.de>
+;; Copyright (c) 2015-2021 Ralph Benzinger <r@0x01.de>
 
 ;; This program is part of the TI 99 Cross-Development Tools (xdt99).
 
 ;; This program is free software; you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
-;; the Free Software Foundation; either version 2 of the License, or
+;; the Free Software Foundation; either version 3 of the License, or
 ;; (at your option) any later version.
 
 ;; This program is distributed in the hope that it will be useful,
@@ -41,42 +41,56 @@
     ; 13. pseudo ops
     "NOP" "RT"))
 
+(defvar asm99-foreign-opcodes
+  '(; other architectures
+    "MPYS" "DIVS" "LST" "LWP" "BIND" "BLSK" "TMB" "TCMB" "TSMB" "AM" "SM" "SLAM" "SRAM"
+    "CALL" "RET" "PUSH" "POP" "SLC" "PIX"))
+
 (defvar asm99-directives
   '(; 14. directives
     "DEF" "REF" "EQU" "EVEN" "BSS" "BES" "COPY" "END" "DATA" "BYTE" "TEXT"
     "AORG" "RORG" "DORG" "PSEG" "PEND" "CSEG" "CEND" "DSEG" "DEND"
-    "IDT" "UNL" "LIST" "PAGE" "TITL" "DXOP" "LOAD" "SREF" "END"
+    "IDT" "UNL" "LIST" "PAGE" "TITL" "DXOP" "LOAD" "SREF"
     ; xdt99 extensions
     "WEQU" "BCOPY" "XORG" "SAVE" "BANK" "STRI" "FLOA"))
 
 (defvar asm99-preprocessor
-  '(".IFDEF" ".IFNDEF" ".IFEQ" ".IFNE" ".IFGT" ".IFGE" ".ELSE" ".ENDIF"))
+  '(".IFDEF" ".IFNDEF" ".IFEQ" ".IFNE" ".IFGT" ".IFGE" ".ELSE" ".ENDIF" ".ERROR"))
 
+; new face for 9995/99105/F18A keywords
+(defface extra-face
+   '((t . (:foreground "violet red" :inherit (font-lock-keyword-face))))
+   "Face for displaying foreign architecture keywords.")
+
+; create keywords table for syntax highlighting
 (defvar asm99-font-lock-keywords
   `(
-    ("^\\*.*\\|;.*" . font-lock-comment-face)
-    ("'[^']*'" . font-lock-string-face)
-    ("\"[^\"]*\"" . font-lock-string-face)
-    ("[BbWwSsLlXx]#" . font-lock-type-face)
-    ( ,(regexp-opt asm99-opcodes 'symbols) . font-lock-keyword-face)
-    ( ,(regexp-opt asm99-directives 'symbols) . font-lock-builtin-face)
-    ( ,(regexp-opt asm99-preprocessor 'symbols) . font-lock-preprocessor-face)
-    (">[0-9A-F]+\\>\\|\\<[0-9]+\\>" . font-lock-constant-face)
-    ("@[A-Za-z0-9_.]+" . font-lock-variable-name-face)
-    ("\\<R[0-9]\\>\\|\\<R1[0-5]\\>" . font-lock-doc-face)
+    (";:.*" . font-lock-doc-face)                                               ; pragma
+    ("^\\*.*\\|;.*" . font-lock-comment-face)                                   ; comment
+    ("'[^']*'" . font-lock-string-face)                                         ; char literal
+    ("\"[^\"]*\"" . font-lock-string-face)                                      ; string literal
+    ("[BbWwSsLlXx]#" . font-lock-type-face)                                     ; # expression
+    ( ,(regexp-opt asm99-opcodes 'symbols) . font-lock-keyword-face)            ; opcodes
+    ( ,(regexp-opt asm99-foreign-opcodes 'symbols) . 'extra-face)               ; other architectures
+    ( ,(regexp-opt asm99-directives 'symbols) . font-lock-builtin-face)         ; directives
+    ( ,(regexp-opt asm99-preprocessor 'symbols) . font-lock-preprocessor-face)  ; preprocessor commands
+    (">[0-9A-F]+\\>\\|\\<[0-9]+\\>" . font-lock-constant-face)                  ; numerical constants
+    ("@[A-Za-z0-9_.]+" . font-lock-variable-name-face)                          ; @symbol
+    ("\\_<R[0-9]\\_>\\|\\_<R1[0-5]\\_>" . font-lock-doc-face)                   ; register
     ))
 
+; add additional characters to syntax classes (symbols '_' and punctuation '.')
 (defvar asm99-syntax-table
   (let ((table (make-syntax-table))
-	(symbols '(?! ?$ ?: ?? ?@))
-	(punctuations '(?% ?& ?* ?+ ?- ?/ ?< ?= ?>)))
+        (symbols '(?! ?$ ?? ?@))
+        (punctuations '(?: ?% ?& ?* ?+ ?- ?/ ?< ?= ?>)))
     (mapc (lambda (c) (modify-syntax-entry c "_" table)) symbols)
     (mapc (lambda (c) (modify-syntax-entry c "." table)) punctuations)
     (modify-syntax-entry ?' "\"" table)
     table))
 
 (setq asm99-keywords-regex
-      (regexp-opt (append asm99-opcodes asm99-directives asm99-preprocessor) 'symbols))
+      (regexp-opt (append asm99-opcodes asm99-foreign-opcodes asm99-directives asm99-preprocessor) 'symbols))
 
 ;; intendation and smart edit modes
 
@@ -88,16 +102,16 @@
 (defun asm99-flush-left ()
   "Auto-indent the current line based on left of point."
   (let* ((savep (point))
-	 (indent (condition-case nil
-		     (save-excursion
-		       (forward-line 0)
-		       (skip-chars-forward " \t")
-		       (if (>= (point) savep)
-			   (progn (setq savep nil) 0)
-			 (max (asm99-calculate-indentation) 0)))
-		   (error 0))))
+         (indent (condition-case nil
+                     (save-excursion
+                       (forward-line 0)
+                       (skip-chars-forward " \t")
+                       (if (>= (point) savep)
+                           (progn (setq savep nil) 0)
+                         (max (asm99-calculate-indentation) 0)))
+                   (error 0))))
     (if savep
-	(save-excursion (indent-line-to indent))
+        (save-excursion (indent-line-to indent))
       (indent-line-to indent))))
 
 (defun asm99-calculate-indentation ()
@@ -119,51 +133,69 @@
   (let ((field (asm99-current-field-to-point)))
     (let ((count (length field)))
       (if (/= (preceding-char) ?\s)
-	  (backward-delete-char-untabify 1)
-	(while (and (> count 0) (= (preceding-char) ?\s))
-	  (backward-delete-char-untabify 1)
-	  (setq count (1- count)))))))
+          (backward-delete-char-untabify 1)
+        (while (and (> count 0) (= (preceding-char) ?\s))
+          (backward-delete-char-untabify 1)
+          (setq count (1- count)))))))
 
 (defun asm99-current-field-to-point ()
   (let ((bol (line-beginning-position)))
     (let ((tabpos (mapcar (apply-partially '+ bol) (butlast tab-stop-list))))
       (let ((start (asm99-find-largest-below (point) tabpos 1)))
-	(buffer-substring-no-properties start (point))))))
+        (buffer-substring-no-properties start (point))))))
 
 (defun asm99-find-largest-below (threshold values result)
   (let ((head (car values)))
     (if (and head (< head threshold))
-	(asm99-find-largest-below threshold (cdr values) head)
+        (asm99-find-largest-below threshold (cdr values) head)
       result)))
 
-;; simple navigation
+;; simple navigation (also for GPL)
 
-(defun asm99-goto-def ()
+(defun xdt99-get-symbol (word)
+  "return plain symbol without addressing mode"
+  (if word
+      (if (let ((prefix (substring word 0 1)))
+            (or (string= prefix "@")
+                (string= prefix "*")))
+          (substring word 1)
+          (if (let ((prefix (downcase (substring word 0 2))))
+                (or (string= prefix "v@")
+                    (string= prefix "v*")
+                    (string= prefix "g@")))
+              (substring word 2)
+              word))
+      nil))
+
+(defun asm99-goto-symbol-definition ()
   "jump to label definition"
   (interactive)
-  (let ((symbol-re (concat "^" (current-word t t) ":?\\>"))
-	(symbol-pos nil))
-    (save-excursion
-      (goto-char 1)
-      (if (search-forward-regexp symbol-re nil t 1)
-	  (setq symbol-pos (match-beginning 0))))
-    (if symbol-pos
-	(goto-char symbol-pos))))
+  (let ((current-symbol (xdt99-get-symbol (current-word t nil))))
+    (if current-symbol
+        (let ((symbol-pattern (concat "^" current-symbol ":?\\s-"))
+              (symbol-pos nil))
+          (save-excursion
+            (goto-char 1)
+            (if (let ((case-fold-search t))
+                  (re-search-forward symbol-pattern nil t 1))
+                (setq symbol-pos (match-beginning 0))))
+          (if symbol-pos
+              (goto-char symbol-pos))))))
 
-(defun asm99-show-def ()
+(defun asm99-show-symbol-definition ()
   "show label definition"
   (interactive)
-  (let ((symbol-re (concat "^" (current-word t t) "\\(?:\\(:\\)\s*$\\|\\>\\)")))
-    (save-excursion
-      (goto-char 1)
-      (if (search-forward-regexp symbol-re nil t 1)
-	  (progn
-	    (goto-char (match-beginning 0))
-	    (let ((eot (if (match-string 1)
-			   (line-end-position 2)
-			 (line-end-position))))
-	      (message (buffer-substring (line-beginning-position) eot))))
-	(message "symbol definition not found")))))
+  (let ((current-symbol (xdt99-get-symbol (current-word t nil))))
+    (if current-symbol
+      (let ((symbol-pattern (concat "^" current-symbol "\\(:\\)?\\s-")))
+        (save-excursion
+          (goto-char 1)
+          (if (let ((case-fold-search t))
+                (re-search-forward symbol-pattern nil t 1))
+              (let ((beginning-of-text (match-beginning 0))
+                    (end-of-text (line-end-position (if (match-string 1) 1 nil))))
+                (message "%s" (buffer-substring beginning-of-text end-of-text)))
+            (message "%s" "Symbol definition not found.")))))))
 
 ;; commenter
 
@@ -173,7 +205,6 @@
     map)
   "Keymap for asm99-mode.")
 
-
 ;; compilation
 
 (defcustom asm99-compile-options
@@ -182,11 +213,12 @@
 
 (defun asm99-compile-command ()
     (set (make-local-variable 'compile-command)
-       (concat "xas99.py " asm99-compile-options " "
-               buffer-file-name)))
-
+       (concat "xas99.py " asm99-compile-options " " buffer-file-name)))
 
 ;; major and minor mode definitions
+
+(setq face-font-selection-order
+      '(:width :height :weight :slant))
 
 (define-minor-mode asm99-smart-tab-mode
   "Smart tab key handling for asm99-mode"
@@ -280,7 +312,7 @@
   )
 
 (defvar gpl99-preprocessor
-  '(".IFDEF" ".IFNDEF" ".IFEQ" ".IFNE" ".IFGT" ".IFGE" ".ELSE" ".ENDIF")
+  '(".IFDEF" ".IFNDEF" ".IFEQ" ".IFNE" ".IFGT" ".IFGE" ".ELSE" ".ENDIF" ".ERROR")
   )
 
 (defvar gpl99-font-lock-keywords
@@ -300,8 +332,8 @@
 
 (defvar gpl99-syntax-table
   (let ((table (make-syntax-table))
-	(symbols '(?! ?$ ?: ?@))
-	(punctuations '(?, ?% ?& ?* ?+ ?- ?/ ?< ?= ?>)))
+        (symbols '(?! ?$ ?: ?@))
+        (punctuations '(?, ?% ?& ?* ?+ ?- ?/ ?< ?= ?>)))
     (mapc (lambda (c) (modify-syntax-entry c "_" table)) symbols)
     (mapc (lambda (c) (modify-syntax-entry c "." table)) punctuations)
     (modify-syntax-entry ?' "\"" table)
@@ -321,8 +353,7 @@
 
 (defun gpl99-compile-command ()
     (set (make-local-variable 'compile-command)
-       (concat "xga99.py " gpl99-compile-options " "
-               buffer-file-name)))
+       (concat "xga99.py " gpl99-compile-options " " buffer-file-name)))
 
 ;; major and minor mode definitions
 
@@ -409,8 +440,8 @@
 
 (defvar basic99-syntax-table
   (let ((table (make-syntax-table))
-	(symbols '(?# ?@ ?[ ?\\ ?]))
-	(punctuations '(?% ?& ?* ?+ ?- ?/ ?< ?= ?>)))
+        (symbols '(?# ?@ ?\[ ?\\ ?\]))
+        (punctuations '(?% ?& ?* ?+ ?- ?/ ?< ?= ?>)))
     (mapc (lambda (c) (modify-syntax-entry c "_" table)) symbols)
     (mapc (lambda (c) (modify-syntax-entry c "." table)) punctuations)
     table))
@@ -431,3 +462,9 @@
   (run-hooks 'basic99-mode-hook))
 
 (provide 'basic99-mode)
+
+
+;;; Optional key assignments (or put into .emacs)
+
+;(global-set-key [f3] 'asm99-goto-symbol-definition)
+;(global-set-key [S-f3] 'asm99-show-symbol-definition)

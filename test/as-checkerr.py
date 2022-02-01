@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 import os
 import re
@@ -38,7 +38,7 @@ def runtest():
     source = os.path.join(Dirs.sources, 'aserrs.asm')
     with open(Files.error, 'w') as ferr:
         xas(source, '-s', '-o', Files.output, stderr=ferr, rc=1)
-    xas_errors = read_stderr(Files.error)
+    warnings = read_stderr(Files.error)
 
     # TI assembler error messages
     ti_errors = []
@@ -51,15 +51,15 @@ def runtest():
                 ti_errors.append(lino)
 
     # compare
-    check_errors(ti_errors, xas_errors)
+    check_errors(ti_errors, warnings)
 
     # xdt99-specific errors
     source = os.path.join(Dirs.sources, 'asxerrs.asm')
     with open(Files.error, 'w') as ferr:
         xas(source, '-R', '-o', Files.output, stderr=ferr, rc=1)
-    xas_errors = read_stderr(Files.error)
+    warnings = read_stderr(Files.error)
     ref_errors = get_source_markers(source, r';ERROR(:....)?')
-    check_errors(ref_errors, xas_errors)
+    check_errors(ref_errors, warnings)
 
     source = os.path.join(Dirs.sources, 'assyntax.asm')
     with open(Files.error, 'w') as ferr:
@@ -77,9 +77,9 @@ def runtest():
     source = os.path.join(Dirs.sources, 'asxerrsb.asm')
     with open(Files.error, 'w') as ferr:
         xas(source, '-R', '-b', '-X', '-o', Files.output, stderr=ferr, rc=1)
-    xas_errors = read_stderr(Files.error)
+    warnings = read_stderr(Files.error)
     ref_errors = get_source_markers(source, tag=r';ERROR(:....)?')
-    check_errors(ref_errors, xas_errors)
+    check_errors(ref_errors, warnings)
 
     # open .if-.endif or .defm-.endm
     source = os.path.join(Dirs.sources, 'asopenif.asm')
@@ -209,6 +209,14 @@ def runtest():
     errs = re.findall('Auto-constant defined after AUTO directive', content(Files.error, 'r'))
     if len(errs) != 4:
         error('misplaced auto-cons', 'Missing error about auto-cons after AUTO')
+
+    # warning about arith expressions relying on non-standard precedence
+    source = os.path.join(Dirs.sources, 'asaprec.asm')
+    with open(Files.error, 'w') as ferr:
+        xas(source, '-R', '--color', 'off', '-o', Files.output, stderr=ferr, rc=0)
+    warnings = read_stderr(Files.error, include_warnings=True)
+    markers = get_source_markers(source, r';WARN')
+    check_errors(markers, warnings)
 
     # STDOUT
     source = os.path.join(Dirs.sources, 'asstdout.asm')

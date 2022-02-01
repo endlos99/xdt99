@@ -2,7 +2,7 @@
 
 # xga99: A GPL cross-assembler
 #
-# Copyright (c) 2015-2021 Ralph Benzinger <r@0x01.de>
+# Copyright (c) 2015-2022 Ralph Benzinger <r@0x01.de>
 #
 # This program is part of the TI 99 Cross-Development Tools (xdt99).
 #
@@ -27,71 +27,74 @@ import math
 import re
 
 
-VERSION = '3.2.0'
+VERSION = '3.2.1'
 
 CONFIG = 'XGA99_CONFIG'
 
 
-# Utility functions
+# Utility methods
 
-def ordw(word):
-    """word ord"""
-    return (word[0] << 8) | word[1]
+class Util:
 
+    @staticmethod
+    def ordw(word):
+        """word ord"""
+        return (word[0] << 8) | word[1]
 
-def chrw(word):
-    """word chr"""
-    return bytes((word >> 8, word & 0xff))
+    @staticmethod
+    def chrw(word):
+        """word chr"""
+        return bytes((word >> 8, word & 0xff))
 
+    @staticmethod
+    def xint(s):
+        """return hex or decimal value"""
+        return int(s.lstrip('>'), 16 if s[:2] == '0x' or s[:1] == '>' else 10)
 
-def xint(s):
-    """return hex or decimal value"""
-    return int(s.lstrip('>'), 16 if s[:2] == '0x' or s[:1] == '>' else 10)
+    @staticmethod
+    def trunc(i, m):
+        """round integer down to multiple of m"""
+        return i - i % m
 
+    @staticmethod
+    def cmp(x, y):
+        return (Util.val(x) > Util.val(y)) - (Util.val(x) < Util.val(y))
 
-def trunc(i, m):
-    """round integer down to multiple of m"""
-    return i - i % m
+    @staticmethod
+    def val(n):
+        """dereference address"""
+        return n.addr if isinstance(n, Address) else n
 
-
-def cmp(x, y):
-    return (x > y) - (x < y)
-
-
-def val(n):
-    """dereference address"""
-    return n.addr if isinstance(n, Address) else n
-
-
-def readlines(name, mode='r'):
-    """read lines from file or STDIN"""
-    if name == '-':
-        return sys.stdin.readlines()
-    else:
-        with open(name, mode) as f:
-            return f.readlines()
-
-
-def writedata(name, data, mode='wb'):
-    """write data to file or STDOUT"""
-    if name == '-':
-        if 'b' in mode:
-            sys.stdout.buffer.write(data)
+    @staticmethod
+    def readlines(name, mode='r'):
+        """read lines from file or STDIN"""
+        if name == '-':
+            return sys.stdin.readlines()
         else:
-            sys.stdout.write(data)
-    else:
-        with open(name, mode) as f:
-            f.write(data)
+            with open(name, mode) as f:
+                return f.readlines()
 
+    @staticmethod
+    def writedata(name, data, mode='wb'):
+        """write data to file or STDOUT"""
+        if name == '-':
+            if 'b' in mode:
+                sys.stdout.buffer.write(data)
+            else:
+                sys.stdout.write(data)
+        else:
+            with open(name, mode) as f:
+                f.write(data)
 
-def outname(basename, suffix, extension, output=None):
-    if basename == '-':
-        return '-'
-    if suffix is None:
-        return output or basename + extension
-    if output is not None:
-        basename, extension = os.path.splitext(output)
-    return basename + f'_g{suffix:d}' + extension
+    @staticmethod
+    def outname(basename, suffix, extension, output=None):
+        if basename == '-':
+            return '-'
+        if suffix is None:
+            return output or basename + extension
+        if output is not None:
+            basename, extension = os.path.splitext(output)
+        return basename + f'_g{suffix:d}' + extension
 
 
 # Error handling
@@ -569,7 +572,7 @@ class Symbols:
     @staticmethod
     def valid(name):
         """is name a valid symbol name?"""
-        return (name[:1].isalpha() or name[0] == '_') and not re.search(r'[-+*/#!@"\']', name)
+        return (name[:1].isalpha() or name[0] == '_') and not re.search(r'[-+*/&|^~()#"\']', name)
 
     def add_symbol(self, name, value, tracked=False, check=True, lino=None, filename=None):
         """add symbol to symbol table or update existing symbol"""
@@ -661,7 +664,7 @@ class Symbols:
             if symbol[0] == '$' or symbol[0] == '_':
                 continue  # skip local and internal symbols
             value, _ = self.symbols[symbol]
-            symlist.append((symbol, val(value)))
+            symlist.append((symbol, Util.val(value)))
         fmt = '{}:\n       EQU  >{:04X}' if equ else '    {:.<20} >{:04X}'
         return '\n'.join(fmt.format(*symbol) for symbol in symlist)
 
@@ -762,19 +765,19 @@ class Preprocessor:
 
     def IFEQ(self, code, ops):
         self.parse_branches.append(self.parse)
-        self.parse = cmp(*self.args(ops)) == 0 if self.parse else None
+        self.parse = Util.cmp(*self.args(ops)) == 0 if self.parse else None
 
     def IFNE(self, code, ops):
         self.parse_branches.append(self.parse)
-        self.parse = cmp(*self.args(ops)) != 0 if self.parse else None
+        self.parse = Util.cmp(*self.args(ops)) != 0 if self.parse else None
 
     def IFGT(self, code, ops):
         self.parse_branches.append(self.parse)
-        self.parse = cmp(*self.args(ops)) > 0 if self.parse else None
+        self.parse = Util.cmp(*self.args(ops)) > 0 if self.parse else None
 
     def IFGE(self, code, ops):
         self.parse_branches.append(self.parse)
-        self.parse = cmp(*self.args(ops)) >= 0 if self.parse else None
+        self.parse = Util.cmp(*self.args(ops)) >= 0 if self.parse else None
 
     def ELSE(self, code, ops):
         self.parse = not self.parse if self.parse is not None else None
@@ -867,9 +870,9 @@ class Parser:
         self.for_loops = []
         self.path = self.initial_path
 
-    def warn(self, message):
+    def warn(self, message, force=False):
         # warn in pass 2 to avoid duplicates and to prevent false expr values 0
-        if self.symbols.pass_no > 0 and message not in self.warnings:
+        if (self.symbols.pass_no > 0 or force) and message not in self.warnings:
             self.warnings.append(message)
 
     def open(self, filename=None, macro=None, macro_args=None):
@@ -881,7 +884,7 @@ class Parser:
         if filename:
             newfile = '-' if filename == '-' else self.find(filename)
             self.path, self.filename = os.path.split(newfile)
-            self.source = readlines(newfile)
+            self.source = Util.readlines(newfile)
             self.in_macro_instantiation = False
         else:
             self.source = self.prep.macros[macro]
@@ -977,10 +980,10 @@ class Parser:
         """parse label"""
         s = op[len(self.syntax.gprefix):] if op.startswith(self.syntax.gprefix) else op
         addr = self.expression(s)
-        return val(addr)
+        return Util.val(addr)
 
     def move(self, ops):
-        """parse MOVE instruction"""
+        """parse MOVE instruction: count, gs, gd"""
         m = re.match(self.syntax.moveops, ','.join(ops))
         if not m:
             raise AsmError('Syntax error in MOVE')
@@ -1056,6 +1059,7 @@ class Parser:
         value = Word(0, pass_no=self.symbols.pass_no)
         stack = []
         terms = ['+'] + [tok.strip() for tok in re.split(r'([-+/%~&|^()]|\*\*?)', expr)]
+        self.check_arith_precedence(terms[2::2])
         i = 0
         while i < len(terms):
             op, term = terms[i:i + 2]
@@ -1086,7 +1090,7 @@ class Parser:
                     negate = False
                 if term_val is None:
                     raise AsmError('Invalid expression: ' + term)
-                v = val(term_val)
+                v = Util.val(term_val)
             w = Word((-v if negate else v) + corr)
             if op == '+':
                 value.add(w)
@@ -1104,6 +1108,28 @@ class Parser:
             else:
                 raise AsmError('Invalid operator: ' + op)
         return value.value
+
+    def check_arith_precedence(self, operators, i=0):
+        """check if usual * over + arithmetic precedence is violated"""
+        possible_violation = False
+        while i < len(operators):
+            if operators[i] == ')':
+                return False, i + 1
+            elif operators[i] == '+' or operators[i] == '-':
+                possible_violation = True
+            elif operators[i] in '*/%' and possible_violation:
+                self.warn('Unexpected arithmetical precedence')
+                return True, None
+            elif operators[i] == '(':
+                violation, i = self.check_arith_precedence(operators, i + 1)
+                if violation:
+                    return True, None
+                else:
+                    continue
+            elif operators[i] in '&|^~':
+                possible_violation = False
+            i += 1
+        return False, None
 
     def term(self, op, needed=False):
         """parse term"""
@@ -1135,7 +1161,7 @@ class Parser:
     def value(self, op):
         """parse well-defined value"""
         e = self.expression(op)
-        return val(e)
+        return Util.val(e)
 
     def text(self, op):
         """parse quoted text literal or byte string"""
@@ -1443,9 +1469,9 @@ class Linker:
         if offset < 0x16:
             raise AsmError('No space for GROM header')
         entry = self.program.entry or self.symbols.get_symbol('START') or offset
-        gpl_header = bytes((0xaa, 1, 0, 0, 0, 0)) + chrw(grom_addr + 0x10) + bytes(8)
+        gpl_header = bytes((0xaa, 1, 0, 0, 0, 0)) + Util.chrw(grom_addr + 0x10) + bytes(8)
         menu_name = name[:offset - 0x15]
-        info = bytes(2) + chrw(val(entry)) + bytes((len(menu_name),)) + menu_name.encode()
+        info = bytes(2) + Util.chrw(Util.val(entry)) + bytes((len(menu_name),)) + menu_name.encode()
         padding = bytes(offset - len(gpl_header) - len(info))
         return gpl_header + info + padding
 
@@ -1481,9 +1507,9 @@ class Linker:
     def generate_text(self, byte_code, mode, split_groms=True):
         """convert binary data into text representation"""
         if 'r' in mode:
-            word = lambda i: ordw(binary[i + 1:((i - 1) if i > 0 else None):-1])  # byte-swapped
+            word = lambda i: Util.ordw(binary[i + 1:((i - 1) if i > 0 else None):-1])  # byte-swapped
         else:
-            word = lambda i: ordw(binary[i:i + 2])
+            word = lambda i: Util.ordw(binary[i:i + 2])
 
         if '4' in mode:
             value_fmt = '{:s}{:04x}'
@@ -1764,8 +1790,8 @@ def main():
     basename = os.path.basename(opts.source)
     barename = os.path.splitext(basename)[0]
     name = opts.name or barename[:16].upper()
-    grom = xint(opts.grom) if opts.grom is not None else 0x6000 if opts.cart else 0x0000
-    aorg = xint(opts.aorg) if opts.aorg is not None else 0x0030 if opts.cart else 0x0000
+    grom = Util.xint(opts.grom) if opts.grom is not None else 0x6000 if opts.cart else 0x0000
+    aorg = Util.xint(opts.aorg) if opts.aorg is not None else 0x0030 if opts.cart else 0x0000
     root = os.path.dirname(os.path.realpath(__file__))  # installation dir (path to xga99)
     includes = [os.path.join(root, 'lib')] + (opts.inclpath.split(',') if opts.inclpath else [])
     target = 'cart' if opts.cart else 'gbc'
@@ -1801,7 +1827,7 @@ def main():
             byte_code = linker.generate_byte_code(split_groms=False)
             data, layout, metainf = linker.generate_cart(byte_code, name)
             try:
-                with zipfile.ZipFile(outname(barename, None, '.rpk', output=opts.output), 'w') as archive:
+                with zipfile.ZipFile(Util.outname(barename, None, '.rpk', output=opts.output), 'w') as archive:
                     archive.writestr(name + '.bin', data)
                     archive.writestr('layout.xml', layout)
                     archive.writestr('meta-inf.xml', metainf)
@@ -1819,13 +1845,13 @@ def main():
                 extension = '.gbc'
                 mode = 'wb'
             for suffix, data in result:
-                name = outname(barename, suffix, extension, output=opts.output)
-                writedata(os.path.join(path, name), data, mode)
+                name = Util.outname(barename, suffix, extension, output=opts.output)
+                Util.writedata(os.path.join(path, name), data, mode)
         if opts.listing:
             listing = asm.listing.list() + (asm.symbols.list() if opts.symtab else '')
-            writedata(opts.listing, listing, 'w')
+            Util.writedata(opts.listing, listing, 'w')
         if opts.equs:
-            writedata(opts.equs, asm.symbols.list(equ=True), mode='w')
+            Util.writedata(opts.equs, asm.symbols.list(equ=True), mode='w')
     except IOError as e:
         sys.exit(f'File error: {e.filename}: {e.strerror}.')
     except AsmError as e:

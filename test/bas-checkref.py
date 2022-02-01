@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 import os
 import re
@@ -73,13 +73,13 @@ def runtest():
         # compare generated xbas99 basic program with TI BASIC reference
         xdm(Disks.basic1, '-e', fn + '-L', '-o', Files.input)
         xdm(Disks.basic1, '-e', fn, '-o', Files.reference)
-        xbas(Files.input, '-c', '-o', Files.output)
+        xbas(Files.input, '-c', '-q', '-o', Files.output)
         check_binary_files_eq('Tokenization', Files.output, Files.reference)
 
         # ditto with non-canonically formatted original source
         rawlist = os.path.join(Dirs.basic, fn.lower() + '.txt')
         gen_listing(rawlist, Files.input)
-        xbas(Files.input, '-c', '-o', Files.output)
+        xbas(Files.input, '-c', '-q', '-o', Files.output)
         check_binary_files_eq('Tokenization', Files.output, Files.reference)
 
     # check using randomized listings

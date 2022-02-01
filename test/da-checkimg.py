@@ -1,8 +1,7 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 import os
 import random
-import glob
 
 from config import Dirs, Files, XDA99_CONFIG
 from utils import xda, xas, error, clear_env, delfile, check_binary_files_eq

@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 import os
 
@@ -54,6 +54,14 @@ def runtest():
     act_errors = read_stderr(Files.error, include_warnings=True)
     exp_errors = get_source_markers(source, tag=r';WARN')
     check_errors(exp_errors, act_errors)
+
+    # warning about arith expressions relying on non-standard precedence
+    source = os.path.join(Dirs.gplsources, 'gaaprec.gpl')
+    with open(Files.error, 'w') as ferr:
+        xga(source, '--color', 'off', '-o', Files.output, stderr=ferr, rc=0)
+    warnings = read_stderr(Files.error, include_warnings=True)
+    markers = get_source_markers(source, r';WARN')
+    check_errors(markers, warnings)
 
     # cleanup
     delfile(Dirs.tmp)

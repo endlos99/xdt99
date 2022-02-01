@@ -944,10 +944,8 @@ we can use labels for each line that is the target of a branch:
      END
 
 A label must be alphanumeric and followed by a colon `:`.  The actual program
-lines must be indented by at least one blank.  Sadly, when using a label, e.g.,
-as part of a `GOTO` statement, we must prefix the label with an `@` sign.
-The `@` prefix is needed to identify invalid, i.e., mistyped labels, or else
-invalid labels would become stray variables.
+lines must be indented by at least one blank.  When used, e.g., as part of a
+`GOTO` statement, labels might be prefixed with an optional `@` sign.
 
 In order to tokenize a program with labels, the label option `-l` must be
 supplied.  `-l` can only be used together with `-c`.
@@ -1514,7 +1512,10 @@ Remember that all operators have the _same precedence_, i.e., an expression such
 as `1 + 2 * 3 - 4 & 5` evaluates as `(((1 + 2) * 3) - 4) & 5`.  This may sound
 annoying, but changing the established order of evaluation would break
 compatibility with existing sources.  To adjust the order of evaluation,
-parentheses are used: `1 + (2 * 3) - (4 & 5)`.
+parentheses are used: `1 + (2 * 3) - (4 & 5)`.  To safeguard against accidental
+omission of parentheses, `xas99` warns about arithmetic expressions using
+non-standard evaluation.  These warnings can be disabled with option
+`--quiet-arith`.
 
 _Labels_ may be of arbitrary length and may contain arbitrary characters except
 for whitespace and operators (`+-*/$#!@'"`).  Labels not imported or exported by
@@ -2474,7 +2475,8 @@ endow a label with a type:
 _Expressions_ are built using arithmetical operators `+`, `-`, `*`, `/`, `%`,
 and `**` and bit operators `&`, `|`, `^`, and `~`.  Expressions are evaluated
 left-to-right with equal operator precedence; parentheses may be used to change
-the order of evaluation.  For further details, please refer to the `xas99`
+the order of evaluation.  As a safeguard, `xga99` warns about expressions with
+non-standard evaluation.  For further details, please refer to the `xas99`
 section on expressions.
 
 _Literals_ may be decimal numbers, hexadecimal numbers prefixed by `>`, binary

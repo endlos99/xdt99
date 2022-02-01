@@ -2,7 +2,7 @@
 
 # xbas99: TI BASIC and TI Extended BASIC tool
 #
-# Copyright (c) 2015-2021 Ralph Benzinger <xdt99@endlos.net>
+# Copyright (c) 2015-2022 Ralph Benzinger <xdt99@endlos.net>
 #
 # This program is part of the TI 99 Cross-Development Tools (xdt99).
 #
@@ -96,15 +96,17 @@ class Tokens:
     """TI BASIC and TI Extended BASIC tokens"""
 
     # follow token types
-    VAR = 0  # variable (default)
-    QSTR = 1  # quoted string
-    USTR = 2  # unquoted string
-    LINO = 3  # line number
-    COMMENT = 4  # comments
-    IMAGE_STR = 5  # quoted or unquoted string line for IMAGE stmts
-    DATA_STR = 6  # special case: DATA operands
-    KEEP = 7  # keep previous follow token type
-    GO_PREF = 8  # GO prefix
+    STMT = 1  # statement (default)
+    QSTR = 2  # quoted string
+    USTR = 3  # unquoted string
+    LINO = 4  # line number or label
+    LORS = 5  # LINO or STMT
+    RUNS = 6  # RUN statement (line number, string, or numeric variable allowed)
+    COMMENT = 10  # comments
+    IMAGE_STR = 11  # quoted or unquoted string line for IMAGE stmts
+    DATA_STR = 12  # special case: DATA operands
+    KEEP = 13  # keep previous follow token type
+    GO_PRFX = 14  # GO prefix
 
     # unused token code for escaping statement separator '::'
     QS_VAL = 0xc7  # token value for quoted string
@@ -112,38 +114,38 @@ class Tokens:
     LINO_VAL = 0xc9  # token value for line number
     STMT_SEP = '\xaf'  # token representation of :: stmt separator
 
-    # token listing
+    # token listing and expected follow token class
     tokenlist = [
-        ('ELSE ', LINO), (STMT_SEP + ' ', VAR), ('!', COMMENT), ('IF ', VAR),
-        ('GO ', GO_PREF), ('GOTO ', LINO), ('GOSUB ', LINO), ('RETURN ', LINO),
-        ('DEF ', VAR), ('DIM ', VAR), ('END ', VAR), ('FOR ', VAR),
-        ('LET ', VAR), ('BREAK ', LINO), ('UNBREAK ', LINO), ('TRACE ', VAR),
-        ('UNTRACE ', VAR), ('INPUT ', VAR), ('DATA ', DATA_STR),
-        ('RESTORE ', LINO), ('RANDOMIZE ', VAR), ('NEXT ', VAR),
-        ('READ ', VAR), ('STOP ', VAR), ('DELETE ', VAR), ('REM', COMMENT),
-        ('ON ', VAR), ('PRINT ', VAR), ('CALL ', USTR), ('OPTION ', VAR),
-        ('OPEN ', VAR), ('CLOSE ', VAR), ('SUB ', USTR), ('DISPLAY ', VAR),
-        ('IMAGE ', IMAGE_STR), ('ACCEPT ', VAR), ('ERROR ', LINO),
-        ('WARNING ', VAR), ('SUBEXIT ', VAR), ('SUBEND ', VAR), ('RUN ', LINO),
-        ('LINPUT ', VAR), (None, None), (None, None), (None, None),
-        (None, None), (None, None), ('THEN ', LINO), ('TO ', VAR),
-        ('STEP ', VAR), (',', KEEP), (';', VAR), (':', VAR), (')', VAR),
-        ('(', VAR), ('&', VAR), (None, None), ('OR', VAR), ('AND', VAR),
-        ('XOR', VAR), ('NOT', VAR), ('=', VAR), ('<', VAR), ('>', VAR),
-        ('+', VAR), ('-', VAR), ('*', VAR), ('/', VAR), ('^', VAR),
-        (None, None), ('qs', None), ('us', None), ('ln', None), ('EOF', VAR),
-        ('ABS', VAR), ('ATN', VAR), ('COS', VAR), ('EXP', VAR), ('INT', VAR),
-        ('LOG', VAR), ('SGN', VAR), ('SIN', VAR), ('SQR', VAR), ('TAN', VAR),
-        ('LEN', VAR), ('CHR$', VAR), ('RND', VAR), ('SEG$', VAR), ('POS', VAR),
-        ('VAL', VAR), ('STR$', VAR), ('ASC', VAR), ('PI', VAR), ('REC', VAR),
-        ('MAX', VAR), ('MIN', VAR), ('RPT$', VAR), (None, None), (None, None),
+        ('ELSE ', LORS), (STMT_SEP + ' ', STMT), ('!', COMMENT), ('IF ', STMT),
+        ('GO ', GO_PRFX), ('GOTO ', LINO), ('GOSUB ', LINO), ('RETURN ', LINO),
+        ('DEF ', STMT), ('DIM ', STMT), ('END ', STMT), ('FOR ', STMT),
+        ('LET ', STMT), ('BREAK ', LINO), ('UNBREAK ', LINO), ('TRACE ', STMT),
+        ('UNTRACE ', STMT), ('INPUT ', STMT), ('DATA ', DATA_STR),
+        ('RESTORE ', LINO), ('RANDOMIZE ', STMT), ('NEXT ', STMT),
+        ('READ ', STMT), ('STOP ', STMT), ('DELETE ', STMT), ('REM', COMMENT),
+        ('ON ', STMT), ('PRINT ', STMT), ('CALL ', USTR), ('OPTION ', STMT),
+        ('OPEN ', STMT), ('CLOSE ', STMT), ('SUB ', USTR), ('DISPLAY ', STMT),
+        ('IMAGE ', IMAGE_STR), ('ACCEPT ', STMT), ('ERROR ', LINO),
+        ('WARNING ', STMT), ('SUBEXIT ', STMT), ('SUBEND ', STMT), ('RUN ', RUNS),
+        ('LINPUT ', STMT), (None, None), (None, None), (None, None),
+        (None, None), (None, None), ('THEN ', LORS), ('TO ', STMT),
+        ('STEP ', STMT), (',', KEEP), (';', STMT), (':', STMT), (')', STMT),
+        ('(', STMT), ('&', STMT), (None, None), ('OR', STMT), ('AND', STMT),
+        ('XOR', STMT), ('NOT', STMT), ('=', STMT), ('<', STMT), ('>', STMT),
+        ('+', STMT), ('-', STMT), ('*', STMT), ('/', STMT), ('^', STMT),
+        (None, None), ('qs', None), ('us', None), ('ln', None), ('EOF', STMT),
+        ('ABS', STMT), ('ATN', STMT), ('COS', STMT), ('EXP', STMT), ('INT', STMT),
+        ('LOG', STMT), ('SGN', STMT), ('SIN', STMT), ('SQR', STMT), ('TAN', STMT),
+        ('LEN', STMT), ('CHR$', STMT), ('RND', STMT), ('SEG$', STMT), ('POS', STMT),
+        ('VAL', STMT), ('STR$', STMT), ('ASC', STMT), ('PI', STMT), ('REC', STMT),
+        ('MAX', STMT), ('MIN', STMT), ('RPT$', STMT), (None, None), (None, None),
         (None, None), (None, None), (None, None), (None, None),
-        ('NUMERIC', VAR), ('DIGIT', VAR), ('UALPHA', VAR), ('SIZE', VAR),
-        ('ALL', VAR), ('USING ', LINO), ('BEEP', VAR), ('ERASE', VAR),
-        ('AT', VAR), ('BASE', VAR), (None, None), ('VARIABLE', VAR),
-        ('RELATIVE', VAR), ('INTERNAL', VAR), ('SEQUENTIAL', VAR),
-        ('OUTPUT', VAR), ('UPDATE', VAR), ('APPEND', VAR), ('FIXED', VAR),
-        ('PERMANENT', VAR), ('TAB', VAR), ('#', VAR), ('VALIDATE', VAR),
+        ('NUMERIC', STMT), ('DIGIT', STMT), ('UALPHA', STMT), ('SIZE', STMT),
+        ('ALL', STMT), ('USING ', LINO), ('BEEP', STMT), ('ERASE', STMT),
+        ('AT', STMT), ('BASE', STMT), (None, None), ('VARIABLE', STMT),
+        ('RELATIVE', STMT), ('INTERNAL', STMT), ('SEQUENTIAL', STMT),
+        ('OUTPUT', STMT), ('UPDATE', STMT), ('APPEND', STMT), ('FIXED', STMT),
+        ('PERMANENT', STMT), ('TAB', STMT), ('#', STMT), ('VALIDATE', STMT),
         (None, None)
         ]
 
@@ -158,6 +160,11 @@ class Tokens:
             return cls.tokens[tok.upper()]
         except KeyError:
             return None, None
+
+    @classmethod
+    def is_token(cls, tok):
+        """get BASIC token for text literal"""
+        return tok.upper() in cls.tokens
 
     @classmethod
     def qstr_token(cls, s):
@@ -216,7 +223,7 @@ class BasicProgram:
         self.labels = labels
         self.console = console or Console()
         self.lines = {}
-        self.label_lino = {}
+        self.label_lino = {}  # Dict[str, Tuple[int, bool]]
         self.text_literals = []
         self.rem_literals = []
         self.curr_lino = 100
@@ -341,7 +348,10 @@ class BasicProgram:
                 continue
             m = re.match(r'(\w+):$', line)
             if m:
-                self.label_lino[m.group(1)] = self.curr_lino, False  # lino x used
+                label = m.group(1).upper()
+                if Tokens.is_token(label):
+                    raise BasicError(f'Label {label} conflicts with reserved keyword')
+                self.label_lino[label] = self.curr_lino, False  # lino x used
             else:
                 if not line[:1].isspace():
                     raise BasicError(f'Missing indention in line {i + 1}')
@@ -381,78 +391,146 @@ class BasicProgram:
         return lino, tokens
 
     def statements(self, text):
-        """parse one or more BASIC statements"""
+        """parse single line of one or more BASIC statements"""
+        # poorest man imaginable's lexer
         sep, _ = Tokens.tokens[',']
         tokens = []
-        # poorest man imaginable's lexer
+        tok_type = Tokens.STMT
         parts = re.split(r'(\s+|"\d+"|[0-9.]+[Ee]-[0-9]+|[!,;:()&=<>+\-*/^#' + Tokens.STMT_SEP + r'])', text)
-        tok_type = Tokens.VAR
-        for i, word in enumerate(parts):
+        i = 0
+        while i < len(parts):
+            word = parts[i]
             uword = word.upper()  # keywords and vars are case-insensitive, but not DATA, IMAGE, REM, ...
             if tok_type == Tokens.COMMENT:
+                # include all following parts in comment
                 try:
                     tokens.append(self.unescape(''.join(parts[i:])).encode('ascii'))
                 except UnicodeEncodeError:
                     raise BasicError('Non-ASCII character found in comment')
                 break
-            if not word.strip():
-                continue
-            if tok_type == Tokens.GO_PREF and uword in ('TO', 'SUB'):  # following 'GO' token
-                token, _ = Tokens.token(uword)
-                tokens.append(token)
-                tok_type = Tokens.LINO
-                continue
-            if tok_type == Tokens.LINO:
-                if word[0] == '@' and word[1:].isalnum():  # label
-                    try:
-                        label_lino, used = self.label_lino[uword[1:]]
-                        word = str(label_lino)
-                        if not used:
-                            self.label_lino[uword[1:]] = word, True
-                    except KeyError:
-                        raise BasicError(f'Unknown label {word[1:]}')
-                if word[0] == word[-1] == '"':
-                    tok_type = Tokens.QSTR
-                elif word.isdigit():
-                    tokens.append(Tokens.lino_token(word))
-                    tok_type = Tokens.LINO  # falls back to VAR, if no match
+            elif not word.strip():
+                pass  # skip empty parts
+            elif tok_type == Tokens.STMT:
+                # STMT base case
+                token, follow = Tokens.token(uword)
+                if token:  # keywords and operators
+                    tokens.append(token)
+                    if follow != Tokens.KEEP:
+                        tok_type = follow
+                elif word[0] == word[-1] == '"':
+                    tok_type = Tokens.QSTR  # for USING and RUN
                     continue
-                # fall-through to QSTR or VAR case
-            if tok_type == Tokens.IMAGE_STR:
+                elif self.is_number(uword):  # number literals
+                    tokens.append(self.ustr(uword))
+                else:
+                    try:
+                        tokens.append(uword.encode('ascii'))  # variable
+                    except UnicodeEncodeError:
+                        raise BasicError('Non-ASCII character found in variable name')
+            elif tok_type == Tokens.GO_PRFX:
+                if uword in ('TO', 'SUB'):
+                    token, _ = Tokens.token(uword)
+                    tokens.append(token)
+                    tok_type = Tokens.LINO
+                else:
+                    self.console.warn('Syntax error after GO')
+                    tok_type = Tokens.STMT
+                    continue
+            elif tok_type == Tokens.LORS:
+                # lino or statements following THEN or ELSE
+                if self.labels:
+                    token, _ = Tokens.token(uword)
+                    if token is None:
+                        if uword[0] == '@':
+                            uword = uword[1:]  # remove @ from label
+                        if uword in self.label_lino:
+                            tok_type = Tokens.LINO
+                        elif self.is_assignment(parts, i + 1):
+                            tok_type = Tokens.STMT
+                        else:
+                            raise BasicError(f'Unknown label {uword}')
+                    else:
+                        tok_type = Tokens.STMT
+                else:
+                    tok_type = Tokens.LINO if word.isdigit() else Tokens.STMT
+                continue
+            elif tok_type == Tokens.IMAGE_STR:
                 remaining = ''.join(parts[i:]).strip()
                 if remaining:
                     tokens.append(self.qstr(remaining) if remaining[0] == '"' else
                                   self.ustr(remaining))
                 break
-            if tok_type == Tokens.DATA_STR:
+            elif tok_type == Tokens.DATA_STR:
                 remaining = [s.strip() for s in ''.join(parts[i:]).split(',')]
                 data = [(self.qstr(s) if s[0] == '"' else self.ustr(s)) if s else b'' for s in remaining]
                 tokens.append(sep.join(data))
                 break
-            if tok_type == Tokens.QSTR or word[0] == '"':  # keep before USTR!
+            elif tok_type == Tokens.QSTR or word[0] == '"':  # keep before USTR!
                 # NOTE: there is actually no token with follow token QSTR
                 tokens.append(self.qstr(word))
-                tok_type = Tokens.VAR
-                continue
-            if tok_type == Tokens.USTR:
+                tok_type = Tokens.STMT
+            elif tok_type == Tokens.USTR:
                 tokens.append(self.ustr(uword))
-                tok_type = Tokens.VAR
-                continue
-
-            # VAR base case
-            token, follow = Tokens.token(uword)
-            if token:  # keywords and operators
-                tokens.append(token)
-            elif re.match(r'[0-9.]+', word):  # number literals
-                tokens.append(self.ustr(uword))
+                tok_type = Tokens.STMT
             else:
-                try:
-                    tokens.append(uword.encode('ascii'))  # plain VARs
-                except UnicodeEncodeError:
-                    raise BasicError('Non-ASCII character found in variable name')
-            if follow != Tokens.KEEP:
-                tok_type = follow
+                # LINO or RUNS
+                token, follow = Tokens.token(uword)
+                if token is not None:
+                    tokens.append(token)
+                    tok_type = follow
+                elif word.isdigit():
+                    tokens.append(Tokens.lino_token(uword))
+                elif word[0] == word[-1] == '"':
+                    tok_type = Tokens.QSTR  # for USING and RUN
+                    continue
+                elif word[-1] == '$':
+                    tok_type = Tokens.STMT  # for USING and RUN
+                    continue
+                # keep tok_type, escapes at next token
+                elif self.labels:
+                    if uword[0] == '@':
+                        uword = uword[1:]  # remove optional @
+                    if uword.isalnum():
+                        # NOTE: There is only one possible collision between label and variable: RUN A
+                        #       This conflict only occurs if label mode is active, but then RUN A with A
+                        #       containing a line number makes no sense. --> No conflict at all!
+                        try:
+                            lino, used = self.label_lino[uword]
+                            if not used:
+                                self.label_lino[uword] = lino, True
+                            tokens.append(Tokens.lino_token(str(lino)))
+                        except KeyError:
+                            raise BasicError(f'Unknown label {uword}')
+                    else:
+                        raise BasicError('Bad label')
+                elif tok_type == Tokens.RUNS:
+                    tok_type = Tokens.STMT  # variable
+                    continue
+                else:
+                    raise BasicError('Syntax error, line number expected')
+
+            i += 1
         return tokens
+
+    @staticmethod
+    def is_number(text):
+        """parse integer and floating point number"""
+        return re.match(r'(\d+(\.\d*)?|\.\d+)(E-?\d+)?', text)
+
+    @staticmethod
+    def is_assignment(parts, i):
+        """check if parts starting at i-1 are assignment"""
+        subexpr = 0
+        for word in parts[i:]:
+            if word == '(':  # start of subexpr
+                subexpr += 1
+            elif word == ')':  # end of subexpr
+                subexpr -= 1
+            elif word == '=' and subexpr == 0:  # found = directly after variable
+                return True
+            elif subexpr == 0:  # keep going until subexpr is done
+                return False
+        return False  # unclosed subexpr, no = found in line
 
     def escape(self, text):
         """remove and save ambiguous constructs from line"""

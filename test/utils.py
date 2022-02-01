@@ -150,6 +150,13 @@ def content_lines(fn):
     return lines
 
 
+def content_cat(fn):
+    """return lines of file"""
+    with open(fn, 'r') as f:
+        lines = ' '.join(line[:-1] for line in f)
+    return lines
+
+
 def content_line_array(fn):
     """return lines of file"""
     with open(fn, 'r') as f:

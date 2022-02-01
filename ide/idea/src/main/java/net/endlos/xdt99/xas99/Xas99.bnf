@@ -1,0 +1,202 @@
+{
+    parserClass="net.endlos.xdt99.xas99.parser.Xas99Parser"
+
+    extends="com.intellij.extapi.psi.ASTWrapperPsiElement"
+
+    psiClassPrefix="Xas99"
+    psiImplClassSuffix="Impl"
+    psiPackage="net.endlos.xdt99.xas99.psi"
+    psiImplPackage="net.endlos.xdt99.xas99.psi.impl"
+
+    elementTypeHolderClass="net.endlos.xdt99.xas99.psi.Xas99Types"
+    elementTypeClass="net.endlos.xdt99.xas99.psi.Xas99ElementType"
+    tokenTypeClass="net.endlos.xdt99.xas99.psi.Xas99TokenType"
+
+    psiImplUtilClass="net.endlos.xdt99.xas99.psi.impl.Xas99PsiImplUtil"
+}
+
+xas99File ::=
+    (line CRLF)*
+private line ::=
+    linecomment | label? statement? pragma?
+
+linecomment ::=  // used by folding builder
+    LCOMMENT
+    {pin=1}
+
+// label
+private label ::=
+    labeldef OP_COLON?
+labeldef ::=
+    IDENT
+    {mixin="net.endlos.xdt99.xas99.psi.impl.Xas99NamedElementImpl"
+     implements="net.endlos.xdt99.xas99.psi.Xas99NamedElement"
+     methods=[getName setName getNameIdentifier getPresentation]}
+
+// mnemonics
+private statement ::=
+    directive | instruction | preprocessor | unknown_mnem
+    {recoverWhile="statement_recover"}
+private statement_recover ::=
+    !CRLF
+directive ::=
+    DIR_L args_dir_L |
+    DIR_E args_dir_E |
+    DIR_EO args_dir_EO |
+    DIR_ES args_dir_ES |
+    DIR_T args_dir_T |
+    DIR_S args_dir_S |
+    DIR_C args_dir_C |
+    DIR_O |
+    DIR_X |
+    DIR_F args_dir_F |
+    DIR_R args_dir_R
+    {pin=1}
+instruction ::=
+    INSTR_I args_I |
+    INSTR_II args_II |
+    INSTR_III args_III |
+    INSTR_IV args_IV |
+    INSTR_V args_V |
+    INSTR_VI args_VI |
+    INSTR_VII |
+    INSTR_VIII args_VIII |
+    INSTR_VIII_I args_VIII_I |
+    INSTR_VIII_R args_VIII_R |
+    INSTR_IX args_IX |
+    INSTR_IX_X args_IX_X |
+    INSTR_O |
+    INSTR_9995_VI args_VI |
+    INSTR_9995_VIII args_VIII_R |
+    INSTR_99000_I args_adv_I |
+    INSTR_99000_IV args_adv_IV |
+    INSTR_99000_VI args_adv_VI |
+    INSTR_99000_VIII args_adv_VIII |
+    INSTR_F18A_IA args_adv_Ia |
+    INSTR_F18A_VI args_adv_VI |
+    INSTR_F18A_O
+    {pin=1}
+preprocessor ::=
+    PREP (PP_ARG | PP_SEP)*
+    {pin=1}
+unknown_mnem ::=
+    UNKNOWN
+    {pin=1}
+
+// arguments
+args_dir_L ::=
+    (opLabel (OP_SEP opLabel)*)?
+args_dir_E ::=
+    expr
+args_dir_EO ::=
+    expr?
+args_dir_ES ::=
+    expr (OP_SEP expr)*
+args_dir_T ::=
+    opText (OP_SEP opText)*
+args_dir_S ::=
+    opText
+args_dir_C ::=
+    opFilename
+args_dir_F ::=
+    opFloat
+args_dir_R ::=
+    labeldef (OP_SEP labeldef)*  // for REF
+args_I ::=
+    opGA OP_SEP opGA
+    {pin="OP_SEP"}
+args_II ::=
+    expr
+args_III ::=
+    opGA OP_SEP opRegister
+    {pin="OP_SEP"}
+args_IV ::=
+    opGA OP_SEP opValue
+    {pin="OP_SEP"}
+args_V ::=
+    opRegister OP_SEP opValue
+    {pin="OP_SEP"}
+args_VI ::=
+    opGA
+args_VIII ::=
+    opRegister OP_SEP opValue
+    {pin="OP_SEP"}
+args_VIII_I ::=
+    opValue
+args_VIII_R ::=
+    opRegister
+args_IX ::=
+    opGA OP_SEP opRegister
+    {pin="OP_SEP"}
+args_IX_X ::=
+    opGA OP_SEP opValue
+    {pin="OP_SEP"}
+args_adv_Ia ::=
+    opGA OP_SEP (opGA | opValue)
+    {pin="OP_SEP"}
+args_adv_I ::=
+    args_I
+args_adv_IV ::=
+    args_IV
+args_adv_VI ::=
+    args_VI
+args_adv_VIII ::=
+    args_VIII
+
+// pragma
+pragma ::=
+    PG_START pragmaClause (PG_SEP pragmaClause)*
+private pragmaClause ::=
+    PG_TERM PG_EQ PG_TERM | PG_CYC+
+
+// arguments
+opGA ::=
+    OP_AT OP_MINUS? sexpr (OP_LPAREN opRegister OP_RPAREN)? |
+    opRegister |
+    OP_AST opRegister OP_PLUS? |
+    MOD_AUTO opValue
+    {name="general address"}
+opAddress ::=
+    opLabel | OP_LC | LOCAL | PP_PARAM
+    {name="address value"}
+opValue ::=
+    expr
+    {name="value"}
+opRegister ::=
+    REGISTER | INT | PP_PARAM
+    {name="register"}
+opText ::=
+    OP_MINUS? (OP_QUOTE TEXT? OP_QUOTE | INT | PP_PARAM)
+    {name="text"}
+opFilename ::=
+    OP_FQUOTE FNAME OP_FQUOTE
+opLabel ::=
+    MOD_XBANK? IDENT | PP_PARAM
+    {methods=[getName setName getNameIdentifier getReference]
+     name="label"}
+opFloat ::=
+    (OP_PLUS | OP_MINUS)? DIGIT* ("." DIGIT*)?
+
+// expressions
+expr ::=
+    (OP_PLUS | OP_MINUS | OP_NOT) expr |
+    term (xop expr)*
+    {name="expression"}
+// simple expression: no parentheses
+sexpr ::=
+    (OP_PLUS | OP_MINUS | OP_NOT) sexpr |
+    atom (xop sexpr)*
+    {name="simple expressions"}
+private term ::=
+    OP_LPAREN expr OP_RPAREN |
+    atom
+    {name="term"}
+private xop ::=
+    OP_PLUS | OP_MINUS | OP_AST | OP_MISC
+    {name="operator"}
+private atom ::=
+    opAddress | INT | (OP_QUOTE TEXT? OP_QUOTE) | MOD_LEN opLabel
+    {name="value"}
+
+dummy ::=
+    COMMENT
