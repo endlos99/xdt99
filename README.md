@@ -13,8 +13,8 @@ modern computer systems:
  * [`xdm99`](#xdm99): A disk manager for sector-based TI disk images
  * [`xhm99`](#xhm99): A manager for HFE images used by HxC floppy emulators
  * [`xvm99`](#xvm99): A volume manager for nanoPEB/CF7+ Compact Flash cards
- * `xdt99-mode`: A major mode for the GNU Emacs text editor
- * `xdt99 IDEA`: A plugin for the IntelliJ IDEA development environment
+ * `xdt99-mode`: A [major mode][7] for the GNU Emacs text editor
+ * `xdt99 IDEA`: A [plugin][8] for the IntelliJ IDEA development environment
 
 The `xas99` cross-assembler supports all documented TMS9900 opcodes and should
 assemble any existing assembly code for the TI 99 without modification.  Object
@@ -31,7 +31,7 @@ with the MESS emulator.
 The `xbas99` BASIC tool encodes TI BASIC and TI Extended BASIC programs into
 their internal format that can be loaded by the BASIC interpreter using
 the `OLD` command.  Conversely, the tool also lists BASIC program files
-similarly to the `LIST` command. 
+similarly to the `LIST` command.
 
 The `xda99` and `xdg99` disassembler generate source code from machine code
 or GPL bytecode files, respectively.  In addition to regular top-down
@@ -53,7 +53,7 @@ For additional information, please refer to the [xdt99 homepage][1] or the
 [xdt99 manual][4].  Windows users unfamiliar with working with the command line
 will find some platform-specific information in the [Windows tutorial][5].
 
-**Latest version: 3.1.0**
+**Latest version: 3.3.0**
 
 The latest binary distribution of xdt99 is available on the project
 [releases page][2] on GitHub.  xdt99 requires [Python 3.8][6] or higher and runs
@@ -95,7 +95,7 @@ included with xdt99.
 Generate object code for the Editor/Assembler cartridge, option 3:
 
     $ xas99.py [-R] [-C] <source file>
-    
+
 Generate program image for the Editor/Assembler cartridge, option 5:
 
     $ xas99.py -i [-R] <source file>
@@ -206,7 +206,7 @@ features.
 
 Basic Usage: `xda99`                                        <a name="xda99"></a>
 --------------------
-                                                       
+
 Since `xda99` and `xdg99` are very similar, this short description applies to
 both tools.
 
@@ -217,7 +217,7 @@ included with xdt99.
 Disassemble binary top-down:
 
     $ xda99.py <binary file> -d -a <bin addr> [-f <from addr>]
-    
+
 Disassemble with run simulation:
 
     $ xda99.py <binary file> -a <bin addr> [-f <from addr>]
@@ -403,3 +403,5 @@ Please email all feedback and bug reports to the developer at <r@0x01.de>.
 [4]: https://github.com/endlos99/xdt99/blob/master/doc/MANUAL.md
 [5]: https://github.com/endlos99/xdt99/blob/master/doc/WINDOWS.md
 [6]: https://www.python.org/downloads/
+[7]: https://endlos99.github.io/xdt99/emacs.html
+[8]: https://endlos99.github.io/xdt99/idea.html

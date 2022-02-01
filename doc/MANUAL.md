@@ -22,8 +22,8 @@ supports, including Linux, Windows, and macOS.
 Additionally, xdt99 provides TI-specific editor support for some freely
 available development environments:
 
- * `xdt99-mode`, a major mode for the GNU Emacs text editor, and
- * `xdt99 IDEA`, a plugin for the IntelliJ IDEA development environment.
+ * `xdt99-mode`, a [major mode][7] for the GNU Emacs text editor, and
+ * `xdt99 IDEA`, a [plugin][8] for the IntelliJ IDEA development environment.
 
 The plugins offer syntax highlighting, source navigation, and semantic renaming
 for assembly, GPL, and TI (Extended) BASIC programs.  Note, however, that both
@@ -2124,17 +2124,17 @@ counting happens automatically during assembly, and the results are shown in the
 fourth column of the list file as number of clock cycles.
 
     0050 0060 06A0  24        BL   @KSCAN
-         0062 0000e    
+         0062 0000e
     0051 0064 9220  22        CB   @KCODE,R8
-         0066 8375     
+         0066 8375
     0052 0068 13F9  10        JEQ  KEYSC
-    0053               
+    0053
     0054 006A D020  22        MOVB @KCODE,R0
-         006C 8375     
+         006C 8375
     0055 006E 0980  28        SRL  R0,8
     0056 0070 0240  14        ANDI R0,>000F
-         0072 000F     
-    
+         0072 000F
+
 The cycle counter examines each instruction individually and does not track
 branches or loops.  Thus, the cycle counter does not report the overall run time
 of the program.  The cycle counter is most useful for examining small fragments
@@ -3593,3 +3593,5 @@ or use the issue tracker of the [project][2].
 [4]: https://github.com/endlos99/xdt99/blob/master/doc/WINDOWS.md
 [5]: https://www.python.org/downloads
 [6]: https://endlos99.github.io/finalgrom99
+[7]: https://endlos99.github.io/xdt99/emacs.html
+[8]: https://endlos99.github.io/xdt99/idea.html
