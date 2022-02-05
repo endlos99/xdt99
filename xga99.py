@@ -27,7 +27,7 @@ import math
 import re
 
 
-VERSION = '3.2.1'
+VERSION = '3.3.1'
 
 CONFIG = 'XGA99_CONFIG'
 
@@ -1059,7 +1059,7 @@ class Parser:
         value = Word(0, pass_no=self.symbols.pass_no)
         stack = []
         terms = ['+'] + [tok.strip() for tok in re.split(r'([-+/%~&|^()]|\*\*?)', expr)]
-        self.check_arith_precedence(terms[2::2])
+        self.check_arith_precedence(terms)
         i = 0
         while i < len(terms):
             op, term = terms[i:i + 2]
@@ -1109,26 +1109,33 @@ class Parser:
                 raise AsmError('Invalid operator: ' + op)
         return value.value
 
-    def check_arith_precedence(self, operators, i=0):
+    def check_arith_precedence(self, operators, i=2):
         """check if usual * over + arithmetic precedence is violated"""
         possible_violation = False
+        possible_sign = True
         while i < len(operators):
-            if operators[i] == ')':
-                return False, i + 1
-            elif operators[i] == '+' or operators[i] == '-':
+            op = operators[i]
+            if not operators[i - 1] and possible_sign and (op == '+' or op == '-'):  # i always > 0
+                i += 2  # skip signs
+                continue
+            if op == ')':
+                return False, i + 2
+            elif op == '+' or op == '-':
                 possible_violation = True
-            elif operators[i] in '*/%' and possible_violation:
-                self.warn('Unexpected arithmetical precedence')
+            elif op in '*/%' and possible_violation:
+                self.warn('Expression with non-standard evaluation')
                 return True, None
-            elif operators[i] == '(':
-                violation, i = self.check_arith_precedence(operators, i + 1)
+            elif op == '(':
+                violation, i = self.check_arith_precedence(operators, i + 2)
                 if violation:
                     return True, None
                 else:
+                    possible_sign = False  # no sign after ')'
                     continue
-            elif operators[i] in '&|^~':
+            elif op in '&|^~':
                 possible_violation = False
-            i += 1
+            i += 2
+            possible_sign = True
         return False, None
 
     def term(self, op, needed=False):
