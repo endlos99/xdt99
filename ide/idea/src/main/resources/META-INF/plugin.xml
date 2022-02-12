@@ -1,7 +1,7 @@
 <idea-plugin>
     <id>net.endlos.xdt99.idea</id>
     <name>xdt99 IDEA Editor Support</name>
-    <version>3.3.0</version>
+    <version>3.3.1</version>
     <vendor email="r@ti99.pro" url="https://www.github.com/endlos99">Endlos 99</vendor>
     <description><![CDATA[
     TI 99 Cross-Development Tools (xdt99)
@@ -37,6 +37,7 @@
         <lang.syntaxHighlighterFactory language="Xas99" implementationClass="net.endlos.xdt99.xas99.Xas99SyntaxHighlighterFactory"/>
         <colorSettingsPage implementation="net.endlos.xdt99.xas99.Xas99ColorSettingsPage"/>
         <annotator language="Xas99" implementationClass="net.endlos.xdt99.xas99.Xas99Annotator"/>
+        <completion.contributor language="Xas99" implementationClass="net.endlos.xdt99.xas99.Xas99CompletionContributor"/>
         <lang.refactoringSupport language="Xas99" implementationClass="net.endlos.xdt99.xas99.Xas99RefactoringSupportProvider"/>
         <lang.findUsagesProvider language="Xas99" implementationClass="net.endlos.xdt99.xas99.Xas99FindUsagesProvider"/>
         <lang.namesValidator language="Xas99" implementationClass="net.endlos.xdt99.xas99.Xas99NamesValidator"/>
@@ -57,6 +58,7 @@
         <lang.syntaxHighlighterFactory language="Xas99R" implementationClass="net.endlos.xdt99.xas99r.Xas99RSyntaxHighlighterFactory"/>
         <colorSettingsPage implementation="net.endlos.xdt99.xas99r.Xas99RColorSettingsPage"/>
         <annotator language="Xas99R" implementationClass="net.endlos.xdt99.xas99r.Xas99RAnnotator"/>
+        <completion.contributor language="Xas99R" implementationClass="net.endlos.xdt99.xas99r.Xas99RCompletionContributor"/>
         <lang.refactoringSupport language="Xas99R" implementationClass="net.endlos.xdt99.xas99r.Xas99RRefactoringSupportProvider"/>
         <lang.findUsagesProvider language="Xas99R" implementationClass="net.endlos.xdt99.xas99r.Xas99RFindUsagesProvider"/>
         <lang.namesValidator language="Xas99R" implementationClass="net.endlos.xdt99.xas99r.Xas99RNamesValidator"/>
@@ -78,6 +80,7 @@
         <lang.syntaxHighlighterFactory language="Xga99" implementationClass="net.endlos.xdt99.xga99.Xga99SyntaxHighlighterFactory"/>
         <colorSettingsPage implementation="net.endlos.xdt99.xga99.Xga99ColorSettingsPage"/>
         <annotator language="Xga99" implementationClass="net.endlos.xdt99.xga99.Xga99Annotator"/>
+        <completion.contributor language="Xga99" implementationClass="net.endlos.xdt99.xga99.Xga99CompletionContributor"/>
         <lang.refactoringSupport language="Xga99" implementationClass="net.endlos.xdt99.xga99.Xga99RefactoringSupportProvider"/>
         <lang.findUsagesProvider language="Xga99" implementationClass="net.endlos.xdt99.xga99.Xga99FindUsagesProvider"/>
         <lang.namesValidator language="Xga99" implementationClass="net.endlos.xdt99.xga99.Xga99NamesValidator"/>
@@ -97,6 +100,7 @@
         <lang.syntaxHighlighterFactory language="Xga99R" implementationClass="net.endlos.xdt99.xga99r.Xga99RSyntaxHighlighterFactory"/>
         <colorSettingsPage implementation="net.endlos.xdt99.xga99r.Xga99RColorSettingsPage"/>
         <annotator language="Xga99R" implementationClass="net.endlos.xdt99.xga99r.Xga99RAnnotator"/>
+        <completion.contributor language="Xga99R" implementationClass="net.endlos.xdt99.xga99r.Xga99RCompletionContributor"/>
         <lang.refactoringSupport language="Xga99R" implementationClass="net.endlos.xdt99.xga99r.Xga99RRefactoringSupportProvider"/>
         <lang.findUsagesProvider language="Xga99R" implementationClass="net.endlos.xdt99.xga99r.Xga99RFindUsagesProvider"/>
         <lang.namesValidator language="Xga99R" implementationClass="net.endlos.xdt99.xga99r.Xga99RNamesValidator"/>

@@ -7,7 +7,7 @@ import com.intellij.psi.PsiElement;
 
 public interface Xas99RArgsDirEO extends PsiElement {
 
-  @Nullable
-  Xas99RExpr getExpr();
+  @NotNull
+  List<Xas99ROpLabel> getOpLabelList();
 
 }

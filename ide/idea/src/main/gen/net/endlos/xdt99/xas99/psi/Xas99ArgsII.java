@@ -8,6 +8,6 @@ import com.intellij.psi.PsiElement;
 public interface Xas99ArgsII extends PsiElement {
 
   @NotNull
-  Xas99Expr getExpr();
+  List<Xas99OpLabel> getOpLabelList();
 
 }

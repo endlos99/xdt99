@@ -118,27 +118,27 @@ args_F_X::=
     opAddress?  // optional address only when closing FOR n statement
 
 // arguments
-opGd ::=
+private opGd ::=
     (VADDR | VINDR | OP_AT | OP_AST) OP_MINUS? sexpr opIndex?
     {name="general destination address"}
-opGs ::=
+private opGs ::=
     opGd | opValue
     {name="general source address"}
-opMs ::=
+private opMs ::=
     (GADDR | VADDR | VINDR | OP_AT | OP_AST) OP_MINUS? sexpr opIndex?
     {name="MOVE source address"}
-opMd ::=
+private opMd ::=
     opMs | PP_PARAM  // PP_PARAM doubles as VREG#
     {name="MOVE destination address"}
-opAddress ::=
+private opAddress ::=
     // opAddress and opValue are interchangeable
     expr
     {name="address value"}
-opIndex ::=
+private opIndex ::=
     // in xdt99 syntax variant, the @ in indices is optional
     OP_LPAREN OP_AT? opValue OP_RPAREN
     {name="index"}
-opValue ::=
+private opValue ::=
     // opValue and opAddress are interchangeable
     expr
     {name="value"}
@@ -155,7 +155,7 @@ opLabel ::=
      name="label"}
 
 // expressions
-expr ::=
+private expr ::=
     (OP_PLUS | OP_MINUS | OP_NOT) expr |
     term (xop expr)*
     {name="expression"}
@@ -170,7 +170,7 @@ private atom ::=
     opLabel | INT | OP_QUOTE TEXT? OP_QUOTE
     {name="value"}
 
-sexpr ::=
+private sexpr ::=
     (OP_PLUS | OP_MINUS | OP_NOT) sexpr |
     atom (xop sexpr)*
     {name="simple expressions"}

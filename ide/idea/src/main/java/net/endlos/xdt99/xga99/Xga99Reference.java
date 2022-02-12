@@ -51,26 +51,6 @@ public class Xga99Reference extends PsiReferenceBase<PsiElement> implements PsiP
     }
 
     @Override
-    public Object @NotNull [] getVariants() {
-        Project project = myElement.getProject();
-        String labelText = label;
-        if (label.endsWith(dummy)) {
-            labelText = label.substring(0, label.length() - dummy.length());
-        }
-        List<Xga99Labeldef> labeldefs = Xga99Util.findLabels(project, labelText, distance, myElement, offset, true);
-        List<LookupElement> variants = new ArrayList<LookupElement>();
-        for (final Xga99Labeldef labeldef : labeldefs) {
-            if (labeldef.getName() != null && labeldef.getName().length() > 0) {
-                variants.add(LookupElementBuilder.create(labeldef).
-                                withIcon(Xga99Icons.FILE).
-                                withTypeText(labeldef.getContainingFile().getName())
-                );
-            }
-        }
-        return variants.toArray();
-    }
-
-    @Override
     public PsiElement handleElementRename(@NotNull String newElementName) throws IncorrectOperationException {
         Xga99PsiImplUtil.rename(myElement, newElementName);
         return myElement;

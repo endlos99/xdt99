@@ -28,15 +28,15 @@ public class Xas99ArgsIXImpl extends ASTWrapperPsiElement implements Xas99ArgsIX
   }
 
   @Override
-  @NotNull
-  public Xas99OpGA getOpGA() {
-    return findNotNullChildByClass(Xas99OpGA.class);
+  @Nullable
+  public Xas99OpLabel getOpLabel() {
+    return findChildByClass(Xas99OpLabel.class);
   }
 
   @Override
-  @Nullable
-  public Xas99OpRegister getOpRegister() {
-    return findChildByClass(Xas99OpRegister.class);
+  @NotNull
+  public List<Xas99OpRegister> getOpRegisterList() {
+    return PsiTreeUtil.getChildrenOfTypeAsList(this, Xas99OpRegister.class);
   }
 
 }

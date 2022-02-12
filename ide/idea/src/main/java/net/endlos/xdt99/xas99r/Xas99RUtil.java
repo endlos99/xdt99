@@ -186,17 +186,7 @@ public class Xas99RUtil {
     // check if element tree is equivalent to positive local label (-!... is ignored):
     // expr -> op_address -> op_label -> ident with '!'
     public static boolean isLocalLabelExpr(PsiElement element) {
-        if (!(element instanceof Xas99RExpr))
-            return false;
-        element = element.getFirstChild();
-        if (element.getNode().getElementType() != Xas99RTypes.OP_ADDRESS)
-            return false;
-        element = element.getFirstChild();
-        if (element.getNode().getElementType() != Xas99RTypes.OP_LABEL)
-            return false;
-        if (((Xas99ROpLabel) element).getName().charAt(0) != '!')
-            return false;
-        return true;
+        return element instanceof Xas99ROpLabel && ((Xas99ROpLabel) element).getName().charAt(0) == '!';
     }
 
 }

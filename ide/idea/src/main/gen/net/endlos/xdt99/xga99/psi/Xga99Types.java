@@ -29,23 +29,14 @@ public interface Xga99Types {
   IElementType ARGS_VIII = new Xga99ElementType("ARGS_VIII");
   IElementType DIRECTIVE = new Xga99ElementType("DIRECTIVE");
   IElementType DUMMY = new Xga99ElementType("DUMMY");
-  IElementType EXPR = new Xga99ElementType("EXPR");
   IElementType INSTRUCTION = new Xga99ElementType("INSTRUCTION");
   IElementType LABELDEF = new Xga99ElementType("LABELDEF");
   IElementType LINECOMMENT = new Xga99ElementType("LINECOMMENT");
-  IElementType OP_ADDRESS = new Xga99ElementType("OP_ADDRESS");
   IElementType OP_FILENAME = new Xga99ElementType("OP_FILENAME");
   IElementType OP_FLOAT = new Xga99ElementType("OP_FLOAT");
-  IElementType OP_GD = new Xga99ElementType("OP_GD");
-  IElementType OP_GS = new Xga99ElementType("OP_GS");
-  IElementType OP_INDEX = new Xga99ElementType("OP_INDEX");
   IElementType OP_LABEL = new Xga99ElementType("OP_LABEL");
-  IElementType OP_MD = new Xga99ElementType("OP_MD");
-  IElementType OP_MS = new Xga99ElementType("OP_MS");
   IElementType OP_TEXT = new Xga99ElementType("OP_TEXT");
-  IElementType OP_VALUE = new Xga99ElementType("OP_VALUE");
   IElementType PREPROCESSOR = new Xga99ElementType("PREPROCESSOR");
-  IElementType SEXPR = new Xga99ElementType("SEXPR");
   IElementType UNKNOWN_MNEM = new Xga99ElementType("UNKNOWN_MNEM");
 
   IElementType COMMENT = new Xga99TokenType("COMMENT");
@@ -167,9 +158,6 @@ public interface Xga99Types {
       else if (type == DUMMY) {
         return new Xga99DummyImpl(node);
       }
-      else if (type == EXPR) {
-        return new Xga99ExprImpl(node);
-      }
       else if (type == INSTRUCTION) {
         return new Xga99InstructionImpl(node);
       }
@@ -179,44 +167,20 @@ public interface Xga99Types {
       else if (type == LINECOMMENT) {
         return new Xga99LinecommentImpl(node);
       }
-      else if (type == OP_ADDRESS) {
-        return new Xga99OpAddressImpl(node);
-      }
       else if (type == OP_FILENAME) {
         return new Xga99OpFilenameImpl(node);
       }
       else if (type == OP_FLOAT) {
         return new Xga99OpFloatImpl(node);
       }
-      else if (type == OP_GD) {
-        return new Xga99OpGdImpl(node);
-      }
-      else if (type == OP_GS) {
-        return new Xga99OpGsImpl(node);
-      }
-      else if (type == OP_INDEX) {
-        return new Xga99OpIndexImpl(node);
-      }
       else if (type == OP_LABEL) {
         return new Xga99OpLabelImpl(node);
-      }
-      else if (type == OP_MD) {
-        return new Xga99OpMdImpl(node);
-      }
-      else if (type == OP_MS) {
-        return new Xga99OpMsImpl(node);
       }
       else if (type == OP_TEXT) {
         return new Xga99OpTextImpl(node);
       }
-      else if (type == OP_VALUE) {
-        return new Xga99OpValueImpl(node);
-      }
       else if (type == PREPROCESSOR) {
         return new Xga99PreprocessorImpl(node);
-      }
-      else if (type == SEXPR) {
-        return new Xga99SexprImpl(node);
       }
       else if (type == UNKNOWN_MNEM) {
         return new Xga99UnknownMnemImpl(node);

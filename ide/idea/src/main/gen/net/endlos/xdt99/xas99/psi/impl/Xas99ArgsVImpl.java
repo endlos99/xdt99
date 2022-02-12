@@ -29,14 +29,14 @@ public class Xas99ArgsVImpl extends ASTWrapperPsiElement implements Xas99ArgsV {
 
   @Override
   @NotNull
-  public Xas99OpRegister getOpRegister() {
-    return findNotNullChildByClass(Xas99OpRegister.class);
+  public List<Xas99OpLabel> getOpLabelList() {
+    return PsiTreeUtil.getChildrenOfTypeAsList(this, Xas99OpLabel.class);
   }
 
   @Override
-  @Nullable
-  public Xas99OpValue getOpValue() {
-    return findChildByClass(Xas99OpValue.class);
+  @NotNull
+  public Xas99OpRegister getOpRegister() {
+    return findNotNullChildByClass(Xas99OpRegister.class);
   }
 
 }

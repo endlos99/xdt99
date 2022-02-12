@@ -114,7 +114,7 @@ args_IV ::=
     opGA OP_SEP opValue
     {pin="OP_SEP"}
 args_V ::=
-    opRegister OP_SEP opValue
+    opRegister OP_SEP (opValue | REGISTER0)  // special rule for PeteE
     {pin="OP_SEP"}
 args_VI ::=
     opGA
@@ -150,20 +150,20 @@ private pragmaClause ::=
     PG_TERM PG_EQ PG_TERM | PG_CYC+
 
 // arguments
-opGA ::=
+private opGA ::=
     OP_AT OP_MINUS? sexpr (OP_LPAREN opRegister OP_RPAREN)? |
     opRegister |
     OP_AST opRegister OP_PLUS? |
     MOD_AUTO opValue
     {name="general address"}
-opAddress ::=
-    opLabel | OP_LC | LOCAL | PP_PARAM
+private opAddress ::=
+    MOD_XBANK? opLabel | OP_LC | LOCAL | PP_PARAM
     {name="address value"}
-opValue ::=
+private opValue ::=
     expr
     {name="value"}
 opRegister ::=
-    REGISTER | INT | PP_PARAM
+    REGISTER | REGISTER0 | INT | PP_PARAM | IDENT
     {name="register"}
 opText ::=
     OP_MINUS? (OP_QUOTE TEXT? OP_QUOTE | INT | PP_PARAM)
@@ -171,19 +171,19 @@ opText ::=
 opFilename ::=
     OP_FQUOTE FNAME OP_FQUOTE
 opLabel ::=
-    MOD_XBANK? IDENT | PP_PARAM
+    IDENT | PP_PARAM
     {methods=[getName setName getNameIdentifier getReference]
      name="label"}
 opFloat ::=
     (OP_PLUS | OP_MINUS)? DIGIT* ("." DIGIT*)?
 
 // expressions
-expr ::=
+private expr ::=
     (OP_PLUS | OP_MINUS | OP_NOT) expr |
     term (xop expr)*
     {name="expression"}
 // simple expression: no parentheses
-sexpr ::=
+private sexpr ::=
     (OP_PLUS | OP_MINUS | OP_NOT) sexpr |
     atom (xop sexpr)*
     {name="simple expressions"}

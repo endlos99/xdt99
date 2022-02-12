@@ -29,8 +29,8 @@ public class Xas99ArgsIIImpl extends ASTWrapperPsiElement implements Xas99ArgsII
 
   @Override
   @NotNull
-  public Xas99Expr getExpr() {
-    return findNotNullChildByClass(Xas99Expr.class);
+  public List<Xas99OpLabel> getOpLabelList() {
+    return PsiTreeUtil.getChildrenOfTypeAsList(this, Xas99OpLabel.class);
   }
 
 }

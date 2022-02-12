@@ -29,8 +29,8 @@ public class Xga99RArgsFIIIImpl extends ASTWrapperPsiElement implements Xga99RAr
 
   @Override
   @NotNull
-  public List<Xga99ROpValue> getOpValueList() {
-    return PsiTreeUtil.getChildrenOfTypeAsList(this, Xga99ROpValue.class);
+  public List<Xga99ROpLabel> getOpLabelList() {
+    return PsiTreeUtil.getChildrenOfTypeAsList(this, Xga99ROpLabel.class);
   }
 
 }

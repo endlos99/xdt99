@@ -28,27 +28,9 @@ public class Xga99ArgsIXImpl extends ASTWrapperPsiElement implements Xga99ArgsIX
   }
 
   @Override
-  @Nullable
-  public Xga99OpGs getOpGs() {
-    return findChildByClass(Xga99OpGs.class);
-  }
-
-  @Override
-  @Nullable
-  public Xga99OpMd getOpMd() {
-    return findChildByClass(Xga99OpMd.class);
-  }
-
-  @Override
-  @Nullable
-  public Xga99OpMs getOpMs() {
-    return findChildByClass(Xga99OpMs.class);
-  }
-
-  @Override
-  @Nullable
-  public Xga99OpValue getOpValue() {
-    return findChildByClass(Xga99OpValue.class);
+  @NotNull
+  public List<Xga99OpLabel> getOpLabelList() {
+    return PsiTreeUtil.getChildrenOfTypeAsList(this, Xga99OpLabel.class);
   }
 
 }

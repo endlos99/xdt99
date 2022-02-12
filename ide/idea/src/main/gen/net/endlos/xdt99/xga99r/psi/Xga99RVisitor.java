@@ -91,10 +91,6 @@ public class Xga99RVisitor extends PsiElementVisitor {
     visitPsiElement(o);
   }
 
-  public void visitExpr(@NotNull Xga99RExpr o) {
-    visitPsiElement(o);
-  }
-
   public void visitInstruction(@NotNull Xga99RInstruction o) {
     visitPsiElement(o);
   }
@@ -107,10 +103,6 @@ public class Xga99RVisitor extends PsiElementVisitor {
     visitPsiElement(o);
   }
 
-  public void visitOpAddress(@NotNull Xga99ROpAddress o) {
-    visitPsiElement(o);
-  }
-
   public void visitOpFilename(@NotNull Xga99ROpFilename o) {
     visitPsiElement(o);
   }
@@ -119,27 +111,7 @@ public class Xga99RVisitor extends PsiElementVisitor {
     visitPsiElement(o);
   }
 
-  public void visitOpGd(@NotNull Xga99ROpGd o) {
-    visitPsiElement(o);
-  }
-
-  public void visitOpGs(@NotNull Xga99ROpGs o) {
-    visitPsiElement(o);
-  }
-
-  public void visitOpIndex(@NotNull Xga99ROpIndex o) {
-    visitPsiElement(o);
-  }
-
   public void visitOpLabel(@NotNull Xga99ROpLabel o) {
-    visitPsiElement(o);
-  }
-
-  public void visitOpMd(@NotNull Xga99ROpMd o) {
-    visitPsiElement(o);
-  }
-
-  public void visitOpMs(@NotNull Xga99ROpMs o) {
     visitPsiElement(o);
   }
 
@@ -147,15 +119,7 @@ public class Xga99RVisitor extends PsiElementVisitor {
     visitPsiElement(o);
   }
 
-  public void visitOpValue(@NotNull Xga99ROpValue o) {
-    visitPsiElement(o);
-  }
-
   public void visitPreprocessor(@NotNull Xga99RPreprocessor o) {
-    visitPsiElement(o);
-  }
-
-  public void visitSexpr(@NotNull Xga99RSexpr o) {
     visitPsiElement(o);
   }
 

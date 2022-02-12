@@ -42,9 +42,9 @@ INSTR_99000_I = "AM" | "SM"
 INSTR_99000_IV = "TMB" | "TCMB" | "TSMB" | "SLAM" | "SRAM"
 
 DIR_L = "DEF" | "END"
-DIR_E = "EQU" | "BSS" | "BES" | "DORG" | "XORG"
-DIR_EO = "RORG"
-DIR_ES = "DATA" | "BYTE" | "AORG" | "SAVE"
+DIR_E = "EQU" | "BSS" | "BES" | "DORG" | "XORG" | "BANK"
+DIR_EO = "RORG" | "AORG"
+DIR_ES = "DATA" | "BYTE" | "SAVE"
 DIR_T = "TEXT" | "STRI"
 DIR_S = "TITL" | "IDT"
 DIR_C = "COPY" | "BCOPY"
@@ -67,10 +67,11 @@ EOL_COMMENT = ";" [^\r\n]*
 
 IDENT = ("!"+ | [A-Za-z_]) {ALPHA}*
 INT = {DIGIT}+ | ">" {HEX}+ | ":" [01]+
-REGISTER = [Rr] ([0-9] | 1[0-5])
+REGISTER = [Rr] ([1-9] | 1[0-5])
+REGISTER0 = [Rr] "0"  // PeteE's special rule :-)
 OPMISC = [/%&|\^]
 
-ALPHA = [^-+*/&!~\^()#\"',: \t\r\n]
+ALPHA = [^-+*/%&!~\^()#\"',: \t\r\n]
 DIGIT = [0-9]
 HEX = [0-9A-Fa-f]
 
@@ -160,6 +161,7 @@ CRLF = \n | \r | \r\n
  ")"                  { return Xas99Types.OP_RPAREN; }
  "$"                  { return Xas99Types.OP_LC; }
  {OPMISC}             { return Xas99Types.OP_MISC; }
+ {REGISTER0}          { return Xas99Types.REGISTER0; }
  {REGISTER}           { return Xas99Types.REGISTER; }
  {IDENT}              { return Xas99Types.IDENT; }
  {INT}                { return Xas99Types.INT; }

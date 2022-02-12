@@ -29,8 +29,8 @@ public class Xga99RArgsVIImpl extends ASTWrapperPsiElement implements Xga99RArgs
 
   @Override
   @NotNull
-  public Xga99ROpGd getOpGd() {
-    return findNotNullChildByClass(Xga99ROpGd.class);
+  public List<Xga99ROpLabel> getOpLabelList() {
+    return PsiTreeUtil.getChildrenOfTypeAsList(this, Xga99ROpLabel.class);
   }
 
 }

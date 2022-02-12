@@ -7,10 +7,7 @@ import com.intellij.psi.PsiElement;
 
 public interface Xga99ArgsFII extends PsiElement {
 
-  @Nullable
-  Xga99OpGs getOpGs();
-
-  @Nullable
-  Xga99OpValue getOpValue();
+  @NotNull
+  List<Xga99OpLabel> getOpLabelList();
 
 }

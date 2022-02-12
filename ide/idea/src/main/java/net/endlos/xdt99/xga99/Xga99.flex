@@ -62,7 +62,7 @@ OPMISC = [/%&|\^]
 PPARG = [^, \t\r\n]+
 PPPARM = "#" {DIGIT}+
 
-ALPHA = [^-+*/&|~\^()#@\"',: \t\r\n]
+ALPHA = [^-+*/%&|~\^()#@\"',: \t\r\n]
 DIGIT = [0-9]
 HEX = [0-9A-Fa-f]
 

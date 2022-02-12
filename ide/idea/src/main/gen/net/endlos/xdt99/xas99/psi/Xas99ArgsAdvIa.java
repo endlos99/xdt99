@@ -8,9 +8,9 @@ import com.intellij.psi.PsiElement;
 public interface Xas99ArgsAdvIa extends PsiElement {
 
   @NotNull
-  List<Xas99OpGA> getOpGAList();
+  List<Xas99OpLabel> getOpLabelList();
 
-  @Nullable
-  Xas99OpValue getOpValue();
+  @NotNull
+  List<Xas99OpRegister> getOpRegisterList();
 
 }

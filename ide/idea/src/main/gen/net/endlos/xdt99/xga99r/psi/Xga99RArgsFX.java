@@ -7,7 +7,7 @@ import com.intellij.psi.PsiElement;
 
 public interface Xga99RArgsFX extends PsiElement {
 
-  @Nullable
-  Xga99ROpAddress getOpAddress();
+  @NotNull
+  List<Xga99ROpLabel> getOpLabelList();
 
 }

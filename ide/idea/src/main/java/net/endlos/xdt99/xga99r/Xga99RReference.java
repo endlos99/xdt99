@@ -51,26 +51,6 @@ public class Xga99RReference extends PsiReferenceBase<PsiElement> implements Psi
     }
 
     @Override
-    public Object @NotNull [] getVariants() {
-        Project project = myElement.getProject();
-        String labelText = label;
-        if (label.endsWith(dummy)) {
-            labelText = label.substring(0, label.length() - dummy.length());
-        }
-        List<Xga99RLabeldef> labeldefs = Xga99RUtil.findLabels(project, labelText, distance, myElement, offset, true);
-        List<LookupElement> variants = new ArrayList<LookupElement>();
-        for (final Xga99RLabeldef labeldef : labeldefs) {
-            if (labeldef.getName() != null && labeldef.getName().length() > 0) {
-                variants.add(LookupElementBuilder.create(labeldef).
-                                withIcon(Xga99RIcons.FILE).
-                                withTypeText(labeldef.getContainingFile().getName())
-                );
-            }
-        }
-        return variants.toArray();
-    }
-
-    @Override
     public PsiElement handleElementRename(@NotNull String newElementName) throws IncorrectOperationException {
         Xga99RPsiImplUtil.rename(myElement, newElementName);
         return myElement;

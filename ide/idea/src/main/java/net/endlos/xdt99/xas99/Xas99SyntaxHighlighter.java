@@ -33,9 +33,7 @@ public class Xas99SyntaxHighlighter extends SyntaxHighlighterBase {
             Xas99Types.FNAME);
     public static final TokenSet operators = TokenSet.create(Xas99Types.OP_AT, Xas99Types.OP_AST,
             Xas99Types.OP_PLUS, Xas99Types.OP_MINUS, Xas99Types.OP_NOT, Xas99Types.OP_LPAREN, Xas99Types.OP_RPAREN,
-            Xas99Types.OP_MISC);
-    public static final TokenSet modifiers = TokenSet.create(Xas99Types.MOD_AUTO, Xas99Types.MOD_LEN,
-            Xas99Types.MOD_XBANK);
+            Xas99Types.OP_MISC, Xas99Types.MOD_AUTO, Xas99Types.MOD_LEN, Xas99Types.MOD_XBANK);
     public static final TokenSet preprocessor = TokenSet.create(Xas99Types.PREP);  // could add PP_ARG
 
     public static final TextAttributesKey INSTRUCTION =
@@ -51,12 +49,10 @@ public class Xas99SyntaxHighlighter extends SyntaxHighlighterBase {
             createTextAttributesKey("XAS99_VALUE", DefaultLanguageHighlighterColors.NUMBER);
     public static final TextAttributesKey TEXT =
             createTextAttributesKey("XAS99_TEXT", DefaultLanguageHighlighterColors.STRING);
-    public static final TextAttributesKey   REGISTER =
+    public static final TextAttributesKey REGISTER =
             createTextAttributesKey("XAS99_REG", DefaultLanguageHighlighterColors.CONSTANT);
     public static final TextAttributesKey OPERATOR =
             createTextAttributesKey("XAS99_OPER", DefaultLanguageHighlighterColors.OPERATION_SIGN);
-    public static final TextAttributesKey MODIFIER =
-            createTextAttributesKey("XAS99_MODIFIER", DefaultLanguageHighlighterColors.BRACKETS);
     public static final TextAttributesKey SEPARATOR =
             createTextAttributesKey("XAS99_SEP", DefaultLanguageHighlighterColors.COMMA);
     public static final TextAttributesKey PRAGMA =
@@ -80,7 +76,6 @@ public class Xas99SyntaxHighlighter extends SyntaxHighlighterBase {
     private static final TextAttributesKey[] TEXT_KEYS = new TextAttributesKey[]{TEXT};
     private static final TextAttributesKey[] REGISTER_KEYS = new TextAttributesKey[]{REGISTER};
     private static final TextAttributesKey[] OPERATOR_KEYS = new TextAttributesKey[]{OPERATOR};
-    private static final TextAttributesKey[] MODIFIER_KEYS = new TextAttributesKey[]{MODIFIER};
     private static final TextAttributesKey[] SEPARATOR_KEYS = new TextAttributesKey[]{SEPARATOR};
     private static final TextAttributesKey[] PRAGMA_KEYS = new TextAttributesKey[]{PRAGMA};
     private static final TextAttributesKey[] COMMENT_KEYS = new TextAttributesKey[]{COMMENT};
@@ -113,22 +108,18 @@ public class Xas99SyntaxHighlighter extends SyntaxHighlighterBase {
             return DIRECTIVE_KEYS;
         } else if (preprocessor.contains(tokenType)) {
             return PREPROCESSOR_KEYS;
-        } else if (tokenType.equals(Xas99Types.IDENT) ||
-                tokenType.equals(Xas99Types.OP_LC) ||
+        } else if (tokenType.equals(Xas99Types.IDENT) || tokenType.equals(Xas99Types.OP_LC) ||
                 tokenType.equals(Xas99Types.LOCAL)) {
             return IDENT_KEYS;
         } else if (tokenType.equals(Xas99Types.INT)) {
             return VALUE_KEYS;
         } else if (text.contains(tokenType)) {
             return TEXT_KEYS;
-        } else if (tokenType.equals(Xas99Types.REGISTER)) {
+        } else if (tokenType.equals(Xas99Types.REGISTER) || tokenType.equals(Xas99Types.REGISTER0)) {
             return REGISTER_KEYS;
-        } else if (modifiers.contains(tokenType)) {
-            return MODIFIER_KEYS;
         } else if (operators.contains(tokenType)) {
             return OPERATOR_KEYS;
-        } else if (tokenType.equals(Xas99Types.OP_SEP) ||
-                tokenType.equals(Xas99Types.PP_SEP)) {
+        } else if (tokenType.equals(Xas99Types.OP_SEP) || tokenType.equals(Xas99Types.PP_SEP)) {
             return SEPARATOR_KEYS;
         } else if (tokenType.equals(Xas99Types.PRAGMA)) {
             return PRAGMA_KEYS;

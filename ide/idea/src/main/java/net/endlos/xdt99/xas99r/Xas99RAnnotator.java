@@ -8,6 +8,7 @@ import com.intellij.openapi.util.TextRange;
 import com.intellij.psi.PsiElement;
 import net.endlos.xdt99.xas99r.psi.Xas99RLabeldef;
 import net.endlos.xdt99.xas99r.psi.Xas99ROpLabel;
+import net.endlos.xdt99.xas99r.psi.Xas99ROpRegister;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.List;
@@ -17,7 +18,11 @@ public class Xas99RAnnotator implements Annotator {
 
     @Override
     public void annotate(@NotNull final PsiElement element, @NotNull AnnotationHolder holder) {
-        if (element instanceof Xas99RLabeldef) {
+        if (element instanceof Xas99ROpRegister) {
+            // register might be uncolored value or macro argument
+            holder.newSilentAnnotation(HighlightSeverity.INFORMATION)
+                    .range(element.getTextRange()).textAttributes(Xas99RSyntaxHighlighter.REGISTER).create();
+        } else if (element instanceof Xas99RLabeldef) {
             // is defined label used at all?
             List<Xas99ROpLabel> usages = Xas99RUtil.findLabelUsages((Xas99RLabeldef) element);
             if (usages.isEmpty()) {

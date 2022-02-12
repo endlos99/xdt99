@@ -115,10 +115,6 @@ public class Xas99Visitor extends PsiElementVisitor {
     visitPsiElement(o);
   }
 
-  public void visitExpr(@NotNull Xas99Expr o) {
-    visitPsiElement(o);
-  }
-
   public void visitInstruction(@NotNull Xas99Instruction o) {
     visitPsiElement(o);
   }
@@ -131,19 +127,11 @@ public class Xas99Visitor extends PsiElementVisitor {
     visitPsiElement(o);
   }
 
-  public void visitOpAddress(@NotNull Xas99OpAddress o) {
-    visitPsiElement(o);
-  }
-
   public void visitOpFilename(@NotNull Xas99OpFilename o) {
     visitPsiElement(o);
   }
 
   public void visitOpFloat(@NotNull Xas99OpFloat o) {
-    visitPsiElement(o);
-  }
-
-  public void visitOpGA(@NotNull Xas99OpGA o) {
     visitPsiElement(o);
   }
 
@@ -159,19 +147,11 @@ public class Xas99Visitor extends PsiElementVisitor {
     visitPsiElement(o);
   }
 
-  public void visitOpValue(@NotNull Xas99OpValue o) {
-    visitPsiElement(o);
-  }
-
   public void visitPragma(@NotNull Xas99Pragma o) {
     visitPsiElement(o);
   }
 
   public void visitPreprocessor(@NotNull Xas99Preprocessor o) {
-    visitPsiElement(o);
-  }
-
-  public void visitSexpr(@NotNull Xas99Sexpr o) {
     visitPsiElement(o);
   }
 

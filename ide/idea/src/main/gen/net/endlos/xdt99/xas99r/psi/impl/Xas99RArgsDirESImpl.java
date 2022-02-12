@@ -29,8 +29,8 @@ public class Xas99RArgsDirESImpl extends ASTWrapperPsiElement implements Xas99RA
 
   @Override
   @NotNull
-  public List<Xas99RExpr> getExprList() {
-    return PsiTreeUtil.getChildrenOfTypeAsList(this, Xas99RExpr.class);
+  public List<Xas99ROpLabel> getOpLabelList() {
+    return PsiTreeUtil.getChildrenOfTypeAsList(this, Xas99ROpLabel.class);
   }
 
 }

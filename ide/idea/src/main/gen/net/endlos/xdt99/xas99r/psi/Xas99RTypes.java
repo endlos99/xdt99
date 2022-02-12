@@ -35,21 +35,16 @@ public interface Xas99RTypes {
   IElementType ARGS_VIII_R = new Xas99RElementType("ARGS_VIII_R");
   IElementType DIRECTIVE = new Xas99RElementType("DIRECTIVE");
   IElementType DUMMY = new Xas99RElementType("DUMMY");
-  IElementType EXPR = new Xas99RElementType("EXPR");
   IElementType INSTRUCTION = new Xas99RElementType("INSTRUCTION");
   IElementType LABELDEF = new Xas99RElementType("LABELDEF");
   IElementType LINECOMMENT = new Xas99RElementType("LINECOMMENT");
-  IElementType OP_ADDRESS = new Xas99RElementType("OP_ADDRESS");
   IElementType OP_FILENAME = new Xas99RElementType("OP_FILENAME");
   IElementType OP_FLOAT = new Xas99RElementType("OP_FLOAT");
-  IElementType OP_GA = new Xas99RElementType("OP_GA");
   IElementType OP_LABEL = new Xas99RElementType("OP_LABEL");
   IElementType OP_REGISTER = new Xas99RElementType("OP_REGISTER");
   IElementType OP_TEXT = new Xas99RElementType("OP_TEXT");
-  IElementType OP_VALUE = new Xas99RElementType("OP_VALUE");
   IElementType PRAGMA = new Xas99RElementType("PRAGMA");
   IElementType PREPROCESSOR = new Xas99RElementType("PREPROCESSOR");
-  IElementType SEXPR = new Xas99RElementType("SEXPR");
   IElementType UNKNOWN_MNEM = new Xas99RElementType("UNKNOWN_MNEM");
 
   IElementType COMMENT = new Xas99RTokenType("COMMENT");
@@ -119,6 +114,7 @@ public interface Xas99RTypes {
   IElementType PP_SEP = new Xas99RTokenType("PP_SEP");
   IElementType PREP = new Xas99RTokenType("PREP");
   IElementType REGISTER = new Xas99RTokenType("REGISTER");
+  IElementType REGISTER0 = new Xas99RTokenType("REGISTER0");
   IElementType TEXT = new Xas99RTokenType("TEXT");
   IElementType UNKNOWN = new Xas99RTokenType("UNKNOWN");
 
@@ -206,9 +202,6 @@ public interface Xas99RTypes {
       else if (type == DUMMY) {
         return new Xas99RDummyImpl(node);
       }
-      else if (type == EXPR) {
-        return new Xas99RExprImpl(node);
-      }
       else if (type == INSTRUCTION) {
         return new Xas99RInstructionImpl(node);
       }
@@ -218,17 +211,11 @@ public interface Xas99RTypes {
       else if (type == LINECOMMENT) {
         return new Xas99RLinecommentImpl(node);
       }
-      else if (type == OP_ADDRESS) {
-        return new Xas99ROpAddressImpl(node);
-      }
       else if (type == OP_FILENAME) {
         return new Xas99ROpFilenameImpl(node);
       }
       else if (type == OP_FLOAT) {
         return new Xas99ROpFloatImpl(node);
-      }
-      else if (type == OP_GA) {
-        return new Xas99ROpGAImpl(node);
       }
       else if (type == OP_LABEL) {
         return new Xas99ROpLabelImpl(node);
@@ -239,17 +226,11 @@ public interface Xas99RTypes {
       else if (type == OP_TEXT) {
         return new Xas99ROpTextImpl(node);
       }
-      else if (type == OP_VALUE) {
-        return new Xas99ROpValueImpl(node);
-      }
       else if (type == PRAGMA) {
         return new Xas99RPragmaImpl(node);
       }
       else if (type == PREPROCESSOR) {
         return new Xas99RPreprocessorImpl(node);
-      }
-      else if (type == SEXPR) {
-        return new Xas99RSexprImpl(node);
       }
       else if (type == UNKNOWN_MNEM) {
         return new Xas99RUnknownMnemImpl(node);

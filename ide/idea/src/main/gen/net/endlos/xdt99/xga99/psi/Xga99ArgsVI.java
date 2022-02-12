@@ -8,6 +8,6 @@ import com.intellij.psi.PsiElement;
 public interface Xga99ArgsVI extends PsiElement {
 
   @NotNull
-  Xga99OpGd getOpGd();
+  List<Xga99OpLabel> getOpLabelList();
 
 }

@@ -438,10 +438,10 @@ public class Xga99RParser implements PsiParser, LightPsiParser {
   /* ********************************************************** */
   // (OP_PLUS | OP_MINUS | OP_NOT) expr |
   //     term (xop expr)*
-  public static boolean expr(PsiBuilder b, int l) {
+  static boolean expr(PsiBuilder b, int l) {
     if (!recursion_guard_(b, l, "expr")) return false;
     boolean r;
-    Marker m = enter_section_(b, l, _COLLAPSE_, EXPR, "<expression>");
+    Marker m = enter_section_(b, l, _NONE_, null, "<expression>");
     r = expr_0(b, l + 1);
     if (!r) r = expr_1(b, l + 1);
     exit_section_(b, l, m, r, false, null);
@@ -780,10 +780,10 @@ public class Xga99RParser implements PsiParser, LightPsiParser {
 
   /* ********************************************************** */
   // expr
-  public static boolean opAddress(PsiBuilder b, int l) {
+  static boolean opAddress(PsiBuilder b, int l) {
     if (!recursion_guard_(b, l, "opAddress")) return false;
     boolean r;
-    Marker m = enter_section_(b, l, _NONE_, OP_ADDRESS, "<address value>");
+    Marker m = enter_section_(b, l, _NONE_, null, "<address value>");
     r = expr(b, l + 1);
     exit_section_(b, l, m, r, false, null);
     return r;
@@ -872,10 +872,10 @@ public class Xga99RParser implements PsiParser, LightPsiParser {
 
   /* ********************************************************** */
   // (VADDR | VINDR | OP_AT | OP_AST) OP_MINUS? sexpr opIndex?
-  public static boolean opGd(PsiBuilder b, int l) {
+  static boolean opGd(PsiBuilder b, int l) {
     if (!recursion_guard_(b, l, "opGd")) return false;
     boolean r;
-    Marker m = enter_section_(b, l, _NONE_, OP_GD, "<general destination address>");
+    Marker m = enter_section_(b, l, _NONE_, null, "<general destination address>");
     r = opGd_0(b, l + 1);
     r = r && opGd_1(b, l + 1);
     r = r && sexpr(b, l + 1);
@@ -911,10 +911,10 @@ public class Xga99RParser implements PsiParser, LightPsiParser {
 
   /* ********************************************************** */
   // opGd | opValue
-  public static boolean opGs(PsiBuilder b, int l) {
+  static boolean opGs(PsiBuilder b, int l) {
     if (!recursion_guard_(b, l, "opGs")) return false;
     boolean r;
-    Marker m = enter_section_(b, l, _NONE_, OP_GS, "<general source address>");
+    Marker m = enter_section_(b, l, _NONE_, null, "<general source address>");
     r = opGd(b, l + 1);
     if (!r) r = opValue(b, l + 1);
     exit_section_(b, l, m, r, false, null);
@@ -923,11 +923,11 @@ public class Xga99RParser implements PsiParser, LightPsiParser {
 
   /* ********************************************************** */
   // OP_LPAREN OP_AT? opValue OP_RPAREN
-  public static boolean opIndex(PsiBuilder b, int l) {
+  static boolean opIndex(PsiBuilder b, int l) {
     if (!recursion_guard_(b, l, "opIndex")) return false;
     if (!nextTokenIs(b, "<index>", OP_LPAREN)) return false;
     boolean r;
-    Marker m = enter_section_(b, l, _NONE_, OP_INDEX, "<index>");
+    Marker m = enter_section_(b, l, _NONE_, null, "<index>");
     r = consumeToken(b, OP_LPAREN);
     r = r && opIndex_1(b, l + 1);
     r = r && opValue(b, l + 1);
@@ -959,10 +959,10 @@ public class Xga99RParser implements PsiParser, LightPsiParser {
 
   /* ********************************************************** */
   // opMs | PP_PARAM
-  public static boolean opMd(PsiBuilder b, int l) {
+  static boolean opMd(PsiBuilder b, int l) {
     if (!recursion_guard_(b, l, "opMd")) return false;
     boolean r;
-    Marker m = enter_section_(b, l, _NONE_, OP_MD, "<MOVE destination address>");
+    Marker m = enter_section_(b, l, _NONE_, null, "<MOVE destination address>");
     r = opMs(b, l + 1);
     if (!r) r = consumeToken(b, PP_PARAM);
     exit_section_(b, l, m, r, false, null);
@@ -971,10 +971,10 @@ public class Xga99RParser implements PsiParser, LightPsiParser {
 
   /* ********************************************************** */
   // (GADDR | VADDR | VINDR | OP_AT | OP_AST) OP_MINUS? sexpr opIndex?
-  public static boolean opMs(PsiBuilder b, int l) {
+  static boolean opMs(PsiBuilder b, int l) {
     if (!recursion_guard_(b, l, "opMs")) return false;
     boolean r;
-    Marker m = enter_section_(b, l, _NONE_, OP_MS, "<MOVE source address>");
+    Marker m = enter_section_(b, l, _NONE_, null, "<MOVE source address>");
     r = opMs_0(b, l + 1);
     r = r && opMs_1(b, l + 1);
     r = r && sexpr(b, l + 1);
@@ -1061,10 +1061,10 @@ public class Xga99RParser implements PsiParser, LightPsiParser {
 
   /* ********************************************************** */
   // expr
-  public static boolean opValue(PsiBuilder b, int l) {
+  static boolean opValue(PsiBuilder b, int l) {
     if (!recursion_guard_(b, l, "opValue")) return false;
     boolean r;
-    Marker m = enter_section_(b, l, _NONE_, OP_VALUE, "<value>");
+    Marker m = enter_section_(b, l, _NONE_, null, "<value>");
     r = expr(b, l + 1);
     exit_section_(b, l, m, r, false, null);
     return r;
@@ -1107,10 +1107,10 @@ public class Xga99RParser implements PsiParser, LightPsiParser {
   /* ********************************************************** */
   // (OP_PLUS | OP_MINUS | OP_NOT) sexpr |
   //     atom (xop sexpr)*
-  public static boolean sexpr(PsiBuilder b, int l) {
+  static boolean sexpr(PsiBuilder b, int l) {
     if (!recursion_guard_(b, l, "sexpr")) return false;
     boolean r;
-    Marker m = enter_section_(b, l, _COLLAPSE_, SEXPR, "<simple expressions>");
+    Marker m = enter_section_(b, l, _NONE_, null, "<simple expressions>");
     r = sexpr_0(b, l + 1);
     if (!r) r = sexpr_1(b, l + 1);
     exit_section_(b, l, m, r, false, null);

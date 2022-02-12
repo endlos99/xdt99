@@ -28,9 +28,9 @@ public class Xas99ArgsDirEOImpl extends ASTWrapperPsiElement implements Xas99Arg
   }
 
   @Override
-  @Nullable
-  public Xas99Expr getExpr() {
-    return findChildByClass(Xas99Expr.class);
+  @NotNull
+  public List<Xas99OpLabel> getOpLabelList() {
+    return PsiTreeUtil.getChildrenOfTypeAsList(this, Xas99OpLabel.class);
   }
 
 }

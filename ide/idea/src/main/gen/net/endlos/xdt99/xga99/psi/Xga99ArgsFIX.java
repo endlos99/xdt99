@@ -7,10 +7,7 @@ import com.intellij.psi.PsiElement;
 
 public interface Xga99ArgsFIX extends PsiElement {
 
-  @Nullable
-  Xga99OpGs getOpGs();
-
   @NotNull
-  Xga99OpValue getOpValue();
+  List<Xga99OpLabel> getOpLabelList();
 
 }

@@ -117,7 +117,7 @@ public class Xas99RParser implements PsiParser, LightPsiParser {
   }
 
   /* ********************************************************** */
-  // opRegister OP_SEP opValue
+  // opRegister OP_SEP (opValue | REGISTER0)
   public static boolean args_V(PsiBuilder b, int l) {
     if (!recursion_guard_(b, l, "args_V")) return false;
     boolean r, p;
@@ -125,9 +125,18 @@ public class Xas99RParser implements PsiParser, LightPsiParser {
     r = opRegister(b, l + 1);
     r = r && consumeToken(b, OP_SEP);
     p = r; // pin = OP_SEP
-    r = r && opValue(b, l + 1);
+    r = r && args_V_2(b, l + 1);
     exit_section_(b, l, m, r, p, null);
     return r || p;
+  }
+
+  // opValue | REGISTER0
+  private static boolean args_V_2(PsiBuilder b, int l) {
+    if (!recursion_guard_(b, l, "args_V_2")) return false;
+    boolean r;
+    r = opValue(b, l + 1);
+    if (!r) r = consumeToken(b, REGISTER0);
+    return r;
   }
 
   /* ********************************************************** */
@@ -634,10 +643,10 @@ public class Xas99RParser implements PsiParser, LightPsiParser {
   /* ********************************************************** */
   // (OP_PLUS | OP_MINUS | OP_NOT) expr |
   //     term (xop expr)*
-  public static boolean expr(PsiBuilder b, int l) {
+  static boolean expr(PsiBuilder b, int l) {
     if (!recursion_guard_(b, l, "expr")) return false;
     boolean r;
-    Marker m = enter_section_(b, l, _COLLAPSE_, EXPR, "<expression>");
+    Marker m = enter_section_(b, l, _NONE_, null, "<expression>");
     r = expr_0(b, l + 1);
     if (!r) r = expr_1(b, l + 1);
     exit_section_(b, l, m, r, false, null);
@@ -1050,17 +1059,35 @@ public class Xas99RParser implements PsiParser, LightPsiParser {
   }
 
   /* ********************************************************** */
-  // opLabel | OP_LC | LOCAL | PP_PARAM
-  public static boolean opAddress(PsiBuilder b, int l) {
+  // MOD_XBANK? opLabel | OP_LC | LOCAL | PP_PARAM
+  static boolean opAddress(PsiBuilder b, int l) {
     if (!recursion_guard_(b, l, "opAddress")) return false;
     boolean r;
-    Marker m = enter_section_(b, l, _NONE_, OP_ADDRESS, "<address value>");
-    r = opLabel(b, l + 1);
+    Marker m = enter_section_(b, l, _NONE_, null, "<address value>");
+    r = opAddress_0(b, l + 1);
     if (!r) r = consumeToken(b, OP_LC);
     if (!r) r = consumeToken(b, LOCAL);
     if (!r) r = consumeToken(b, PP_PARAM);
     exit_section_(b, l, m, r, false, null);
     return r;
+  }
+
+  // MOD_XBANK? opLabel
+  private static boolean opAddress_0(PsiBuilder b, int l) {
+    if (!recursion_guard_(b, l, "opAddress_0")) return false;
+    boolean r;
+    Marker m = enter_section_(b);
+    r = opAddress_0_0(b, l + 1);
+    r = r && opLabel(b, l + 1);
+    exit_section_(b, m, null, r);
+    return r;
+  }
+
+  // MOD_XBANK?
+  private static boolean opAddress_0_0(PsiBuilder b, int l) {
+    if (!recursion_guard_(b, l, "opAddress_0_0")) return false;
+    consumeToken(b, MOD_XBANK);
+    return true;
   }
 
   /* ********************************************************** */
@@ -1149,10 +1176,10 @@ public class Xas99RParser implements PsiParser, LightPsiParser {
   //     opRegister |
   //     OP_AST opRegister OP_PLUS? |
   //     MOD_AUTO opValue
-  public static boolean opGA(PsiBuilder b, int l) {
+  static boolean opGA(PsiBuilder b, int l) {
     if (!recursion_guard_(b, l, "opGA")) return false;
     boolean r;
-    Marker m = enter_section_(b, l, _NONE_, OP_GA, "<general address>");
+    Marker m = enter_section_(b, l, _NONE_, null, "<general address>");
     r = opGA_0(b, l + 1);
     if (!r) r = opRegister(b, l + 1);
     if (!r) r = opGA_2(b, l + 1);
@@ -1231,42 +1258,26 @@ public class Xas99RParser implements PsiParser, LightPsiParser {
   }
 
   /* ********************************************************** */
-  // MOD_XBANK? IDENT | PP_PARAM
+  // IDENT | PP_PARAM
   public static boolean opLabel(PsiBuilder b, int l) {
     if (!recursion_guard_(b, l, "opLabel")) return false;
+    if (!nextTokenIs(b, "<label>", IDENT, PP_PARAM)) return false;
     boolean r;
     Marker m = enter_section_(b, l, _NONE_, OP_LABEL, "<label>");
-    r = opLabel_0(b, l + 1);
+    r = consumeToken(b, IDENT);
     if (!r) r = consumeToken(b, PP_PARAM);
     exit_section_(b, l, m, r, false, null);
     return r;
   }
 
-  // MOD_XBANK? IDENT
-  private static boolean opLabel_0(PsiBuilder b, int l) {
-    if (!recursion_guard_(b, l, "opLabel_0")) return false;
-    boolean r;
-    Marker m = enter_section_(b);
-    r = opLabel_0_0(b, l + 1);
-    r = r && consumeToken(b, IDENT);
-    exit_section_(b, m, null, r);
-    return r;
-  }
-
-  // MOD_XBANK?
-  private static boolean opLabel_0_0(PsiBuilder b, int l) {
-    if (!recursion_guard_(b, l, "opLabel_0_0")) return false;
-    consumeToken(b, MOD_XBANK);
-    return true;
-  }
-
   /* ********************************************************** */
-  // REGISTER | INT | PP_PARAM
+  // REGISTER | REGISTER0 | INT | PP_PARAM
   public static boolean opRegister(PsiBuilder b, int l) {
     if (!recursion_guard_(b, l, "opRegister")) return false;
     boolean r;
     Marker m = enter_section_(b, l, _NONE_, OP_REGISTER, "<register>");
     r = consumeToken(b, REGISTER);
+    if (!r) r = consumeToken(b, REGISTER0);
     if (!r) r = consumeToken(b, INT);
     if (!r) r = consumeToken(b, PP_PARAM);
     exit_section_(b, l, m, r, false, null);
@@ -1325,10 +1336,10 @@ public class Xas99RParser implements PsiParser, LightPsiParser {
 
   /* ********************************************************** */
   // expr
-  public static boolean opValue(PsiBuilder b, int l) {
+  static boolean opValue(PsiBuilder b, int l) {
     if (!recursion_guard_(b, l, "opValue")) return false;
     boolean r;
-    Marker m = enter_section_(b, l, _NONE_, OP_VALUE, "<value>");
+    Marker m = enter_section_(b, l, _NONE_, null, "<value>");
     r = expr(b, l + 1);
     exit_section_(b, l, m, r, false, null);
     return r;
@@ -1435,10 +1446,10 @@ public class Xas99RParser implements PsiParser, LightPsiParser {
   /* ********************************************************** */
   // (OP_PLUS | OP_MINUS | OP_NOT) sexpr |
   //     atom (xop sexpr)*
-  public static boolean sexpr(PsiBuilder b, int l) {
+  static boolean sexpr(PsiBuilder b, int l) {
     if (!recursion_guard_(b, l, "sexpr")) return false;
     boolean r;
-    Marker m = enter_section_(b, l, _COLLAPSE_, SEXPR, "<simple expressions>");
+    Marker m = enter_section_(b, l, _NONE_, null, "<simple expressions>");
     r = sexpr_0(b, l + 1);
     if (!r) r = sexpr_1(b, l + 1);
     exit_section_(b, l, m, r, false, null);

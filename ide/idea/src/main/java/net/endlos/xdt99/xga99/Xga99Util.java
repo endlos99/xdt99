@@ -190,17 +190,7 @@ public class Xga99Util {
     // check if element tree is equivalent to positive local label (-!... is ignored):
     // expr -> op_address -> op_label -> ident with '!'
     public static boolean isLocalLabelExpr(PsiElement element) {
-        if (!(element instanceof Xga99Expr))
-            return false;
-        element = element.getFirstChild();
-        if (element.getNode().getElementType() != Xga99Types.OP_ADDRESS)
-            return false;
-        element = element.getFirstChild();
-        if (element.getNode().getElementType() != Xga99Types.OP_LABEL)
-            return false;
-        if (((Xga99OpLabel) element).getName().charAt(0) != '!')
-            return false;
-        return true;
+        return element instanceof Xga99OpLabel && ((Xga99OpLabel) element).getName().charAt(0) == '!';
     }
 
 }

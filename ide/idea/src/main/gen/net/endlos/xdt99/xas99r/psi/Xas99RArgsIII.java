@@ -7,10 +7,10 @@ import com.intellij.psi.PsiElement;
 
 public interface Xas99RArgsIII extends PsiElement {
 
-  @NotNull
-  Xas99ROpGA getOpGA();
-
   @Nullable
-  Xas99ROpRegister getOpRegister();
+  Xas99ROpLabel getOpLabel();
+
+  @NotNull
+  List<Xas99ROpRegister> getOpRegisterList();
 
 }

@@ -8,6 +8,6 @@ import com.intellij.psi.PsiElement;
 public interface Xga99RArgsIII extends PsiElement {
 
   @NotNull
-  Xga99ROpAddress getOpAddress();
+  List<Xga99ROpLabel> getOpLabelList();
 
 }

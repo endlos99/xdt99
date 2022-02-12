@@ -28,9 +28,15 @@ public class Xas99ArgsVIImpl extends ASTWrapperPsiElement implements Xas99ArgsVI
   }
 
   @Override
-  @NotNull
-  public Xas99OpGA getOpGA() {
-    return findNotNullChildByClass(Xas99OpGA.class);
+  @Nullable
+  public Xas99OpLabel getOpLabel() {
+    return findChildByClass(Xas99OpLabel.class);
+  }
+
+  @Override
+  @Nullable
+  public Xas99OpRegister getOpRegister() {
+    return findChildByClass(Xas99OpRegister.class);
   }
 
 }

@@ -1,6 +1,5 @@
 package net.endlos.xdt99.xas99;
 
-import com.intellij.application.options.CodeStyle;
 import com.intellij.codeInspection.ProblemHighlightType;
 import com.intellij.lang.annotation.AnnotationHolder;
 import com.intellij.lang.annotation.Annotator;
@@ -21,7 +20,11 @@ public class Xas99Annotator implements Annotator {
 
     @Override
     public void annotate(@NotNull final PsiElement element, @NotNull AnnotationHolder holder) {
-        if (element instanceof Xas99Labeldef) {
+        if (element instanceof Xas99OpRegister) {
+            // register might be uncolored value or macro argument
+            holder.newSilentAnnotation(HighlightSeverity.INFORMATION)
+                    .range(element.getTextRange()).textAttributes(Xas99SyntaxHighlighter.REGISTER).create();
+        } else if (element instanceof Xas99Labeldef) {
             // is defined label used at all?
             List<Xas99OpLabel> usages = Xas99Util.findLabelUsages((Xas99Labeldef) element);
             if (usages.isEmpty()) {

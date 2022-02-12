@@ -29,8 +29,14 @@ public class Xas99ArgsIImpl extends ASTWrapperPsiElement implements Xas99ArgsI {
 
   @Override
   @NotNull
-  public List<Xas99OpGA> getOpGAList() {
-    return PsiTreeUtil.getChildrenOfTypeAsList(this, Xas99OpGA.class);
+  public List<Xas99OpLabel> getOpLabelList() {
+    return PsiTreeUtil.getChildrenOfTypeAsList(this, Xas99OpLabel.class);
+  }
+
+  @Override
+  @NotNull
+  public List<Xas99OpRegister> getOpRegisterList() {
+    return PsiTreeUtil.getChildrenOfTypeAsList(this, Xas99OpRegister.class);
   }
 
 }

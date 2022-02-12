@@ -29,14 +29,14 @@ public class Xas99RArgsIVImpl extends ASTWrapperPsiElement implements Xas99RArgs
 
   @Override
   @NotNull
-  public Xas99ROpGA getOpGA() {
-    return findNotNullChildByClass(Xas99ROpGA.class);
+  public List<Xas99ROpLabel> getOpLabelList() {
+    return PsiTreeUtil.getChildrenOfTypeAsList(this, Xas99ROpLabel.class);
   }
 
   @Override
   @Nullable
-  public Xas99ROpValue getOpValue() {
-    return findChildByClass(Xas99ROpValue.class);
+  public Xas99ROpRegister getOpRegister() {
+    return findChildByClass(Xas99ROpRegister.class);
   }
 
 }

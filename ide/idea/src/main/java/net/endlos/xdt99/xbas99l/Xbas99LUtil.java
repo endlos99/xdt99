@@ -10,6 +10,7 @@ public class Xbas99LUtil {
 
     public static List<Xbas99LLabeldef> findLabeldefs(PsiElement ref, String ident, boolean partial) {
         final List<Xbas99LLabeldef> nil = Collections.<Xbas99LLabeldef>emptyList();
+        String normalizedIdent = ident.toUpperCase();
         List<Xbas99LLabeldef> result = null;
         Xbas99LFile file = (Xbas99LFile) ref.getOriginalElement().getContainingFile();  // search only current file
         if (file == null)
@@ -17,8 +18,8 @@ public class Xbas99LUtil {
         Collection<Xbas99LLabeldef> labels = PsiTreeUtil.findChildrenOfType(file, Xbas99LLabeldef.class);
         for (Xbas99LLabeldef label : labels) {
             String normalizedLabel = label.getName().toUpperCase();
-            if ((partial && normalizedLabel.startsWith(ident)) ||  // ident already uppercased
-                    (!partial && ident.equals(normalizedLabel))) {
+            if ((partial && normalizedLabel.startsWith(normalizedIdent)) ||
+                    (!partial && normalizedIdent.equals(normalizedLabel))) {
                 if (result == null) {
                     result = new ArrayList<Xbas99LLabeldef>();
                 }

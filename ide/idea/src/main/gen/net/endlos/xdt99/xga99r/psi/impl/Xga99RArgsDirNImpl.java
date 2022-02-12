@@ -29,8 +29,8 @@ public class Xga99RArgsDirNImpl extends ASTWrapperPsiElement implements Xga99RAr
 
   @Override
   @NotNull
-  public List<Xga99RExpr> getExprList() {
-    return PsiTreeUtil.getChildrenOfTypeAsList(this, Xga99RExpr.class);
+  public List<Xga99ROpLabel> getOpLabelList() {
+    return PsiTreeUtil.getChildrenOfTypeAsList(this, Xga99ROpLabel.class);
   }
 
 }
