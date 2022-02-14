@@ -57,7 +57,6 @@ EOL_COMMENT = ";" [^\r\n]*
 
 IDENT = ("!"+ | [A-Za-z_]) {ALPHA}*
 INT = {DIGIT}+ | ">" {HEX}+ | ":" [01]+
-FNAME =  "\"" [^\"\r\n]* "\""
 OPMISC = [/%&|\^]
 PPARG = [^, \t\r\n]+
 PPPARM = "#" {DIGIT}+

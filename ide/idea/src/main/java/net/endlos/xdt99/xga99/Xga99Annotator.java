@@ -1,6 +1,5 @@
 package net.endlos.xdt99.xga99;
 
-import com.intellij.application.options.CodeStyle;
 import com.intellij.codeInspection.ProblemHighlightType;
 import com.intellij.lang.annotation.AnnotationHolder;
 import com.intellij.lang.annotation.Annotator;
@@ -23,11 +22,18 @@ public class Xga99Annotator implements Annotator {
 
     @Override
     public void annotate(@NotNull final PsiElement element, @NotNull AnnotationHolder holder) {
-        final Xga99CodeStyleSettings settings =
-                CodeStyle.getCustomSettings(element.getContainingFile(), Xga99CodeStyleSettings.class);
         if (element instanceof Xga99Labeldef) {
+            Xga99Labeldef labeldef = (Xga99Labeldef) element;
+            // duplicate symbols?
+            List<Xga99Labeldef> definitions = Xga99Util.findLabels(element.getProject(), labeldef.getName(), 0,
+                    element, 0, false);
+            if (definitions.size() > 1) {
+                holder.newAnnotation(HighlightSeverity.ERROR, "Duplicate symbols")
+                        .range(element.getTextRange()).highlightType(ProblemHighlightType.GENERIC_ERROR).create();
+                return;
+            }
             // is defined label used at all?
-            List<Xga99OpLabel> usages = Xga99Util.findLabelUsages((Xga99Labeldef) element);
+            List<Xga99OpLabel> usages = Xga99Util.findLabelUsages(labeldef);
             if (usages.isEmpty()) {
                 holder.newAnnotation(HighlightSeverity.WARNING, "Unused label")
                         .range(element.getTextRange()).highlightType(ProblemHighlightType.LIKE_UNUSED_SYMBOL).create();
@@ -58,7 +64,7 @@ public class Xga99Annotator implements Annotator {
                             .range(labelRange).highlightType(ProblemHighlightType.LIKE_UNKNOWN_SYMBOL).create();
                 }
             }
-        } else if (settings.XGA99_STRICT && element instanceof PsiWhiteSpace) {
+        } else if (Xga99CodeStyleSettings.XGA99_STRICT && element instanceof PsiWhiteSpace) {
             // no space after ',' in strict mode
             PsiElement e = element.getPrevSibling();
             if (e != null && operators.contains(e.getNode().getElementType())) {

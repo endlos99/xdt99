@@ -28,9 +28,6 @@ public class Xbas99LAnnotator implements Annotator {
 
     @Override
     public void annotate(@NotNull final PsiElement element, @NotNull AnnotationHolder holder) {
-        final Xbas99LCodeStyleSettings settings =
-                CodeStyle.getCustomSettings(element.getContainingFile(), Xbas99LCodeStyleSettings.class);
-
         // color
         if (element instanceof Xbas99LNvarW) {
             holder.newSilentAnnotation(HighlightSeverity.INFORMATION)
@@ -83,7 +80,16 @@ public class Xbas99LAnnotator implements Annotator {
         }
 
         if (element instanceof Xbas99LLabeldef) {
-            List<Xbas99LNamedElement> usages = Xbas99LUtil.findLabelUsages((Xbas99LLabeldef) element);
+            Xbas99LLabeldef labeldef = (Xbas99LLabeldef) element;
+            // duplicate label?
+            List<Xbas99LLabeldef> definitions = Xbas99LUtil.findLabeldefs(element, labeldef.getName(), false);
+            if (definitions.size() > 1) {
+                holder.newAnnotation(HighlightSeverity.ERROR, "Duplicate labels")
+                        .range(element.getTextRange()).highlightType(ProblemHighlightType.GENERIC_ERROR).create();
+                return;
+            }
+            // unused label?
+            List<Xbas99LNamedElement> usages = Xbas99LUtil.findLabelUsages(labeldef);
             if (usages.isEmpty()) {
                 holder.newAnnotation(HighlightSeverity.WARNING, "Unused label")
                         .range(element.getTextRange()).highlightType(ProblemHighlightType.LIKE_UNUSED_SYMBOL).create();

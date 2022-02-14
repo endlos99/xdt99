@@ -4,6 +4,7 @@ import com.intellij.formatting.*;
 import com.intellij.lang.ASTNode;
 import com.intellij.psi.PsiComment;
 import com.intellij.psi.PsiElement;
+import com.intellij.psi.PsiWhiteSpace;
 import com.intellij.psi.TokenType;
 import com.intellij.psi.formatter.common.AbstractBlock;
 import com.intellij.psi.tree.IElementType;
@@ -18,10 +19,12 @@ import java.util.List;
 public class Xas99Block extends AbstractBlock {
     private final static TokenSet statements = TokenSet.create(Xas99Types.INSTRUCTION, Xas99Types.DIRECTIVE,
             Xas99Types.PREPROCESSOR, Xas99Types.UNKNOWN_MNEM);
-    private final static TokenSet operators = TokenSet.create(Xas99Types.OP_PLUS, Xas99Types.OP_MINUS,
-            Xas99Types.OP_AST, Xas99Types.OP_MISC);
+    private final static TokenSet operators = TokenSet.create(Xas99Types.OP_AST, Xas99Types.OP_MISC);
+    private final static TokenSet signs = TokenSet.create(Xas99Types.OP_PLUS, Xas99Types.OP_MINUS);
     private final static TokenSet modifiers = TokenSet.create(Xas99Types.MOD_AUTO, Xas99Types.MOD_LEN,
             Xas99Types.MOD_XBANK);
+    private final static TokenSet separators = TokenSet.create(Xas99Types.OP_SEP, Xas99Types.OP_LPAREN,
+            Xas99Types.OP_NOT);
     private final ASTNode myPreviousNode;
 
     public Xas99Block(@NotNull ASTNode node) {
@@ -90,12 +93,17 @@ public class Xas99Block extends AbstractBlock {
             else if (rightToken == Xas99Types.COMMENT) {
                 PsiElement e = left.getPsi();
                 if (left.getElementType() == Xas99Types.CRLF) {
-                    return null;  // comment as line comment: leave untouched
-                } else if (e instanceof Xas99Instruction || e instanceof Xas99Directive) {
-                    int extraLength = getPadWithinInstruction(e);  // extra padding between mnemonic and ops
-                    return pad(Xas99CodeStyleSettings.XAS99_COMMENT_TAB_STOP - Xas99CodeStyleSettings.XAS99_MNEMONIC_TAB_STOP,
-                            left.getTextLength() + extraLength);  // comment after instruction
+                    // whitespace <-> comment: line comment, leave untouched
+                    return null;
+                } else if (e instanceof Xas99Instruction || e instanceof Xas99Directive ||
+                        e instanceof Xas99Preprocessor) {
+                    // instruction <-> comment (with or without operands)
+                    int diffLength = getPadDiffWithinInstruction(e);  // anticipated padding change within instruction
+                    return pad(Xas99CodeStyleSettings.XAS99_COMMENT_TAB_STOP -
+                                    Xas99CodeStyleSettings.XAS99_MNEMONIC_TAB_STOP,
+                            left.getTextLength() + diffLength);  // comment after instruction
                 } else {
+                    // label <-> comment
                     int extraLength = 0;
                     if (left.getElementType() == Xas99Types.OP_COLON) {
                         // add Labeldef length if continuation label
@@ -107,11 +115,11 @@ public class Xas99Block extends AbstractBlock {
                             left.getTextLength() + extraLength);  // comment after label only
                 }
             }
-            // separator <-> argument
+            // separator <-> operand
             else if (leftToken == Xas99Types.OP_SEP) {
                 return fix(Xas99CodeStyleSettings.XAS99_STRICT ? 0 : 1);
             }
-            // argument <-> separator
+            // operand <-> separator
             else if (rightToken == Xas99Types.OP_SEP) {
                 return fix(0);
             }
@@ -121,12 +129,28 @@ public class Xas99Block extends AbstractBlock {
             }
             // parens <-> *
             else if (leftToken == Xas99Types.OP_LPAREN || rightToken == Xas99Types.OP_RPAREN) {
-                    return fix(0);
+                return fix(0);
             }
-            // operator <-> * but register and local label, and vice versa
-            else if ((operators.contains(rightToken) && leftToken != Xas99Types.OP_REGISTER) ||
-                        (operators.contains(leftToken) && rightToken != Xas99Types.OP_REGISTER &&
-                                !Xas99Util.isLocalLabelExpr(right.getPsi()))) {
+            // * <-> +/- signs and operators <-> *
+            else if (signs.contains(leftToken)) {
+                // no matter what right is, is left sign or operator?
+                return fix(isTokenSign(left) ? 0 : (Xas99CodeStyleSettings.XAS99_STRICT ? 0 : 1));
+            }
+            else if (signs.contains(rightToken)) {
+                if (leftToken == Xas99Types.OP_REGISTER)
+                    return fix(0);
+                // +/- <-> +/- covered by previous if case
+                return fix(Xas99CodeStyleSettings.XAS99_STRICT ? 0 : 1);  // operator
+            }
+            else if (leftToken == Xas99Types.OP_NOT) {
+                return fix(0);  // unary ~ is not ambiguous
+            }
+            // * <-> operator <-> * but register and local label, and vice versa
+            else if (operators.contains(rightToken)) {
+                return fix(Xas99CodeStyleSettings.XAS99_STRICT ? 0 : 1);
+            }
+            else if (operators.contains(leftToken) && rightToken != Xas99Types.OP_REGISTER &&
+                    !Xas99Util.isLocalLabelExpr(right.getPsi())) {
                 return fix(Xas99CodeStyleSettings.XAS99_STRICT ? 0 : 1);
             }
             // everything else remains untouched
@@ -151,14 +175,67 @@ public class Xas99Block extends AbstractBlock {
         return Spacing.createSpacing(size, size, 0, true, 0);
     }
 
-    private int getPadWithinInstruction(PsiElement instruction) {
+    private int getPadDiffWithinInstruction(PsiElement instruction) {
         if (instruction.getChildren().length == 0)  // doesn't include mnemonic token
             return 0;
+        // instruction parts
         int mnemonicLength = instruction.getFirstChild().getTextLength();
-        int argumentLength = instruction.getLastChild().getTextLength();
-        int currentSpaces = instruction.getTextLength() - mnemonicLength - argumentLength;
-        int targetSpaces = Xas99CodeStyleSettings.XAS99_OPERANDS_TAB_STOP - Xas99CodeStyleSettings.XAS99_MNEMONIC_TAB_STOP - mnemonicLength;
+        int operandsLength = instruction.getLastChild().getTextLength();
+        // operands
+        int opsSpaceLength = 0;
+        int opsSpaceCount = 0;
+        PsiElement arg = instruction.getLastChild().getFirstChild();
+        PsiElement prev = null;
+        while (arg != null) {
+            if (arg instanceof PsiWhiteSpace) {
+                // count current spaces
+                opsSpaceLength += arg.getTextLength();
+                arg = arg.getNextSibling();
+                continue;
+            }
+            // compute desired spaces (re-implementation of Block logic above)
+            IElementType argToken = arg.getNode().getElementType();
+            PsiElement next = arg.getNextSibling();
+            if (next instanceof PsiWhiteSpace) {
+                next = next.getNextSibling();  // never two PsiWhiteSpace in a row
+            }
+            if (signs.contains(argToken)) {
+                if (!isTokenSign(arg.getNode()))
+                    opsSpaceCount += 2;
+            } else if (operators.contains(argToken)) {
+                if (prev != null && prev.getNode().getElementType() != Xas99Types.OP_REGISTER)
+                    ++opsSpaceCount;  // before operator
+                if (next != null && (next.getNode().getElementType() != Xas99Types.OP_REGISTER &&
+                        !Xas99Util.isLocalLabelExpr(next)))
+                    ++opsSpaceCount;  // after operator
+            } else if (argToken == Xas99Types.OP_SEP) {
+                ++opsSpaceCount;  // after operator
+            }
+            // no spacing with parens, as no space on one side, and operator on other
+            prev = arg;
+            arg = arg.getNextSibling();
+        }
+        // compute spacing diff, within instruction(!)
+        int currentSpaces = instruction.getTextLength() - mnemonicLength - (operandsLength - opsSpaceLength);
+        int targetSpaces = (Xas99CodeStyleSettings.XAS99_OPERANDS_TAB_STOP -
+                Xas99CodeStyleSettings.XAS99_MNEMONIC_TAB_STOP - mnemonicLength) +  // mnemonic spaces
+                (Xas99CodeStyleSettings.XAS99_STRICT ? 0 : opsSpaceCount);  // operands spaces
         return targetSpaces - currentSpaces;  // can be negative
+    }
+
+    private boolean isTokenSign(ASTNode node) {
+        // +/- is a sign if to the left there is ...
+        // - nothing
+        // - another +/-
+        // - a ~
+        // - any other operator
+        ASTNode left = node.getTreePrev();
+        if (left instanceof PsiWhiteSpace)
+            left = left.getTreePrev();  // skip whitespace
+        if (left == null)
+            return true;
+        IElementType leftToken = left.getElementType();
+        return separators.contains(leftToken) || signs.contains(leftToken) || operators.contains(leftToken);
     }
 
 }

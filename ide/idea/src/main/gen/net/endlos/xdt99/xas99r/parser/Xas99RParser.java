@@ -1271,7 +1271,7 @@ public class Xas99RParser implements PsiParser, LightPsiParser {
   }
 
   /* ********************************************************** */
-  // REGISTER | REGISTER0 | INT | PP_PARAM
+  // REGISTER | REGISTER0 | INT | PP_PARAM | IDENT
   public static boolean opRegister(PsiBuilder b, int l) {
     if (!recursion_guard_(b, l, "opRegister")) return false;
     boolean r;
@@ -1280,6 +1280,7 @@ public class Xas99RParser implements PsiParser, LightPsiParser {
     if (!r) r = consumeToken(b, REGISTER0);
     if (!r) r = consumeToken(b, INT);
     if (!r) r = consumeToken(b, PP_PARAM);
+    if (!r) r = consumeToken(b, IDENT);
     exit_section_(b, l, m, r, false, null);
     return r;
   }

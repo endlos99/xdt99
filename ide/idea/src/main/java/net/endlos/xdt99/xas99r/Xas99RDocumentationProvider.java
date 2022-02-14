@@ -18,7 +18,6 @@ public class Xas99RDocumentationProvider extends AbstractDocumentationProvider {
 
     @Override
     // show line of label definition when hovering/asking for label use
-    // TODO: add preceding line comment, if available
     public @Nullable String generateDoc(PsiElement element, @Nullable PsiElement originalElement) {
         if (element instanceof Xas99RLabeldef) {  // for some reason, we get Labeldef instead of OpLabel
             final String symbol = ((Xas99RLabeldef) element).getName();

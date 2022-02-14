@@ -16,7 +16,6 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class Xas99RReference extends PsiReferenceBase<PsiElement> implements PsiPolyVariantReference {
-    private final String dummy = CompletionUtilCore.DUMMY_IDENTIFIER_TRIMMED.toUpperCase();
     private final String label;
     private final int offset;
     private final int distance;
@@ -27,8 +26,6 @@ public class Xas99RReference extends PsiReferenceBase<PsiElement> implements Psi
         offset = Xas99RUtil.findBeginningOfLine(element);
         distance = Xas99RUtil.getDistance(label, element);
     }
-
-    // highlighting occurrences
 
     @Override
     public ResolveResult @NotNull [] multiResolve(boolean incompleteCode) {

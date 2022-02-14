@@ -29,6 +29,8 @@ public class Xas99RSyntaxHighlighter extends SyntaxHighlighterBase {
     public static final TokenSet directives = TokenSet.create(Xas99RTypes.DIR_L, Xas99RTypes.DIR_E, Xas99RTypes.DIR_ES,
             Xas99RTypes.DIR_EO, Xas99RTypes.DIR_R, Xas99RTypes.DIR_T, Xas99RTypes.DIR_S, Xas99RTypes.DIR_O,
             Xas99RTypes.DIR_X);
+    public static final TokenSet text = TokenSet.create(Xas99RTypes.OP_QUOTE, Xas99RTypes.TEXT, Xas99RTypes.OP_FQUOTE,
+            Xas99RTypes.FNAME);
     public static final TokenSet operators = TokenSet.create(Xas99RTypes.OP_AT, Xas99RTypes.OP_AST,
             Xas99RTypes.OP_PLUS, Xas99RTypes.OP_MINUS, Xas99RTypes.OP_NOT, Xas99RTypes.OP_LPAREN, Xas99RTypes.OP_RPAREN,
             Xas99RTypes.OP_MISC, Xas99RTypes.MOD_AUTO, Xas99RTypes.MOD_LEN, Xas99RTypes.MOD_XBANK);
@@ -111,7 +113,7 @@ public class Xas99RSyntaxHighlighter extends SyntaxHighlighterBase {
             return IDENT_KEYS;
         } else if (tokenType.equals(Xas99RTypes.INT)) {
             return VALUE_KEYS;
-        } else if (tokenType.equals(Xas99RTypes.TEXT)) {
+        } else if (text.contains(tokenType)) {
             return TEXT_KEYS;
         } else if (tokenType.equals(Xas99RTypes.REGISTER) || tokenType.equals(Xas99RTypes.REGISTER0)) {
             return REGISTER_KEYS;

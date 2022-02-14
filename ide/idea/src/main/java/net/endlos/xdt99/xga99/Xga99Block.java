@@ -4,21 +4,12 @@ import com.intellij.formatting.*;
 import com.intellij.lang.ASTNode;
 import com.intellij.psi.PsiComment;
 import com.intellij.psi.PsiElement;
+import com.intellij.psi.PsiWhiteSpace;
 import com.intellij.psi.TokenType;
-import com.intellij.psi.codeStyle.CodeStyleSettings;
 import com.intellij.psi.formatter.common.AbstractBlock;
 import com.intellij.psi.tree.IElementType;
 import com.intellij.psi.tree.TokenSet;
-import net.endlos.xdt99.xas99.Xas99Block;
-import net.endlos.xdt99.xas99.Xas99Util;
-import net.endlos.xdt99.xas99.psi.Xas99Directive;
-import net.endlos.xdt99.xas99.psi.Xas99Instruction;
-import net.endlos.xdt99.xas99.psi.Xas99Labeldef;
-import net.endlos.xdt99.xas99.psi.Xas99Types;
-import net.endlos.xdt99.xga99.psi.Xga99Directive;
-import net.endlos.xdt99.xga99.psi.Xga99Instruction;
-import net.endlos.xdt99.xga99.psi.Xga99Labeldef;
-import net.endlos.xdt99.xga99.psi.Xga99Types;
+import net.endlos.xdt99.xga99.psi.*;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -28,8 +19,10 @@ import java.util.List;
 public class Xga99Block extends AbstractBlock {
     private final static TokenSet statements = TokenSet.create(Xga99Types.INSTRUCTION, Xga99Types.DIRECTIVE,
             Xga99Types.PREPROCESSOR, Xga99Types.UNKNOWN_MNEM);
-    private final static TokenSet operators = TokenSet.create(Xga99Types.OP_PLUS, Xga99Types.OP_MINUS,
-            Xga99Types.OP_AST, Xga99Types.OP_MISC);
+    private final static TokenSet operators = TokenSet.create(Xga99Types.OP_AST, Xga99Types.OP_MISC);
+    private final static TokenSet signs = TokenSet.create(Xga99Types.OP_PLUS, Xga99Types.OP_MINUS);
+    private final static TokenSet separators = TokenSet.create(Xga99Types.OP_SEP, Xga99Types.OP_LPAREN,
+            Xga99Types.OP_NOT);
     private final ASTNode myPreviousNode;
 
     public Xga99Block(@NotNull ASTNode node) {
@@ -44,16 +37,17 @@ public class Xga99Block extends AbstractBlock {
 
     @Override
     protected List<Block> buildChildren() {
-        List<Block> blocks = new ArrayList<Block>();
-        ASTNode child = myNode.getFirstChildNode();
+        List<Block> blocks = new ArrayList<>();
         ASTNode previousChild = null;
+        ASTNode child = myNode.getFirstChildNode();
         while (child != null) {
             if (child.getElementType() == Xga99Types.CRLF) {
                 blocks.add(new Xga99Block(child, previousChild));
                 previousChild = null;
             } else if (child.getElementType() != TokenType.WHITE_SPACE) {
-                if (child.getTextLength() > 0)  // mostly required for potentially empty PsiErrorElement nodes
+                if (child.getTextLength() > 0) {  // mostly required for potentially empty PsiErrorElement nodes
                     blocks.add(new Xga99Block(child, previousChild));
+                }
                 previousChild = child;
             }
             child = child.getTreeNext();
@@ -97,12 +91,17 @@ public class Xga99Block extends AbstractBlock {
             else if (rightToken == Xga99Types.COMMENT) {
                 PsiElement e = left.getPsi();
                 if (left.getElementType() == Xga99Types.CRLF) {
-                    return null;  // comment as line comment: leave untouched
-                } else if (e instanceof Xga99Instruction || e instanceof Xga99Directive) {
-                    int extraLength = getPadWithinInstruction(e);  // extra padding between mnemonic and ops
-                    return pad(Xga99CodeStyleSettings.XGA99_COMMENT_TAB_STOP - Xga99CodeStyleSettings.XGA99_MNEMONIC_TAB_STOP,
-                            left.getTextLength() + extraLength);  // comment after instruction
+                    // whitespace <-> comment: line comment, leave untouched
+                    return null;
+                } else if (e instanceof Xga99Instruction || e instanceof Xga99Directive ||
+                        e instanceof Xga99Preprocessor) {
+                    // instruction <-> comment (with or without operands)
+                    int diffLength = getPadDiffWithinInstruction(e);  // anticipated padding change within instruction
+                    return pad(Xga99CodeStyleSettings.XGA99_COMMENT_TAB_STOP -
+                                    Xga99CodeStyleSettings.XGA99_MNEMONIC_TAB_STOP,
+                            left.getTextLength() + diffLength);  // comment after instruction
                 } else {
+                    // label <-> comment
                     int extraLength = 0;
                     if (left.getElementType() == Xga99Types.OP_COLON) {
                         // add Labeldef length if continuation label
@@ -114,11 +113,11 @@ public class Xga99Block extends AbstractBlock {
                             left.getTextLength() + extraLength);  // comment after label only
                 }
             }
-            // separator <-> argument
+            // separator <-> operand
             else if (leftToken == Xga99Types.OP_SEP) {
                 return fix(Xga99CodeStyleSettings.XGA99_STRICT ? 0 : 1);
             }
-            // argument <-> separator
+            // operand <-> separator
             else if (rightToken == Xga99Types.OP_SEP) {
                 return fix(0);
             }
@@ -126,7 +125,22 @@ public class Xga99Block extends AbstractBlock {
             else if (leftToken == Xga99Types.OP_LPAREN || rightToken == Xga99Types.OP_RPAREN) {
                 return fix(0);
             }
-            // operator <-> * but local label, and vice versa
+            // * <-> +/- signs and operators <-> *
+            else if (signs.contains(leftToken)) {
+                // no matter what right is, is left sign or operator?
+                return fix(isTokenSign(left) ? 0 : (Xga99CodeStyleSettings.XGA99_STRICT ? 0 : 1));
+            }
+            else if (signs.contains(rightToken)) {
+                // +/- <-> +/- covered by previous if case
+                return fix(Xga99CodeStyleSettings.XGA99_STRICT ? 0 : 1);  // operator
+            }
+            else if (leftToken == Xga99Types.OP_NOT) {
+                return fix(0);  // unary ~ is not ambiguous
+            }
+            // * <-> operator <-> * but register and local label, and vice versa
+            else if (operators.contains(rightToken)) {
+                return fix(Xga99CodeStyleSettings.XGA99_STRICT ? 0 : 1);
+            }
             else if ((operators.contains(leftToken) && !Xga99Util.isLocalLabelExpr(right.getPsi()))) {
                 return fix(Xga99CodeStyleSettings.XGA99_STRICT ? 0 : 1);
             }
@@ -151,14 +165,66 @@ public class Xga99Block extends AbstractBlock {
         return Spacing.createSpacing(size, size, 0, true, 0);
     }
 
-    private int getPadWithinInstruction(PsiElement instruction) {
+    private int getPadDiffWithinInstruction(PsiElement instruction) {
         if (instruction.getChildren().length == 0)  // doesn't include mnemonic token
             return 0;
+        // instruction parts
         int mnemonicLength = instruction.getFirstChild().getTextLength();
-        int argumentLength = instruction.getLastChild().getTextLength();
-        int currentSpaces = instruction.getTextLength() - mnemonicLength - argumentLength;
-        int targetSpaces = Xga99CodeStyleSettings.XGA99_OPERANDS_TAB_STOP - Xga99CodeStyleSettings.XGA99_MNEMONIC_TAB_STOP - mnemonicLength;
+        int operandsLength = instruction.getLastChild().getTextLength();
+        // operands
+        int opsSpaceLength = 0;
+        int opsSpaceCount = 0;
+        PsiElement arg = instruction.getLastChild().getFirstChild();
+        PsiElement prev = null;
+        while (arg != null) {
+            if (arg instanceof PsiWhiteSpace) {
+                // count current spaces
+                opsSpaceLength += arg.getTextLength();
+                arg = arg.getNextSibling();
+                continue;
+            }
+            // compute desired spaces (re-implementation of Block logic above)
+            IElementType argToken = arg.getNode().getElementType();
+            PsiElement next = arg.getNextSibling();
+            if (next instanceof PsiWhiteSpace) {
+                next = next.getNextSibling();  // never two PsiWhiteSpace in a row
+            }
+            if (signs.contains(argToken)) {
+                if (!isTokenSign(arg.getNode()))
+                    opsSpaceCount += 2;
+            } else if (operators.contains(argToken)) {
+                if (prev != null)
+                    ++opsSpaceCount;  // before operator
+                if (next != null && !Xga99Util.isLocalLabelExpr(next))
+                    ++opsSpaceCount;  // after operator
+            } else if (argToken == Xga99Types.OP_SEP) {
+                ++opsSpaceCount;  // after operator
+            }
+            // no spacing with parens, as no space on one side, and operator on other
+            prev = arg;
+            arg = arg.getNextSibling();
+        }
+        // compute spacing diff, within instruction(!)
+        int currentSpaces = instruction.getTextLength() - mnemonicLength - (operandsLength - opsSpaceLength);
+        int targetSpaces = (Xga99CodeStyleSettings.XGA99_OPERANDS_TAB_STOP -
+                Xga99CodeStyleSettings.XGA99_MNEMONIC_TAB_STOP - mnemonicLength) +  // mnemonic spaces
+                (Xga99CodeStyleSettings.XGA99_STRICT ? 0 : opsSpaceCount);  // operands spaces
         return targetSpaces - currentSpaces;  // can be negative
+    }
+
+    private boolean isTokenSign(ASTNode node) {
+        // +/- is a sign if to the left there is ...
+        // - nothing
+        // - another +/-
+        // - a ~
+        // - any other operator
+        ASTNode left = node.getTreePrev();
+        if (left instanceof PsiWhiteSpace)
+            left = left.getTreePrev();  // skip whitespace
+        if (left == null)
+            return true;
+        IElementType leftToken = left.getElementType();
+        return separators.contains(leftToken) || signs.contains(leftToken) || operators.contains(leftToken);
     }
 
 }

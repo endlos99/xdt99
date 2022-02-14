@@ -38,7 +38,7 @@ public class Xdt99EditorWriteActionHandler extends EditorWriteActionHandler {
         int stop;
 
         // column is 0-based, tab stops are 1-based
-        if (LangDataKeys.LANGUAGE.getData(dataContext) != Xas99Language.INSTANCE) {
+        if (LangDataKeys.LANGUAGE.getData(dataContext) == Xas99Language.INSTANCE) {
             if (column < Xas99CodeStyleSettings.XAS99_MNEMONIC_TAB_STOP - 1) {
                 stop = Xas99CodeStyleSettings.XAS99_MNEMONIC_TAB_STOP - 1;
             } else if (column < Xas99CodeStyleSettings.XAS99_OPERANDS_TAB_STOP - 1) {
@@ -48,7 +48,7 @@ public class Xdt99EditorWriteActionHandler extends EditorWriteActionHandler {
             } else {
                 stop = column + 4;
             }
-        } else if (LangDataKeys.LANGUAGE.getData(dataContext) != Xas99RLanguage.INSTANCE) {
+        } else if (LangDataKeys.LANGUAGE.getData(dataContext) == Xas99RLanguage.INSTANCE) {
             if (column < Xas99RCodeStyleSettings.XAS99_MNEMONIC_TAB_STOP - 1) {
                 stop = Xas99RCodeStyleSettings.XAS99_MNEMONIC_TAB_STOP - 1;
             } else if (column < Xas99RCodeStyleSettings.XAS99_OPERANDS_TAB_STOP - 1) {
@@ -58,7 +58,7 @@ public class Xdt99EditorWriteActionHandler extends EditorWriteActionHandler {
             } else {
                 stop = column + 4;
             }
-        } else if (LangDataKeys.LANGUAGE.getData(dataContext) != Xga99Language.INSTANCE) {
+        } else if (LangDataKeys.LANGUAGE.getData(dataContext) == Xga99Language.INSTANCE) {
             if (column < Xga99CodeStyleSettings.XGA99_MNEMONIC_TAB_STOP - 1) {
                 stop = Xga99CodeStyleSettings.XGA99_MNEMONIC_TAB_STOP - 1;
             } else if (column < Xga99CodeStyleSettings.XGA99_OPERANDS_TAB_STOP - 1) {
@@ -68,7 +68,7 @@ public class Xdt99EditorWriteActionHandler extends EditorWriteActionHandler {
             } else {
                 stop = column + 4;
             }
-        } else if (LangDataKeys.LANGUAGE.getData(dataContext) != Xga99RLanguage.INSTANCE) {
+        } else if (LangDataKeys.LANGUAGE.getData(dataContext) == Xga99RLanguage.INSTANCE) {
             if (column < Xga99RCodeStyleSettings.XGA99_MNEMONIC_TAB_STOP - 1) {
                 stop = Xga99RCodeStyleSettings.XGA99_MNEMONIC_TAB_STOP - 1;
             } else if (column < Xga99RCodeStyleSettings.XGA99_OPERANDS_TAB_STOP - 1) {

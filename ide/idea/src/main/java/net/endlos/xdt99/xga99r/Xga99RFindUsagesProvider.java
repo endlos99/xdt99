@@ -9,16 +9,11 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 public class Xga99RFindUsagesProvider implements FindUsagesProvider {
-//    private static final DefaultWordsScanner WORDS_SCANNER =
-//            new DefaultWordsScanner(new Xga99RLexerAdapter(),
-//                    TokenSet.create(Xga99RTypes.IDENT),
-//                    TokenSet.create(Xga99RTypes.COMMENT, Xga99RTypes.LCOMMENT),
-//                    TokenSet.create(Xga99RTypes.TEXT));
 
     @Nullable
     @Override
     public WordsScanner getWordsScanner() {
-        return null;  // not needed
+        return null;
     }
 
     @Override

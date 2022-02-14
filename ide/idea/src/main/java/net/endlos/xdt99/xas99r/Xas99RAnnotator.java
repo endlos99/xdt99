@@ -23,8 +23,17 @@ public class Xas99RAnnotator implements Annotator {
             holder.newSilentAnnotation(HighlightSeverity.INFORMATION)
                     .range(element.getTextRange()).textAttributes(Xas99RSyntaxHighlighter.REGISTER).create();
         } else if (element instanceof Xas99RLabeldef) {
+            Xas99RLabeldef labeldef = (Xas99RLabeldef) element;
+            // duplicate symbols?
+            List<Xas99RLabeldef> definitions = Xas99RUtil.findLabels(element.getProject(), labeldef.getName(), 0,
+                    element, 0, false);
+            if (definitions.size() > 1) {
+                holder.newAnnotation(HighlightSeverity.ERROR, "Duplicate symbols")
+                        .range(element.getTextRange()).highlightType(ProblemHighlightType.GENERIC_ERROR).create();
+                return;
+            }
             // is defined label used at all?
-            List<Xas99ROpLabel> usages = Xas99RUtil.findLabelUsages((Xas99RLabeldef) element);
+            List<Xas99ROpLabel> usages = Xas99RUtil.findLabelUsages(labeldef);
             if (usages.isEmpty()) {
                 holder.newAnnotation(HighlightSeverity.WARNING, "Unused label")
                         .range(element.getTextRange()).highlightType(ProblemHighlightType.LIKE_UNUSED_SYMBOL).create();

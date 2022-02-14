@@ -18,6 +18,15 @@ public class Xga99RAnnotator implements Annotator {
     @Override
     public void annotate(@NotNull final PsiElement element, @NotNull AnnotationHolder holder) {
         if (element instanceof Xga99RLabeldef) {
+            Xga99RLabeldef labeldef = (Xga99RLabeldef) element;
+            // duplicate symbols?
+            List<Xga99RLabeldef> definitions = Xga99RUtil.findLabels(element.getProject(), labeldef.getName(), 0,
+                    element, 0, false);
+            if (definitions.size() > 1) {
+                holder.newAnnotation(HighlightSeverity.ERROR, "Duplicate symbols")
+                        .range(element.getTextRange()).highlightType(ProblemHighlightType.GENERIC_ERROR).create();
+                return;
+            }
             // is defined label used at all?
             List<Xga99ROpLabel> usages = Xga99RUtil.findLabelUsages((Xga99RLabeldef) element);
             if (usages.isEmpty()) {
