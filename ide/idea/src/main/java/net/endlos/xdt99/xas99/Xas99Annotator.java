@@ -27,12 +27,14 @@ public class Xas99Annotator implements Annotator {
         } else if (element instanceof Xas99Labeldef) {
             Xas99Labeldef labeldef = (Xas99Labeldef) element;
             // duplicate symbols?
-            List<Xas99Labeldef> definitions = Xas99Util.findLabels(element.getProject(), labeldef.getName(), 0,
-                    element, 0, false);
-            if (definitions.size() > 1) {
-                holder.newAnnotation(HighlightSeverity.ERROR, "Duplicate symbols")
-                        .range(element.getTextRange()).highlightType(ProblemHighlightType.GENERIC_ERROR).create();
-                return;
+            if (!labeldef.getName().startsWith(LOCAL_LABEL_PREFIX)) {
+                List<Xas99Labeldef> definitions = Xas99Util.findLabels(element.getProject(), labeldef.getName(),
+                        0, element, 0, false);
+                if (definitions.size() > 1) {
+                    holder.newAnnotation(HighlightSeverity.ERROR, "Duplicate symbols")
+                            .range(element.getTextRange()).highlightType(ProblemHighlightType.GENERIC_ERROR).create();
+                    return;
+                }
             }
             // is defined label used at all?
             List<Xas99OpLabel> usages = Xas99Util.findLabelUsages(labeldef);

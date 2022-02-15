@@ -7,6 +7,7 @@ import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.psi.PsiDocumentManager;
 import com.intellij.psi.PsiElement;
 import com.intellij.psi.PsiManager;
+import com.intellij.psi.PsiWhiteSpace;
 import com.intellij.psi.search.FileTypeIndex;
 import com.intellij.psi.search.GlobalSearchScope;
 import com.intellij.psi.util.PsiTreeUtil;
@@ -33,9 +34,7 @@ public class Xga99RUtil {
                 Xga99RFile file = (Xga99RFile) PsiManager.getInstance(project).findFile(virtualFile);
                 if (file == null)
                     continue;
-                Xga99RLabeldef[] labels = PsiTreeUtil.getChildrenOfType(file, Xga99RLabeldef.class);
-                if (labels == null)
-                    continue;
+                Collection<Xga99RLabeldef> labels = PsiTreeUtil.findChildrenOfType(file, Xga99RLabeldef.class);
                 for (Xga99RLabeldef label : labels) {
                     String normalizedLabel = label.getText().toUpperCase();
                     if ((!partial && normalizedIdent.equals(normalizedLabel)) ||
@@ -84,10 +83,8 @@ public class Xga99RUtil {
             Xga99RFile file = (Xga99RFile) PsiManager.getInstance(project).findFile(virtualFile);
             if (file == null)
                 continue;
-            Xga99RLabeldef[] labels = PsiTreeUtil.getChildrenOfType(file, Xga99RLabeldef.class);
-            if (labels != null) {
-                Collections.addAll(result, labels);
-            }
+            Collection<Xga99RLabeldef> labels = PsiTreeUtil.findChildrenOfType(file, Xga99RLabeldef.class);
+            result.addAll(labels);
         }
         return result;
     }
@@ -169,12 +166,13 @@ public class Xga99RUtil {
     }
 
     private static boolean isNegativeDirection(PsiElement element) {
-        try {
-            PsiElement prev = element.getParent().getParent().getPrevSibling();
-            return prev.getNode().getElementType() == Xga99RTypes.OP_MINUS;
-        } catch (NullPointerException e) {
-            return false;
+        PsiElement prev = element.getPrevSibling();
+        if (prev instanceof PsiWhiteSpace) {
+            prev = prev.getPrevSibling();
         }
+        if (prev == null)
+            return false;
+        return prev.getNode().getElementType() == Xga99RTypes.OP_MINUS;
     }
 
     public static int findBeginningOfLine(PsiElement element) {
@@ -190,6 +188,7 @@ public class Xga99RUtil {
     // check if element tree is equivalent to positive local label (-!... is ignored):
     // expr -> op_address -> op_label -> ident with '!'
     public static boolean isLocalLabelExpr(PsiElement element) {
-        return element instanceof Xga99ROpLabel && ((Xga99ROpLabel) element).getName().charAt(0) == '!';    }
+        return element instanceof Xga99ROpLabel && ((Xga99ROpLabel) element).getName().charAt(0) == '!';
+    }
 
 }

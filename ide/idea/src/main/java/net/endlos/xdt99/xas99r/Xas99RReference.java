@@ -1,8 +1,5 @@
 package net.endlos.xdt99.xas99r;
 
-import com.intellij.codeInsight.completion.CompletionUtilCore;
-import com.intellij.codeInsight.lookup.LookupElement;
-import com.intellij.codeInsight.lookup.LookupElementBuilder;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.util.TextRange;
 import com.intellij.psi.*;

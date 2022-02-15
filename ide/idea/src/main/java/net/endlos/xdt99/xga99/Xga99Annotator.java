@@ -25,12 +25,14 @@ public class Xga99Annotator implements Annotator {
         if (element instanceof Xga99Labeldef) {
             Xga99Labeldef labeldef = (Xga99Labeldef) element;
             // duplicate symbols?
-            List<Xga99Labeldef> definitions = Xga99Util.findLabels(element.getProject(), labeldef.getName(), 0,
-                    element, 0, false);
-            if (definitions.size() > 1) {
-                holder.newAnnotation(HighlightSeverity.ERROR, "Duplicate symbols")
-                        .range(element.getTextRange()).highlightType(ProblemHighlightType.GENERIC_ERROR).create();
-                return;
+            if (!labeldef.getName().startsWith(LOCAL_LABEL_PREFIX)) {
+                List<Xga99Labeldef> definitions = Xga99Util.findLabels(element.getProject(), labeldef.getName(),
+                        0, element, 0, false);
+                if (definitions.size() > 1) {
+                    holder.newAnnotation(HighlightSeverity.ERROR, "Duplicate symbols")
+                            .range(element.getTextRange()).highlightType(ProblemHighlightType.GENERIC_ERROR).create();
+                    return;
+                }
             }
             // is defined label used at all?
             List<Xga99OpLabel> usages = Xga99Util.findLabelUsages(labeldef);
@@ -43,6 +45,7 @@ public class Xga99Annotator implements Annotator {
             String label = element.getText();
             if (label == null)
                 return;
+            // highlight undefined symbols
             TextRange labelRange = element.getTextRange();
             holder.newSilentAnnotation(HighlightSeverity.INFORMATION)
                     .range(labelRange).textAttributes(Xga99SyntaxHighlighter.IDENT).create();

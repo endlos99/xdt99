@@ -25,12 +25,14 @@ public class Xas99RAnnotator implements Annotator {
         } else if (element instanceof Xas99RLabeldef) {
             Xas99RLabeldef labeldef = (Xas99RLabeldef) element;
             // duplicate symbols?
-            List<Xas99RLabeldef> definitions = Xas99RUtil.findLabels(element.getProject(), labeldef.getName(), 0,
-                    element, 0, false);
-            if (definitions.size() > 1) {
-                holder.newAnnotation(HighlightSeverity.ERROR, "Duplicate symbols")
-                        .range(element.getTextRange()).highlightType(ProblemHighlightType.GENERIC_ERROR).create();
-                return;
+            if (!labeldef.getName().startsWith(LOCAL_LABEL_PREFIX)) {
+                List<Xas99RLabeldef> definitions = Xas99RUtil.findLabels(element.getProject(), labeldef.getName(),
+                        0, element, 0, false);
+                if (definitions.size() > 1) {
+                    holder.newAnnotation(HighlightSeverity.ERROR, "Duplicate symbols")
+                            .range(element.getTextRange()).highlightType(ProblemHighlightType.GENERIC_ERROR).create();
+                    return;
+                }
             }
             // is defined label used at all?
             List<Xas99ROpLabel> usages = Xas99RUtil.findLabelUsages(labeldef);
@@ -43,6 +45,7 @@ public class Xas99RAnnotator implements Annotator {
             String label = element.getText();
             if (label == null)
                 return;
+            // highlight undefined symbols
             TextRange labelRange = element.getTextRange();
             holder.newSilentAnnotation(HighlightSeverity.INFORMATION)
                     .range(labelRange).textAttributes(Xas99RSyntaxHighlighter.IDENT).create();

@@ -20,15 +20,17 @@ public class Xga99RAnnotator implements Annotator {
         if (element instanceof Xga99RLabeldef) {
             Xga99RLabeldef labeldef = (Xga99RLabeldef) element;
             // duplicate symbols?
-            List<Xga99RLabeldef> definitions = Xga99RUtil.findLabels(element.getProject(), labeldef.getName(), 0,
-                    element, 0, false);
-            if (definitions.size() > 1) {
-                holder.newAnnotation(HighlightSeverity.ERROR, "Duplicate symbols")
-                        .range(element.getTextRange()).highlightType(ProblemHighlightType.GENERIC_ERROR).create();
-                return;
+            if (!labeldef.getName().startsWith(LOCAL_LABEL_PREFIX)) {
+                List<Xga99RLabeldef> definitions = Xga99RUtil.findLabels(element.getProject(), labeldef.getName(),
+                        0, element, 0, false);
+                if (definitions.size() > 1) {
+                    holder.newAnnotation(HighlightSeverity.ERROR, "Duplicate symbols")
+                            .range(element.getTextRange()).highlightType(ProblemHighlightType.GENERIC_ERROR).create();
+                    return;
+                }
             }
             // is defined label used at all?
-            List<Xga99ROpLabel> usages = Xga99RUtil.findLabelUsages((Xga99RLabeldef) element);
+            List<Xga99ROpLabel> usages = Xga99RUtil.findLabelUsages(labeldef);
             if (usages.isEmpty()) {
                 holder.newAnnotation(HighlightSeverity.WARNING, "Unused label")
                         .range(element.getTextRange()).highlightType(ProblemHighlightType.LIKE_UNUSED_SYMBOL).create();
@@ -38,6 +40,7 @@ public class Xga99RAnnotator implements Annotator {
             String label = element.getText();
             if (label == null)
                 return;
+            // highlight undefined symbols
             TextRange labelRange = element.getTextRange();
             holder.newSilentAnnotation(HighlightSeverity.INFORMATION)
                     .range(labelRange).textAttributes(Xga99RSyntaxHighlighter.IDENT).create();

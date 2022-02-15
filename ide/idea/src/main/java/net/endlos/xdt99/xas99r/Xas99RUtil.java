@@ -7,6 +7,7 @@ import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.psi.PsiDocumentManager;
 import com.intellij.psi.PsiElement;
 import com.intellij.psi.PsiManager;
+import com.intellij.psi.PsiWhiteSpace;
 import com.intellij.psi.search.FileTypeIndex;
 import com.intellij.psi.search.GlobalSearchScope;
 import com.intellij.psi.util.PsiTreeUtil;
@@ -165,12 +166,13 @@ public class Xas99RUtil {
     }
 
     private static boolean isNegativeDirection(PsiElement element) {
-        try {
-            PsiElement prev = element.getParent().getParent().getPrevSibling();
-            return prev.getNode().getElementType() == Xas99RTypes.OP_MINUS;
-        } catch (NullPointerException e) {
-            return false;
+        PsiElement prev = element.getPrevSibling();
+        if (prev instanceof PsiWhiteSpace) {
+            prev = prev.getPrevSibling();
         }
+        if (prev == null)
+            return false;
+        return prev.getNode().getElementType() == Xas99RTypes.OP_MINUS;
     }
 
     public static int findBeginningOfLine(PsiElement element) {

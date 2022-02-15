@@ -7,6 +7,7 @@ import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.psi.PsiDocumentManager;
 import com.intellij.psi.PsiElement;
 import com.intellij.psi.PsiManager;
+import com.intellij.psi.PsiWhiteSpace;
 import com.intellij.psi.search.FileTypeIndex;
 import com.intellij.psi.search.GlobalSearchScope;
 import com.intellij.psi.util.PsiTreeUtil;
@@ -33,9 +34,7 @@ public class Xga99Util {
                 Xga99File file = (Xga99File) PsiManager.getInstance(project).findFile(virtualFile);
                 if (file == null)
                     continue;
-                Xga99Labeldef[] labels = PsiTreeUtil.getChildrenOfType(file, Xga99Labeldef.class);
-                if (labels == null)
-                    continue;
+                Collection<Xga99Labeldef> labels = PsiTreeUtil.findChildrenOfType(file, Xga99Labeldef.class);
                 for (Xga99Labeldef label : labels) {
                     String normalizedLabel = label.getText().toUpperCase();
                     if ((!partial && normalizedIdent.equals(normalizedLabel)) ||
@@ -84,10 +83,8 @@ public class Xga99Util {
             Xga99File file = (Xga99File) PsiManager.getInstance(project).findFile(virtualFile);
             if (file == null)
                 continue;
-            Xga99Labeldef[] labels = PsiTreeUtil.getChildrenOfType(file, Xga99Labeldef.class);
-            if (labels != null) {
-                Collections.addAll(result, labels);
-            }
+            Collection<Xga99Labeldef> labels = PsiTreeUtil.findChildrenOfType(file, Xga99Labeldef.class);
+            result.addAll(labels);
         }
         return result;
     }
@@ -169,12 +166,13 @@ public class Xga99Util {
     }
 
     private static boolean isNegativeDirection(PsiElement element) {
-        try {
-            PsiElement prev = element.getParent().getParent().getPrevSibling();
-            return prev.getNode().getElementType() == Xga99Types.OP_MINUS;
-        } catch (NullPointerException e) {
-            return false;
+        PsiElement prev = element.getPrevSibling();
+        if (prev instanceof PsiWhiteSpace) {
+            prev = prev.getPrevSibling();
         }
+        if (prev == null)
+            return false;
+        return prev.getNode().getElementType() == Xga99Types.OP_MINUS;
     }
 
     public static int findBeginningOfLine(PsiElement element) {
