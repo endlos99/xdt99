@@ -163,7 +163,7 @@ private opValue ::=
     expr
     {name="value"}
 opRegister ::=
-    REGISTER | REGISTER0 | INT | PP_PARAM | IDENT
+    REGISTER | REGISTER0 | INT | PP_PARAM | opLabel
     {name="register"}
 opText ::=
     OP_MINUS? (OP_QUOTE TEXT? OP_QUOTE | INT | PP_PARAM)

@@ -108,8 +108,7 @@ public class Xas99RSyntaxHighlighter extends SyntaxHighlighterBase {
             return DIRECTIVE_KEYS;
         } else if (preprocessor.contains(tokenType)) {
             return PREPROCESSOR_KEYS;
-        } else if (tokenType.equals(Xas99RTypes.IDENT) || tokenType.equals(Xas99RTypes.OP_LC) ||
-                tokenType.equals(Xas99RTypes.LOCAL)) {
+        } else if (tokenType.equals(Xas99RTypes.OP_LC) || tokenType.equals(Xas99RTypes.LOCAL)) {
             return IDENT_KEYS;
         } else if (tokenType.equals(Xas99RTypes.INT)) {
             return VALUE_KEYS;

@@ -42,10 +42,11 @@ public class Xas99RAnnotator implements Annotator {
             }
         } else if (element instanceof Xas99ROpLabel) {
             // annotate label references
+            if (element.getParent() instanceof Xas99ROpRegister)
+                return;  // actually an alias register
             String label = element.getText();
             if (label == null)
                 return;
-            // highlight undefined symbols
             TextRange labelRange = element.getTextRange();
             holder.newSilentAnnotation(HighlightSeverity.INFORMATION)
                     .range(labelRange).textAttributes(Xas99RSyntaxHighlighter.IDENT).create();

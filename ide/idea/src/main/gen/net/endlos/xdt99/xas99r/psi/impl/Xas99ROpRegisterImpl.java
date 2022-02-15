@@ -27,4 +27,10 @@ public class Xas99ROpRegisterImpl extends ASTWrapperPsiElement implements Xas99R
     else super.accept(visitor);
   }
 
+  @Override
+  @Nullable
+  public Xas99ROpLabel getOpLabel() {
+    return findChildByClass(Xas99ROpLabel.class);
+  }
+
 }

@@ -27,4 +27,10 @@ public class Xas99OpRegisterImpl extends ASTWrapperPsiElement implements Xas99Op
     else super.accept(visitor);
   }
 
+  @Override
+  @Nullable
+  public Xas99OpLabel getOpLabel() {
+    return findChildByClass(Xas99OpLabel.class);
+  }
+
 }

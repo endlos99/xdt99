@@ -7,4 +7,7 @@ import com.intellij.psi.PsiElement;
 
 public interface Xas99OpRegister extends PsiElement {
 
+  @Nullable
+  Xas99OpLabel getOpLabel();
+
 }
