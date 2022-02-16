@@ -27,7 +27,7 @@ import os
 from functools import reduce
 
 
-VERSION = '3.3.1'
+VERSION = '3.3.2'
 
 CONFIG = 'XAS99_CONFIG'
 
@@ -1339,8 +1339,6 @@ class Preprocessor:
         rhs = self.parser.expression(ops[1], well_defined=True, relaxed=True) if len(ops) > 1 else 0
         if isinstance(lhs, Reference) or isinstance(rhs, Reference):
             raise AsmError('Cannot use reference in preprocessor condition')
-        if isinstance(lhs, Address) or isinstance(rhs, Address):
-            self.parser.warn('Comparing against relocatable address', category=Warnings.BAD_USAGE, force=True)
         return lhs, rhs
 
     def str_args(self, ops):
