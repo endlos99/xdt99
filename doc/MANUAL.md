@@ -1518,10 +1518,10 @@ non-standard evaluation.  These warnings can be disabled with option
 `--quiet-arith`.
 
 _Labels_ may be of arbitrary length and may contain arbitrary characters except
-for whitespace and operators (`+-*/$#!@'"`).  Labels not imported or exported by
-`REF` or `DEF`, resp., may even be in Unicode.  An optional colon `:` may be
-appended to the label name.  The colon is not part of the name, but logically
-continues the current line to the next:
+for whitespace and operators (`+-*/%$|&^~#!@'"`).  Labels not imported or 
+exported by `REF` or `DEF`, resp., may even be in Unicode.  An optional colon
+`:` may be appended to the label name.  The colon is not part of the name, but 
+logically continues the current line to the next:
 
     my_label_1:
         equ 1         ; assigns 1 to my_label_1      \

@@ -368,11 +368,11 @@ def runtest():
     with open(Files.error, 'w') as ferr:
         xas(source, '-R', '--color', 'off', '-o', Files.output, stderr=ferr, rc=0)
     expected = """> asxpragw.asm <2> 0005 - start  clr 0            ; WARN
- ***** Warning: Treating as register, did you intend an @address?
+ ***** Warning: Treating 0 as register, did you intend an @address?
  > asxpragw.asm <2> 0010 -        b   @start       ;: warn-opts = off, usage=on
- ***** Warning: Unknown pragma name
+ ***** Warning: Unknown pragma name: USAGE
  > asxpragw.asm <2> 0015 -        seto 2           ; WARN  ;: warn-usage=on, warn-opts=on
- ***** Warning: Treating as register, did you intend an @address?
+ ***** Warning: Treating 2 as register, did you intend an @address?
 """  # extra spaces for content_lines
     if content_lines(Files.error) != expected:
         error('pragmas', 'Incorrect warnings shown')
@@ -380,9 +380,9 @@ def runtest():
     with open(Files.error, 'w') as ferr:
         xas(source, '-R', '--color', 'off', '--quiet-usage', '-o', Files.output, stderr=ferr, rc=0)  # no error
     expected = """> asxpragw.asm <2> 0010 -        b   @start       ;: warn-opts = off, usage=on
- ***** Warning: Unknown pragma name
+ ***** Warning: Unknown pragma name: USAGE
  > asxpragw.asm <2> 0015 -        seto 2           ; WARN  ;: warn-usage=on, warn-opts=on
- ***** Warning: Treating as register, did you intend an @address?
+ ***** Warning: Treating 2 as register, did you intend an @address?
 """
     if content_lines(Files.error) != expected:
         error('pragmas', 'Incorrect warnings shown with --quiet-usage')
@@ -394,6 +394,13 @@ def runtest():
         error('relaxed', 'Incorrect output')
     if len(content_line_array(Files.input)) != 13:
         error('relaxed', 'Incorrect listing size')
+
+    # relaxed indexed addresses with parentheses
+    source = os.path.join(Dirs.sources, 'asrelidx.asm')
+    xas(source, '-R', '-q', '-o', Files.output)
+    ref = os.path.join(Dirs.sources, 'asrelidxr.asm')
+    xas(ref, '-R', '-o', Files.reference)
+    check_binary_files_eq('relindex', Files.output, Files.reference)
 
     # cleanup
     delfile(Dirs.tmp)

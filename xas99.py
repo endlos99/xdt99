@@ -27,7 +27,7 @@ import os
 from functools import reduce
 
 
-VERSION = '3.3.2'
+VERSION = '3.4.0'
 
 CONFIG = 'XAS99_CONFIG'
 
@@ -1103,7 +1103,7 @@ class Symbols:
     def valid(self, name):
         """is name a valid symbol name?"""
         return ((not self.strict and name != '$' and name[0] not in "!@" and
-                 not re.search(r'[-+*/&|^~()#"\',]', name[1:])) or
+                 not re.search(r'[-+*/%&|^~()#"\',]', name[1:])) or
                 (name[0].isalpha() and name.isalnum()))
 
     def add_symbol(self, name, value, lino=None, filename=None, tracked=False, check=True, equ=None):
@@ -1111,7 +1111,7 @@ class Symbols:
         if equ is None:
             equ = Symbols.NONE  # workaround for Python limitation
         if check and not self.valid(name):
-            raise AsmError(f'Invalid symbol name {name}')
+            raise AsmError('Invalid symbol name: ' + name)
         try:
             defined_value, defined_equ, unused = self.symbols[name]
             # existing definition
@@ -1183,18 +1183,18 @@ class Symbols:
     def add_def(self, name):
         """add globally defined symbol (added to symbol table separately)"""
         if not self.valid(name):
-            raise AsmError(f'Invalid symbol name {name}')
+            raise AsmError('Invalid symbol name: ' + name)
         if name in self.externals.definitions:
             _, unit_id = self.externals.definitions[name]
             if unit_id >= 0 and unit_id != self.unit_id:
-                raise AsmError(f'Duplicate definitions for symbol {name}')
+                raise AsmError('Duplicate definitions for symbol {name}')
         value = self.get_symbol(name)
         self.externals.definitions[name] = (value, self.unit_id)
 
     def add_ref(self, name):
         """add referenced symbol (also adds as unknown value to symbol table)"""
         if not self.valid(name):
-            raise AsmError(f'Invalid reference {name}')
+            raise AsmError('Invalid reference: ' + name)
         if name not in self.externals.references:
             self.externals.references.append(name)
             self.add_symbol(name, Reference(name))  # don't set reloc when defining reference
@@ -1554,7 +1554,7 @@ class Parser:
                 include_file = os.path.join(i, native_name.lower() + e)
                 if os.path.isfile(include_file):
                     return include_file
-        raise AsmError(f'File not found: {filename}')
+        raise AsmError('File not found: ' + filename)
 
     def read(self):
         """get next logical line from source files"""
@@ -1611,17 +1611,15 @@ class Parser:
         if not op:
             raise AsmError('Empty address')
         if op[0] == '@':  # memory addressing
-            i = op.find('(')
-            if i >= 0 and op[-1] == ')':
-                register = self.register(op[i + 1:-1])
+            register, start_of_index = self.index(op[1:])
+            if register is not None:
                 if register == 0:
                     raise AsmError('Cannot index with register 0')
-                offset = self.expression(op[1:i])
+                offset = self.expression(op[1:1 + start_of_index])
                 if offset == 0:
                     self.warn('Using indexed address @0, could use *R instead', category=Warnings.BAD_USAGE)
                 return 0b10, register, offset
-            else:
-                return 0b10, 0, self.expression(op[1:])
+            return 0b10, 0, self.expression(op[1:])
         elif op[0] == '*':  # indirect addressing
             if op[-1] == '+':
                 return 0b11, self.register(op[1:-1]), None
@@ -1637,6 +1635,26 @@ class Parser:
             return 0b10, 0, auto
         else:
             return 0b00, self.register(op), None
+
+    def index(self, op):
+        """parse address index, if it exists"""
+        if not op or op[-1] != ')':
+            return None, None
+        i = len(op) - 1  # final ')' is skipped
+        for c in op[-2::-1]:  # op without last ')', reversed
+            if c == '(':
+                break  # get last parenthesized subexpression
+            elif c == ')':
+                return None, None  # index cannot contain additional parentheses
+            i -= 1
+        if i <= 1:
+            return None, None  # no opening '(', or no offset
+        j = i - 2  # check non-whitespace char before '('
+        while j >= 0 and op[j] == ' ':
+            j -= 1
+        if j < 0 or op[j] in '+-*/%&|^~':
+            return None, None
+        return self.register(op[i:-1]), i - 1
 
     def relative(self, op):
         """parse relative address (LC displacement)"""
@@ -1864,17 +1882,17 @@ class Parser:
             elif op.isdigit():
                 r = int(op)
             elif op[0] == '@':
-                raise AsmError('Expected register, found address instead')
+                raise AsmError('Expected register, found address instead: ' + op)
             else:
                 r = self.symbols.get_symbol(op[:6] if self.strict else op)
                 if r is None:
                     raise AsmError('Unknown symbol: ' + op)
                 if isinstance(r, Address):
-                    raise AsmError('Invalid term for register')
+                    raise AsmError('Invalid term for register: ' + op)
         except (TypeError, ValueError):
             raise AsmError('Invalid register:' + op)
         if self.r_prefix and op[0].upper() != 'R':
-            self.warn('Treating as register, did you intend an @address?', category=Warnings.BAD_USAGE)
+            self.warn(f'Treating {op} as register, did you intend an @address?', category=Warnings.BAD_USAGE)
         if not 0 <= r <= 15:
             raise AsmError('Invalid register: ' + op)
         return r
@@ -1992,7 +2010,7 @@ class Pragmas:
             except ValueError:
                 self.parser.warn('Bad value for LWPI pragma')
         else:
-            self.parser.warn('Unknown pragma name')
+            self.parser.warn('Unknown pragma name: ' + name)
 
     def set_operand_demuxer(self, asm, ops):
         """set memory speed for 'unknown' operand targets"""
@@ -2013,7 +2031,7 @@ class Pragmas:
                     name, value = pragma.split('=')
                     self.evaluate(name.strip(), value.strip())
                 except TypeError:
-                    self.parser.warn(f'Malformed pragma {pragma}')
+                    self.parser.warn('Malformed pragma: ' + pragma)
 
     def retrieve(self, comment):
         """retrieve all pragmas from comment"""

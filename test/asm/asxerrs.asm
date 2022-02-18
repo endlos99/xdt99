@@ -54,7 +54,7 @@ label4:
        .endif
        .else                  ;ERROR
        .endif
-       
+
        ; macros
 
        .defm mac1
@@ -114,6 +114,7 @@ uuu    b   uuu                ;ERROR
 
        coc  @nnn, @uuu        ;ERROR
        coc  @nnn, w1          ;OK
+
 
 * NO ERRORS
 

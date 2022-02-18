@@ -206,7 +206,7 @@ def runtest():
     source = os.path.join(Dirs.sources, 'asautoe.asm')
     with open(Files.error, 'w') as ferr:
         xas(source, '-R', '-o', Files.output, stderr=ferr, rc=1)
-    errs = re.findall('Auto-constant defined after AUTO directive', content(Files.error, 'r'))
+    errs = re.findall(r'Auto-constant defined after AUTO directive', content(Files.error, 'r'))
     if len(errs) != 4:
         error('misplaced auto-cons', 'Missing error about auto-cons after AUTO')
 
