@@ -23,7 +23,7 @@ import sys
 import platform
 
 
-VERSION = '3.2.0'
+VERSION = '3.4.1'
 
 CONFIG = 'XHM99_CONFIG'
 
@@ -611,15 +611,17 @@ def main(argv):
     # xdm99 delegation
     cmd.add_argument('filename', type=str, nargs='?',
                      help='HFE image filename')
+    args.add_argument('-X', '--initialize', dest='init', metavar='<size>',
+                      help='initialize disk image (sector count or disk geometry xSxDxT)')  # fix filename mis-parse
     # conversion
-    cmd.add_argument('-T', '--to-hfe', action=GlobStore, dest='tohfe', nargs='+',
-                     metavar='<file>', help='convert disk images to HFE images')
-    cmd.add_argument('-F', '--from-hfe', '--to-dsk_id', action=GlobStore, dest='fromhfe', nargs='+',
-                     metavar='<file>', help='convert HFE images to disk images')
-    cmd.add_argument('-I', '--hfe-info', action=GlobStore, dest='hfeinfo', nargs='+',
-                     metavar='<file>', help='show basic information about HFE images')
-    cmd.add_argument('--dump', action=GlobStore, dest='dump', nargs='+',
-                     metavar='<file>', help='dump raw decoded HFE data')
+    cmd.add_argument('-T', '--to-hfe', action=GlobStore, dest='tohfe', nargs='+', metavar='<file>',
+                     help='convert disk images to HFE images')
+    cmd.add_argument('-F', '--from-hfe', '--to-dsk_id', action=GlobStore, dest='fromhfe', nargs='+', metavar='<file>',
+                     help='convert HFE images to disk images')
+    cmd.add_argument('-I', '--hfe-info', action=GlobStore, dest='hfeinfo', nargs='+', metavar='<file>',
+                     help='show basic information about HFE images')
+    cmd.add_argument('--dump', action=GlobStore, dest='dump', nargs='+', metavar='<file>',
+                     help='dump raw decoded HFE data')
     # general options
     args.add_argument('--color', action='store', dest='color', choices=['off', 'on'],
                       help='enable or disable color output')
@@ -630,6 +632,8 @@ def main(argv):
     except KeyError:
         default_opts = []
     opts, other = args.parse_known_args(default_opts + argv)
+    if opts.init and not opts.filename:
+        args.error('Cannot use -X without filename')
 
     result = []
     console = Console(colors=opts.color)
@@ -643,6 +647,8 @@ def main(argv):
                 disk = HFEDisk(image).to_disk_image()
             except IOError:
                 disk = bytes(1)
+            if opts.init:
+                other += ['-X', opts.init]
             if opts.output:
                 other += ['-o', opts.filename]
             barename = os.path.splitext(os.path.basename(opts.filename))[0]
