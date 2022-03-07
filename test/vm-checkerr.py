@@ -17,6 +17,7 @@ def runtest():
         for i in range(4 * 1600):
             v.write(bytes(2 * 256))  # Disk.bytes_per_sector plus padding
     shutil.copyfile(Disks.recsgen, Disks.work)
+    xvm(Disks.volumes, '1,2', '-X', 'cf', '-q')
 
     # file errors
     with open(Files.error, 'w') as ferr:
@@ -28,6 +29,15 @@ def runtest():
         xvm(Disks.volumes, '1', '-a', 'nosuchfile', stderr=ferr, rc=1)
     if 'Traceback' in content(Files.error, mode='r'):
         error('badfile', 'Bad file not caught')
+
+    with open(Files.error, 'w') as ferr:
+        xvm(Disks.volumes, '1', '-K', 'NOARC', stderr=ferr, rc=1)
+
+    xvm(Disks.volumes, '1', '-Y', '-K', 'ARC', '-q')
+    with open(Files.error, 'w') as ferr:
+        xvm(Disks.volumes, '1', '-K', 'ARC', '-e', 'NOSUCH', stderr=ferr, rc=1)
+
+    xvm(Disks.volumes, '1', '-K', 'ARC', '-E', '*', '-q', rc=0)  # no error
 
     # bad arguments
     with open(Files.error, 'w') as ferr:
@@ -46,6 +56,9 @@ def runtest():
         xvm(Disks.volumes, '0', '-a', Files.input, '-f', 'foo', stderr=ferr, rc=1)
     if 'Traceback' in content(Files.error, mode='r'):
         error('badarg', 'Bad argument not caught')
+
+    with open(Files.error, 'w') as ferr:
+        xvm(Disks.volumes, '1', '-Y', stderr=ferr, rc=2)
 
     # cleanup
     os.remove(Files.error)

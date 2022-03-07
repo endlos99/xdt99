@@ -21,9 +21,11 @@
 
 import sys
 import platform
+import os.path
+import xdm99 as xdm
 
 
-VERSION = '3.4.1'
+VERSION = '3.5.0'
 
 CONFIG = 'XHM99_CONFIG'
 
@@ -63,16 +65,23 @@ class Util:
         return [item for list_ in list_of_lists for item in list_]
 
     @staticmethod
-    def writedata(name, data, mode='wb'):
+    def writedata(filename, data, encoding=None):
         """write data to file or STDOUT"""
-        if name == '-':
-            if 'b' in mode:
+        if encoding is None:
+            if filename == '-':
                 sys.stdout.buffer.write(data)
             else:
-                sys.stdout.write(data)
+                with open(filename, 'wb') as f:
+                    f.write(data)
         else:
-            with open(name, mode) as f:
-                f.write(data)
+            try:
+                if filename == '-':
+                    sys.stdout.write(data.decode(encoding))
+                else:
+                    with open(filename, 'w') as f:
+                        f.write(data.decode(encoding))
+            except UnicodeDecodeError:
+                sys.exit('Bad encoding: ' + encoding)
 
     @staticmethod
     def readdata(name, mode='rb'):
@@ -588,78 +597,27 @@ class Console:
             return message
 
 
-# main
+# Command line processing
 
-def main(argv):
-    import os.path
-    import argparse
-    import glob
+class Processor:
+    """execute supplied commands"""
 
-    class GlobStore(argparse.Action):
-        """argparse globbing for Windows platforms"""
+    def __init__(self, console):
+        self.console = console
 
-        def __call__(self, parser, namespace, values, option_string=None):
-            if os.name == 'nt':
-                names = [glob.glob(name) if '*' in name or '?' in name else [name] for name in values]
-                values = [filenames for globs in names for filenames in globs]
-            setattr(namespace, self.dest, values)
-
-    args = argparse.ArgumentParser(
-            description='xhm99: HFE image and file manipulation tool, v' + VERSION,
-            epilog='Additionally, most xdm99 options can be used.')
-    cmd = args.add_mutually_exclusive_group(required=True)
-    # xdm99 delegation
-    cmd.add_argument('filename', type=str, nargs='?',
-                     help='HFE image filename')
-    args.add_argument('-X', '--initialize', dest='init', metavar='<size>',
-                      help='initialize disk image (sector count or disk geometry xSxDxT)')  # fix filename mis-parse
-    # conversion
-    cmd.add_argument('-T', '--to-hfe', action=GlobStore, dest='tohfe', nargs='+', metavar='<file>',
-                     help='convert disk images to HFE images')
-    cmd.add_argument('-F', '--from-hfe', '--to-dsk_id', action=GlobStore, dest='fromhfe', nargs='+', metavar='<file>',
-                     help='convert HFE images to disk images')
-    cmd.add_argument('-I', '--hfe-info', action=GlobStore, dest='hfeinfo', nargs='+', metavar='<file>',
-                     help='show basic information about HFE images')
-    cmd.add_argument('--dump', action=GlobStore, dest='dump', nargs='+', metavar='<file>',
-                     help='dump raw decoded HFE data')
-    # general options
-    args.add_argument('--color', action='store', dest='color', choices=['off', 'on'],
-                      help='enable or disable color output')
-    args.add_argument('-o', '--output', dest='output', metavar='<file>',
-                      help='set output filename')
-    try:
-        default_opts = os.environ[CONFIG].split()
-    except KeyError:
-        default_opts = []
-    opts, other = args.parse_known_args(default_opts + argv)
-    if opts.init and not opts.filename:
-        args.error('Cannot use -X without filename')
-
-    result = []
-    console = Console(colors=opts.color)
-
-    try:
-        # delegate to xdm99
+    def process_command(self, opts):
+        """container manipulation"""
         if opts.filename:
-            import xdm99 as xdm
+            # delegate to xdm99
             try:
                 image = Util.readdata(opts.filename, 'rb')
                 disk = HFEDisk(image).to_disk_image()
             except IOError:
-                disk = bytes(1)
-            if opts.init:
-                other += ['-X', opts.init]
-            if opts.output:
-                other += ['-o', opts.filename]
-            barename = os.path.splitext(os.path.basename(opts.filename))[0]
-            color = [] if opts.color is None else ['--color', opts.color]
-            result = list(xdm.main([barename[:10].upper()] + other + color, disk))
-            if len(result) == 1:
-                dsk, filename, is_disk = result[0]
-                if is_disk:  # disk modified?
-                    hfe = HFEDisk.create_from_disk(dsk)
-                    result = (hfe, opts.filename, False),
+                disk = bytes(1)  # dummy, includes -X case
+            return 0, xdm.main(disk)  # local sys.argv will be passed to xdm99
+
         # HFE/DSK conversion
+        result = []
         for name in opts.fromhfe or ():
             hfe_image = Util.readdata(name, 'rb')
             dsk = HFEDisk(hfe_image).to_disk_image()
@@ -677,32 +635,91 @@ def main(argv):
             data = ''.join(chr(b) for b in Util.flatten(tracks))
             barename = os.path.splitext(os.path.basename(name))[0]
             result.append((data, barename + '.dump', False))
-        # image analysis
+        # image info
         for name in opts.hfeinfo or ():
             image = Util.readdata(name, 'rb')
             tracks, sides, encoding, if_mode = HFEDisk.get_hfe_params(image)
             sys.stdout.write(f'Tracks: {tracks}\nSides: {sides}\n')
             sys.stdout.write(f'Encoding: {encoding}\nInterface mode: {if_mode}\n')
             if encoding not in HFEDisk.VALID_ENCODINGS or if_mode != HFEDisk.HFE_INTERFACE_MODE:
-                console.error('Not a suitable HFE image for the TI 99')
-                return 1
-    except (IOError, HFEError) as e:
+                self.console.error('Not a suitable HFE image for the TI 99')
+                return 1, None
+        return 0, result
+
+
+# main
+
+def main():
+    import argparse
+    import glob
+
+    class GlobStore(argparse.Action):
+        """argparse globbing for Windows platforms"""
+
+        def __call__(self, parser, namespace, values, option_string=None):
+            if os.name == 'nt':
+                names = [glob.glob(name) if '*' in name or '?' in name else [name] for name in values]
+                values = [filenames for globs in names for filenames in globs]
+            setattr(namespace, self.dest, values)
+
+    args = argparse.ArgumentParser(
+            description='xhm99: HFE image and file manipulation tool, v' + VERSION,
+            epilog='Additionally, most xdm99 options can be used.')
+    cmd = args.add_mutually_exclusive_group(required=True)
+
+    # xdm99 delegation
+    cmd.add_argument('filename', type=str, nargs='?',
+                     help='HFE image filename')
+
+    # conversion
+    cmd.add_argument('-T', '--to-hfe', action=GlobStore, dest='tohfe', nargs='+', metavar='<file>',
+                     help='convert disk images to HFE images')
+    cmd.add_argument('-F', '--from-hfe', '--to-dsk_id', action=GlobStore, dest='fromhfe', nargs='+', metavar='<file>',
+                     help='convert HFE images to disk images')
+    cmd.add_argument('-I', '--hfe-info', action=GlobStore, dest='hfeinfo', nargs='+', metavar='<file>',
+                     help='show basic information about HFE images')
+    cmd.add_argument('--dump', action=GlobStore, dest='dump', nargs='+', metavar='<file>',
+                     help='dump raw decoded HFE data')
+
+    # general options
+    args.add_argument('-K', '--archive', dest='archive', metavar='<archive>',
+                      help='name of archive (on disk image or local machine')
+    args.add_argument('-c', '--encoding', dest='encoding', nargs='?', const='utf-8', metavar='<encoding>',
+                      help='set encoding for DISPLAY files')
+    args.add_argument('--color', action='store', dest='color', choices=['off', 'on'],
+                      help='enable or disable color output')
+    args.add_argument('-o', '--output', dest='output', metavar='<file>',
+                      help='set output filename')
+
+    try:
+        default_opts = os.environ[CONFIG].split()
+    except KeyError:
+        default_opts = []
+    opts, _ = args.parse_known_args(default_opts + sys.argv[1:])
+
+    console = Console(colors=opts.color)
+    processor = Processor(console)
+    try:
+        rc, result = processor.process_command(opts)
+    except (IOError, HFEError, xdm.ContainerError, xdm.FileError) as e:
         console.error('Error: ' + str(e))
         sys.exit(1)
 
     # write result
-    for data, name, _ in result:
-        outname = opts.output or name
-        try:
-            Util.writedata(outname, data, 'wb')
-        except IOError as e:
-            console.error('Error: ' + str(e))
-            sys.exit(1)
+    try:
+        for data, name, is_container in result:
+            outname = opts.output or name
+            if is_container:
+                data = HFEDisk.create_from_disk(data)
+            Util.writedata(outname, data, encoding=opts.encoding)
+    except IOError as e:
+        console.error('Error: ' + str(e))
+        sys.exit(1)
 
     # return status
     return 0
 
 
 if __name__ == '__main__':
-    status = main(sys.argv[1:])
+    status = main()
     sys.exit(status)

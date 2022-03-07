@@ -85,11 +85,16 @@ class Disks:
     bad = os.path.join(Dirs.disks, 'bad1.dsk')
     # scratch disks
     work = os.path.join(Dirs.tmp, 'work.dsk')
+    work2 = os.path.join(Dirs.tmp, 'work2.dsk')
     tifiles = os.path.join(Dirs.tmp, 'tifiles.dsk')
     # HFE work disk
     hfe = os.path.join(Dirs.hfe, 'hfedisk_dsk.hfe.gz')
     # simulated CF volume
     volumes = os.path.join(Dirs.tmp, 'volumes.dev')
+    # archive
+    ark1 = os.path.join(Dirs.disks, 'ark1.dsk')
+    ark2 = os.path.join(Dirs.disks, 'ark2.dsk')
+    arkb = os.path.join(Dirs.disks, 'arkb.dsk')
 
 
 class Files:
@@ -107,10 +112,13 @@ class Files:
     error = os.path.join(Dirs.tmp, 'error')
     reference = os.path.join(Dirs.tmp, 'ref')
     tifile = os.path.join(Dirs.tmp, 'tifile')
+    archive = os.path.join(Dirs.tmp, 'archive')
 
 
 class Masks:
     # mask extended header, dates, and unsed blocks in FIAD files
-    TIFile = [(0x1b, 0x80)]
-    v9t9 = [(0x14, 0x1000000)]
-    v9t9_all = [(0x14, 0x80)]
+    disk_dates = lambda c: [(256*i + 0x14, 256*i + 0x1c) for i in range(2, c+2)]
+    TIFile = ((0x1b, 0x80),)
+    tifiles_date = ((0x1e, 0x26),)
+    v9t9 = ((0x14, 0x1000000),)
+    v9t9_all = ((0x14, 0x80),)

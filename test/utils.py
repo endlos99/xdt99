@@ -3,10 +3,18 @@ import os
 import re
 
 from subprocess import call
-from config import xdm_py, xhm_py, xvm_py, xas_py, xda_py, xga_py, xdg_py, xbas_py
+from config import xdm_py, xhm_py, xvm_py, xas_py, xda_py, xga_py, xdg_py, xbas_py, Dirs
 
 
 # Utility functions
+
+def r(filename):
+    return os.path.join(Dirs.refs, filename)
+
+
+def t(filename):
+    return os.path.join(Dirs.tmp, filename)
+
 
 def ordw(word):
     """word ord"""

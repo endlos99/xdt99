@@ -2,10 +2,9 @@
 
 import os
 import shutil
-import re
 
 from config import Dirs, Disks, Files, Masks, XDM99_CONFIG
-from utils import xdm, error, clear_env, delfile, check_files_eq, check_file_matches, check_file_exists
+from utils import r, t, xdm, error, delfile, check_files_eq, check_file_matches, check_file_exists, content
 
 
 # Check functions
@@ -64,13 +63,13 @@ def runtest():
         xdm(Disks.work, '-q', stdout=f1)
     check_files_eq('CLI', Files.output, Files.reference, 'DIS/VAR255')
 
-    ref_prog = os.path.join(Dirs.refs, 'prog00255')
+    ref_prog = r('prog00255')
     xdm(Disks.work, '-e', 'PROG00255', '-o', Files.output)
     check_files_eq('CLI', Files.output, ref_prog, 'PROGRAM')
-    ref_dv = os.path.join(Dirs.refs, 'dv064x010')
+    ref_dv = r('dv064x010')
     xdm(Disks.work, '-e', 'DV064X010', '-o', Files.output)
     check_files_eq('CLI', Files.output, ref_dv, 'DIS/VAR64')
-    ref_df = os.path.join(Dirs.refs, 'df002x001')
+    ref_df = r('df002x001')
     xdm(Disks.work, '-e', 'DF002X001', '-o', Files.output)
     check_files_eq('CLI', Files.output, ref_df, 'DIS/FIX 2')
 
@@ -143,7 +142,7 @@ def runtest():
     xdm(Disks.work, '-e', 'MULV9U', '-o', Files.output)
     check_files_eq('CLI', 'prog00002', Files.output, 'P')
 
-    ref = os.path.join(Dirs.refs, 'glob')
+    ref = r('glob')
     xdm(Disks.work, '-a', ref + '?', '-n', 'GLOBA1', shell=True)
     xdm(Disks.work, '-e', 'GLOBA1', '-o', Files.output)
     xdm(Disks.work, '-e', 'GLOBA2', '-o', Files.output)
@@ -229,7 +228,7 @@ def runtest():
         xdm(Disks.work, '--set-geometry', '123', stderr=ferr, rc=1)
 
     # xdm99 vs real images
-    rfile = os.path.join(Dirs.refs, 'ti-text')  # TEXT D/V80
+    rfile = r('ti-text')  # TEXT D/V80
     with open(Files.output, 'w') as fout, open(Files.error, 'w') as ferr:
         xdm(Disks.work, '-X', 'sssd', '-n', 'TI-DISK', stderr=ferr, rc=0)
         xdm(Disks.work, '-a', rfile, '-n', 'TEXT', '-f', 'dv80', stderr=ferr, rc=0)
@@ -365,8 +364,8 @@ def runtest():
     check_lines_start(Files.output, ('SECND/NAME',))
 
     # output directory -o <dir>
-    ref1 = os.path.join(Dirs.refs, 'glob1')
-    ref2 = os.path.join(Dirs.refs, 'glob12')
+    ref1 = r('glob1')
+    ref2 = r('glob12')
     xdm(Disks.work, '-X', 'sssd', '-a', ref1, ref2)
     xdm(Disks.work, '-e', 'GLOB*', '-o', Dirs.tmp)
     check_file_exists(os.path.join(Dirs.tmp, 'glob1'))
@@ -379,13 +378,13 @@ def runtest():
         xdm(Disks.work, '-e', 'GLOB*', '-o', Files.output, stderr=ferr, rc=1)
 
     # stdin and stdout
-    ref = os.path.join(Dirs.refs, 'vardis')
+    ref = r('vardis')
     with open(ref, 'r') as fin:
         xdm(Disks.work, '--initialize', 'sssd', '-a', '-', '-f', 'dv40', stdin=fin)
     with open(Files.output, 'w') as fout:
         xdm(Disks.work, '-e', 'STDIN', '-o', '-', stdout=fout)
     check_files_eq('stdin/stdout', Files.output, ref, 'DV')
-    ref = os.path.join(Dirs.refs, 'sector1')
+    ref = r('sector1')
     with open(Files.reference, 'wb') as fout:
         xdm(Disks.work, '--initialize', 'sssd', '-a', ref, '-n', 'T', '-o', '-', stdout=fout)
     with open(Files.reference, 'rb') as fin:
@@ -401,7 +400,32 @@ def runtest():
             stderr=ferr, rc=1)
         xdm('-F', '-o', Files.output, stderr=ferr, rc=2)
 
-    # default options
+    # archives
+    delfile(Files.archive)
+    with open(Files.error, 'w') as ferr:
+        xdm('-K', Files.archive, stderr=ferr, rc=1)
+    xdm('-K', Files.archive, '-Y')
+    xdm('-K', Files.archive, '-a', r('F1.tfi'), r('V16.tfi'), '-t')
+    xdm('-K', Files.archive, '-a', r('F129.v9t9'), '-9')
+    xdm(Disks.work, '-K', 'A', '-a', r('F128.tfi'), '-Y', '-X', 'sdds', '-t')
+    xdm(Disks.work, '-K', 'A', '-r', 'F128:FFF')
+    xdm(Disks.work, '-K', 'A', '-E', 'FFF')
+    xdm(Disks.work, '-Y', '-K', 'B', '-A', 'FFF')
+    xdm(Disks.work, '-e', 'A', 'B', '-o', Dirs.tmp)
+    if content(t('a')) != content(t('b')):
+        error('archive', 'Archives differ')
+
+    with open(Files.error, 'w') as ferr:
+        xdm('-i', '-q', '-o', Files.output, stderr=ferr, rc=2)
+    with open(Files.error, 'w') as ferr:
+        xdm('-X', 'sssd', '-K', Files.archive, stderr=ferr, rc=2)
+    with open(Files.error, 'w') as ferr:
+        xdm(Disks.work, '-Y', '-i', stderr=ferr, rc=2)
+
+    # write minimal files
+    pass  #TODO
+
+    # default options (must be last)
     disk = os.path.join(Dirs.disks, 'basic1.dsk')
     os.environ[XDM99_CONFIG] = '-e NONEXIST ' + os.environ[XDM99_CONFIG]
     with open(Files.error, 'w') as ferr:

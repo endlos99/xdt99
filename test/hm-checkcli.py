@@ -113,8 +113,7 @@ def runtest():
 
     delfile(Files.output)
     delfile(Files.error)
-    source = os.path.join(Dirs.hfe, 'hfedisk_dsk.hfe.gz')
-    with gzip.open(source, 'rb') as fin, open(Files.input, 'wb') as fout:
+    with gzip.open(Disks.hfe, 'rb') as fin, open(Files.input, 'wb') as fout:
         fout.write(fin.read())
     os.environ[XHM99_CONFIG] = '-o ' + Files.error
     xhm(Files.input, '-e', 'HFEFILE', '-o', Files.output)
