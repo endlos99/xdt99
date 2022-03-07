@@ -41,14 +41,14 @@ supports, including Linux, Windows, and macOS.</p>
 <p>Additionally, xdt99 provides TI-specific editor support for some freely
 available development environments:</p>
 <ul>
-<li><code>xdt99-mode</code>, a <a href="https://endlos99.github.io/xdt99/emacs.html">major mode</a> for the GNU Emacs text editor, and</li>
-<li><code>xdt99 IDEA</code>, a <a href="https://endlos99.github.io/xdt99/idea.html">plugin</a> for the IntelliJ IDEA development environment.</li>
+<li><a href="https://endlos99.github.io/xdt99/emacs.html"><code>xdt99-mode</code></a>, a major mode for the GNU Emacs text editor, and</li>
+<li><a href="https://endlos99.github.io/xdt99/idea.html"><code>xdt99 IDEA</code></a>, a plugin for the IntelliJ IDEA development environment.</li>
 </ul>
-<p>The plugins offer syntax highlighting, source navigation, and semantic renaming
-for assembly, GPL, and TI (Extended) BASIC programs.  Note, however, that both
-plugins currently support an older version of the <code>xas99</code> syntax.</p>
-<p>To get started, follow the <a href="#installation">installation</a> instructions and read
-the <a href="#tutorial">tutorial</a>.</p>
+<p>The plugin offers syntax highlighting and semantic navigation and refactoring
+for assembly, GPL, and TI (Extended) BASIC programs.  The Emacs mode offers
+syntax highlighting and symbol lookup.</p>
+<p>To get started with the xdt99 tools, follow the <a href="#installation">installation</a> 
+instructions and read the <a href="#tutorial">tutorial</a>.</p>
 <p>xdt99 is released under the GNU GPL version 3.  The latest <a href="https://github.com/endlos99/xdt99/releases">binary release</a>
 as well as all <a href="https://github.com/endlos99/xdt99">sources</a> are available on GitHub.</p>
 <p>The <a href="https://endlos99.github.io/xdt99">xdt99 homepage</a> always hosts the latest version of this document.</p>
@@ -1256,10 +1256,10 @@ omission of parentheses, <code>xas99</code> warns about arithmetic expressions u
 non-standard evaluation.  These warnings can be disabled with option
 <code>--quiet-arith</code>.</p>
 <p><em>Labels</em> may be of arbitrary length and may contain arbitrary characters except
-for whitespace and operators (<code>+-*/%&amp;|^~$#!@'"</code>).  Labels not imported or exported by
-<code>REF</code> or <code>DEF</code>, resp., may even be in Unicode.  An optional colon <code>:</code> may be
-appended to the label name.  The colon is not part of the name, but logically
-continues the current line to the next:</p>
+for whitespace and operators (<code>+-*/%$|&amp;^~#!@'"</code>).  Labels not imported or 
+exported by <code>REF</code> or <code>DEF</code>, resp., may even be in Unicode.  An optional colon
+<code>:</code> may be appended to the label name.  The colon is not part of the name, but 
+logically continues the current line to the next:</p>
 <pre><code>my_label_1:
     equ 1         ; assigns 1 to my_label_1      \
 my_label_2:                                      |  xas99 behavior
@@ -2771,6 +2771,101 @@ $ xdm99.py -T ashello.asm -f dv80 -n HELLO-S -o hello-s.tfi
 <p>Note that <code>-F</code>, <code>-I</code>, and <code>-P</code> infer automatically whether the file is in
 TIFILES or v9t9 format.  We can still override the format with <code>-t</code> or <code>-9</code>,
 though.</p>
+<h3>Working with Archives</h3>
+<p><code>xdm99</code> supports creating, extracting, and viewing the contents of <code>ARK</code>-style
+archives originally created by Barry Boone.  An archive can be a stand-alone PC
+file or stored on a disk image, where is acts like a disk on a disk. </p>
+<p>An archive is identified with the <em>archive</em> option <code>-K</code> identies an archive.
+If no further options are given, <code>xdm99</code> prints the contents of the archive,
+where the output is organized similarly to a disk catalog.</p>
+<pre><code>$ xdm99.py -K examples/archive.tfi
+Archive: ARCHIVE      Size (c/u): 30720 B / 57600 B   Ratio: 53.3%
+----------------------------------------------------------------------------
+ARKFILE1T     5  DIS/VAR 80     841 B   18 recs   2022-03-01 19:54:22 C   
+ARKFILE2T    72  DIS/VAR 80   18001 B  237 recs   2022-03-01 19:54:22 C   
+ARKFILE3B   140  PROGRAM      35348 B             2022-03-01 19:54:22 C   
+ARKFILE4B    10  PROGRAM       2284 B             2022-03-01 19:54:22 C   
+ARKFILE5T     2  DIS/VAR 30     128 B    5 recs   2022-03-01 19:54:22 C   
+ARKFILE5T     2  DIS/VAR 30     128 B    5 recs   2022-03-01 19:31:30 C
+</code></pre>
+<p>Since the <code>ARCHIVE</code> file itself is a <code>INT/FIX128</code> file</p>
+<pre><code>$ xdm99.py -I examples/archive.tfi
+ARCHIVE     121  INT/FIX 128  30720 B  240 recs
+</code></pre>
+<p>we can use either TIFILES files or plain files as stand-alone archive without
+loss of information.</p>
+<p>When we combine <code>-K</code> with a disk image, the archive must reside on that disk,
+and all further options affect the archive and not the disk.</p>
+<pre><code>$ xdm99.py arkdisk.dsk -K ARCHIVE
+Archive: ARCHIVE      Size (c/u): 30720 B / 57600 B   Ratio: 53.3%
+----------------------------------------------------------------------------
+ARKFILE1T     5  DIS/VAR 80     841 B   18 recs   2022-03-01 19:55:14 C   
+ARKFILE2T    72  DIS/VAR 80   18001 B  237 recs   2022-03-01 19:55:14 C   
+ARKFILE3B   140  PROGRAM      35348 B             2022-03-01 19:55:14 C   
+ARKFILE4B    10  PROGRAM       2284 B             2022-03-01 19:55:14 C   
+ARKFILE5T     2  DIS/VAR 30     128 B    5 recs   2022-03-01 19:55:14 C
+</code></pre>
+<p>The most common options for disks also work for archives.  For example, we can
+add, extract, rename, (un)protect, or delete files:</p>
+<pre><code>$ xdm99.py -K examples/archive.tfi -a examples/ashello.asm -f dv80
+$ xdm99.py -K examples/archive.tfi -e ARKFILE2T -t -o textfiles/
+$ xdm99.py -K examples/archive.tfi -r ASHELLO:ASHELLO/S
+$ xdm99.py -K examples/archive.tfi -w ARKFILE3B ARKFILE5T
+$ xdm99.py -K examples/archive.tfi -d ASHELLO/S
+</code></pre>
+<p>To create a new empty archive, we use the <em>initialize archive</em> option <code>-Y</code>:</p>
+<pre><code>$ xdm99.py -Y -K newarchive
+$ xdm99.py examples/work.disk -K NEWARK -Y
+</code></pre>
+<p>It is possible to initialize both disk and archive at the same time.</p>
+<pre><code>$ xdm99.py -X dssd sample.dsk -Y -K NEWARK
+</code></pre>
+<p>There are two additional operations specifically for archives on disk.  If we
+create such a disk</p>
+<pre><code>$ xdm99.py -X dssd sample.dsk -a examples/archive.tfi -t
+$ xdm99.py sample.dsk
+SAMPLE    :     123 used  597 free   180 KB  2S/1D 40T  9 S/T
+----------------------------------------------------------------------------
+ARCHIVE     121  INT/FIX 128  30720 B  240 recs
+</code></pre>
+<p>we can then use the <em>in-place extract</em> option <code>-E</code> to extract the contents of
+the archive to the disk.</p>
+<pre><code>$ xdm99.py sample.dsk -K ARCHIVE -E "*"
+$ xdm99.py sample.dsk
+SAMPLE    :     352 used  368 free   180 KB  2S/1D 40T  9 S/T
+----------------------------------------------------------------------------
+ARCHIVE     121  INT/FIX 128  30720 B  240 recs                          
+ARKFILE1T     5  DIS/VAR 80     841 B   18 recs   2022-03-01 20:01:00 C   
+ARKFILE2T    72  DIS/VAR 80   18001 B  237 recs   2022-03-01 20:01:00 C   
+ARKFILE3B   140  PROGRAM      35348 B             2022-03-01 20:01:00 C   
+ARKFILE4B    10  PROGRAM       2284 B             2022-03-01 20:01:00 C   
+ARKFILE5T     2  DIS/VAR 30     128 B    5 recs   2022-03-01 20:01:00 C
+</code></pre>
+<p>The wildcard argument <code>"*"</code> extracts all files in the archive.  On Linux and
+macOS, that <code>*</code> has to be put in quotes to prevent the shell from expanding it.</p>
+<p>Similarly, we can use the <em>in-place add</em> option <code>-A</code> to add files on the disk
+to an archive.</p>
+<pre><code>$ xdm99.py sample.dsk -X -K ARCHIVE2 -A "ARK*"
+$ xdm99.py sample.dsk
+SAMPLE    :     473 used  247 free   180 KB  2S/1D 40T  9 S/T
+----------------------------------------------------------------------------
+ARCHIVE     121  INT/FIX 128  30720 B  240 recs                          
+ARCHIVE2    121  INT/FIX 128  30720 B  240 recs   2022-03-01 20:04:26 C   
+ARKFILE1T     5  DIS/VAR 80     841 B   18 recs   2022-03-01 20:01:00 C   
+ARKFILE2T    72  DIS/VAR 80   18001 B  237 recs   2022-03-01 20:01:00 C   
+ARKFILE3B   140  PROGRAM      35348 B             2022-03-01 20:01:00 C   
+ARKFILE4B    10  PROGRAM       2284 B             2022-03-01 20:01:00 C   
+ARKFILE5T     2  DIS/VAR 30     128 B    5 recs   2022-03-01 20:01:00 C
+</code></pre>
+<p>The new archive <code>ARCHIVE2</code> now contains all the files of <code>ARCHIVE</code>.</p>
+<pre><code>Archive: ARCHIVE2     Size (c/u): 30720 B / 57600 B   Ratio: 53.3%
+----------------------------------------------------------------------------
+ARKFILE1T     5  DIS/VAR 80     841 B   18 recs   2022-03-01 20:05:06 C   
+ARKFILE2T    72  DIS/VAR 80   18001 B  237 recs   2022-03-01 20:05:06 C   
+ARKFILE3B   140  PROGRAM      35348 B             2022-03-01 20:05:06 C   
+ARKFILE4B    10  PROGRAM       2284 B             2022-03-01 20:05:06 C   
+ARKFILE5T     2  DIS/VAR 30     128 B    5 recs   2022-03-01 20:05:06 C
+</code></pre>
 <h3>Analyzing Disks</h3>
 <p>The <em>check disk</em> option <code>-C</code> analyzes a disk image for errors and prints a
 summary to <code>stderr</code>.  While all disk operations, including cataloging, also
