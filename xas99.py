@@ -27,7 +27,7 @@ import os
 from functools import reduce
 
 
-VERSION = '3.4.0'
+VERSION = '3.4.1'
 
 CONFIG = 'XAS99_CONFIG'
 
@@ -1103,7 +1103,7 @@ class Symbols:
     def valid(self, name):
         """is name a valid symbol name?"""
         return ((not self.strict and name != '$' and name[0] not in "!@" and
-                 not re.search(r'[-+*/%&|^~()#"\',]', name[1:])) or
+                 not re.search(r'[-+*/%&|^~()"\',]', name[1:])) or
                 (name[0].isalpha() and name.isalnum()))
 
     def add_symbol(self, name, value, lino=None, filename=None, tracked=False, check=True, equ=None):
@@ -1591,7 +1591,7 @@ class Parser:
             label, mnemonic, opfield = fields + [''] * (3 - len(fields))
             optexts = re.split(r' {2,}|\t', opfield, maxsplit=1)
             operands = [op.strip() for op in optexts[0].split(',')] if optexts[0] else []
-            comment = ' '.join(optexts[1:]) + ';'.join(parts[1:])
+            comment = ' '.join(optexts[1:]) + (';' + ';'.join(parts[1:]) if len(parts) > 1 else '')
         return label, mnemonic, operands, comment, True
 
     def escape(self, text):
@@ -2030,20 +2030,20 @@ class Pragmas:
                 try:
                     name, value = pragma.split('=')
                     self.evaluate(name.strip(), value.strip())
-                except TypeError:
+                except (TypeError, ValueError):
                     self.parser.warn('Malformed pragma: ' + pragma)
 
     def retrieve(self, comment):
         """retrieve all pragmas from comment"""
         if not comment:
-            return []  # no comment
-        if comment[0] != ':':  # ';' already stripped
+            return None  # no comment
+        if comment[:2] != ';:':  # pragma prefix
             try:
                 _, pragmas = comment.split(';:', maxsplit=1)  # comment and pragma
-            except ValueError:
-                return []  # no pragma
+            except (TypeError, ValueError):
+                return None  # no pragma
         else:
-            pragmas = comment[1:]
+            pragmas = comment[2:]
         return [pragma.strip() for pragma in pragmas.split(',')]
 
 
@@ -2840,7 +2840,9 @@ class Linker:
 
     def generate_binaries(self, split_segments=False, save=None, minimize=False):
         """generate binary images per bank and per segment or SAVE"""
-        saves = self.program.saves + ([save] if save else [])
+        saves = self.program.saves
+        if save is not None:
+            saves.append(save)
         binaries = []
         for bank in (None, *range(self.bank_count)):
             memories = []
@@ -3351,8 +3353,7 @@ def main():
                       help='set base address for relocatable code')
     args.add_argument('-I', '--include', dest='inclpath', metavar='<paths>',
                       help='listing of include search paths')
-    args.add_argument('-D', '--define-symbol', nargs='+', dest='defs',
-                      metavar='<sym=val>',
+    args.add_argument('-D', '--define-symbol', nargs='+', dest='defs', metavar='<sym=val>',
                       help='add symbol to symbol table')
     args.add_argument('--color', action='store', dest='color', choices=['off', 'on'],
                       help='enable or disable color output')

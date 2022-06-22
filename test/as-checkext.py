@@ -387,6 +387,13 @@ def runtest():
     if content_lines(Files.error) != expected:
         error('pragmas', 'Incorrect warnings shown with --quiet-usage')
 
+    # pragmas: parsing error
+    source = os.path.join(Dirs.sources, 'asxprage.asm')
+    with open(Files.error, 'w') as ferr:
+        xas(source, '-o', Files.output, stderr=ferr, rc=0)
+    if content_len(Files.error) > 0:
+        error('pragmas', 'Incorrect parsing of non-pragma')
+
     # relaxed parsing
     source = os.path.join(Dirs.sources, 'asxrelax.asm')
     xas(source, '-R', '-b', '-r', '-o', Files.output, '-L', Files.input)
