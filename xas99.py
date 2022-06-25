@@ -1102,9 +1102,10 @@ class Symbols:
 
     def valid(self, name):
         """is name a valid symbol name?"""
-        return ((not self.strict and name != '$' and name[0] not in "!@" and
-                 not re.search(r'[-+*/%&|^~()"\',]', name[1:])) or
-                (name[0].isalpha() and name.isalnum()))
+        return ((not self.strict and name != '$' and name[0] not in "!@0123456789" and
+                 not re.search(r'[-+*/%&#|^~()"\',]', name)) or
+                (self.strict and (name[0].isalpha() or name[0] == '$') and
+                 not re.search(r'[-+*/%&|^~()\[\]@!"\'.,;:\\]', name)))
 
     def add_symbol(self, name, value, lino=None, filename=None, tracked=False, check=True, equ=None):
         """add symbol to symbol table"""
@@ -1504,7 +1505,8 @@ class Parser:
         if len(self.suspended_files) > 100:
             raise AsmError('Too many nested files or macros')
         if filename:
-            newfile = self.find(filename) if filename != '-' else '-'  # checks if file exists, throws exception if not
+            fixed_path = self.fix_path_separator(filename)
+            newfile = self.find(fixed_path) if filename != '-' else '-'  # checks if file exists, throws exception if not
             # CAUTION: don't suspend source if file does not exist!
         else:
             newfile = None
@@ -1520,6 +1522,16 @@ class Parser:
             self.in_macro_instantiation = True
         self.processed_source.append((0, 0, None, Parser.OPEN, None, None, None, filename or macro, None))
         self.lino = 0
+
+    def fix_path_separator(self, path):
+        """replaces foreign file separators with system one"""
+        if os.path.sep not in path:
+            # foreign path
+            foreign_sep = '\\' if os.path.sep == '/' else '/'
+            return path.replace(foreign_sep, os.path.sep)
+        else:
+            # system path (does not recognize foreign path with \-escaped chars on Linux or regular / chars on Windows)
+            return path
 
     def resume(self):
         """close current source file and resume previous one"""
@@ -2316,7 +2328,7 @@ class Assembler:
         self.demux = None  # are unknown accesses for source, dest operand demuxed?
 
     def assemble(self, path, srcname):
-        self.symbols = Symbols(self.program.externals, self.console, add_registers=self.r_prefix)
+        self.symbols = Symbols(self.program.externals, self.console, add_registers=self.r_prefix, strict=self.strict)
         self.parser = Parser(self.symbols, self.listing, self.console, path, includes=self.includes,
                              r_prefix=self.r_prefix, bank_cross_check=self.bank_cross_check, strict=self.strict,
                              relaxed=self.relaxed)

@@ -181,7 +181,7 @@ def runtest():
     with open(Files.error, 'w') as ferr:
         xas(source, '-b', '-R', '-q', '-o', Files.output, stderr=ferr, rc=0)
     if content_len(Files.error) > 0:
-        error('warn', 'warnings, even though disabled')
+        error('warn', 'Warnings, even though disabled')
 
     # linker
     source1 = os.path.join(Dirs.sources, 'aslink0a.asm')
@@ -197,14 +197,20 @@ def runtest():
     os.environ[XAS99_CONFIG] = '-L ' + Files.input
     xas(source, '-R', '-o', Files.output)
     if content_len(Files.input) <= 0:
-        error('defaults', 'default options not working')
+        error('defaults', 'Default options not working')
 
     delfile(Files.input)
     delfile(Files.error)
     os.environ[XAS99_CONFIG] = '-L ' + Files.error
     xas(source, '-R', '-o', Files.output, '-L', Files.input)
     if content_len(Files.error) > 0:
-        error('defaults', 'default options override not working')
+        error('defaults', 'Default options override not working')
+
+    # platform-agnostic paths
+    source = os.path.join(Dirs.sources, 'aswin.asm')
+    xas(source, '-b', '-o', Files.output)
+    if content(Files.output) != bytes((0, 1, 0, 2, 0, 2, 0, 1)):
+        error('wincopy', 'File with Windows paths mismatch')
 
     # cleanup
     delfile(Dirs.tmp)
