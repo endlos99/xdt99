@@ -1505,8 +1505,7 @@ class Parser:
         if len(self.suspended_files) > 100:
             raise AsmError('Too many nested files or macros')
         if filename:
-            fixed_path = self.fix_path_separator(filename)
-            newfile = self.find(fixed_path) if filename != '-' else '-'  # checks if file exists, throws exception if not
+            newfile = '-' if filename == '-' else self.find(self.fix_path_separator(filename))
             # CAUTION: don't suspend source if file does not exist!
         else:
             newfile = None
@@ -2347,11 +2346,12 @@ class Assembler:
         self.console.enabled_warnings.reset()
         self.org(0, reloc=True, root=True)  # create root segment
         for lino, lidx, label, mnemonic, operands, pragmas, line, filename, is_stmt in self.parser.processed_source:
-            if mnemonic == Parser.OPEN or mnemonic == Parser.RESUME:
-                if mnemonic == Parser.OPEN:
-                    self.listing.open(self.symbols.LC, filename)
-                elif mnemonic == Parser.RESUME:
-                    self.listing.resume(self.symbols.LC, filename)
+            if mnemonic == Parser.OPEN:  # markers to indicate start and end of include file
+                self.listing.open(self.symbols.LC, filename)
+                self.console.filename = filename
+                continue
+            elif mnemonic == Parser.RESUME:
+                self.listing.resume(self.symbols.LC, filename)
                 self.console.filename = filename
                 continue
             self.symbols.lidx = lidx

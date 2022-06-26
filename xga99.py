@@ -849,20 +849,20 @@ class Parser:
         self.symbols = symbols
         self.console = console
         self.syntax = Syntax.get(syntax)
-        self.path = self.initial_path = path  # preserve initial path
+        self.path = self.initial_path = path  # current file path, used for includes
         self.includes = includes or []  # do not include '.'
         self.relaxed = relaxed
         self.prep = Preprocessor(self)
         self.text_literals = []
-        self.filename = None
-        self.source = None
+        self.filename = None  # current file name
+        self.source = None  # preprocessed GPL source file
         self.macro_args = []
         self.in_macro_instantiation = False
-        self.lino = -1
+        self.lino = -1  # current line number
         self.suspended_files = []
-        self.fmt_mode = False
-        self.for_loops = []
-        self.warnings = []
+        self.fmt_mode = False  # parsing in FMT instruction?
+        self.for_loops = []  # tracks open for loops
+        self.warnings = []  # list of warnings
 
     def reset(self):
         """reset state for new assembly pass"""
@@ -879,10 +879,13 @@ class Parser:
         """open new source file or macro buffer"""
         if len(self.suspended_files) > 100:
             raise AsmError('Too many nested files or macros')
+        if filename:
+            newfile = '-' if filename == '-' else self.find(self.fix_path_separator(filename))
+        else:
+            newfile = None
         if self.source is not None:
             self.suspended_files.append((self.filename, self.path, self.source, self.macro_args, self.lino))
         if filename:
-            newfile = '-' if filename == '-' else self.find(filename)
             self.path, self.filename = os.path.split(newfile)
             self.source = Util.readlines(newfile)
             self.in_macro_instantiation = False
@@ -892,13 +895,23 @@ class Parser:
             self.in_macro_instantiation = True
         self.lino = 0
 
+    def fix_path_separator(self, path):
+        """replaces foreign file separators with system one"""
+        if os.path.sep not in path:
+            # foreign path
+            foreign_sep = '\\' if os.path.sep == '/' else '/'
+            return path.replace(foreign_sep, os.path.sep)
+        else:
+            # system path (does not recognize foreign path with \-escaped chars on Linux or regular / chars on Windows)
+            return path
+
     def resume(self):
         """close current source file and resume previous one"""
         try:
             self.filename, self.path, self.source, self.macro_args, self.lino = self.suspended_files.pop()
             return True
         except IndexError:
-            self.source = None
+            self.source = None  # indicates end-of-source to pass; keep self.path!
             return False
 
     def stop(self):
@@ -1307,12 +1320,13 @@ class Assembler:
                 break
             try:
                 # break line into fields
-                label, mnemonic, operands, comment, stmt = self.parser.line(line)
+                label, mnemonic, operands, comment, is_statement = self.parser.line(line)
                 keep, operands, line = self.parser.prep.process(self, label, mnemonic, operands, line)
                 if not keep:
                     continue
-                source.append((lino, self.symbols.lidx, label, mnemonic, operands, line, filename, stmt))
-                if not stmt:
+                source.append((lino, self.symbols.lidx, label, mnemonic, operands, line,
+                               filename, self.parser.path, is_statement))
+                if not is_statement:
                     continue
                 # process continuation label
                 if prev_label:
@@ -1345,20 +1359,22 @@ class Assembler:
             self.listing.reset()
             self.segment = None
             self.org(self.grom, self.offset)
-            prev_label = prev_filename = None
+            prev_label = prev_filename = prev_path = None
             abort = False
             self.symbols.pass_no += 1
             if self.symbols.pass_no > 32:
                 sys.exit('Too many assembly passes, aborting. :-(')
 
-            for lino, lidx, label, mnemonic, operands, line, filename, stmt in source:
+            for lino, lidx, label, mnemonic, operands, line, filename, path, is_statement in source:
                 self.symbols.lidx = lidx
-                if filename != prev_filename:
+                self.parser.path = path
+                if filename != prev_filename or path != prev_path:  # valid check, as file cannot include itself
                     self.listing.open(self.symbols.LC, filename)
                     self.console.filename = filename
                     prev_filename = filename
+                    prev_path = path
                 self.listing.prepare(self.symbols.LC, Line(lino=lino, line=line))
-                if not stmt:
+                if not is_statement:
                     continue
                 if prev_label:
                     if label:

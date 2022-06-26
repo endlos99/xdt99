@@ -148,6 +148,12 @@ def runtest():
     if content_len(Files.error) > 0:
         error('defaults', 'default options override not working')
 
+    # platform-agnostic paths
+    source = os.path.join(Dirs.gplsources, 'gawin.gpl')
+    xga(source, '-o', Files.output)
+    if content(Files.output) != bytes((0, 1, 0, 2, 0, 2, 0, 1)):
+        error('wincopy', 'File with Windows paths mismatch')
+
     # cleanup
     delfile(Dirs.tmp)
 
