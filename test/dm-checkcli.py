@@ -206,6 +206,7 @@ def runtest():
         xdm(Disks.work, '-Z', '1608', stderr=ferr, rc=1)
 
     # new geometry handling (v1.5.3)
+    # disk will be initialized by first command
     for c, g, p in [
             ('--initialize', 'SSSD', r'358 free\s+90 KB\s+1S/1D\s+40T'),
             ('--resize', 'DS1D', r'718 free\s+180 KB\s+2S/1D\s+40T'),

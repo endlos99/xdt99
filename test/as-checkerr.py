@@ -53,6 +53,16 @@ def runtest():
     # compare
     check_errors(ti_errors, warnings)
 
+    # invalid labels
+    for fn, s in (('aslabele.asm', []),
+                  ('aslabele-ti.asm', ['-s'])):
+        source = os.path.join(Dirs.sources, fn)
+        with open(Files.error, 'w') as ferr:
+            xas(source, '-q', *s, '-o', Files.output, stderr=ferr, rc=1)
+        act_errors = read_stderr(Files.error)
+        ref_errors = get_source_markers(source, r';ERROR')
+        check_errors(ref_errors, act_errors)
+
     # xdt99-specific errors
     source = os.path.join(Dirs.sources, 'asxerrs.asm')
     with open(Files.error, 'w') as ferr:
@@ -226,6 +236,22 @@ def runtest():
         output = fin.read()
     if output.strip() != 'hello 42 world!':
         error('stdout', 'Invalid STDOUT output: ' + output)
+
+    # register alias (3.5.1) [also see as-checkext]
+    source = os.path.join(Dirs.sources, 'asxrals.asm')
+    with open(Files.error, 'w') as ferr:
+        xas(source, '-b', '-D', 'err', '-o', Files.output, stderr=ferr, rc=1)
+    errors = read_stderr(Files.error, include_warnings=True)
+    err_markers = get_source_markers(source, r';ERROR')
+    wrn_markers = get_source_markers(source, r';WARN')
+    check_errors(err_markers + wrn_markers, errors)
+
+    source = os.path.join(Dirs.sources, 'asxralse.asm')
+    with open(Files.error, 'w') as ferr:
+        xas(source, '-o', Files.output, stderr=ferr, rc=1)
+    errors = read_stderr(Files.error)
+    markers = get_source_markers(source, r';ERROR')
+    check_errors(markers, errors)
 
     # cleanup
     delfile(Dirs.tmp)

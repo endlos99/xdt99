@@ -8,6 +8,6 @@ import com.intellij.psi.PsiElement;
 public interface Xas99ROpRegister extends PsiElement {
 
   @Nullable
-  Xas99ROpLabel getOpLabel();
+  Xas99ROpAlias getOpAlias();
 
 }

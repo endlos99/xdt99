@@ -4,7 +4,7 @@ import os
 
 from config import Dirs, Disks, Files, XAS99_CONFIG
 from utils import (xas, xdm, sinc, error, clear_env, delfile, check_obj_code_eq, check_image_set_eq,
-                   check_image_files_eq, read_stderr, get_source_markers, check_errors)
+                   check_image_files_eq, read_stderr, get_source_markers, check_errors, content_len)
 
 
 # Main test
@@ -85,6 +85,13 @@ def runtest():
     xaserrors = read_stderr(Files.error)
     referrors = get_source_markers(source, r';ERROR(:....)?')
     check_errors(referrors, xaserrors)
+
+    # valid labels (see also invalid and strict labels in as-checkerr.py)
+    source = os.path.join(Dirs.sources, 'aslabel.asm')
+    with open(Files.error, 'w') as ferr:
+        xas(source, '-q', '-o', Files.output, stderr=ferr, rc=0)
+    if content_len(Files.error) > 0:
+        error('labels', 'Valid label not accepted')
 
     # xas99-defined symbols
     source = os.path.join(Dirs.sources, 'asxassym.asm')

@@ -1,0 +1,7 @@
+* BCOPY
+
+       grom 1
+       byte 0, 1, 2
+       bcopy "data"
+       byte 7, 8, 9
+       end

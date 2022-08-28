@@ -19,82 +19,19 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-
 import sys
 import platform
 import os.path
 import math
 import re
+import argparse
+import zipfile
+from xcommon import CommandProcessor, RFile, Util
 
 
-VERSION = '3.3.1'
+VERSION = '3.5.1'
 
 CONFIG = 'XGA99_CONFIG'
-
-
-# Utility methods
-
-class Util:
-
-    @staticmethod
-    def ordw(word):
-        """word ord"""
-        return (word[0] << 8) | word[1]
-
-    @staticmethod
-    def chrw(word):
-        """word chr"""
-        return bytes((word >> 8, word & 0xff))
-
-    @staticmethod
-    def xint(s):
-        """return hex or decimal value"""
-        return int(s.lstrip('>'), 16 if s[:2] == '0x' or s[:1] == '>' else 10)
-
-    @staticmethod
-    def trunc(i, m):
-        """round integer down to multiple of m"""
-        return i - i % m
-
-    @staticmethod
-    def cmp(x, y):
-        return (Util.val(x) > Util.val(y)) - (Util.val(x) < Util.val(y))
-
-    @staticmethod
-    def val(n):
-        """dereference address"""
-        return n.addr if isinstance(n, Address) else n
-
-    @staticmethod
-    def readlines(name, mode='r'):
-        """read lines from file or STDIN"""
-        if name == '-':
-            return sys.stdin.readlines()
-        else:
-            with open(name, mode) as f:
-                return f.readlines()
-
-    @staticmethod
-    def writedata(name, data, mode='wb'):
-        """write data to file or STDOUT"""
-        if name == '-':
-            if 'b' in mode:
-                sys.stdout.buffer.write(data)
-            else:
-                sys.stdout.write(data)
-        else:
-            with open(name, mode) as f:
-                f.write(data)
-
-    @staticmethod
-    def outname(basename, suffix, extension, output=None):
-        if basename == '-':
-            return '-'
-        if suffix is None:
-            return output or basename + extension
-        if output is not None:
-            basename, extension = os.path.splitext(output)
-        return basename + f'_g{suffix:d}' + extension
 
 
 # Error handling
@@ -102,6 +39,8 @@ class Util:
 class AsmError(Exception):
     pass
 
+
+# Addresses
 
 class Address:
     """absolute GROM address"""
@@ -115,10 +54,6 @@ class Address:
             self.size = 2
         self.local = local
 
-    def hex(self):
-        """return address as two-address tuple"""
-        return '{:02X}'.format(self.addr >> 8), '{:02X}'.format(self.addr & 0xff)
-
     def __eq__(self, other):
         return (isinstance(other, Address) and
                 self.addr == other.addr and
@@ -127,6 +62,15 @@ class Address:
     def __ne__(self, other):
         return not self == other
 
+    def hex(self):
+        """return address as two-address tuple"""
+        return '{:02X}'.format(self.addr >> 8), '{:02X}'.format(self.addr & 0xff)
+
+    @staticmethod
+    def val(n):
+        """dereference address"""
+        return n.addr if isinstance(n, Address) else n
+
 
 class Local:
     """local label reference"""
@@ -134,63 +78,6 @@ class Local:
     def __init__(self, name, distance):
         self.name = name
         self.distance = distance
-
-
-class Operand:
-    """general source or destination address or imm value"""
-
-    def __init__(self, addr, vram=False, grom=False, vreg=False, imm=0, indirect=False, index=None):
-        self.addr = addr
-        self.vram = vram
-        self.grom = grom  # implies not indirect
-        self.vreg = vreg
-        self.immediate = imm  # byte size, or zero
-        self.indirect = indirect
-        self.index = index
-        self.bytes = self.generate()
-        assert not any(isinstance(b, Address) for b in self.bytes)
-        self.size = len(self.bytes)
-
-    def generate(self):
-        """generate byte list for operand"""
-        if self.immediate == 1 or self.vreg:
-            return [self.addr & 0xff]
-        elif self.immediate == 2:
-            return [self.addr >> 8, self.addr & 0xff]
-        cpuram = (not self.vram and not self.grom) or self.indirect
-        addr = (self.addr - 0x8300 if cpuram else self.addr) % 0x10000
-        mask = (0b1000 |
-                (0b0100 if self.index is not None else 0) |
-                (0b0010 if self.vram else 0) |
-                (0b0001 if self.indirect else 0)) << 4
-        # form MOVE
-        if self.grom and not self.indirect:
-            bs = [addr >> 8, addr & 0xff]
-        # form I
-        elif cpuram and 0x00 <= addr <= 0x7f and (
-                not (self.indirect or self.index)):
-            bs = [addr]
-        # form II/III
-        # NOTE: could II-V include address mode G*?
-        elif addr < 0x0f00:
-            bs = [mask | addr >> 8, addr & 0xff]
-        # form IV/V
-        else:
-            bs = [mask | 0b1111, addr >> 8, addr & 0xff]
-        if self.index:
-            bs.append(self.index & 0xff)
-        return bs
-
-    def __eq__(self, other):
-        return (isinstance(other, Operand) and
-                self.addr == other.addr and self.vram == other.vram and
-                self.grom == other.grom and self.vreg == other.vreg and
-                self.immediate == other.immediate and
-                self.indirect == other.indirect and
-                self.index == other.index)
-
-    def __ne__(self, other):
-        return not self == other
 
 
 # Opcodes and Directives
@@ -492,9 +379,12 @@ class Directives:
         asm.process_label(label)
         filename = asm.parser.get_filename(ops[0])
         path = asm.parser.find(filename)  # might throw exception
-        with open(path, 'rb') as f:
-            bs = f.read()
-            asm.emit(*bs)
+        try:
+            with open(path, 'rb') as f:
+                bs = f.read()
+                asm.emit(*bs)
+        except IOError as e:
+            raise AsmError(e)
 
     @staticmethod
     def END(asm, label, ops):
@@ -601,14 +491,13 @@ class Symbols:
 
     def add_env(self, definitions):
         """add external symbol definitions (-D)"""
-        for defs in definitions:
-            for d in defs.upper().split(','):
-                try:
-                    name, value_str = d.split('=')
-                    value = Parser.external(value_str)
-                except ValueError:
-                    name, value = d, 1
-                self.definitions[name] = value
+        for def_ in definitions:
+            try:
+                name, value_str = def_.split('=')
+                value = Parser.external(value_str)
+            except (ValueError, IndexError):
+                name, value = def_, 1
+            self.definitions[name.upper()] = value
 
     def get_symbol(self, name, required=False, for_pass_0=False, rc_pass_0=0):
         if self.pass_no == 0 and not for_pass_0:  # required in pass 0
@@ -664,7 +553,7 @@ class Symbols:
             if symbol[0] == '$' or symbol[0] == '_':
                 continue  # skip local and internal symbols
             value, _ = self.symbols[symbol]
-            symlist.append((symbol, Util.val(value)))
+            symlist.append((symbol, Address.val(value)))
         fmt = '{}:\n       EQU  >{:04X}' if equ else '    {:.<20} >{:04X}'
         return '\n'.join(fmt.format(*symbol) for symbol in symlist)
 
@@ -737,7 +626,7 @@ class Preprocessor:
         self.parse = True
         self.parse_branches = []
         self.parse_macro = None
-        self.macros = {}
+        self.macros = {'VERS': [f" text '{VERSION}'"]}  # macros defined (with predefined macros)
 
     def args(self, ops):
         lhs = self.parser.expression(ops[0], needed=True)
@@ -765,19 +654,19 @@ class Preprocessor:
 
     def IFEQ(self, code, ops):
         self.parse_branches.append(self.parse)
-        self.parse = Util.cmp(*self.args(ops)) == 0 if self.parse else None
+        self.parse = self.cmp(*self.args(ops)) == 0 if self.parse else None
 
     def IFNE(self, code, ops):
         self.parse_branches.append(self.parse)
-        self.parse = Util.cmp(*self.args(ops)) != 0 if self.parse else None
+        self.parse = self.cmp(*self.args(ops)) != 0 if self.parse else None
 
     def IFGT(self, code, ops):
         self.parse_branches.append(self.parse)
-        self.parse = Util.cmp(*self.args(ops)) > 0 if self.parse else None
+        self.parse = self.cmp(*self.args(ops)) > 0 if self.parse else None
 
     def IFGE(self, code, ops):
         self.parse_branches.append(self.parse)
-        self.parse = Util.cmp(*self.args(ops)) >= 0 if self.parse else None
+        self.parse = self.cmp(*self.args(ops)) >= 0 if self.parse else None
 
     def ELSE(self, code, ops):
         self.parse = not self.parse if self.parse is not None else None
@@ -788,6 +677,10 @@ class Preprocessor:
     def ERROR(self, code, ops):
         if self.parse:
             raise AsmError('Error state')
+
+    @staticmethod
+    def cmp(x, y):
+        return (Address.val(x) > Address.val(y)) - (Address.val(x) < Address.val(y))
 
     def instantiate_macro_args(self, text, restore_lits=False):
         """replace macro parameters by macro arguments"""
@@ -849,20 +742,20 @@ class Parser:
         self.symbols = symbols
         self.console = console
         self.syntax = Syntax.get(syntax)
-        self.path = self.initial_path = path  # preserve initial path
+        self.path = self.initial_path = path  # current file path, used for includes
         self.includes = includes or []  # do not include '.'
         self.relaxed = relaxed
         self.prep = Preprocessor(self)
         self.text_literals = []
-        self.filename = None
-        self.source = None
+        self.filename = None  # current file name
+        self.source = None  # preprocessed GPL source file
         self.macro_args = []
         self.in_macro_instantiation = False
-        self.lino = -1
+        self.lino = -1  # current line number
         self.suspended_files = []
-        self.fmt_mode = False
-        self.for_loops = []
-        self.warnings = []
+        self.fmt_mode = False  # parsing in FMT instruction?
+        self.for_loops = []  # tracks open for loops
+        self.warnings = []  # list of warnings
 
     def reset(self):
         """reset state for new assembly pass"""
@@ -879,10 +772,13 @@ class Parser:
         """open new source file or macro buffer"""
         if len(self.suspended_files) > 100:
             raise AsmError('Too many nested files or macros')
+        if filename:
+            newfile = '-' if filename == '-' else self.find(self.fix_path_separator(filename))
+        else:
+            newfile = None
         if self.source is not None:
             self.suspended_files.append((self.filename, self.path, self.source, self.macro_args, self.lino))
         if filename:
-            newfile = '-' if filename == '-' else self.find(filename)
             self.path, self.filename = os.path.split(newfile)
             self.source = Util.readlines(newfile)
             self.in_macro_instantiation = False
@@ -892,13 +788,23 @@ class Parser:
             self.in_macro_instantiation = True
         self.lino = 0
 
+    def fix_path_separator(self, path):
+        """replaces foreign file separators with system one"""
+        if os.path.sep not in path:
+            # foreign path
+            foreign_sep = '\\' if os.path.sep == '/' else '/'
+            return path.replace(foreign_sep, os.path.sep)
+        else:
+            # system path (does not recognize foreign path with \-escaped chars on Linux or regular / chars on Windows)
+            return path
+
     def resume(self):
         """close current source file and resume previous one"""
         try:
             self.filename, self.path, self.source, self.macro_args, self.lino = self.suspended_files.pop()
             return True
         except IndexError:
-            self.source = None
+            self.source = None  # indicates end-of-source to pass; keep self.path!
             return False
 
     def stop(self):
@@ -980,7 +886,7 @@ class Parser:
         """parse label"""
         s = op[len(self.syntax.gprefix):] if op.startswith(self.syntax.gprefix) else op
         addr = self.expression(s)
-        return Util.val(addr)
+        return Address.val(addr)
 
     def move(self, ops):
         """parse MOVE instruction: count, gs, gd"""
@@ -1090,7 +996,7 @@ class Parser:
                     negate = False
                 if term_val is None:
                     raise AsmError('Invalid expression: ' + term)
-                v = Util.val(term_val)
+                v = Address.val(term_val)
             w = Word((-v if negate else v) + corr)
             if op == '+':
                 value.add(w)
@@ -1168,7 +1074,7 @@ class Parser:
     def value(self, op):
         """parse well-defined value"""
         e = self.expression(op)
-        return Util.val(e)
+        return Address.val(e)
 
     def text(self, op):
         """parse quoted text literal or byte string"""
@@ -1231,6 +1137,63 @@ class Parser:
             return op
 
 
+class Operand:
+    """general source or destination address or imm value"""
+
+    def __init__(self, addr, vram=False, grom=False, vreg=False, imm=0, indirect=False, index=None):
+        self.addr = addr
+        self.vram = vram
+        self.grom = grom  # implies not indirect
+        self.vreg = vreg
+        self.immediate = imm  # byte size, or zero
+        self.indirect = indirect
+        self.index = index
+        self.bytes = self.generate()
+        assert not any(isinstance(b, Address) for b in self.bytes)
+        self.size = len(self.bytes)
+
+    def __eq__(self, other):
+        return (isinstance(other, Operand) and
+                self.addr == other.addr and self.vram == other.vram and
+                self.grom == other.grom and self.vreg == other.vreg and
+                self.immediate == other.immediate and
+                self.indirect == other.indirect and
+                self.index == other.index)
+
+    def __ne__(self, other):
+        return not self == other
+
+    def generate(self):
+        """generate byte list for operand"""
+        if self.immediate == 1 or self.vreg:
+            return [self.addr & 0xff]
+        elif self.immediate == 2:
+            return [self.addr >> 8, self.addr & 0xff]
+        cpuram = (not self.vram and not self.grom) or self.indirect
+        addr = (self.addr - 0x8300 if cpuram else self.addr) % 0x10000
+        mask = (0b1000 |
+                (0b0100 if self.index is not None else 0) |
+                (0b0010 if self.vram else 0) |
+                (0b0001 if self.indirect else 0)) << 4
+        # form MOVE
+        if self.grom and not self.indirect:
+            bs = [addr >> 8, addr & 0xff]
+        # form I
+        elif cpuram and 0x00 <= addr <= 0x7f and (
+                not (self.indirect or self.index)):
+            bs = [addr]
+        # form II/III
+        # NOTE: could II-V include address mode G*?
+        elif addr < 0x0f00:
+            bs = [mask | addr >> 8, addr & 0xff]
+        # form IV/V
+        else:
+            bs = [mask | 0b1111, addr >> 8, addr & 0xff]
+        if self.index:
+            bs.append(self.index & 0xff)
+        return bs
+
+
 # Code generation
 
 class Program:
@@ -1273,8 +1236,9 @@ class Assembler:
         self.grom = grom
         self.offset = aorg
         self.relaxed = relaxed
+        self.target = target
         self.program = Program()
-        self.symbols = Symbols(definitions + ('_xga99_' + target,))
+        self.symbols = Symbols(definitions)
         self.console = Console(enable_warnings=warnings, colors=colors)
         self.parser = Parser(self.symbols, self.console, syntax=self.syntax, relaxed=relaxed, path=path,
                              includes=self.includes)
@@ -1283,6 +1247,7 @@ class Assembler:
         self.code = None
 
     def assemble(self, source_name):
+        self.symbols.add_symbol('_XGA99_' + self.target, 1)
         self.parser.open(source_name)
         source = self.pass_0()
         if self.console.errors:
@@ -1307,12 +1272,13 @@ class Assembler:
                 break
             try:
                 # break line into fields
-                label, mnemonic, operands, comment, stmt = self.parser.line(line)
+                label, mnemonic, operands, comment, is_statement = self.parser.line(line)
                 keep, operands, line = self.parser.prep.process(self, label, mnemonic, operands, line)
                 if not keep:
                     continue
-                source.append((lino, self.symbols.lidx, label, mnemonic, operands, line, filename, stmt))
-                if not stmt:
+                source.append((lino, self.symbols.lidx, label, mnemonic, operands, line,
+                               filename, self.parser.path, is_statement))
+                if not is_statement:
                     continue
                 # process continuation label
                 if prev_label:
@@ -1345,20 +1311,22 @@ class Assembler:
             self.listing.reset()
             self.segment = None
             self.org(self.grom, self.offset)
-            prev_label = prev_filename = None
+            prev_label = prev_filename = prev_path = None
             abort = False
             self.symbols.pass_no += 1
             if self.symbols.pass_no > 32:
                 sys.exit('Too many assembly passes, aborting. :-(')
 
-            for lino, lidx, label, mnemonic, operands, line, filename, stmt in source:
+            for lino, lidx, label, mnemonic, operands, line, filename, path, is_statement in source:
                 self.symbols.lidx = lidx
-                if filename != prev_filename:
+                self.parser.path = path
+                if filename != prev_filename or path != prev_path:  # valid check, as file cannot include itself
                     self.listing.open(self.symbols.LC, filename)
                     self.console.filename = filename
                     prev_filename = filename
+                    prev_path = path
                 self.listing.prepare(self.symbols.LC, Line(lino=lino, line=line))
-                if not stmt:
+                if not is_statement:
                     continue
                 if prev_label:
                     if label:
@@ -1420,6 +1388,15 @@ class Assembler:
             symbols_text = ', '.join(symbols)
             self.console.warn('Unused constants: ' + symbols_text.lower(), pass_no=1, filename=fn)
 
+    @staticmethod
+    def get_target(cart, text):
+        """return target format string"""
+        if cart:
+            return 'CART'
+        if text:
+            return 'TEXT'
+        return 'GBC'
+
 
 class Linker:
     """generate byte code"""
@@ -1453,7 +1430,7 @@ class Linker:
 
     def generate_byte_code(self, split_groms=False):
         """generate GPL byte code for each GROM"""
-        groms = []
+        binaries = []
         memories = self.fill_memory()
         for grom, memory in memories.items():
             if not memory:
@@ -1461,15 +1438,17 @@ class Linker:
             min_addr = min(memory.keys())
             max_addr = max(memory.keys()) + 1
             binary = bytes(memory.get(addr, 0) for addr in range(min_addr, max_addr))
-            groms.append((grom, min_addr, max_addr, binary))
+            binaries.append(ByteCode(grom, min_addr, max_addr, binary))
         if split_groms:
-            return groms
-        sorted_groms = sorted(groms)
-        min_grom, all_min_addr, _, _ = sorted_groms[0]
-        max_grom, _, all_max_addr, _ = sorted_groms[-1]
-        binary = b''.join(binary + bytes(0 if grom == max_grom else 0x2000 - max_addr)
-                          for grom, _, max_addr, binary in sorted_groms)
-        return (min_grom, all_min_addr, all_max_addr, binary),
+            return binaries
+        binaries.sort()
+        min_grom = binaries[0].grom
+        max_grom = binaries[-1].grom
+        all_min_addr = binaries[0].min_addr
+        all_max_addr = binaries[-1].max_addr
+        binary = b''.join(bin.byte_code + bytes(0x2000 - len(bin.byte_code) if bin.grom < max_grom else 0)
+                          for bin in binaries)
+        return ByteCode(min_grom, all_min_addr, all_max_addr, binary),
 
     def generate_gpl_header(self, grom_addr, offset, name):
         """generate GPL header"""
@@ -1478,22 +1457,17 @@ class Linker:
         entry = self.program.entry or self.symbols.get_symbol('START') or offset
         gpl_header = bytes((0xaa, 1, 0, 0, 0, 0)) + Util.chrw(grom_addr + 0x10) + bytes(8)
         menu_name = name[:offset - 0x15]
-        info = bytes(2) + Util.chrw(Util.val(entry)) + bytes((len(menu_name),)) + menu_name.encode()
+        info = bytes(2) + Util.chrw(Address.val(entry)) + bytes((len(menu_name),)) + menu_name.encode()
         padding = bytes(offset - len(gpl_header) - len(info))
         return gpl_header + info + padding
 
     def generate_cart_binary(self, byte_code, name):
         """generate memory image for GROM"""
-        if len(byte_code) > 1:
-            raise AsmError('Cannot create cart image from separate GROM files')
-        grom, start_addr, _, image = byte_code[0]
-        offset = start_addr - (grom << 13)
-        header = self.generate_gpl_header(grom << 13, offset, name)
-        return header + image
 
     def generate_cart(self, byte_code, name):
-        """generate RPK file for use as MESS rom cartridge"""
-        image = self.generate_cart_binary(byte_code, name)
+        """generate RPK file for use as MAME rom cartridge"""
+        if len(byte_code) > 1:
+            raise AsmError('Cannot create cart image from separate GROM files')
         layout = f"""<?xml version='1.0' encoding='utf-8'?>
                     <romset version='1.0'>
                         <resources>
@@ -1509,15 +1483,17 @@ class Linker:
                      <meta-inf>
                          <name>{name}</name>
                      </meta-inf>"""
-        return image, layout, metainf
+        binary = byte_code[0]
+        offset = binary.min_addr - (binary.grom << 13)
+        header = self.generate_gpl_header(binary.grom << 13, offset, name)
+        return header + binary.byte_code, layout, metainf
 
     def generate_text(self, byte_code, mode, split_groms=True):
         """convert binary data into text representation"""
         if 'r' in mode:
-            word = lambda i: Util.ordw(binary[i + 1:((i - 1) if i > 0 else None):-1])  # byte-swapped
+            word = lambda i: Util.ordw(binary.byte_code[i + 1:((i - 1) if i > 0 else None):-1])  # byte-swapped
         else:
-            word = lambda i: Util.ordw(binary[i:i + 2])
-
+            word = lambda i: Util.ordw(binary.byte_code[i:i + 2])
         if '4' in mode:
             value_fmt = '{:s}{:04x}'
         else:
@@ -1541,25 +1517,43 @@ class Linker:
             raise AsmError('Bad text format: ' + mode)
 
         result = []
-        for grom, min_addr, max_addr, binary in byte_code:
+        for binary in byte_code:
             text = ''
             if 'a' in mode:
-                text += f';      grom >%{grom:04x}\n'
+                text += f';      grom >%{binary.grom:04x}\n'
             if '4' in mode:  # words
-                if len(binary) % 2:
-                    binary += bytes(1)  # pad to even length
-                ws = [value_fmt.format(hex_prefix, val(word(i))) for i in range(0, len(binary), 2)]
+                if len(binary.byte_code) % 2:
+                    byte_code.binary += bytes(1)  # pad to even length
+                ws = [value_fmt.format(hex_prefix, val(word(i))) for i in range(0, len(binary.byte_code), 2)]
                 lines = [data_prefix + ', '.join(ws[i:i + 4]) + suffix
                          for i in range(0, len(ws), 4)]
             else:  # bytes (default)
-                bs = [value_fmt.format(hex_prefix, binary[i]) for i in range(0, len(binary))]
+                bs = [value_fmt.format(hex_prefix, binary.byte_code[i]) for i in range(0, len(binary.byte_code))]
                 lines = [data_prefix + ', '.join(bs[i:i + 8]) + suffix
                          for i in range(0, len(bs), 8)]
             text += ''.join(lines)
-            result.append((grom, text))
+            result.append((binary.grom, text))
         if split_groms:
             return result
         return (None, '\n'.join(text for grom, text in result)),
+
+
+class ByteCode:
+    """stores result of GPL assembly"""
+
+    def __init__(self, grom, min_addr, max_addr, data):
+        self.grom = grom
+        self.min_addr = min_addr
+        self.max_addr = max_addr
+        self.byte_code = data
+
+    def __lt__(self, other):
+        return self.grom < other.grom
+
+    @staticmethod
+    def suffix(grom):
+        """return file suffix from grom"""
+        return '_g' + str(grom) if grom else ''
 
 
 class Word:
@@ -1637,6 +1631,8 @@ class Console:
 
     def print(self):
         """print all console messages to stderr"""
+        if self.console:
+            sys.stderr.write(f': xga99, version {VERSION}\n')
         for kind, message, pass_no, filename, lino, line in self.console:
             text, severity = ('Error', 2) if kind == 'E' else ('Warning', 1)
             s_filename = filename or '---'
@@ -1748,126 +1744,141 @@ class Line:
 
 # Command line processing
 
-def main():
-    import argparse, zipfile
+class Xga99Processor(CommandProcessor):
+    """process command line"""
 
-    args = argparse.ArgumentParser(description='GPL cross-assembler, v' + VERSION)
-    args.add_argument('source', metavar='<source>', help='GPL source code')
-    cmd = args.add_mutually_exclusive_group()
-    cmd.add_argument('-c', '--cart', action='store_true', dest='cart',
-                     help='create MAME cartridge image with auto GPL header')
-    cmd.add_argument('-t', '--text', dest='text', nargs='?', metavar='<format>',
-                     help='create text file with binary values')
-    args.add_argument('-n', '--name', dest='name', metavar='<name>',
-                      help='set program name')
-    args.add_argument('-G', '--grom', dest='grom', metavar='<GROM>',
-                      help='set GROM base address')
-    args.add_argument('-A', '--aorg', dest='aorg', metavar='<origin>',
-                      help='set AORG offset in GROM for byte code')
-    args.add_argument('-y', '--syntax', dest='syntax', metavar='<style>',
-                      help='set syntax style (xdt99, rag, mizapf)')
-    args.add_argument('-r', '--relaxed', action='store_true', dest='relaxed',
-                      help='relaxed syntax mode with extra whitespace and explicit comments')
-    args.add_argument('-I', '--include', dest='inclpath', metavar='<paths>',
-                      help='listing of include search paths')
-    args.add_argument('-D', '--define-symbol', nargs='+', dest='defs', metavar='<sym=val>',
-                      help='add symbol to symbol table')
-    args.add_argument('-g', '--split-groms', action='store_true', dest='splitgroms',
-                      help='put each GROM into separate file')
-    args.add_argument('-L', '--listing', dest='listing', metavar='<file>',
-                      help='generate listing file')
-    args.add_argument('-S', '--symbol-table', action='store_true', dest='symtab',
-                      help='add symbol table to listing file')
-    args.add_argument('-E', '--symbol-file', dest='equs', metavar='<file>',
-                      help='put symbols in EQU file')
-    args.add_argument('-q', '--quiet', action='store_true', dest='quiet',
-                      help='quiet; do not show warnings')
-    args.add_argument('--color', action='store', dest='color', choices=['off', 'on'],
-                      help='enable or disable color output')
-    args.add_argument('-o', '--output', dest='output', metavar='<file>',
-                      help='set output file name')
-    try:
-        default_opts = os.environ[CONFIG].split()
-    except KeyError:
-        default_opts = []
-    opts = args.parse_args(args=default_opts + sys.argv[1:])  # passed opts override default opts
+    def __init__(self):
+        super().__init__(AsmError)
+        self.asm = None
+        self.linker = None
 
-    # setup
-    dirname = os.path.dirname(opts.source) or '.'
-    basename = os.path.basename(opts.source)
-    barename = os.path.splitext(basename)[0]
-    name = opts.name or barename[:16].upper()
-    grom = Util.xint(opts.grom) if opts.grom is not None else 0x6000 if opts.cart else 0x0000
-    aorg = Util.xint(opts.aorg) if opts.aorg is not None else 0x0030 if opts.cart else 0x0000
-    root = os.path.dirname(os.path.realpath(__file__))  # installation dir (path to xga99)
-    includes = [os.path.join(root, 'lib')] + (opts.inclpath.split(',') if opts.inclpath else [])
-    target = 'cart' if opts.cart else 'gbc'
+    def parse(self):
+        """syntax and parsing"""
+        args = argparse.ArgumentParser(description='GPL cross-assembler, v' + VERSION)
+        args.add_argument('source', metavar='<source>', help='GPL source code')
+        cmd = args.add_mutually_exclusive_group()
+        cmd.add_argument('-c', '--cart', action='store_true', dest='cart',
+                         help='create MAME cartridge image with auto GPL header')
+        cmd.add_argument('-t', '--text', dest='text', nargs='?', metavar='<format>',
+                         help='create text file with binary values')
+        args.add_argument('-n', '--name', dest='name', metavar='<name>',
+                          help='set program name')
+        args.add_argument('-G', '--grom', dest='grom', metavar='<GROM>',
+                          help='set GROM base address')
+        args.add_argument('-A', '--aorg', dest='aorg', metavar='<origin>',
+                          help='set AORG offset in GROM for byte code')
+        args.add_argument('-y', '--syntax', dest='syntax', default='xdt99', metavar='<style>',
+                          help='set syntax style (xdt99, rag, mizapf)')
+        args.add_argument('-r', '--relaxed', action='store_true', dest='relaxed',
+                          help='relaxed syntax mode with extra whitespace and explicit comments')
+        args.add_argument('-I', '--include', dest='inclpath', nargs='+', metavar='<path>',
+                          help='listing of include search paths')
+        args.add_argument('-D', '--define-symbol', dest='defs', nargs='+', metavar='<sym[=val]>',
+                          help='add symbol to symbol table')
+        args.add_argument('-g', '--split-groms', action='store_true', dest='splitgroms',
+                          help='put each GROM into separate file')
+        args.add_argument('-L', '--listing', dest='listing', metavar='<file>',
+                          help='generate listing file')
+        args.add_argument('-S', '--symbol-table', action='store_true', dest='symtab',
+                          help='add symbol table to listing file')
+        args.add_argument('-E', '--symbol-file', dest='equs', metavar='<file>',
+                          help='put symbols in EQU file')
+        args.add_argument('-q', '--quiet', action='store_true', dest='quiet',
+                          help='quiet; do not show warnings')
+        args.add_argument('--color', action='store', dest='color', choices=['off', 'on'],
+                          help='enable or disable color output')
+        args.add_argument('-o', '--output', dest='output', metavar='<file>',
+                          help='set output file name')
+        try:
+            default_opts = os.environ[CONFIG].split()
+        except KeyError:
+            default_opts = []
+        self.opts = args.parse_args(args=default_opts + sys.argv[1:])  # passed opts override default opts
 
-    # assembly
-    asm = Assembler(syntax=opts.syntax or 'xdt99',
-                    grom=grom,
-                    aorg=aorg,
-                    target=target,
-                    path=dirname,
-                    includes=includes,
-                    definitions=tuple(opts.defs) if opts.defs else (),
-                    warnings=not opts.quiet,
-                    listing=opts.listing,
-                    colors=opts.color,
-                    relaxed=opts.relaxed)
-    try:
-        # assemble
-        asm.assemble(basename)
-        asm.console.print()
-        if asm.console.errors:
-            return 1
+    def run(self):
+        # setup
+        dirname = os.path.dirname(self.opts.source) or '.'
+        basename = os.path.basename(self.opts.source)
+        self.barename = os.path.splitext(basename)[0]
+        self.name = self.opts.name or self.barename[:16].upper()
+        grom = Util.xint(self.opts.grom) if self.opts.grom is not None else 0x6000 if self.opts.cart else 0x0000
+        aorg = Util.xint(self.opts.aorg) if self.opts.aorg is not None else 0x0030 if self.opts.cart else 0x0000
+        root = os.path.dirname(os.path.realpath(__file__))  # installation dir (path to xga99)
+        includes = [os.path.join(root, 'lib')] + Util.get_opts_list(self.opts.inclpath)
+        target = Assembler.get_target(self.opts.cart, self.opts.text)
 
-        # output
-        if opts.output and os.path.isdir(opts.output):  # -o file or directory?
-            path = opts.output
-            opts.output = None
+        # assembly
+        self.asm = Assembler(syntax=self.opts.syntax,
+                             grom=grom,
+                             aorg=aorg,
+                             target=target,
+                             path=dirname,
+                             includes=includes,
+                             definitions=Util.get_opts_list(self.opts.defs),
+                             warnings=not self.opts.quiet,
+                             listing=self.opts.listing,
+                             colors=self.opts.color,
+                             relaxed=self.opts.relaxed)
+        self.asm.assemble(basename)
+        self.asm.console.print()
+        if self.asm.console.errors:
+            self.rc = 1
+            return
+        self.linker = Linker(self.asm.program, self.asm.symbols)
+
+    def prepare(self):
+        if self.opts.cart:
+            self.cart()
+        elif self.opts.text:
+            self.text()
         else:
-            path = ''
+            self.byte_code()
+        if self.opts.listing:
+            self.listing()
+        if self.opts.equs:
+            self.equs()
 
-        linker = Linker(asm.program, asm.symbols)
-        if opts.cart:
-            byte_code = linker.generate_byte_code(split_groms=False)
-            data, layout, metainf = linker.generate_cart(byte_code, name)
-            try:
-                with zipfile.ZipFile(Util.outname(barename, None, '.rpk', output=opts.output), 'w') as archive:
-                    archive.writestr(name + '.bin', data)
-                    archive.writestr('layout.xml', layout)
-                    archive.writestr('meta-inf.xml', metainf)
-            except IOError as e:
-                sys.exit(f'File error: {e.filename}: {e.strerror}.')
-        else:
-            if opts.text:
-                byte_code = linker.generate_byte_code(split_groms=True)
-                result = linker.generate_text(byte_code, opts.text.lower(), split_groms=opts.splitgroms)
-                extension = '.dat'
-                mode = 'w'
-            else:
-                byte_code = linker.generate_byte_code(split_groms=opts.splitgroms)
-                result = [(grom if opts.splitgroms else None, bytes_) for (grom, _, _, bytes_) in byte_code]
-                extension = '.gbc'
-                mode = 'wb'
-            for suffix, data in result:
-                name = Util.outname(barename, suffix, extension, output=opts.output)
-                Util.writedata(os.path.join(path, name), data, mode)
-        if opts.listing:
-            listing = asm.listing.list() + (asm.symbols.list() if opts.symtab else '')
-            Util.writedata(opts.listing, listing, 'w')
-        if opts.equs:
-            Util.writedata(opts.equs, asm.symbols.list(equ=True), mode='w')
-    except IOError as e:
-        sys.exit(f'File error: {e.filename}: {e.strerror}.')
-    except AsmError as e:
-        sys.exit('Error: ' + str(e))
+    def cart(self):
+        """generate cart archive"""
+        byte_code = self.linker.generate_byte_code(split_groms=False)
+        data, layout, metainf = self.linker.generate_cart(byte_code, self.name)
+        try:
+            with zipfile.ZipFile(Util.outname(self.barename, '.rpk', output=self.opts.output), 'w') as archive:
+                archive.writestr(self.name + '.bin', data)
+                archive.writestr('layout.xml', layout)
+                archive.writestr('meta-inf.xml', metainf)
+        except IOError as e:
+            sys.exit(f'File error: {e.filename}: {e.strerror}.')
+        return []
 
-    # return status
-    return 1 if asm.console.errors else 0
+    def text(self):
+        """generate text file"""
+        byte_code = self.linker.generate_byte_code(split_groms=True)
+        binaries = self.linker.generate_text(byte_code, self.opts.text.lower(), split_groms=self.opts.splitgroms)
+        for grom, data in binaries:
+            self.result.append(RFile(data, self.barename, '.dat', suffix=ByteCode.suffix(grom), istext=True))
+
+    def byte_code(self):
+        """generate byte code"""
+        for binary in self.linker.generate_byte_code(split_groms=self.opts.splitgroms):
+            suffix = ByteCode.suffix(binary.grom) if self.opts.splitgroms else ''
+            self.result.append(RFile(binary.byte_code, self.barename, '.gbc', suffix=suffix))
+
+    def listing(self):
+        """generate listing"""
+        listing = self.asm.listing.list() + (self.asm.symbols.list() if self.opts.symtab else '')
+        self.result.append(RFile(listing, self.barename, '.lst', output=self.opts.listing, istext=True))
+
+    def equs(self):
+        """generate equs"""
+        equs = self.asm.symbols.list(equ=True)
+        self.result.append(RFile(equs, self.barename, '.equ', output=self.opts.equs, istext=True))
+
+    def errors(self):
+        """error occurred?"""
+        return 1 if self.asm.console.errors else self.rc
 
 
 if __name__ == '__main__':
-    status = main()
+    status = Xga99Processor().main()
     sys.exit(status)

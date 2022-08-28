@@ -1,0 +1,8 @@
+       ref  scan
+       ref  vdpwa
+s1:
+       equ  >0001  ;     
+s2:
+       equ  >0018  ; rel 
+start:
+       equ  >0000  ; rel 

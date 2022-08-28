@@ -20,13 +20,13 @@ public class Xas99ChooseByNameContributor implements ChooseByNameContributor {
                 names.add(label.getName());
             }
         }
-        return names.toArray(new String[names.size()]);
+        return names.toArray(new String[0]);
     }
 
     @Override
     public NavigationItem @NotNull [] getItemsByName(String name, String pattern, Project project, boolean includeNonProjectItems) {
         List<Xas99Labeldef> labels = Xas99Util.findLabels(project, name, 0, null, 0, false);
-        return labels.toArray(new NavigationItem[labels.size()]);
+        return labels.toArray(new NavigationItem[0]);
     }
 
 }

@@ -39,7 +39,7 @@ def runtest():
     xvm(Disks.volumes, '2', '-w', Disks.work, '--keep-size')
     xvm(Disks.volumes, '1,3-4', '-w', Disks.work, '--keep-size')
     # NOTE: All volumes will show high used sector count, since -keep-size was used, and all sectors beyond
-    #       the original SSSD will be marked as used!  #FIXME
+    #       the original SSSD will be marked as used!  #TODO
 
     with open(Files.error, 'w') as fout:
         xvm(Disks.volumes, '1-5', stdout=fout)

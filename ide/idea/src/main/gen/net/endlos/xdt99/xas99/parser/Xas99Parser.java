@@ -36,6 +36,20 @@ public class Xas99Parser implements PsiParser, LightPsiParser {
   }
 
   /* ********************************************************** */
+  // DIR_RA args_dir_E
+  public static boolean alias_definition(PsiBuilder b, int l) {
+    if (!recursion_guard_(b, l, "alias_definition")) return false;
+    if (!nextTokenIs(b, DIR_RA)) return false;
+    boolean r, p;
+    Marker m = enter_section_(b, l, _NONE_, ALIAS_DEFINITION, null);
+    r = consumeToken(b, DIR_RA);
+    p = r; // pin = 1
+    r = r && args_dir_E(b, l + 1);
+    exit_section_(b, l, m, r, p, null);
+    return r || p;
+  }
+
+  /* ********************************************************** */
   // opGA OP_SEP opGA
   public static boolean args_I(PsiBuilder b, int l) {
     if (!recursion_guard_(b, l, "args_I")) return false;
@@ -1091,6 +1105,18 @@ public class Xas99Parser implements PsiParser, LightPsiParser {
   }
 
   /* ********************************************************** */
+  // IDENT
+  public static boolean opAlias(PsiBuilder b, int l) {
+    if (!recursion_guard_(b, l, "opAlias")) return false;
+    if (!nextTokenIs(b, "<alias>", IDENT)) return false;
+    boolean r;
+    Marker m = enter_section_(b, l, _NONE_, OP_ALIAS, "<alias>");
+    r = consumeToken(b, IDENT);
+    exit_section_(b, l, m, r, false, null);
+    return r;
+  }
+
+  /* ********************************************************** */
   // OP_FQUOTE FNAME OP_FQUOTE
   public static boolean opFilename(PsiBuilder b, int l) {
     if (!recursion_guard_(b, l, "opFilename")) return false;
@@ -1271,7 +1297,7 @@ public class Xas99Parser implements PsiParser, LightPsiParser {
   }
 
   /* ********************************************************** */
-  // REGISTER | REGISTER0 | INT | PP_PARAM | opLabel
+  // REGISTER | REGISTER0 | INT | PP_PARAM | opAlias
   public static boolean opRegister(PsiBuilder b, int l) {
     if (!recursion_guard_(b, l, "opRegister")) return false;
     boolean r;
@@ -1280,7 +1306,7 @@ public class Xas99Parser implements PsiParser, LightPsiParser {
     if (!r) r = consumeToken(b, REGISTER0);
     if (!r) r = consumeToken(b, INT);
     if (!r) r = consumeToken(b, PP_PARAM);
-    if (!r) r = opLabel(b, l + 1);
+    if (!r) r = opAlias(b, l + 1);
     exit_section_(b, l, m, r, false, null);
     return r;
   }
@@ -1512,7 +1538,7 @@ public class Xas99Parser implements PsiParser, LightPsiParser {
   }
 
   /* ********************************************************** */
-  // directive | instruction | preprocessor | unknown_mnem
+  // directive | instruction | preprocessor | alias_definition
   static boolean statement(PsiBuilder b, int l) {
     if (!recursion_guard_(b, l, "statement")) return false;
     boolean r;
@@ -1520,7 +1546,7 @@ public class Xas99Parser implements PsiParser, LightPsiParser {
     r = directive(b, l + 1);
     if (!r) r = instruction(b, l + 1);
     if (!r) r = preprocessor(b, l + 1);
-    if (!r) r = unknown_mnem(b, l + 1);
+    if (!r) r = alias_definition(b, l + 1);
     exit_section_(b, l, m, r, false, Xas99Parser::statement_recover);
     return r;
   }
@@ -1558,18 +1584,6 @@ public class Xas99Parser implements PsiParser, LightPsiParser {
     r = r && expr(b, l + 1);
     r = r && consumeToken(b, OP_RPAREN);
     exit_section_(b, m, null, r);
-    return r;
-  }
-
-  /* ********************************************************** */
-  // UNKNOWN
-  public static boolean unknown_mnem(PsiBuilder b, int l) {
-    if (!recursion_guard_(b, l, "unknown_mnem")) return false;
-    if (!nextTokenIs(b, UNKNOWN)) return false;
-    boolean r;
-    Marker m = enter_section_(b);
-    r = consumeToken(b, UNKNOWN);
-    exit_section_(b, m, UNKNOWN_MNEM, r);
     return r;
   }
 

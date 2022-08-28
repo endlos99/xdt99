@@ -3,8 +3,9 @@
 import os
 import re
 
-from config import Dirs, Disks, Files, XGA99_CONFIG
-from utils import xga, xdm, error, clear_env, delfile, check_files_eq, check_binary_files_eq, content, content_len
+from config import Dirs, Files, XGA99_CONFIG
+from utils import (xga, error, clear_env, delfile, check_files_eq, check_binary_files_eq, content, content_len,
+                   content_line_array)
 
 
 # check functions
@@ -147,6 +148,28 @@ def runtest():
     xga(source, '-o', Files.output, '-L', Files.input)
     if content_len(Files.error) > 0:
         error('defaults', 'default options override not working')
+
+    # platform-agnostic paths
+    source = os.path.join(Dirs.gplsources, 'gawin.gpl')
+    xga(source, '-o', Files.output)
+    if content(Files.output) != bytes((0, 1, 0, 2, 0, 2, 0, 1)):
+        error('wincopy', 'File with Windows paths mismatch')
+
+    # paths as filenames for -o, -L, -E
+    source = os.path.join(Dirs.gplsources, 'gamulf.gpl')
+    xga(source, '-g', '-o', Dirs.tmp)
+    if (content(os.path.join(Dirs.tmp, 'gamulf_g1.gbc')) != b'\x01' * 10 or
+            content(os.path.join(Dirs.tmp, 'gamulf_g5.gbc')) != b'\x02' * 16 or
+            content(os.path.join(Dirs.tmp, 'gamulf_g7.gbc')) != b'\x03' * 32):
+        error('path output', 'Image contents mismatch')
+
+    xga(source, '-o', Files.output, '-L', Dirs.tmp)
+    if content_line_array(os.path.join(Dirs.tmp, 'gamulf.lst'))[0][:31] != 'XGA99 CROSS-ASSEMBLER   VERSION':
+        error('path output', 'List file contents mismatch')
+
+    xga(source, '-o', Files.output, '-L', Files.input, '-E', Dirs.tmp)
+    if len(content_line_array(os.path.join(Dirs.tmp, 'gamulf.equ'))) != 6:
+        error('path output', 'Equ file contents mismatch')
 
     # cleanup
     delfile(Dirs.tmp)

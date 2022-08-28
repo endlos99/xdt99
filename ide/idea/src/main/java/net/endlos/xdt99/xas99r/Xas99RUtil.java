@@ -27,26 +27,9 @@ public class Xas99RUtil {
         String normalizedIdent = ident.toUpperCase();
         if (distance == 0) {
             // non-local label search
-            List<Xas99RLabeldef> result = null;
-            Collection<VirtualFile> virtualFiles =
-                    FileTypeIndex.getFiles(Xas99RFileType.INSTANCE, GlobalSearchScope.allScope(project));
-            for (VirtualFile virtualFile : virtualFiles) {
-                Xas99RFile file = (Xas99RFile) PsiManager.getInstance(project).findFile(virtualFile);
-                if (file == null)
-                    continue;
-                Collection<Xas99RLabeldef> labels = PsiTreeUtil.findChildrenOfType(file, Xas99RLabeldef.class);
-                for (Xas99RLabeldef label : labels) {
-                    String normalizedLabel = label.getText().toUpperCase();
-                    if ((!partial && normalizedIdent.equals(normalizedLabel)) ||
-                            (partial && normalizedLabel.startsWith(normalizedIdent))) {
-                        if (result == null) {
-                            result = new ArrayList<Xas99RLabeldef>();
-                        }
-                        result.add(label);
-                    }
-                }
-            }
-            return result != null ? result : Collections.<Xas99RLabeldef>emptyList();
+            boolean getLocalLabels = normalizedIdent.startsWith("!");
+            // NOTE: filtering by local prefix is only relevant for partial servers made by code completion!
+            return findAll(project, normalizedIdent, partial, false, getLocalLabels);
         } else {
             // local label search
             PsiElement file = element;
@@ -75,6 +58,13 @@ public class Xas99RUtil {
         }
     }
 
+    // find register aliases
+    public static List<Xas99RLabeldef> findAliases(Project project, String ident, boolean partial) {
+        String normalizedIdent = ident.toUpperCase();
+        return findAll(project, normalizedIdent, partial, true, false);
+    }
+
+    // get both labels and aliases
     public static List<Xas99RLabeldef> findLabels(Project project) {
         List<Xas99RLabeldef> result = new ArrayList<Xas99RLabeldef>();
         Collection<VirtualFile> virtualFiles =
@@ -89,6 +79,7 @@ public class Xas99RUtil {
         return result;
     }
 
+    // find label usages for Annotator
     public static List<Xas99ROpLabel> findLabelUsages(Xas99RLabeldef label) {
         List<Xas99ROpLabel> result = new ArrayList<>();
         Project project = label.getProject();
@@ -101,6 +92,26 @@ public class Xas99RUtil {
                 continue;
             Collection<Xas99ROpLabel> usages = PsiTreeUtil.findChildrenOfType(file, Xas99ROpLabel.class);
             for (Xas99ROpLabel usage : usages) {
+                if (labelText.equalsIgnoreCase(usage.getName()))
+                    result.add(usage);
+            }
+        }
+        return result;
+    }
+
+    // find alias usages for Annotator
+    public static List<Xas99ROpAlias> findAliasUsages(Xas99RLabeldef label) {
+        List<Xas99ROpAlias> result = new ArrayList<>();
+        Project project = label.getProject();
+        String labelText = label.getName();
+        Collection<VirtualFile> virtualFiles =
+                FileTypeIndex.getFiles(Xas99RFileType.INSTANCE, GlobalSearchScope.allScope(project));
+        for (VirtualFile virtualFile : virtualFiles) {
+            Xas99RFile file = (Xas99RFile) PsiManager.getInstance(project).findFile(virtualFile);
+            if (file == null)
+                continue;
+            Collection<Xas99ROpAlias> usages = PsiTreeUtil.findChildrenOfType(file, Xas99ROpAlias.class);
+            for (Xas99ROpAlias usage : usages) {
                 if (labelText.equalsIgnoreCase(usage.getName()))
                     result.add(usage);
             }
@@ -189,6 +200,44 @@ public class Xas99RUtil {
     // expr -> op_address -> op_label -> ident with '!'
     public static boolean isLocalLabelExpr(PsiElement element) {
         return element instanceof Xas99ROpLabel && ((Xas99ROpLabel) element).getName().charAt(0) == '!';
+    }
+
+    private static List<Xas99RLabeldef> findAll(Project project, String ident, boolean partial, boolean getAliases,
+                                               boolean localLabels) {
+        List<Xas99RLabeldef> result = new ArrayList<>();
+        Collection<VirtualFile> virtualFiles =
+                FileTypeIndex.getFiles(Xas99RFileType.INSTANCE, GlobalSearchScope.allScope(project));
+        for (VirtualFile virtualFile : virtualFiles) {
+            Xas99RFile file = (Xas99RFile) PsiManager.getInstance(project).findFile(virtualFile);
+            if (file == null)
+                continue;
+            Collection<Xas99RLabeldef> labels = PsiTreeUtil.findChildrenOfType(file, Xas99RLabeldef.class);
+            for (Xas99RLabeldef label : labels) {
+                if (isAliasDefinition(label) == getAliases) {
+                    String normalizedLabel = label.getText().toUpperCase();
+                    if ((normalizedLabel.charAt(0) == LOCAL_LABEL_PREFIX) == localLabels) {
+                        if ((!partial && ident.equals(normalizedLabel)) ||
+                                (partial && normalizedLabel.startsWith(ident))) {
+                            result.add(label);
+                        }
+                    }
+                }
+            }
+        }
+        return result;
+    }
+
+    public static boolean isAliasDefinition(PsiElement element) {
+        try {
+            element = element.getNextSibling();
+            if (element.getNode().getElementType() == Xas99RTypes.OP_COLON)
+                element = element.getNextSibling().getNextSibling().getNextSibling();
+            else
+                element = element.getNextSibling();
+            return element instanceof Xas99RAliasDefinition;
+        } catch (NullPointerException x) {
+            return false;
+        }
     }
 
 }

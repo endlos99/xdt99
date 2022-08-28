@@ -22,61 +22,23 @@
 import sys
 import re
 import os.path
+import argparse
+from xcommon import Util, RFile, CommandProcessor
 
 
-VERSION = '3.2.0'
+VERSION = '3.5.1'
 
 CONFIG = 'XDA_CONFIG'
 
 
-# Utility functions
-
-def ordw(word):
-    """word ord"""
-    return (word[0] << 8) | word[1]
-
-
-def chrw(word):
-    """word chr"""
-    return bytes((word >> 8, word & 0xff))
-
+# Additional utility functions
 
 def xhex(text):
     """return hex string as integer value"""
     try:
-        return text if text is None else int(re.sub(r'^>|^0x', '', text), 16)
+        return None if text is None else int(re.sub(r'^>|^0x', '', text), 16)
     except ValueError:
         raise XdaError('Invalid hex value: ' + text)
-
-
-def escape(bytes_):
-    """escape non-printable characters"""
-    bytes_ = bytes_.replace(b"'", b"''")
-    return "'" + ''.join(chr(b) if 32 <= b < 127 else '.' for b in bytes_) + "'"
-
-
-def readbin(name, mode='rb'):
-    """read lines from file or STDIN"""
-    if name == '-':
-        if 'b' in mode:
-            return sys.stdin.buffer.read()
-        else:
-            return sys.stdin.read()
-    else:
-        with open(name, mode) as f:
-            return f.read()
-
-
-def writelines(name, data, mode='rb'):
-    """write lines to file or STDOUT"""
-    if name == '-':
-        if 'b' in mode:
-            sys.stdout.buffer.write(data)
-        else:
-            sys.stdout.write(data)
-    else:
-        with open(name, mode) as f:
-            f.write(data)
 
 
 # Error handling
@@ -581,7 +543,7 @@ class Literal(Entry):
             assert len(value) % 2 == 0
             Entry.__init__(self, addr, word, len(value) // 2)
             self.mnemonic = 'TEXT'
-            self.value = escape(value)
+            self.value = Util.escape(value)
         else:
             Entry.__init__(self, addr, word, 1)
             self.mnemonic = 'DATA'
@@ -599,7 +561,7 @@ class Program(object):
         self.binary = binary  # binary blob
         self.addr = addr  # start addr
         self.symbols = symbols  # symbol table
-        self.code = [Unknown(addr + i, ordw(binary[i:i + 2]))  # listing of entries
+        self.code = [Unknown(addr + i, Util.ordw(binary[i:i + 2]))  # listing of entries
                      for i in range(0, len(binary), 2)]
         self.size = len(self.code)  # index size of programm
         self.end = self.addr + len(binary)  # final address of program
@@ -779,12 +741,12 @@ class Disassembler(object):
         # check for cartridge header
         if program.binary[0] == 0xaa:
             # cart, no autostart
-            menu, starts = ordw(program.binary[6:8]) - program.addr, []
+            menu, starts = Util.ordw(program.binary[6:8]) - program.addr, []
             try:
                 # find all menu entries
                 while menu != 0x0000:
-                    starts.append(ordw(program.binary[menu + 2:menu + 4]))
-                    menu = ordw(program.binary[menu:menu + 2])
+                    starts.append(Util.ordw(program.binary[menu + 2:menu + 4]))
+                    menu = Util.ordw(program.binary[menu:menu + 2])
             except IndexError:
                 XdaLogger.warn('Bad cartridge menu structure')
             return starts
@@ -807,7 +769,7 @@ class Disassembler(object):
             # found Unknown chunk (might be empty)
             chunk = program.binary[start_idx * 2:i * 2]
             # search for text literal of at least size 6 in Unknown chunk
-            m = re.search(rb'[A-Za-z0-9 ,.:?!()\-]{%d,}' % min_len, chunk)
+            m = re.search(rb'[A-Za-z\d ,.:?!()\-]{%d,}' % min_len, chunk)
             if m:
                 # replace Unknowns by Literal
                 m_start = m.start(0) if m.start(0) % 2 == 0 else m.start(0) + 1
@@ -832,105 +794,152 @@ class Disassembler(object):
 
 # Command line processing
 
-def main():
-    import argparse
+class Xda99Processor(CommandProcessor):
 
-    args = argparse.ArgumentParser(
-        description='TMS9900 disassembler, v' + VERSION,
-        epilog="All addresses are hex values and may by prefixed optionally by '>' or '0x'.")
-    args.add_argument('binary', metavar='<file>',
-                      help='machine code file')
-    cmd = args.add_mutually_exclusive_group()
-    cmd.add_argument('-r', '--run', metavar='<addr>', dest='runs', nargs='+',
-                     help='run from additional addresses')
-    cmd.add_argument('-f', '--from', metavar='<addr>', dest='frm',
-                     help="disassemble top-down from address, or 'start'")
-    args.add_argument('-a', '--address', metavar='<addr>', dest='addr',
-                      help='address of first word')
-    args.add_argument('-t', '--to', metavar='<addr>', dest='to',
-                      help='disassemble to address (default: end)')
-    args.add_argument('-e', '--exclude', metavar='<addr>-<addr>', dest='exclude', nargs='+',
-                      help='exclude address ranges')
-    args.add_argument('-k', '--skip', metavar='<bytes>', dest='skip',
-                      help='skip bytes at beginning of file')
-    args.add_argument('-F', '--force', action='store_true', dest='force',
-                      help='force overwriting of previous disassembly')
-    args.add_argument('-5', '--9995', action='store_true', dest='dis_9995',
-                      help='disassembly TMS9995 opcodes')
-    args.add_argument('-18', '--f18a', action='store_true', dest='dis_f18a',
-                      help='disassembly F18A opcodes')
-    args.add_argument('-p', '--program', action='store_true', dest='program',
-                      help='disassemble to complete program')
-    args.add_argument('-c', '--concise', action='store_true', dest='concise',
-                      help='show only disassembled parts')
-    args.add_argument('-n', '--strings', action='store_true', dest='strings',
-                      help='disassemble string literals')
-    args.add_argument('-R', '--no-r', action='store_true', dest='nor',
-                      help='do not prepend registers with 'R'')
-    args.add_argument('-s', '--strict', action='store_true', dest='strict',
-                      help='use strict legacy syntax')
-    args.add_argument('-S', '--symbols', metavar='<file>', dest='symfiles', nargs='+',
-                      help='known symbols file(s)')
-    args.add_argument('-V', '--verbose', action='store_true', dest='verbose',
-                      help='verbose messages')
-    args.add_argument('-o', '--output', metavar='<file>', dest='outfile',
-                      help='output filename')
-    try:
-        default_opts = os.environ[CONFIG].split()
-    except KeyError:
-        default_opts = []
-    opts = args.parse_args(args=default_opts + sys.argv[1:])  # passed opts override default opts
+    def __init__(self):
+        super().__init__(XdaError)
+        self.disasm = None
+        self.program = None
+        self.addr_from = None
+        self.addr_to = None
 
-    # setup
-    basename = os.path.basename(opts.binary)
-    barename = os.path.splitext(basename)[0]
-    output = opts.outfile or barename + '.dis'
+    def parse(self):
+        args = argparse.ArgumentParser(
+            description='TMS9900 disassembler, v' + VERSION,
+            epilog="All addresses are hex values and may by prefixed optionally by '>' or '0x'.")
+        args.add_argument('binary', metavar='<file>',
+                          help='machine code file')
+        cmd = args.add_mutually_exclusive_group()
+        cmd.add_argument('-r', '--run', metavar='<addr>', dest='runs', nargs='+',
+                         help='run from additional addresses')
+        cmd.add_argument('-f', '--from', metavar='<addr>', dest='frm',
+                         help="disassemble top-down from address, or 'start'")
+        args.add_argument('-a', '--address', metavar='<addr>', dest='addr',
+                          help='address of first word')
+        args.add_argument('-t', '--to', metavar='<addr>', dest='to',
+                          help='disassemble to address (default: end)')
+        args.add_argument('-e', '--exclude', metavar='<addr>-<addr>', dest='exclude', nargs='+',
+                          help='exclude address ranges')
+        args.add_argument('-k', '--skip', metavar='<bytes>', dest='skip',
+                          help='skip bytes at beginning of file')
+        args.add_argument('-F', '--force', action='store_true', dest='force',
+                          help='force overwriting of previous disassembly')
+        args.add_argument('-5', '--9995', action='store_true', dest='dis_9995',
+                          help='disassembly TMS9995 opcodes')
+        args.add_argument('-18', '--f18a', action='store_true', dest='dis_f18a',
+                          help='disassembly F18A opcodes')
+        args.add_argument('-p', '--program', action='store_true', dest='program',
+                          help='disassemble to complete program')
+        args.add_argument('-c', '--concise', action='store_true', dest='concise',
+                          help='show only disassembled parts')
+        args.add_argument('-n', '--strings', action='store_true', dest='strings',
+                          help='disassemble string literals')
+        args.add_argument('-R', '--no-r', action='store_true', dest='nor',
+                          help='do not prepend registers with 'R'')
+        args.add_argument('-s', '--strict', action='store_true', dest='strict',
+                          help='use strict legacy syntax')
+        args.add_argument('-S', '--symbols', metavar='<file>', dest='symfiles', nargs='+',
+                          help='known symbols file(s)')
+        args.add_argument('-V', '--verbose', action='store_true', dest='verbose',
+                          help='verbose messages')
+        args.add_argument('-o', '--output', metavar='<file>', dest='output',
+                          help='output filename')
+        try:
+            default_opts = os.environ[CONFIG].split()
+        except KeyError:
+            default_opts = []
+        self.opts = args.parse_args(args=default_opts + sys.argv[1:])  # passed opts override default opts
 
-    if opts.verbose:
-        XdaLogger.setlevel(XdaLogger.level_info)
+    def run(self):
+        basename = os.path.basename(self.opts.binary)
+        self.barename = os.path.splitext(basename)[0]
+        if self.opts.verbose:
+            XdaLogger.setlevel(XdaLogger.level_info)
 
-    try:
-        binary = readbin(opts.binary)[xhex(opts.skip) or 0:]
-        addr = xhex(opts.addr) if opts.addr is not None else 0x6000
-        addr_to = xhex(opts.to)
+        binary = Util.readdata(self.opts.binary)[xhex(self.opts.skip) or 0:]
+        addr = 0x6000 if self.opts.addr is None else xhex(self.opts.addr)
+        self.addr_to = xhex(self.opts.to)
 
-        symbols = Symbols(opts.symfiles)
-        program = Program(binary, addr, symbols=symbols)
-        excludes = [program.addr_range(e) for e in (opts.exclude or ())]
-        disasm = Disassembler(excludes, no_r=opts.nor, tms9995=opts.dis_9995, f18a=opts.dis_f18a)
+        symbols = Symbols(self.opts.symfiles)
+        self.program = Program(binary, addr, symbols=symbols)
+        excludes = [self.program.addr_range(e) for e in (self.opts.exclude or ())]
+        self.disasm = Disassembler(excludes, no_r=self.opts.nor, tms9995=self.opts.dis_9995,
+                                   f18a=self.opts.dis_f18a)
 
-        if opts.frm:
-            # top-down disassembler: uses specified start address -f
-            XdaLogger.info('top-down disassembly')
-            addr_from = min(disasm.get_starts(program)) if opts.frm.lower() == 'start' else xhex(opts.frm)
-            disasm.disassemble(program, addr_from, addr_to)
+    def prepare(self):
+        if self.opts.frm:
+            self.disass_from()
         else:
-            # run disassembler: uses specified run addresses -r
-            XdaLogger.info('run disassembly')
-            runs = [xhex(r) for r in (opts.runs or []) if r.lower() != 'start']
-            auto_run = any(r.lower() == 'start' for r in (opts.runs or []))
-            if auto_run:
-                runs += disasm.get_starts(program)
-            for run in runs:
-                disasm.run(program, run, addr_to, force=opts.force)
-        if opts.strings:
-            XdaLogger.info('extracting strings')
-            disasm.find_strings(program)
-        if opts.program:
-            XdaLogger.info('finalizing into complete program')
-            disasm.make_program(program)
-    except XdaError as e:
-        sys.exit(f'Error: {str(e):s}.')
-    except IOError as e:
-        sys.exit(f'{e.filename:s}: {e.strerror:s}.')
-    try:
-        source = program.list(as_prog=opts.program or False, strict=opts.strict, concise=opts.concise)
-        writelines(output, source, 'w')
-    except OSError as e:
-        sys.exit(f'{e.filename:s}: {e.strerror:s}.')
-    return 0
+            self.disass()
+        if self.opts.strings:
+            self.find_strings()
+        if self.opts.program:
+            self.make_program()
+        source = self.program.list(as_prog=self.opts.program, strict=self.opts.strict, concise=self.opts.concise)
+        self.result.append(RFile(source, self.barename, '.dis', istext=True))
+
+    def disass(self):
+        # run disassembler: uses specified run addresses -r
+        XdaLogger.info('run disassembly')
+        runs = [xhex(r) for r in (self.opts.runs or []) if r.lower() != 'start']
+        auto_run = any(r.lower() == 'start' for r in (self.opts.runs or []))
+        if auto_run:
+            runs += self.disasm.get_starts(self.program)
+        for run in runs:
+            self.disasm.run(self.program, run, self.addr_to, force=self.opts.force)
+
+    def disass_from(self):
+        # top-down disassembler: uses specified start address -f
+        XdaLogger.info('top-down disassembly')
+        if self.opts.frm.lower() == 'start':
+            addr_from = min(self.disasm.get_starts(self.program))
+        else:
+            addr_from = xhex(self.opts.frm)
+        self.disasm.disassemble(self.program, addr_from, self.addr_to)
+
+    def find_strings(self):
+        XdaLogger.info('extracting strings')
+        self.disasm.find_strings(self.program)
+
+    def make_program(self):
+        XdaLogger.info('finalizing into complete program')
+        self.disasm.make_program(self.program)
+
+
+        ###########################
+        # if self.opts.frm:
+        #     # top-down disassembler: uses specified start address -f
+        #     XdaLogger.info('top-down disassembly')
+        #     addr_from = min(disasm.get_starts(program)) if self.opts.frm.lower() == 'start' else xhex(self.opts.frm)
+        #     disasm.disassemble(program, addr_from, addr_to)
+        # else:
+        #     # run disassembler: uses specified run addresses -r
+        #     XdaLogger.info('run disassembly')
+        #     runs = [xhex(r) for r in (self.opts.runs or []) if r.lower() != 'start']
+        #     auto_run = any(r.lower() == 'start' for r in (self.opts.runs or []))
+        #     if auto_run:
+        #         runs += disasm.get_starts(program)
+        #     for run in runs:
+        #         disasm.run(program, run, addr_to, force=self.opts.force)
+        # if self.opts.strings:
+        #     XdaLogger.info('extracting strings')
+        #     disasm.find_strings(program)
+        # if self.opts.program:
+        #     XdaLogger.info('finalizing into complete program')
+        #     disasm.make_program(program)
+    # except XdaError as e:
+    #     sys.exit(f'Error: {str(e):s}.')
+    # except IOError as e:
+    #     sys.exit(f'{e.filename:s}: {e.strerror:s}.')
+
+    # try:
+    #     source = program.list(as_prog=self.opts.program or False, strict=self.opts.strict, concise=self.opts.concise)
+    #     File(source, barename, '.dis', istext=True).write(self.opts.output)
+    # except OSError as e:
+    #     sys.exit(f'{e.filename:s}: {e.strerror:s}.')
+    # return 0
 
 
 if __name__ == '__main__':
-    status = main()
+    status = Xda99Processor().main()
     sys.exit(status)

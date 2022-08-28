@@ -1,8 +1,8 @@
 <idea-plugin>
     <id>net.endlos.xdt99.idea</id>
     <name>xdt99 IDEA Editor Support</name>
-    <version>3.3.2</version>
-    <vendor email="r@ti99.pro" url="https://www.github.com/endlos99">Endlos 99</vendor>
+    <version>3.3.3</version>
+    <vendor email="r@ti99.pro" url="https://www.github.com/endlos99">endlos 99</vendor>
     <description><![CDATA[
     TI 99 Cross-Development Tools (xdt99)
     <br>
@@ -25,10 +25,10 @@
     along with this program; if not, see http://www.gnu.org/licenses/.
     ]]></description>
 
-    <idea-version since-build="203"/>  <!-- 2020.3 or higher -->
+    <idea-version since-build="203.5981.155"/>
     <depends>com.intellij.modules.platform</depends>
     <depends>com.intellij.modules.lang</depends>
-    <depends>com.intellij.java</depends>
+    <!-- <depends>com.intellij.java</depends> -->
 
     <extensions defaultExtensionNs="com.intellij">
         <!-- TMS 9900 Assembly -->

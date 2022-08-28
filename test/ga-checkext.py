@@ -85,7 +85,7 @@ def runtest():
  > gauusymi.gpl <1> **** - 
  ***** Warning: Unused constants: si:1
 """
-    if content_lines(Files.error) != expected:
+    if content_lines(Files.error, skip=1) != expected:
         error('unused', 'Incorrect warnings')
 
     # relaxed parsing
@@ -95,6 +95,13 @@ def runtest():
         error('relaxed', 'Incorrect output')
     if len(content_line_array(Files.input)) != 18:
         error('relaxed', 'Incorrect list file length')
+
+    # version string
+    source = os.path.join(Dirs.gplsources, 'gaxvers.gpl')
+    xga(source, '-q', '-o', Files.output, '-L', Files.input)
+    binary = content(Files.output)
+    if binary[0] != 255 or binary[2:5:2] != b'..' or binary[-1] != 255 or not binary[1:6:2].decode().isdigit():
+        error('version', 'Binary with version string mismatch')
 
     # cleanup
     delfile(Dirs.tmp)

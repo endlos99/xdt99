@@ -23,57 +23,14 @@ import sys
 import platform
 import os.path
 import re
+import argparse
 import xdm99 as xdm
+from xcommon import Util, CommandProcessor, RContainer
 
 
-VERSION = '3.5.0'
+VERSION = '3.5.1'
 
 CONFIG = 'XVM99_CONFIG'
-
-
-# utility functions
-
-class Util:
-
-    @staticmethod
-    def tiname(filename):
-        return os.path.splitext(os.path.basename(filename))[0][:10].upper()
-
-    @staticmethod
-    def nint(s):
-        """None-aware int"""
-        return None if s is None else int(s)
-
-    @staticmethod
-    def readdata(name, mode='rb'):
-        """read data from file or STDIN"""
-        if name == '-':
-            if 'b' in mode:
-                return sys.stdin.buffer.read()
-            else:
-                return sys.stdin.read()
-        else:
-            with open(name, mode) as f:
-                return f.read()
-
-    @staticmethod
-    def writedata(filename, data, encoding=None):
-        """write data to file or STDOUT"""
-        if encoding is None:
-            if filename == '-':
-                sys.stdout.buffer.write(data)
-            else:
-                with open(filename, 'wb') as f:
-                    f.write(data)
-        else:
-            try:
-                if filename == '-':
-                    sys.stdout.write(data.decode(encoding))
-                else:
-                    with open(filename, 'w') as f:
-                        f.write(data.decode(encoding))
-            except UnicodeDecodeError:
-                sys.exit('Bad encoding: ' + encoding)
 
 
 # Multi-disk volumes
@@ -88,21 +45,25 @@ class Volumes:
     def __init__(self, device):
         self.device = device
 
-    def get_volume(self, vol_no, trim=False):
+    def get_volume(self, vol_no, keepsize=False):
         """get disk image from volume device"""
         with open(self.device, 'rb') as f:
             f.seek((vol_no - 1) * self.BYTES_PER_VOLUME)
             data = f.read(self.BYTES_PER_VOLUME)
         image = data[::2]  # only every second byte is used
-        return xdm.Disk.trim_sectors(image) if trim else image
+        return xdm.Disk.trim_sectors(image) if keepsize else image
 
-    def write_volume(self, vol_no, image, resize=None):
+    def write_volume(self, vol_no, image, keepsize=False):
         """write disk image to volume device"""
         size = len(image) * 2
         if size > self.BYTES_PER_VOLUME:
             raise ValueError('Disk image too large')
-        if resize:
-            image = xdm.Disk.extend_sectors(image, resize)
+        if not keepsize:
+            # use CF disk geometry and maximum sector count
+            disk = xdm.Disk(image)  # would need xdm99 console
+            disk.set_geometry(cf=True)
+            disk.resize_disk(Volumes.SECTORS_PER_VOLUME)
+            image = disk.get_image()
         data = b''.join(bytes((b, 0)) for b in image) + bytes(self.BYTES_PER_VOLUME - size)
         with open(self.device, 'r+b') as d:
             d.seek((vol_no - 1) * self.BYTES_PER_VOLUME)
@@ -140,6 +101,21 @@ class Volumes:
                     info.append(f'[{volume:4d}]  (invalid volume)\n')
         return ''.join(info)
 
+    @staticmethod
+    def parse_volume_range(vol_range):
+        volumes = []
+        for vr in vol_range.split(','):
+            m = re.match(r'(\d+)(?:-(\d+))?$', vr)
+            if m is None:
+                raise xdm.ContainerError('Invalid volumes: ' + vr)
+            try:
+                start = int(m.group(1))
+                end = start if m.group(2) is None else int(m.group(2))
+            except (ValueError, TypeError):
+                raise xdm.ContainerError('Invalid volumes: ' + vr)
+            volumes.extend(range(start, end + 1))
+        return volumes
+
 
 class Console:
     """collects errors and warnings"""
@@ -167,129 +143,126 @@ class Console:
 
 # Command line processing
 
-class Processor:
-    """execute supplied commands"""
+class RVolume:
+    """output container wrapper for xvm99"""
 
-    def __init__(self, console):
-        self.console = console
+    def __init__(self, volume, container):
+        self.volume = volume
+        self.container = container
 
-    def process_command(self, opts, env_opts, device, no_extra_opts=False):
-        """device manipulation"""
-        result = []
-        volumes = []
+    def iscontainer(self):
+        return self.container.iscontainer
 
-        # get volume range
-        for vol_range in opts.volumes.split(','):
-            m = re.match(r'(\d+)(?:-(\d+))?$', vol_range)
-            if m is None:
-                self.console.error('Invalid volume range: ' + opts.volumes)
-                return 1, ()
-            start = Util.nint(m.group(1))
-            end = Util.nint(m.group(2))
-            volumes.extend([*range(start or 0, (end or start) + 1)])
 
-        # volume operations
-        if opts.writevol:
-            data = Util.readdata(opts.writevol)
-            resize = None if opts.keepsize else Volumes.SECTORS_PER_VOLUME
-            for volume in volumes:
-                device.write_volume(volume, data, resize)
-            return 0, ()
-        elif opts.readvol:
-            for volume in volumes:
-                image = device.get_volume(volume, not opts.keepsize)
-                suffix = '_' + str(volume) if len(volumes) > 1 else ''
-                Util.writedata(opts.readvol + suffix, image)
-            return 0, ()
-        elif not opts.init and no_extra_opts:
-            sys.stdout.write(device.get_info(volumes))
-            return 0, ()
+class Xvm99Processor(CommandProcessor):
 
-        # file operations, delegate to xdm99, but remove volume spec so that xdm99 can parse command line
-        del (sys.argv[2])
-        for volume in volumes:
-            if opts.init:
-                image = bytes(1)
+    def __init__(self):
+        super().__init__((xdm.ContainerError, xdm.FileError))
+        self.console = None
+        self.device = None
+        self.xdm_opts = None
+        self.default_opts = None
+        self.volumes = []
+
+    def parse(self):
+        args = argparse.ArgumentParser(
+            description='xvm99: nanoPEB/CF7+ disk volume manipulation tool, v' + VERSION,
+            epilog='Additionally, most xdm99 options can be used.')
+        args.add_argument('device', type=str,
+                          help='nanoPEB/CF7A flash cart device')
+        args.add_argument('volumes', type=str,
+                          help='volume number or range, volume numbers starting with 1')
+        cmd = args.add_mutually_exclusive_group()
+    
+        # volume management
+        cmd.add_argument('-r', '--read-volume', dest='readvol', metavar='<output file>',
+                         help='read volume')
+        cmd.add_argument('-w', '--write-volume', dest='writevol', metavar='<disk image>',
+                         help='write volume')
+    
+        # general options
+        args.add_argument('-X', '--initialize', dest='init', metavar='<size>',
+                          help='initialize volume (CF or sector count or disk geometry xSxDxT)')
+        args.add_argument('--keep-size', action='store_true', dest='keepsize',
+                          help="don't resize image when writing to volume")
+        args.add_argument('-c', '--encoding', dest='encoding', nargs='?', const='utf-8', metavar='<encoding>',
+                          help='set encoding for DISPLAY files')
+        args.add_argument('--color', action='store', dest='color', choices=['off', 'on'],
+                          help='enable or disable color output')
+        args.add_argument('-o', '--output', dest='output', metavar='<file>',
+                          help='set output file name')
+    
+        try:
+            self.default_opts = os.environ[CONFIG].split()
+        except KeyError:
+            self.default_opts = []
+        self.opts, self.xdm_opts = args.parse_known_args(self.default_opts + sys.argv[1:])
+        
+    def run(self):
+        self.device = Volumes(self.opts.device)
+        self.console = Console(colors=self.opts.color)
+        self.volumes = Volumes.parse_volume_range(self.opts.volumes)
+
+    def prepare(self):
+        if self.opts.writevol:
+            self.write()
+        elif self.opts.readvol:
+            self.read()
+        elif not self.opts.init and not self.xdm_opts:
+            self.info()
+        else:
+            self.delegate()
+
+    def write(self):
+        data = Util.readdata(self.opts.writevol)
+        for volume in self.volumes:
+            self.device.write_volume(volume, data, keepsize=self.opts.keepsize)
+
+    def read(self):
+        for volume in self.volumes:
+            image = self.device.get_volume(volume, not self.opts.keepsize)
+            suffix = '_' + str(volume) if len(self.volumes) > 1 else ''
+            self.result.append(RContainer(image, 'tmp', suffix=suffix, output=self.opts.readvol))  # 'tmp' overwritten
+
+    def info(self):
+        self.result.append(RContainer(self.device.get_info(self.volumes), '-', istext=True))
+
+    def delegate(self):
+        """delegate file operations to xdm99"""
+        del (sys.argv[2])  # remove volume specifier from command line passed to xdm99
+        xdm_processor = xdm.Xdm99Processor()  # single instance will accumulate results
+        for volume in self.volumes:
+            if self.opts.init:
+                image = bytes(1)  # dummy disk image
             else:
-                image = device.get_volume(volume, not opts.keepsize)
+                image = self.device.get_volume(volume, keepsize=self.opts.keepsize)
                 if not xdm.Disk.is_formatted(image):
-                    return 1, ()
-            vol_result = xdm.main(image, env_opts)
-            for data, name, is_container in vol_result:
-                if is_container:
-                    result.append((data, volume, True))
+                    self.console.error(f'Volume {volume} not formatted')
+                    self.rc = 1
+                    continue
+            results, _ = xdm_processor.main(image, self.default_opts)
+            # repackage as RVolume to store volume number
+            for result in results:
+                if result.iscontainer:
+                    self.result.append(RVolume(volume, result))
                 else:
-                    result.append((data, name, False))
-        return 0, result
+                    self.result.append(result)
+        self.rc = self.rc or xdm_processor.rc  # accumulated return code
 
-
-# Command line processing
-
-def main():
-    import argparse
-
-    args = argparse.ArgumentParser(
-        description='xvm99: nanoPEB/CF7+ disk volume manipulation tool, v' + VERSION,
-        epilog='Additionally, most xdm99 options can be used.')
-    args.add_argument('device', type=str,
-                      help='nanoPEB/CF7A flash cart device')
-    args.add_argument('volumes', type=str,
-                      help='volume number or range, volume numbers starting with 1')
-    cmd = args.add_mutually_exclusive_group()
-
-    # volume management
-    cmd.add_argument('-r', '--read-volume', dest='readvol', metavar='<output file>',
-                     help='read volume')
-    cmd.add_argument('-w', '--write-volume', dest='writevol', metavar='<disk image>',
-                     help='write volume')
-
-    # general options
-    args.add_argument('-X', '--initialize', dest='init', metavar='<size>',
-                      help='initialize volume (CF or sector count or disk geometry xSxDxT)')
-    args.add_argument('--keep-size', action='store_true', dest='keepsize',
-                      help="don't resize image when writing to volume")
-    args.add_argument('-c', '--encoding', dest='encoding', nargs='?', const='utf-8', metavar='<encoding>',
-                      help='set encoding for DISPLAY files')
-    args.add_argument('--color', action='store', dest='color', choices=['off', 'on'],
-                      help='enable or disable color output')
-    args.add_argument('-o', '--output', dest='output', metavar='<file>',
-                      help='set output file name')
-
-    try:
-        default_opts = os.environ[CONFIG].split()
-    except KeyError:
-        default_opts = []
-    opts, xdm_opts = args.parse_known_args(default_opts + sys.argv[1:])
-
-    # setup
-    device = Volumes(opts.device)
-    console = Console(colors=opts.color)
-    processor = Processor(console)
-
-    # process device
-    try:
-        rc, result = processor.process_command(opts, default_opts, device, no_extra_opts=not xdm_opts)
-    except (IOError, xdm.ContainerError, xdm.FileError) as e:
-        console.error('Error: ' + str(e))
-        sys.exit(1)
-
-    # write result
-    try:
-        # only one of container, disk is provided
-        for data, name_or_volume, is_volume in result:
-            if is_volume:
-                device.write_volume(name_or_volume, data)
-            else:
-                outname = opts.output or name_or_volume
-                Util.writedata(outname, data, encoding=opts.encoding)
-    except IOError as e:
-        console.error('Error: ' + str(e))
-        sys.exit(1)
-
-    # return status
-    return rc
+    def output(self):
+        try:
+            # disks written to device already handled in write()
+            for item in self.result:
+                if isinstance(item, RVolume):
+                    # for delegated volume changes
+                    self.device.write_volume(item.volume, item.container.data, keepsize=True)
+                else:
+                    item.write(self.opts.output, self.opts.encoding)
+        except IOError as e:
+            self.console.error('Error: ' + str(e))
+            sys.exit(1)
 
 
 if __name__ == '__main__':
-    status = main()
+    status = Xvm99Processor().main()
     sys.exit(status)

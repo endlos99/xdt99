@@ -24,148 +24,13 @@ import re
 import datetime
 import os
 import platform
+import argparse
+from xcommon import Util, RContainer, CommandProcessor, GlobStore
 
 
-VERSION = '3.5.0'
+VERSION = '3.5.1'
 
 CONFIG = 'XDM99_CONFIG'
-
-
-# Utility functions
-
-class Util:
-
-    @staticmethod
-    def ordn(bytes_):
-        """convert byte sequence into value"""
-        value = 0
-        for b in bytes_:
-            value = (value << 8) + b
-        return value
-
-    @staticmethod
-    def chrn(value, size=2):
-        """convert value into byte sequence"""
-        return bytes(((value >> ((i - 1) * 8)) & 0xff) for i in range(size, 0, -1))
-
-    @staticmethod
-    def ordwR(word):
-        """reverse word ord"""
-        return word[1] << 8 | word[0]
-
-    @staticmethod
-    def bval(bytes_):
-        """n-length ord"""
-        return [b for b in bytes_]
-
-    @staticmethod
-    def pad(n, m):
-        """return increment to next multiple of m"""
-        return -n % m
-
-    @staticmethod
-    def dmult(n, m):
-        """get largest multiple of m less or equal to n"""
-        return n - n % m
-
-    @staticmethod
-    def used(n, m):
-        """integer division rounding up"""
-        return (n + m - 1) // m
-
-    @staticmethod
-    def upmod(n, mod):
-        """modulo, but 1..mod"""
-        return n % mod or mod
-
-    @staticmethod
-    def xint(s):
-        """return hex or decimal value"""
-        return int(s.lstrip('>'), 16 if s[:2] == '0x' or s[:1] == '>' else 10)
-
-    @staticmethod
-    def id_function(x):
-        """identity function"""
-        return x
-
-    @staticmethod
-    def tiname(s, n=0):
-        """create TI filename from local filename"""
-        return 'STDIN' if s == '-' else Util.to_ti(os.path.splitext(os.path.basename(s))[0][:10].upper(), n)
-
-    @staticmethod
-    def to_pc(n):
-        """escaoe TI filename for PC"""
-        return None if n is None else n.replace('/', '.')
-
-    @staticmethod
-    def to_ti(s, n=0):
-        """escape PC name for TI"""
-        return None if s is None else Util.strseq(s.replace('.', '/'), n)
-
-    @staticmethod
-    def strseq(s, n):
-        """create nth string in sequence by increasing last char"""
-        return s[:-1] + chr(ord(s[-1]) + n)
-
-    @staticmethod
-    def chop(s, n):
-        """generator that produces n-sized parts of s"""
-        while True:
-            part, s = s[:n], s[n:]
-            if not part:
-                break
-            yield part
-
-    @staticmethod
-    def glob(container, patterns):
-        """glob files"""
-        wildcards = [pattern for pattern in patterns if re.search(r'[?*]', pattern)]
-        glob_re = '|'.join(re.escape(p).replace(r'\*', '.*').replace(r'\?', '.')
-                           for p in wildcards) + '$'
-        matches = [name for name in container.catalog if re.match(glob_re, name)]
-        plains = [pattern for pattern in patterns if pattern not in wildcards]
-        return matches + plains
-
-    @staticmethod
-    def writedata(filename, data, encoding=None):
-        """write data to file or STDOUT"""
-        if encoding is None:
-            if filename == '-':
-                sys.stdout.buffer.write(data)
-            else:
-                with open(filename, 'wb') as f:
-                    f.write(data)
-        else:
-            try:
-                if filename == '-':
-                    sys.stdout.write(data.decode(encoding))
-                else:
-                    with open(filename, 'w') as f:
-                        f.write(data.decode(encoding))
-            except UnicodeDecodeError:
-                sys.exit('Bad encoding: ' + encoding)
-
-    @staticmethod
-    def readdata(filename, data=None, encoding=None):
-        """read data from file or STDIN (or return supplied data)"""
-        if encoding is None:
-            if filename == '-':
-                return data or sys.stdin.buffer.read()
-            else:
-                with open(filename, 'rb') as f:
-                    data = f.read()
-                    return data
-        else:
-            try:
-                if filename == '-':
-                    return data or sys.stdin.read().encode(encoding)
-                else:
-                    with open(filename, 'r') as f:
-                        data = f.read()
-                    return data.encode(encoding)
-            except UnicodeDecodeError:
-                sys.exit('Bad encoding: ' + encoding)
 
 
 # Sector-based disk image
@@ -197,7 +62,7 @@ class Disk:
     RESERVED = 0x14
     DATA = 0x100
 
-    def __init__(self, image, console=None):
+    def __init__(self, image, console=None, init=False):
         if len(image) < 2 * Disk.BYTES_PER_SECTOR:
             raise ContainerError('Invalid disk image')
         self.image = image
@@ -234,6 +99,7 @@ class Disk:
         self._check_geometry()
         self._init_catalog()
         self._check_allocation()
+        self.modified = init  # mark if disk image was modified and needs to be saved
 
     @staticmethod
     def blank_image(geometry, name):
@@ -412,33 +278,40 @@ class Disk:
         self.alloc_bitmap = b''.join(bytes_) + b'\xff' * (Disk.BYTES_PER_SECTOR - Disk.ALLOC_BITMAP - len(bytes_))
         sector_0 = self.get_sector(0)
         self.set_sector(0, sector_0[:self.ALLOC_BITMAP] + self.alloc_bitmap)
+        self.modified = True
 
     @staticmethod
     def is_formatted(image):
         """is disk formatted?"""
         return image[Disk.DSK_ID:Disk.DSK_ID_END] == b'DSK'
 
-    def set_geometry(self, sides, density, tracks):
+    def set_geometry(self, sides=1, density=1, tracks=9, cf=False):
         """override geometry of disk image"""
-        if sides:
-            self.sides = sides
-        if density:
-            self.density = density
-        if tracks:
-            self.tracks_per_side = tracks
-        self.sectors_per_track = Disk.DEFAULT_SECTORS_PER_TRACK * self.density
+        if cf:
+            self.sides = self.density = 1
+            self.tracks_per_side = 80  # all values must fit in one byte!
+            self.sectors_per_track = 20
+        else:
+            if sides:
+                self.sides = sides
+            if density:
+                self.density = density
+            if tracks:
+                self.tracks_per_side = tracks
+            self.sectors_per_track = Disk.DEFAULT_SECTORS_PER_TRACK * self.density
         self.image = (self.image[:Disk.SECTORS_PER_TRACK] + bytes((self.sectors_per_track,)) +
                       self.image[Disk.DSK_ID:Disk.TRACKS_PER_SIDE] +
                       bytes((self.tracks_per_side, self.sides, self.density)) + self.image[Disk.RESERVED:])
         self.console.clear_warnings(Console.CAT_GEOMETRY)
         self._check_geometry()
+        self.modified = True
 
     def resize_disk(self, new_size):
         """resize image to given sector count"""
         if not 2 < new_size <= Disk.MAX_SECTORS:
             raise ContainerError(f'Invalid disk size, expected between 2 and {Disk.MAX_SECTORS} sectors')
         if self.total_sectors % 8 != 0 or new_size % 8 != 0:
-            raise ContainerError('Disk size must be multiple of 8 sectors')
+            raise ContainerError('Old and new disk size must be multiple of 8 sectors')
         old_size = self.total_sectors
         self.total_sectors = new_size
         self.used_sectors = 0
@@ -446,6 +319,12 @@ class Disk:
         self.image = (self.image[:Disk.DISK_NAME_LEN] + Util.chrn(new_size) +
                       self.image[Disk.SECTORS_PER_TRACK:new_size * self.BYTES_PER_SECTOR] +
                       self.BLANK_BYTE * ((new_size - old_size) * self.BYTES_PER_SECTOR))
+
+    @staticmethod
+    def trim_sectors(image):
+        """shrink image to actually existing sectors (for xvm99)"""
+        total_sectors = Util.ordn(image[Disk.TOTAL_SECTORS:Disk.TOTAL_SECTORS_END])
+        return image[:total_sectors * Disk.BYTES_PER_SECTOR]
 
     def fix_disk(self):
         """rebuild disk with non-erroneous files"""
@@ -460,25 +339,7 @@ class Disk:
         if len(self.name.encode()) > Disk.DISK_NAME_LEN:
             raise ContainerError('Encoded name is too long')
         self.image = self.name.encode() + b' ' * (Disk.DISK_NAME_LEN - len(self.name)) + self.image[Disk.DISK_NAME_LEN:]
-
-    @staticmethod
-    def extend_sectors(image, new_size):
-        """increase total number of sectors and clear alloc map (for xvm99)"""
-        current = Util.ordn(image[Disk.TOTAL_SECTORS:Disk.TOTAL_SECTORS_END])
-        if not current <= new_size <= Disk.MAX_SECTORS:
-            raise ContainerError(f'Invalid size {new_size:d} for sector increase')
-        if current % 8 != 0:
-            raise ContainerError('Sector count must be multiple of 8')
-        bitmap = (image[Disk.ALLOC_BITMAP:Disk.ALLOC_BITMAP + current // 8] +
-                  b'\xff' * (Disk.BYTES_PER_SECTOR - Disk.ALLOC_BITMAP - current // 8))
-        return (image[:Disk.DISK_NAME_LEN] + Util.chrn(new_size) + image[Disk.SECTORS_PER_TRACK:Disk.ALLOC_BITMAP] +
-                bitmap + image[Disk.DATA:])
-
-    @staticmethod
-    def trim_sectors(image):
-        """shrink image to actually existing sectors (for xvm99)"""
-        total_sectors = Util.ordn(image[Disk.TOTAL_SECTORS:Disk.TOTAL_SECTORS_END])
-        return image[:total_sectors * Disk.BYTES_PER_SECTOR]
+        self.modified = True
 
     def get_sector(self, sector_no, context=None):
         """retrieve sector from image"""
@@ -501,6 +362,7 @@ class Disk:
                              f'expected {Disk.BYTES_PER_SECTOR:d}')
         offset = sector_no * Disk.BYTES_PER_SECTOR
         self.image = self.image[:offset] + data + self.image[offset + Disk.BYTES_PER_SECTOR:]
+        self.modified = True
 
     def glob_files(self, patterns):
         """return listing of filenames matching glob pattern"""
@@ -619,9 +481,11 @@ class Archive:
         if cdata is None:
             self.archive = bytes(252) + b'END!'  # new, empty archive
             self.cdata = self.lzw.compress(self.archive)
+            self.modified = True
             return
         self.cdata = cdata
         self.archive = self.lzw.decompress(cdata)
+        self.modified = False
         # get files stored in archive
         directory = None
         for s in range(Util.used(len(self.archive), 256)):
@@ -636,7 +500,7 @@ class Archive:
         while i < len(directory):
             if self.archive[i] == 0:
                 # move to next sector
-                i = Util.dmult(i + 256, 256)
+                i = Util.trunc(i + 256, 256)
                 continue
             try:
                 # get catalog entry
@@ -648,7 +512,7 @@ class Archive:
                                     total_sectors=sectors,
                                     eof_offset=self.archive[i + 14],
                                     record_len=self.archive[i + 15],
-                                    lv3_records=Util.ordwR(self.archive[i + 16:i + 18]))
+                                    lv3_records=Util.rordw(self.archive[i + 16:i + 18]))
                 # get data for catalog entry
                 data = self.archive[j:j + sectors * 256]
                 if name in self.catalog:
@@ -680,6 +544,7 @@ class Archive:
         assert len(data) % Disk.BYTES_PER_SECTOR == 0
         self.archive = directory + data
         self.cdata = self.lzw.compress(self.archive)
+        self.modified = True
 
     def glob_files(self, patterns):
         """glob files"""
@@ -1306,7 +1171,9 @@ class File:
         return data + bytes(Util.pad(len(data), Disk.BYTES_PER_SECTOR))
 
     def get_contents(self, encoding=None):
-        """return file contents as serialized records"""
+        """return file contents as serialized records
+           Note that the result is always binary, even for DISPLAY files!
+        """
         if self.fd.type == FileDescriptor.PROGRAM:
             return self.records
         elif self.fd.mode == FileDescriptor.FIXED:
@@ -1366,6 +1233,10 @@ class File:
     def is_v9t9(image):
         """check if file image has v9t9 header"""
         return all(32 <= c < 127 for c in image[:10]) and image[0x30:File.HEADER_LEN] == bytes(0x50)
+
+    def is_display(self):
+        """return of file has DISPLAY format"""
+        return self.fd.type == FileDescriptor.DISPLAY
 
     def get_info(self):
         """return file meta data"""
@@ -1432,397 +1303,433 @@ class Console:
 
 # Command line processing
 
-class Processor:
+class Xdm99Processor(CommandProcessor):
     """execute supplied commands"""
 
-    def __init__(self, console):
-        self.console = console
+    def __init__(self):
+        super().__init__((ContainerError, FileError))
+        self.external_data = None
+        self.external_options = ()
+        self.container = None
+        self.container_name = None
+        self.disk = None
+        self.data = None
+        self.files = []
+        self.format = None
+        self.is_display_format = False
+        self.console = None
+        self.prepare_fn = None
 
-    def process_dump(self, s):
-        """format binary string as hex dump (for -S)"""
-        dump = []
-        for i in range(0, len(s), 16):
-            bs = b''  # use bytes, like all other functions do
-            cs = b''
-            for j in range(16):
-                try:
-                    bs += b'%02X ' % s[i + j]
-                    cs += bytes((s[i + j],)) if 32 <= s[i + j] < 127 else b'.'
-                except IndexError:
-                    bs += b'   '
-                    cs += b' '
-                if j % 4 == 3:
-                    bs += b' '
-                    cs += b' '
-            dump.append(b'%02X:  %b %b\n' % (i, bs, cs))
-        return b''.join(dump)
+    def main(self, external_data=None, external_options=()):
+        self.external_data = external_data
+        self.external_options = external_options
+        rc = super().main()
+        if self.external_data:
+            return self.result, rc
+        return rc
 
-    def process_command(self, opts, external_data=None):
-        """container image manipulation"""
-        rc = 0
-        format_ = opts.format.upper() if opts.format else 'PROGRAM'
-        result = []  # data x name x is_container
-        disk_image = arc_image = disk = container = None
-        disk_modified = container_modified = False
+    def parse(self):
+        args = argparse.ArgumentParser(description='xdm99: Disk image manager and file conversion tool, v' + VERSION)
+        args.add_argument('filename', nargs='?', type=str, help='disk image name or filename')
+        cmd = args.add_mutually_exclusive_group()
 
-        # get images
-        if opts.filename or external_data:
-            if opts.init:
-                disk_image = Disk.blank_image(opts.init, Util.to_ti(opts.name) or Util.tiname(opts.filename))
-                disk_modified = True
-            else:
-                disk_image = external_data or Util.readdata(opts.filename)
-            disk = Disk(disk_image, console=self.console)
-        if opts.archive:
-            if opts.initarc:
-                arc_image = Archive(name=Util.tiname(opts.archive), console=self.console).get_image()
-                container_modified = True
-            elif opts.filename or external_data:
-                arc_image = disk.get_file(opts.archive).get_contents()  # archive on disk, image extracted from disk
-            else:
-                arc_image = Util.readdata(opts.archive)
-                if File.is_tifiles(arc_image):
-                    arc_image = File.create_from_tif_image(arc_image, console=self.console).get_contents()
+        # disk image commands
+        cmd.add_argument('-i', '--info', action='store_true', dest='info',
+                         help='show image infomation')
+        cmd.add_argument('-p', '--print', dest='print_', nargs='+', metavar='<name>',
+                         help='print file from image')
+        cmd.add_argument('-e', '--extract', dest='extract', nargs='+', metavar='<name>',
+                         help='extract files from image or archive')
+        cmd.add_argument('-E', '--extract-to-disk', dest='exark', nargs='+', metavar='<name>',
+                         help='extract files from archive to disk image')
+        cmd.add_argument('-a', '--add', action=GlobStore, dest='add', nargs='+', metavar='<file>',
+                         help='add files to image or update existing files')
+        cmd.add_argument('-A', '--add-to-disk', action=GlobStore, dest='addark', nargs='+', metavar='<file>',
+                         help='add or update files on disk to archive on disk')
+        cmd.add_argument('-r', '--rename', dest='rename', nargs='+', metavar='<old>:<new>',
+                         help='rename files on image')
+        cmd.add_argument('-d', '--delete', dest='delete', nargs='+', metavar='<name>',
+                         help='delete files from image')
+        cmd.add_argument('-w', '--protect', dest='protect', nargs='+', metavar='<name>',
+                         help='toggle write protection of files on image')
+        cmd.add_argument('-Z', '--resize', dest='resize', metavar='<sectors>',
+                         help='resize image to given total sector count')
+        cmd.add_argument('--set-geometry', dest='geometry', metavar='<geometry>',
+                         help='set disk geometry (xSxDxT)')
+        cmd.add_argument('-C', '--check', action='store_true', dest='checkonly',
+                         help='check disk image integrity only')
+        cmd.add_argument('-R', '--repair', action='store_true', dest='repair',
+                         help='attempt to repair disk image')
+        cmd.add_argument('-S', '--sector', dest='sector', metavar='<sector>',
+                         help='dump disk sector')
+        cmd.add_argument('--compress', action='store_true', dest='compress',
+                         help=argparse.SUPPRESS)
+        cmd.add_argument('--decompress', action='store_true', dest='decompress',
+                         help=argparse.SUPPRESS)
 
-        # get container
-        if opts.archive:
-            # archive on disk or stand-alone archive
-            container = Archive(arc_image, name=Util.tiname(opts.archive), console=self.console)
-            container_name = opts.archive
-        else:
-            # disk image
-            container = disk
-            container_name = opts.filename
+        # file commands
+        cmd.add_argument('-P', '--print-fiad', action=GlobStore, dest='printfiad', nargs='+',
+                         metavar='<file>', help='print contents of file in FIAD format')
+        cmd.add_argument('-T', '--to-fiad', action=GlobStore, dest='tofiad', nargs='+',
+                         metavar='<file>', help='convert plain file to FIAD format')
+        cmd.add_argument('-F', '--from-fiad', action=GlobStore, dest='fromfiad', nargs='+',
+                         metavar='<file>', help='convert FIAD format to plain file')
+        cmd.add_argument('-I', '--info-fiad', action=GlobStore, dest='infofiad', nargs='+',
+                         metavar='<file>', help='show information about file in FIAD format')
 
-        # apply commands to container
+        # general options
+        args.add_argument('-K', '--archive', dest='archive', metavar='<archive>',
+                          help='name of archive (on disk image or local machine')
+        args.add_argument('-t', '--tifiles', action='store_true', dest='astifiles',
+                          help='use TIFILES file format')
+        args.add_argument('-N', '--ti-names', action='store_true', dest='tinames',
+                          help='use TI filenames for resulting files')
+        args.add_argument('-9', '--v9t9', action='store_true', dest='asv9t9',
+                          help='use v9t9 file format')
+        args.add_argument('--sdd', dest='assdd99', nargs='?', const='0', metavar='<loadtype>',
+                          help='use SDD 99 file format, with given loadtype')
+        args.add_argument('-f', '--format', dest='format', metavar='<format>',
+                          help='set TI file format for data to add')
+        args.add_argument('-n', '--name', dest='name', metavar='<name>',
+                          help='set TI filename for data to add')
+        args.add_argument('-X', '--initialize', dest='init', metavar='<size>',
+                          help='initialize disk image (sector count or disk geometry xSxDxT)')
+        args.add_argument('-Y', '--init-archive', action='store_true', dest='initarc',
+                          help='initialize archive (on disk or stand-alone')
+        args.add_argument('-c', '--encoding', dest='encoding', nargs='?', metavar='<encoding>',
+                          help='set encoding for DISPLAY files')
+        args.add_argument('-o', '--output', dest='output', metavar='<file>',
+                          help='set output filename or target directory')
+        args.add_argument('-q', '--quiet', action='store_true', dest='quiet',
+                          help='suppress all warnings')
+        args.add_argument('--color', action='store', dest='color', choices=['off', 'on'],
+                          help='enable or disable color output')
+
         try:
-            if opts.print_:
-                names = container.glob_files(opts.print_)
-                contents = (container.get_file(name).get_contents() for name in names)
-                sys.stdout.buffer.write(b''.join(contents))
-            elif opts.extract:
-                names = container.glob_files(opts.extract)
-                if opts.output and len(names) > 1 and not os.path.isdir(opts.output):
-                    sys.exit(self.console.color('Error: -o must provide directory when extracting multiple files',
-                                                severity=Console.ERROR))
-                if opts.astifiles:
-                    getfile = container.get_tifiles_file
-                    extension = '.tfi'
-                elif opts.assdd99 is not None:
-                    getfile = lambda name: container.get_sdd99_file(name, loadtype=Util.xint(opts.assdd99))
-                    extension = '.tfi'
-                elif opts.asv9t9:
-                    getfile = container.get_v9t9_file
-                    extension = '.v9t9'
-                else:
-                    getfile = lambda name: container.get_file(name).get_contents()
-                    extension = ''
-                result = [(getfile(name),
-                           Util.to_pc(name).upper() if opts.tinames else Util.to_pc(name).lower() + extension,
-                           False)
-                          for name in names]
-            elif opts.exark:
-                if not opts.filename or not opts.archive:
-                    raise ContainerError('Operation not permitted')
-                # container = archive, disk = disk
-                names = container.glob_files(opts.exark)
-                files = [container.get_file(name) for name in names]
-                disk.add_files(files)  # result updated later
-                disk_modified = True
-            elif opts.add:
-                if opts.astifiles:
-                    create = lambda name, hfn, data: File.create_from_tif_image(data, hostfn=hfn, console=self.console)
-                elif opts.asv9t9:
-                    create = lambda name, _, data: File.create_from_v9t9_image(data, console=self.console)
-                else:
-                    create = lambda name, _, data: File.create_new(name, format_, data, console=self.console)
-                files = [create(Util.to_ti(opts.name, i) if opts.name else Util.tiname(name), name,
-                                Util.readdata(name, encoding=opts.encoding))
-                         for i, name in enumerate(opts.add)]
-                container.add_files(files)
-                container_modified = True
-            elif opts.addark:
-                if not opts.filename or not opts.archive:
-                    raise ContainerError('Operation not permitted')
-                # container = archive, disk = disk
-                names = disk.glob_files(opts.addark)
-                files = [disk.get_file(name) for name in names]
-                container.add_files(files)
-                container_modified = True
-            elif opts.rename:
-                renames = [Util.to_ti(arg).split(':') for arg in opts.rename]
-                container.rename_files(renames)
-                container_modified = True
-            elif opts.delete:
-                filenames = container.glob_files(opts.delete)
-                container.remove_files(filenames)
-                container_modified = True
-            elif opts.protect:
-                filenames = container.glob_files(opts.protect)
-                container.protect_files(filenames)
-                container_modified = True
-            elif opts.resize:
-                size, layout = Disk.parse_geometry(opts.resize, need_sectors=True)
-                container.resize_disk(size)
-                if layout:
-                    sides, density, tracks = layout
-                    container.set_geometry(sides, density, tracks or Disk.DEFAULT_TRACKS)
-                container_modified = True
-            elif opts.geometry:
-                size, layout = Disk.parse_geometry(opts.geometry)
-                try:
-                    container.set_geometry(*layout)
-                except TypeError:
-                    raise ContainerError('Invalid container geometry: ' + opts.geometry)
-                container_modified = True
-            elif opts.checkonly:
-                rc = 1 if self.console.errors or self.console.warnings else 0
-            elif opts.repair:
-                container.fix_disk()
-                container_modified = True
-            elif opts.sector:
-                opts.quiet = True
-                try:
-                    sector_no = Util.xint(opts.sector)
-                    sector = container.get_sector(sector_no)
-                except (IndexError, ValueError):
-                    raise ContainerError(f'Invalid sector: {opts.sector}')
-                result = [(self.process_dump(sector), '-', False)]
-            elif opts.name:
-                # at this point, '-n' is supplied without command (or with init), so rename container
-                container.rename_disk(Util.to_ti(opts.name))
-                container_modified = True
-            elif opts.info or (not opts.init and not opts.initarc):  # default, but not when creating new container
-                sys.stdout.write(container.get_info())
-                sys.stdout.write('-' * 76 + '\n')
-                sys.stdout.write(container.get_catalog())
-        except AttributeError:
-            raise ContainerError('Operation not permitted')
+            default_opts = os.environ[CONFIG].split()
+        except KeyError:
+            default_opts = []
+        if self.external_data is None:
+            self.opts = args.parse_args(args=default_opts + sys.argv[1:])  # passed opts override default opts
+        else:
+            # also parse non-recognized options from parent tool
+            self.opts = args.parse_args(args=sys.argv[1:] + list(self.external_options))
+        self.fix_greedy_list_parsing('filename', 'print_', 'extract', 'add', 'exark', 'addark', 'rename', 'delete',
+                                     'protect', 'printfiad', 'fromfiad', 'tofiad', 'infofiad')
 
-        # update archive on disk if archive has changed, reclassify stand-alone archive
-        if opts.filename and opts.archive:
-            if container_modified:
-                file = File.create_new(opts.archive, 'INT/FIX128', container.get_image())
-                disk.add_files((file,))
-            if disk_modified or container_modified:
-                result.append((disk.get_image(), opts.filename, True))  # disk with archive
-        elif container_modified:
-            result.append((container.get_image(), container_name, True))  # disk or stand-alone archive
-        elif disk_modified:
-            result.append((disk.get_image(), opts.filename, True))  # disk only initialized
-        return rc, result
+        if not (self.opts.filename or self.opts.archive or self.opts.fromfiad or self.opts.tofiad or
+                self.opts.printfiad or self.opts.infofiad):
+            args.error('Disk image or archive required')
+        if self.opts.init and not self.opts.filename or self.opts.initarc and not self.opts.archive:
+            args.error('Incorrect initialization')
 
-    def process_file_command(self, opts):
+    def run(self):
+        self.console = Console(disable_warnings=self.opts.quiet, colors=self.opts.color)
+        self.format = self.opts.format.upper() if self.opts.format else 'PROGRAM'
+        self.is_display_format = self.format and 'D' in self.format
+        if self.opts.compress or self.opts.decompress:
+            self.run_archive()
+        elif self.opts.fromfiad or self.opts.tofiad or self.opts.printfiad or self.opts.infofiad:
+            self.run_tifiles()
+        elif self.opts.sector:
+            self.run_sector()
+        else:
+            self.run_container()
+    
+    def run_archive(self):
+        self.data = Util.readdata(self.opts.filename)
+        if File.is_tifiles(self.data):
+            self.data = File.create_from_tif_image(self.data).get_contents()
+        self.prepare_fn = self.prepare_archive
+
+    def run_tifiles(self):
         """file manipulation"""
-        result = []
         # files to process (opts are mutually exclusive)
-        files = opts.fromfiad or opts.tofiad or opts.printfiad or opts.infofiad
-        if opts.output and len(files) > 1 and not os.path.isdir(opts.output):
+        self.files = self.opts.fromfiad or self.opts.tofiad or self.opts.printfiad or self.opts.infofiad
+        if self.opts.output and len(self.files) > 1 and not os.path.isdir(self.opts.output):
             sys.exit(self.console.color('Error: -o must provide directory when providing multiple files',
                                         severity=Console.ERROR))
-        fmt = opts.format.upper() if opts.format else 'PROGRAM'
+        self.prepare_fn = self.prepare_tifiles
 
-        for i, filename in enumerate(files):
-            image = Util.readdata(filename)
-            if opts.tofiad:
-                name = Util.to_ti(opts.name, i) or Util.tiname(filename, i)
-                file = File.create_new(name, fmt, image, console=self.console)
-                if opts.asv9t9:
-                    result.append(
-                        (file.get_as_v9t9(),
-                         Util.to_pc(name).upper() if opts.tinames else Util.to_pc(name).lower() + '.v9t9',
-                         False)
-                    )
-                elif opts.assdd99 is not None:  # could be zero
-                    result.append(
-                        (file.get_as_sdd99(Util.xint(opts.assdd99)),
-                         Util.to_pc(name).upper() if opts.tinames else Util.to_pc(name).lower() + '.sdd99',
-                         False)
-                    )
-                else:
-                    result.append(
-                        (file.get_as_tifiles(),
-                         Util.to_pc(name).upper() if opts.tinames else Util.to_pc(name).lower() + '.tfi',
-                         False)
-                    )
+    def run_sector(self):
+        """format binary string as hex dump (for -S)"""
+        if not self.opts.filename:
+            ContainerError('Missing filename')
+        disk = Disk(Util.readdata(self.opts.filename), console=self.console)
+        self.opts.quiet = True
+        try:
+            sector_no = Util.xint(self.opts.sector)
+            s = disk.get_sector(sector_no)
+        except (IndexError, ValueError):
+            raise ContainerError(f'Invalid sector: {self.opts.sector}')
+        # create hex dump
+        dump = []
+        for i in range(0, len(s), 16):
+            bs = cs = ''
+            for j in range(16):
+                try:
+                    bs += f'{s[i + j]:02X} '
+                    cs += chr(s[i + j]) if 32 <= s[i + j] < 127 else '.'
+                except IndexError:
+                    bs += '   '
+                    cs += ' '
+                if j % 4 == 3:
+                    bs += ' '
+                    cs += ' '
+            dump.append(f'{i:02X}:  {bs:s} {cs:s}\n')
+        self.data = ''.join(dump)
+        self.prepare_fn = self.prepare_sector
+
+    def run_container(self):
+        """container image manipulation"""
+        archive = None
+        # get images
+        if self.opts.filename or self.external_data:
+            if self.opts.init:
+                disk_image = Disk.blank_image(self.opts.init,
+                                              Util.to_ti(self.opts.name) or Util.tiname(self.opts.filename))
+                self.disk = Disk(disk_image, console=self.console, init=True)
             else:
-                if opts.astifiles or opts.assdd99 or File.is_tifiles(image):
-                    file = File.create_from_tif_image(image, hostfn=filename, console=self.console)
-                elif opts.asv9t9 or File.is_v9t9(image):
-                    file = File.create_from_v9t9_image(image, console=self.console)
+                disk_image = self.external_data or Util.readdata(self.opts.filename)
+                self.disk = Disk(disk_image, console=self.console)
+        if self.opts.archive:
+            if self.opts.initarc:
+                archive = Archive(name=Util.tiname(self.opts.archive), console=self.console)
+            else:
+                if self.opts.filename or self.external_data:
+                    # archive on disk, image extracted from disk
+                    arc_image = self.disk.get_file(self.opts.archive).get_contents()
                 else:
-                    raise FileError('Unknown file format')
-                if opts.fromfiad:
-                    result.append((file.get_contents(), os.path.splitext(filename)[0], False))
-                elif opts.printfiad:
-                    result.append((file.get_contents(), '-', False))
-                else:
-                    sys.stdout.write(file.get_info())
-        return 0, result
-
-
-def main(external_data=None, extra_args=()):
-    """command line processing
-       This function is also the entry point for vhm99 and xvm99, which will pass a disk image that
-       is contained in the HFE image/CF7A volume as external_data.  The original command line arguments
-       in sys.argv[] are then processed by xdm99.  xdm99 will create and update all non-disk
-       output and return the updated disk image to xhm99/xvm99, where it'll be wrapped in a HFE image/
-       CF7A volume.
-    """
-    import os
-    import argparse
-    import glob
-
-    class GlobStore(argparse.Action):
-        """argparse globbing for Windows platforms"""
-
-        def __call__(self, parser, namespace, values, option_string=None):
-            if os.name == 'nt':
-                names = [glob.glob(fn) if '*' in fn or '?' in fn else [fn] for fn in values]
-                values = [f for n in names for f in n]
-            setattr(namespace, self.dest, values)
-
-    args = argparse.ArgumentParser(description='xdm99: Disk image manager and file conversion tool, v' + VERSION)
-    args.add_argument('filename', nargs='?', type=str, help='disk image name or filename')
-    cmd = args.add_mutually_exclusive_group()
-
-    # disk image commands
-    cmd.add_argument('-i', '--info', action='store_true', dest='info',
-                     help='show image infomation')
-    cmd.add_argument('-p', '--print', dest='print_', nargs='+', metavar='<name>',
-                     help='print file from image')
-    cmd.add_argument('-e', '--extract', dest='extract', nargs='+', metavar='<name>',
-                     help='extract files from image or archive')
-    cmd.add_argument('-E', '--extract-to-disk', dest='exark', nargs='+', metavar='<name>',
-                     help='extract files from archive to disk image')
-    cmd.add_argument('-a', '--add', action=GlobStore, dest='add', nargs='+', metavar='<file>',
-                     help='add files to image or update existing files')
-    cmd.add_argument('-A', '--add-to-disk', action=GlobStore, dest='addark', nargs='+', metavar='<file>',
-                     help='add or update files on disk to archive on disk')
-    cmd.add_argument('-r', '--rename', dest='rename', nargs='+', metavar='<old>:<new>',
-                     help='rename files on image')
-    cmd.add_argument('-d', '--delete', dest='delete', nargs='+', metavar='<name>',
-                     help='delete files from image')
-    cmd.add_argument('-w', '--protect', dest='protect', nargs='+', metavar='<name>',
-                     help='toggle write protection of files on image')
-    cmd.add_argument('-Z', '--resize', dest='resize', metavar='<sectors>',
-                     help='resize image to given total sector count')
-    cmd.add_argument('--set-geometry', dest='geometry', metavar='<geometry>',
-                     help='set disk geometry (xSxDxT)')
-    cmd.add_argument('-C', '--check', action='store_true', dest='checkonly',
-                     help='check disk image integrity only')
-    cmd.add_argument('-R', '--repair', action='store_true', dest='repair',
-                     help='attempt to repair disk image')
-    cmd.add_argument('-S', '--sector', dest='sector', metavar='<sector>',
-                     help='dump disk sector')
-    cmd.add_argument('--compress', action='store_true', dest='compress',
-                     help=argparse.SUPPRESS)
-    cmd.add_argument('--decompress', action='store_true', dest='decompress',
-                     help=argparse.SUPPRESS)
-
-    # file commands
-    cmd.add_argument('-P', '--print-fiad', action=GlobStore, dest='printfiad', nargs='+',
-                     metavar='<file>', help='print contents of file in FIAD format')
-    cmd.add_argument('-T', '--to-fiad', action=GlobStore, dest='tofiad', nargs='+',
-                     metavar='<file>', help='convert plain file to FIAD format')
-    cmd.add_argument('-F', '--from-fiad', action=GlobStore, dest='fromfiad', nargs='+',
-                     metavar='<file>', help='convert FIAD format to plain file')
-    cmd.add_argument('-I', '--info-fiad', action=GlobStore, dest='infofiad', nargs='+',
-                     metavar='<file>', help='show information about file in FIAD format')
-
-    # general options
-    args.add_argument('-K', '--archive', dest='archive', metavar='<archive>',
-                      help='name of archive (on disk image or local machine')
-    args.add_argument('-t', '--tifiles', action='store_true', dest='astifiles',
-                      help='use TIFILES file format')
-    args.add_argument('-N', '--ti-names', action='store_true', dest='tinames',
-                      help='use TI filenames for resulting files')
-    args.add_argument('-9', '--v9t9', action='store_true', dest='asv9t9',
-                      help='use v9t9 file format')
-    args.add_argument('--sdd', dest='assdd99', nargs='?', const='0', metavar='<loadtype>',
-                      help='use SDD 99 file format, with given loadtype')
-    args.add_argument('-f', '--format', dest='format', metavar='<format>',
-                      help='set TI file format (DIS/VARxx, DIS/FIXxx, INT/VARxx, INT/FIXxx, PROGRAM) for data to add')
-    args.add_argument('-n', '--name', dest='name', metavar='<name>',
-                      help='set TI filename for data to add')
-    args.add_argument('-X', '--initialize', dest='init', metavar='<size>',
-                      help='initialize disk image (sector count or disk geometry xSxDxT)')
-    args.add_argument('-Y', '--init-archive', action='store_true', dest='initarc',
-                      help='initialize archive (on disk or stand-alone')
-    args.add_argument('-c', '--encoding', dest='encoding', nargs='?', const='utf-8', metavar='<encoding>',
-                      help='set encoding for DISPLAY files')
-    args.add_argument('-o', '--output', dest='output', metavar='<file>',
-                      help='set output filename or target directory')
-    args.add_argument('-q', '--quiet', action='store_true', dest='quiet',
-                      help='suppress all warnings')
-    args.add_argument('--color', action='store', dest='color', choices=['off', 'on'],
-                      help='enable or disable color output')
-
-    try:
-        default_opts = os.environ[CONFIG].split()
-    except KeyError:
-        default_opts = []
-    if external_data is None:
-        opts = args.parse_args(args=default_opts + sys.argv[1:])  # passed opts override default opts
-    else:
-        opts = args.parse_args(args=sys.argv[1:] + list(extra_args))  # use non-recognized options from parent tool
-
-    # special commands
-    if opts.compress or opts.decompress:
-        data = Util.readdata(opts.filename)
-        if File.is_tifiles(data):
-            data = File.create_from_tif_image(data).get_contents()
-        if opts.compress:
-            name = opts.output or os.path.basename(opts.filename) + '.cpr'
-            Util.writedata(name, LZW.compress(data))
+                    arc_image = Util.readdata(self.opts.archive)
+                    if File.is_tifiles(arc_image):
+                        arc_image = File.create_from_tif_image(arc_image, console=self.console).get_contents()
+                archive = Archive(arc_image, name=Util.tiname(self.opts.archive), console=self.console)
+        # get container
+        if self.opts.archive:
+            # archive on disk or stand-alone archive
+            self.container = archive
+            self.container_name = self.opts.archive
         else:
-            name = opts.output or os.path.basename(opts.filename) + '.dat'
-            Util.writedata(name, LZW.decompress(data))
-        return 0
+            # disk image
+            self.container = self.disk
+            self.container_name = self.opts.filename
 
-    console = Console(disable_warnings=opts.quiet, colors=opts.color)
-    process = Processor(console)
+        self.prepare_fn = self.prepare_container
 
-    # process image
-    try:
-        if opts.fromfiad or opts.tofiad or opts.printfiad or opts.infofiad:
-            rc, result = process.process_file_command(opts)
+    def prepare(self):
+        self.prepare_fn()
+
+    def prepare_archive(self):
+        if self.opts.compress:
+            self.compress()
         else:
-            if not opts.filename and not opts.archive:
-                args.error('Disk image or archive required')
-            if opts.init and not opts.filename or opts.initarc and not opts.archive:
-                args.error('Incorrect initialization')
-            rc, result = process.process_command(opts, external_data)
-    except (IOError, ContainerError, FileError) as e:
-        # note that some generators haven't been evaluated yet!
-        sys.exit(console.color('Error: ' + str(e), severity=Console.ERROR))
+            self.decompress()
 
-    # show error and warning messages
-    console.print()
+    def prepare_tifiles(self):
+        if self.opts.tofiad:
+            self.to_tifiles()
+        else:
+            self.other_tifiles()
 
-    # process result
-    if external_data is not None:
-        return result  # might throw exception when evaluated!
+    def prepare_sector(self):
+        self.result.append(RContainer(self.data, '-', istext=True))
 
-    # write result
-    if opts.output and os.path.isdir(opts.output):  # -o file or directory?
-        path = opts.output
-        barename_fn = os.path.basename
-        opts.output = None
-    else:
-        path = ''
-        barename_fn = Util.id_function
-    try:
-        for data, name, _ in result:
-            outname = os.path.join(path, opts.output or barename_fn(name))
-            Util.writedata(outname, data, encoding=opts.encoding)
-    except (IOError, ContainerError, FileError) as e:
-        sys.exit(console.color('Error: ' + str(e), severity=Console.ERROR))
+    def prepare_container(self):
+        if self.opts.print_:
+            self.print_()
+        elif self.opts.extract:
+            self.extract()
+        elif self.opts.exark:
+            self.extract_to_disk()
+        elif self.opts.add:
+            self.add()
+        elif self.opts.addark:
+            self.add_from_disk()
+        elif self.opts.rename:
+            self.rename()
+        elif self.opts.delete:
+            self.delete()
+        elif self.opts.protect:
+            self.protect()
+        elif self.opts.resize:
+            self.resize()
+        elif self.opts.geometry:
+            self.geometry()
+        elif self.opts.checkonly:
+            self.check()
+        elif self.opts.repair:
+            self.repair()
+        elif self.opts.name:
+            self.set_name()
+        elif self.opts.info or (not self.opts.init and not self.opts.initarc):
+            self.info()  # default except when creating new container
+        self.update_container()
 
-    # return status
-    return rc
+    def compress(self):
+        self.result.append(RContainer(LZW.compress(self.data), self.opts.filename, ext='.cpr'))
+
+    def decompress(self):
+        self.result.append(RContainer(LZW.decompress(self.data), self.opts.filename, ext='.dat'))
+
+    def to_tifiles(self):
+        for i, filename in enumerate(self.files):
+            image = Util.readdata(filename, astext=self.is_display_format, encoding=self.opts.encoding)
+            name = Util.to_ti(self.opts.name, i) or Util.tiname(filename, i)
+            file = File.create_new(name, self.format, image, console=self.console)
+            if self.opts.asv9t9:
+                self.result.append(RContainer(file.get_as_v9t9(),
+                                              name, ext='.v9t9', topc=True, tiname=self.opts.tinames))
+            elif self.opts.assdd99 is not None:  # could be zero
+                self.result.append(RContainer(file.get_as_sdd99(Util.xint(self.opts.assdd99)),
+                                              name, ext='.sdd99', topc=True, tiname=self.opts.tinames))
+            else:
+                self.result.append(RContainer(file.get_as_tifiles(),
+                                              name, ext='.tfi', topc=True, tiname=self.opts.tinames))
+
+    def other_tifiles(self):
+        for filename in self.files:
+            image = Util.readdata(filename, astext=self.is_display_format, encoding=self.opts.encoding)
+            if self.opts.astifiles or self.opts.assdd99 or File.is_tifiles(image):
+                file = File.create_from_tif_image(image, hostfn=filename, console=self.console)
+            elif self.opts.asv9t9 or File.is_v9t9(image):
+                file = File.create_from_v9t9_image(image, console=self.console)
+            else:
+                raise FileError('Unknown file format')
+            if self.opts.fromfiad:
+                self.result.append(RContainer(file.get_contents(), Util.barename(filename)))
+            elif self.opts.printfiad:
+                self.result.append(RContainer.create_for_stdout(file, self.opts.encoding))
+            else:  # info
+                self.result.append(RContainer(file.get_info(), '-', istext=True))
+
+    def print_(self):
+        names = self.container.glob_files(self.opts.print_)
+        for name in names:
+            file = self.container.get_file(name)
+            container = RContainer.create_for_stdout(file, self.opts.encoding)
+            self.result.append(container)
+
+    def extract(self):
+        names = self.container.glob_files(self.opts.extract)
+        if self.opts.output and len(names) > 1 and not os.path.isdir(self.opts.output):
+            sys.exit(self.console.color('Error: -o must provide directory when extracting multiple files',
+                                        severity=Console.ERROR))
+        for name in names:
+            if self.opts.astifiles:
+                self.result.append(RContainer(self.container.get_tifiles_file(name),
+                                              Util.pcname(name, ext='.tfi', tiname=self.opts.tinames)))
+            elif self.opts.assdd99 is not None:
+                ltype = Util.xint(self.opts.assdd99)
+                self.result.append(RContainer(self.container.get_sdd99_file(name, loadtype=ltype),
+                                              Util.pcname(name, ext='.tfi', tiname=self.opts.tinames)))
+            elif self.opts.asv9t9:
+                self.result.append(RContainer(self.container.get_v9t9_file(name),
+                                              Util.pcname(name, ext='.v9t9', tiname=self.opts.tinames)))
+            else:
+                self.result.append(RContainer(self.container.get_file(name).get_contents(),
+                                              Util.pcname(name, tiname=self.opts.tinames)))
+
+    def extract_to_disk(self):
+        if not self.opts.filename or not self.opts.archive:
+            raise ContainerError('Operation not permitted')
+        # container = archive, disk = disk
+        names = self.container.glob_files(self.opts.exark)
+        files = [self.container.get_file(name) for name in names]
+        self.disk.add_files(files)  # result updated later
+
+    def add(self):
+        # for DISPLAY files: read as binary, unless an encoding is supplied
+        files = []
+        for i, name in enumerate(self.opts.add):
+            data = Util.readdata(name, astext=self.is_display_format, encoding=self.opts.encoding)  # always binary data
+            tiname = Util.to_ti(self.opts.name, i) if self.opts.name else Util.tiname(name)
+            if self.opts.astifiles:
+                file = File.create_from_tif_image(data, hostfn=name, console=self.console)
+            elif self.opts.asv9t9:
+                file = File.create_from_v9t9_image(data, console=self.console)
+            else:
+                file = File.create_new(tiname, self.format, data, console=self.console)
+            files.append(file)
+        self.container.add_files(files)
+
+    def add_from_disk(self):
+        if not self.opts.filename or not self.opts.archive:
+            raise ContainerError('Operation not permitted')
+        # container = archive, disk = disk
+        names = self.disk.glob_files(self.opts.addark)
+        files = [self.disk.get_file(name) for name in names]
+        self.container.add_files(files)
+
+    def rename(self):
+        renames = [Util.to_ti(arg).split(':') for arg in self.opts.rename]
+        self.container.rename_files(renames)
+
+    def delete(self):
+        filenames = self.container.glob_files(self.opts.delete)
+        self.container.remove_files(filenames)
+
+    def protect(self):
+        filenames = self.container.glob_files(self.opts.protect)
+        self.container.protect_files(filenames)
+
+    def resize(self):
+        size, layout = Disk.parse_geometry(self.opts.resize, need_sectors=True)
+        self.container.resize_disk(size)
+        if layout:
+            sides, density, tracks = layout
+            self.container.set_geometry(sides, density, tracks or Disk.DEFAULT_TRACKS)
+
+    def geometry(self):
+        size, layout = Disk.parse_geometry(self.opts.geometry)
+        try:
+            self.container.set_geometry(*layout)
+        except TypeError:
+            raise ContainerError('Invalid container geometry: ' + self.opts.geometry)
+
+    def check(self):
+        self.rc = 1 if self.console.errors or self.console.warnings else 0
+
+    def repair(self):
+        self.container.fix_disk()
+
+    def set_name(self):
+        # at this point, '-n' is supplied without command (or with init), so rename container
+        self.container.rename_disk(Util.to_ti(self.opts.name))
+
+    def info(self):
+        info = self.container.get_info() + '-' * 76 + '\n' + self.container.get_catalog()
+        self.result.append(RContainer(info, '-', istext=True))
+
+    def update_container(self):
+        # update archive on disk if archive has changed, reclassify stand-alone archive
+        if self.opts.filename and self.opts.archive:
+            if self.container.modified:
+                file = File.create_new(self.opts.archive, 'INT/FIX128', self.container.get_image())
+                self.disk.add_files((file,))
+            if self.container.modified or (self.disk and self.disk.modified):
+                # disk with archive
+                self.result.append(RContainer(self.disk.get_image(), self.opts.filename, iscontainer=True))
+        elif self.container.modified:
+            # disk or stand-alone archive
+            self.result.append(RContainer(self.container.get_image(), self.container_name, iscontainer=True))
+        elif self.disk and self.disk.modified:
+            # disk only initialized
+            self.result.append(RContainer(self.disk.get_image(), self.opts.filename, iscontainer=True))
+
+    def output(self):
+        self.console.print()  # show error and warning messages
+        if self.external_data is not None:
+            return  # output handled by caller
+        try:
+            for file in self.result:
+                file.write(self.opts.output, self.opts.encoding)  # will overwrite original container is no -o given
+        except (IOError, ContainerError, FileError) as e:
+            sys.exit(self.console.color('Error: ' + str(e), severity=Console.ERROR))
+
+    def errors(self):
+        return 1 if self.console.errors else self.rc
 
 
 if __name__ == '__main__':
-    status = main()
+    status = Xdm99Processor().main()
     sys.exit(status)

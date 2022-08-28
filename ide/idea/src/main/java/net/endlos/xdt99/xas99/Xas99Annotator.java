@@ -21,6 +21,19 @@ public class Xas99Annotator implements Annotator {
     @Override
     public void annotate(@NotNull final PsiElement element, @NotNull AnnotationHolder holder) {
         if (element instanceof Xas99OpRegister) {
+            if (element.getFirstChild() instanceof Xas99OpAlias) {
+                // check if alias is defined
+                String label = element.getText();
+                if (label != null) {
+                    TextRange labelRange = element.getTextRange();
+                    List<Xas99Labeldef> labeldefs = Xas99Util.findAliases(element.getProject(), label, false);
+                    if (labeldefs.isEmpty()) {
+                        holder.newAnnotation(HighlightSeverity.ERROR, "Undefined register alias")
+                                .range(labelRange).highlightType(ProblemHighlightType.LIKE_UNKNOWN_SYMBOL).create();
+                        return;
+                    }
+                }
+            }
             // register might be uncolored value or macro argument
             holder.newSilentAnnotation(HighlightSeverity.INFORMATION)
                     .range(element.getTextRange()).textAttributes(Xas99SyntaxHighlighter.REGISTER).create();
@@ -37,10 +50,20 @@ public class Xas99Annotator implements Annotator {
                 }
             }
             // is defined label used at all?
-            List<Xas99OpLabel> usages = Xas99Util.findLabelUsages(labeldef);
-            if (usages.isEmpty()) {
-                holder.newAnnotation(HighlightSeverity.WARNING, "Unused label")
-                        .range(element.getTextRange()).highlightType(ProblemHighlightType.LIKE_UNUSED_SYMBOL).create();
+            if (Xas99Util.isAliasDefinition(labeldef)) {
+                List<Xas99OpAlias> usages = Xas99Util.findAliasUsages(labeldef);
+                if (usages.isEmpty()) {
+                    holder.newAnnotation(HighlightSeverity.WARNING, "Unused alias")
+                            .range(element.getTextRange()).highlightType(ProblemHighlightType.LIKE_UNUSED_SYMBOL)
+                            .create();
+                }
+            } else {
+                List<Xas99OpLabel> usages = Xas99Util.findLabelUsages(labeldef);
+                if (usages.isEmpty()) {
+                    holder.newAnnotation(HighlightSeverity.WARNING, "Unused label")
+                            .range(element.getTextRange()).highlightType(ProblemHighlightType.LIKE_UNUSED_SYMBOL)
+                            .create();
+                }
             }
         } else if (element instanceof Xas99OpLabel) {
             // annotate label references
@@ -56,15 +79,16 @@ public class Xas99Annotator implements Annotator {
                 // bad local label (invalid target)?
                 int distance = Xas99Util.getDistance(label, element);
                 int offset = Xas99Util.findBeginningOfLine(element);
-                List<Xas99Labeldef> targets = Xas99Util.findLabels(element.getProject(), label, distance, element, offset,
-                        false);
+                List<Xas99Labeldef> targets = Xas99Util.findLabels(element.getProject(), label, distance, element,
+                        offset,false);
                 if (targets.isEmpty()) {
                     holder.newAnnotation(HighlightSeverity.WARNING, "Undefined target")
                             .range(labelRange).highlightType(ProblemHighlightType.WARNING).create();
                 }
             } else {
                 // undefined label?
-                List<Xas99Labeldef> labeldefs = Xas99Util.findLabels(element.getProject(), label, 0, null, 0, false);
+                List<Xas99Labeldef> labeldefs = Xas99Util.findLabels(element.getProject(), label, 0,
+                        null, 0, false);
                 if (labeldefs.isEmpty()) {
                     holder.newAnnotation(HighlightSeverity.ERROR, "Undefined symbol")
                             .range(labelRange).highlightType(ProblemHighlightType.LIKE_UNKNOWN_SYMBOL).create();

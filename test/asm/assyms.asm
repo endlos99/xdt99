@@ -1,24 +1,21 @@
-* symbols generation test
+* SYMBOLS GENERATION TEST
 
-       ref  vdpwa, scan
+       REF  VDPWA,SCAN
 
-s1:
-       equ  1
+S1     EQU  1
 
-start:
-       limi 0
-       li   r0, 1
-       mov  r0, r1
-       movb r2, @vdpwa
+START  LIMI 0
+       LI   R0,1
+       MOV  R0,R1
+       MOVB R2,@VDPWA
 
-       bl   @s2
+       BL   @S2
 
-       limi 2
-       jmp  $
+       LIMI 2
+       JMP  $
 
-s2:
-       clr  r1
-       blwp @scan
-       rt
+S2     CLR  R1
+       BLWP @SCAN
+       RT
 
-       end
+       END

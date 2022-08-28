@@ -22,89 +22,14 @@
 import sys
 import platform
 import os.path
+import argparse
 import xdm99 as xdm
+from xcommon import Util, RContainer, CommandProcessor, GlobStore
 
 
-VERSION = '3.5.0'
+VERSION = '3.5.1'
 
 CONFIG = 'XHM99_CONFIG'
-
-
-# Utility functions
-
-class Util:
-
-    @staticmethod
-    def ordw(word):
-        """word ord"""
-        return (word[0] << 8) | word[1]
-
-    @staticmethod
-    def chrw(word):
-        """word chr"""
-        return bytes((word >> 8, word & 0xff))
-
-    @staticmethod
-    def rordl(word):
-        """reverse long ord"""
-        return word[3] << 24 | word[2] << 16 | word[1] << 8 | word[0]
-
-    @staticmethod
-    def rchrw(word):
-        """reverse word chr"""
-        return bytes((word & 0xff, word >> 8))
-
-    @staticmethod
-    def chunk(data, size):
-        """split into chunks of equal size"""
-        return [data[i:i + size] for i in range(0, len(data), size)]
-
-    @staticmethod
-    def flatten(list_of_lists):
-        """flattens listing of lists into listing"""
-        return [item for list_ in list_of_lists for item in list_]
-
-    @staticmethod
-    def writedata(filename, data, encoding=None):
-        """write data to file or STDOUT"""
-        if encoding is None:
-            if filename == '-':
-                sys.stdout.buffer.write(data)
-            else:
-                with open(filename, 'wb') as f:
-                    f.write(data)
-        else:
-            try:
-                if filename == '-':
-                    sys.stdout.write(data.decode(encoding))
-                else:
-                    with open(filename, 'w') as f:
-                        f.write(data.decode(encoding))
-            except UnicodeDecodeError:
-                sys.exit('Bad encoding: ' + encoding)
-
-    @staticmethod
-    def readdata(name, mode='rb'):
-        """read data from file or STDIN"""
-        if name == '-':
-            if 'b' in mode:
-                return sys.stdin.buffer.read()
-            else:
-                return sys.stdin.read()
-        else:
-            with open(name, mode) as f:
-                return f.read()
-
-    @staticmethod
-    def crc16(crc, stream):
-        """compute CRC-16 code"""
-        msb, lsb = crc >> 8, crc & 0xff
-        for b in stream:
-            x = b ^ msb
-            x ^= (x >> 4)
-            msb = (lsb ^ (x >> 3) ^ (x << 4)) & 0xff
-            lsb = (x ^ (x << 5)) & 0xff
-        return [msb, lsb]
 
 
 class HFEError(Exception):
@@ -448,11 +373,11 @@ class HFEDisk:
         fmt = DDFormat if self.dd else SDFormat
         size = fmt.TRACK_LEN
         decode = fmt.decode
-        chunks = Util.chunk(self.trackdata, 256)
+        chunks = list(Util.chop(self.trackdata, 256))
         side_0 = b''.join(chunks[0::2])
         side_1 = b''.join(chunks[1::2])
-        tracks0 = Util.chunk(decode(side_0), size)
-        tracks1 = Util.chunk(decode(side_1), size) if self.sides == 2 else []
+        tracks0 = list(Util.chop(decode(side_0), size))
+        tracks1 = list(Util.chop(decode(side_1), size)) if self.sides == 2 else []
         tracks1.reverse()
         return tracks0 + tracks1
 
@@ -556,8 +481,8 @@ class HFEDisk:
                     offset = ((s * tracks + j) * fmt.SECTORS + sector_id) * 256
                     sector = [b for b in sectors[offset:offset + 256]]
                     addr = [track_id, s, sector_id, 0x01]
-                    crc1 = Util.crc16(0xffff, fmt.V_ADDRESS_MARK + addr)
-                    crc2 = Util.crc16(0xffff, fmt.V_DATA_MARK + sector)
+                    crc1 = HFEDisk.crc16(0xffff, fmt.V_ADDRESS_MARK + addr)
+                    crc2 = HFEDisk.crc16(0xffff, fmt.V_DATA_MARK + sector)
                     sector_data.extend(
                         fmt.PREGAP +
                         fmt.ADDRESS_MARK +
@@ -572,11 +497,23 @@ class HFEDisk:
         track_data[1].reverse()
         return b''.join(track_data[0]), b''.join(track_data[1])
 
+    @staticmethod
+    def crc16(crc, stream):
+        """compute CRC-16 code"""
+        msb, lsb = crc >> 8, crc & 0xff
+        for b in stream:
+            x = b ^ msb
+            x ^= (x >> 4)
+            msb = (lsb ^ (x >> 3) ^ (x << 4)) & 0xff
+            lsb = (x ^ (x << 5)) & 0xff
+        return [msb, lsb]
+
 
 class Console:
     """collects errors and warnings"""
 
     def __init__(self, colors=None):
+        self.errors = False
         if colors is None:
             self.colors = platform.system() in ('Linux', 'Darwin')  # no auto color on Windows
         else:
@@ -584,6 +521,7 @@ class Console:
 
     def error(self, message):
         """record error message"""
+        self.errors = True
         sys.stderr.write(self.color(message, severity=2) + '\n')
 
     def color(self, message, severity=0):
@@ -599,127 +537,118 @@ class Console:
 
 # Command line processing
 
-class Processor:
-    """execute supplied commands"""
+class Xhm99Processor(CommandProcessor):
 
-    def __init__(self, console):
-        self.console = console
+    def __init__(self):
+        super().__init__((HFEError, xdm.ContainerError, xdm.FileError))
+        self.console = None
+    
+    def parse(self):
+        args = argparse.ArgumentParser(
+            description='xhm99: HFE image and file manipulation tool, v' + VERSION,
+            epilog='Additionally, most xdm99 options can be used.')
+        cmd = args.add_mutually_exclusive_group(required=True)
 
-    def process_command(self, opts):
-        """container manipulation"""
-        if opts.filename:
-            # delegate to xdm99
-            try:
-                image = Util.readdata(opts.filename, 'rb')
-                disk = HFEDisk(image).to_disk_image()
-            except IOError:
-                disk = bytes(1)  # dummy, includes -X case
-            return 0, xdm.main(disk)  # local sys.argv will be passed to xdm99
+        # xdm99 delegation
+        cmd.add_argument('filename', type=str, nargs='?',
+                         help='HFE image filename')
 
-        # HFE/DSK conversion
-        result = []
-        for name in opts.fromhfe or ():
-            hfe_image = Util.readdata(name, 'rb')
+        # conversion
+        cmd.add_argument('-T', '--to-hfe', action=GlobStore, dest='tohfe', nargs='+', metavar='<file>',
+                         help='convert disk images to HFE images')
+        cmd.add_argument('-F', '--from-hfe', '--to-dsk_id', action=GlobStore, dest='fromhfe', nargs='+',
+                         metavar='<file>',
+                         help='convert HFE images to disk images')
+        cmd.add_argument('-I', '--hfe-info', action=GlobStore, dest='hfeinfo', nargs='+', metavar='<file>',
+                         help='show basic information about HFE images')
+        cmd.add_argument('--dump', action=GlobStore, dest='dump', nargs='+', metavar='<file>',
+                         help='dump raw decoded HFE data')
+
+        # general options
+        args.add_argument('-K', '--archive', dest='archive', metavar='<archive>',
+                          help='name of archive (on disk image or local machine')
+        args.add_argument('-c', '--encoding', dest='encoding', nargs='?', const='utf-8', metavar='<encoding>',
+                          help='set encoding for DISPLAY files')
+        args.add_argument('--color', action='store', dest='color', choices=['off', 'on'],
+                          help='enable or disable color output')
+        args.add_argument('-o', '--output', dest='output', metavar='<file>',
+                          help='set output filename')
+
+        try:
+            default_opts = os.environ[CONFIG].split()
+        except KeyError:
+            default_opts = []
+        self.opts, _ = args.parse_known_args(default_opts + sys.argv[1:])
+
+    def run(self):
+        self.console = Console(colors=self.opts.color)
+
+    def prepare(self):
+        if self.opts.filename:
+            self.delegate()
+        elif self.opts.tohfe:
+            self.tohfe()
+        elif self.opts.fromhfe:
+            self.fromhfe()
+        elif self.opts.dump:
+            self.dump()
+        else:
+            self.info()
+
+    def delegate(self):
+        """delegate to xdm99"""
+        try:
+            image = Util.readdata(self.opts.filename)
+            disk = HFEDisk(image).to_disk_image()
+        except IOError:
+            disk = bytes(1)  # dummy, includes -X case
+        xdm_result, self.rc = xdm.Xdm99Processor().main(disk)  # local sys.argv will be passed to xdm99
+        for item in xdm_result:
+            if item.iscontainer:
+                # convert disk results into HFE disks
+                hfedisk = HFEDisk.create_from_disk(item.data)
+                self.result.append(RContainer(hfedisk, item.name, item.ext, istext=item.istext, iscontainer=True,
+                                              topc=item.topc, tiname=item.tiname))
+            else:
+                self.result.append(item)
+
+    def fromhfe(self):
+        for path in self.opts.fromhfe:
+            hfe_image = Util.readdata(path)
             dsk = HFEDisk(hfe_image).to_disk_image()
-            barename = os.path.splitext(os.path.basename(name))[0]
-            result.append((dsk, barename + '.dsk_id', False))
-        for name in opts.tohfe or ():
-            dsk_image = Util.readdata(name, 'rb')
+            barename, _ = os.path.splitext(os.path.basename(path))
+            self.result.append(RContainer(dsk, barename, ext='.dsk_id'))
+
+    def tohfe(self):
+        for path in self.opts.tohfe:
+            dsk_image = Util.readdata(path)
             hfe = HFEDisk.create_from_disk(dsk_image)
-            barename = os.path.splitext(os.path.basename(name))[0]
-            result.append((hfe, barename + '.hfe', False))
-        for name in opts.dump or ():
-            image = Util.readdata(name, 'rb')
+            barename, _ = os.path.splitext(os.path.basename(path))
+            self.result.append(RContainer(hfe, barename, ext='.hfe'))
+
+    def dump(self):
+        for path in self.opts.dump:
+            image = Util.readdata(path)
             hfe = HFEDisk(image)
             tracks = hfe.get_tracks()
             data = ''.join(chr(b) for b in Util.flatten(tracks))
-            barename = os.path.splitext(os.path.basename(name))[0]
-            result.append((data, barename + '.dump', False))
-        # image info
-        for name in opts.hfeinfo or ():
-            image = Util.readdata(name, 'rb')
+            barename, _ = os.path.splitext(os.path.basename(path))
+            self.result.append(RContainer(data, barename, ext='.dump'))
+
+    def info(self):
+        for name in self.opts.hfeinfo:
+            image = Util.readdata(name)
             tracks, sides, encoding, if_mode = HFEDisk.get_hfe_params(image)
             sys.stdout.write(f'Tracks: {tracks}\nSides: {sides}\n')
             sys.stdout.write(f'Encoding: {encoding}\nInterface mode: {if_mode}\n')
             if encoding not in HFEDisk.VALID_ENCODINGS or if_mode != HFEDisk.HFE_INTERFACE_MODE:
                 self.console.error('Not a suitable HFE image for the TI 99')
-                return 1, None
-        return 0, result
+                self.rc = 1
 
-
-# main
-
-def main():
-    import argparse
-    import glob
-
-    class GlobStore(argparse.Action):
-        """argparse globbing for Windows platforms"""
-
-        def __call__(self, parser, namespace, values, option_string=None):
-            if os.name == 'nt':
-                names = [glob.glob(name) if '*' in name or '?' in name else [name] for name in values]
-                values = [filenames for globs in names for filenames in globs]
-            setattr(namespace, self.dest, values)
-
-    args = argparse.ArgumentParser(
-            description='xhm99: HFE image and file manipulation tool, v' + VERSION,
-            epilog='Additionally, most xdm99 options can be used.')
-    cmd = args.add_mutually_exclusive_group(required=True)
-
-    # xdm99 delegation
-    cmd.add_argument('filename', type=str, nargs='?',
-                     help='HFE image filename')
-
-    # conversion
-    cmd.add_argument('-T', '--to-hfe', action=GlobStore, dest='tohfe', nargs='+', metavar='<file>',
-                     help='convert disk images to HFE images')
-    cmd.add_argument('-F', '--from-hfe', '--to-dsk_id', action=GlobStore, dest='fromhfe', nargs='+', metavar='<file>',
-                     help='convert HFE images to disk images')
-    cmd.add_argument('-I', '--hfe-info', action=GlobStore, dest='hfeinfo', nargs='+', metavar='<file>',
-                     help='show basic information about HFE images')
-    cmd.add_argument('--dump', action=GlobStore, dest='dump', nargs='+', metavar='<file>',
-                     help='dump raw decoded HFE data')
-
-    # general options
-    args.add_argument('-K', '--archive', dest='archive', metavar='<archive>',
-                      help='name of archive (on disk image or local machine')
-    args.add_argument('-c', '--encoding', dest='encoding', nargs='?', const='utf-8', metavar='<encoding>',
-                      help='set encoding for DISPLAY files')
-    args.add_argument('--color', action='store', dest='color', choices=['off', 'on'],
-                      help='enable or disable color output')
-    args.add_argument('-o', '--output', dest='output', metavar='<file>',
-                      help='set output filename')
-
-    try:
-        default_opts = os.environ[CONFIG].split()
-    except KeyError:
-        default_opts = []
-    opts, _ = args.parse_known_args(default_opts + sys.argv[1:])
-
-    console = Console(colors=opts.color)
-    processor = Processor(console)
-    try:
-        rc, result = processor.process_command(opts)
-    except (IOError, HFEError, xdm.ContainerError, xdm.FileError) as e:
-        console.error('Error: ' + str(e))
-        sys.exit(1)
-
-    # write result
-    try:
-        for data, name, is_container in result:
-            outname = opts.output or name
-            if is_container:
-                data = HFEDisk.create_from_disk(data)
-            Util.writedata(outname, data, encoding=opts.encoding)
-    except IOError as e:
-        console.error('Error: ' + str(e))
-        sys.exit(1)
-
-    # return status
-    return 0
+    def errors(self):
+        return 1 if self.console.errors else self.rc
 
 
 if __name__ == '__main__':
-    status = main()
+    status = Xhm99Processor().main()
     sys.exit(status)

@@ -42,9 +42,10 @@ INSTR_99000_I = "AM" | "SM"
 INSTR_99000_IV = "TMB" | "TCMB" | "TSMB" | "SLAM" | "SRAM"
 
 DIR_L = "DEF" | "END"
-DIR_E = "EQU" | "BSS" | "BES" | "DORG" | "XORG" | "BANK"
+DIR_E = "EQU" | "WEQU" | "BSS" | "BES" | "DORG" | "XORG" | "BANK"
 DIR_EO = "RORG" | "AORG"
 DIR_ES = "DATA" | "BYTE" | "SAVE"
+DIR_RA = "REQU"  // register alias
 DIR_T = "TEXT" | "STRI"
 DIR_S = "TITL" | "IDT"
 DIR_C = "COPY" | "BCOPY"
@@ -133,6 +134,7 @@ CRLF = \n | \r | \r\n
  {DIR_E}              { return Xas99Types.DIR_E; }
  {DIR_EO}             { return Xas99Types.DIR_EO; }
  {DIR_ES}             { return Xas99Types.DIR_ES; }
+ {DIR_RA}             { return Xas99Types.DIR_RA; }
  {DIR_T}              { return Xas99Types.DIR_T; }
  {DIR_S}              { return Xas99Types.DIR_S; }
  {DIR_C}              { return Xas99Types.DIR_C; }
@@ -143,7 +145,7 @@ CRLF = \n | \r | \r\n
 
  {PREPROC}            { yybegin(PREPROC); return Xas99Types.PREP; }
 
- {IDENT}              { yybegin(COMMENT); return Xas99Types.UNKNOWN; }
+// {IDENT}              { yybegin(COMMENT); return Xas99Types.UNKNOWN; }
  {WS}                 { yybegin(ARGUMENTS); return TokenType.WHITE_SPACE; }
 }
 <MNEMONICO> {

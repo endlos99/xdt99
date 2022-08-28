@@ -23,65 +23,13 @@ import sys
 import re
 import os.path
 import platform
+import argparse
+from xcommon import Util, RFile, CommandProcessor
 
 
-VERSION = '3.2.0'
+VERSION = '3.5.1'
 
 CONFIG = 'XBAS99_CONFIG'
-
-
-# Utility functions
-
-class Util:
-
-    @staticmethod
-    def ordw(word):
-        """word ord"""
-        return (word[0] << 8) | word[1]
-
-    @staticmethod
-    def chrw(word):
-        """word chr"""
-        return bytes((word >> 8, word & 0xff))
-
-    @staticmethod
-    def xint(s):
-        """return hex or decimal value"""
-        return int(s.lstrip('>'), 16 if s[:2] == '0x' or s[:1] == '>' else 10)
-
-    @staticmethod
-    def trunc(i, m):
-        """round integer down to multiple of m"""
-        return i - i % m
-
-    @staticmethod
-    def sinc(s, i):
-        """string sequence increment"""
-        return s[:-1] + chr(ord(s[-1]) + i)
-
-    @staticmethod
-    def readdata(filename, lines=False):
-        """read data from file or STDIN (or return supplied data)"""
-        if filename == '-':
-            if lines:
-                return sys.stdin.readlines()
-            else:
-                return sys.stdin.buffer.read()
-        else:
-            with open(filename, 'r' if lines else 'rb') as f:
-                return f.readlines() if lines else f.read()
-
-    @staticmethod
-    def writedata(filename, data, mode='wb'):
-        """write data to file or STDOUT"""
-        if filename == '-':
-            if 'b' in mode:
-                sys.stdout.buffer.write(data)
-            else:
-                sys.stdout.write(data)
-        else:
-            with open(filename, mode) as f:
-                f.write(data)
 
 
 # Error handling
@@ -219,53 +167,58 @@ class BasicProgram:
     # maximum number of bytes/tokens per BASIC line
     max_tokens_per_line = 254
 
-    def __init__(self, data=None, source=None, long_fmt=False, labels=False, console=None):
+    def __init__(self, long_fmt=False, labels=False, protected=False, console=None):
+        self.long_fmt = long_fmt
         self.labels = labels
+        self.protected = protected
         self.console = console or Console()
         self.lines = {}
         self.label_lino = {}  # Dict[str, Tuple[int, bool]]
         self.text_literals = []
         self.rem_literals = []
         self.curr_lino = 100
-        if data is not None:
-            # get source from token stream
-            try:
-                self.load(data, long_fmt)
-            except IndexError:
-                self.console.error('Cannot read program file')
-        elif source is not None:
-            # get token stream from source
-            if labels:
-                source = self.get_labels(source)
-            self.parse(source)
+        # if data is not None:
+        #     # get source from token stream
+        #     try:
+        #         self.load(data, long_fmt)
+        #     except IndexError:
+        #         self.console.error('Cannot read program file')
+        # elif source is not None:
+        #     # get token stream from source
+        #     if labels:
+        #         source = self.get_labels(source)
+        #     self.parse(source)
 
     # convert program to source
-    def load(self, data, long_fmt):
+    def load(self, data):
         """load tokenized BASIC program"""
-        if long_fmt or data[1:3] == b'\xab\xcd':
-            # convert long format INT/VAR 254 to PROGRAM
-            program = []
-            idx = 11
-            while idx < len(data):
-                n = data[idx] + 1
-                program.append(data[idx + 1:idx + n])
-                idx += n
-            data = b'XX' + data[5:7] + data[3:5] + b'XX' + b''.join(program)
-        # extract line number table and token table
-        ptr_tokens = Util.ordw(data[2:4]) + 1
-        ptr_line_numbers = Util.ordw(data[4:6])
-        no_lines = (ptr_tokens - ptr_line_numbers) // 4
-        line_numbers = data[8:8 + no_lines * 4]
-        tokens = data[8 + no_lines * 4:]
-        # process line token table
-        for i in range(no_lines):
-            lino = Util.ordw(line_numbers[4 * i:4 * i + 2])
-            ptr = Util.ordw(line_numbers[4 * i + 2:4 * i + 4])
-            j = ptr - 1 - ptr_tokens
-            line_len = tokens[j]
-            if tokens[j + line_len]:
-                self.console.error('Missing line termination')
-            self.lines[lino] = tokens[j + 1:j + line_len]
+        try:
+            if self.long_fmt or data[1:3] == b'\xab\xcd':
+                # convert long format INT/VAR 254 to PROGRAM
+                program = []
+                idx = 11
+                while idx < len(data):
+                    n = data[idx] + 1
+                    program.append(data[idx + 1:idx + n])
+                    idx += n
+                data = b'XX' + data[5:7] + data[3:5] + b'XX' + b''.join(program)
+            # extract line number table and token table
+            ptr_tokens = Util.ordw(data[2:4]) + 1
+            ptr_line_numbers = Util.ordw(data[4:6])
+            no_lines = (ptr_tokens - ptr_line_numbers) // 4
+            line_numbers = data[8:8 + no_lines * 4]
+            tokens = data[8 + no_lines * 4:]
+            # process line token table
+            for i in range(no_lines):
+                lino = Util.ordw(line_numbers[4 * i:4 * i + 2])
+                ptr = Util.ordw(line_numbers[4 * i + 2:4 * i + 4])
+                j = ptr - 1 - ptr_tokens
+                line_len = tokens[j]
+                if tokens[j + line_len]:
+                    self.console.error('Missing line termination')
+                self.lines[lino] = tokens[j + 1:j + line_len]
+        except IndexError:
+            self.console.error('Cannot read program file')
 
     def merge(self, data):
         """load tokenized BASIC program in merge format
@@ -361,6 +314,8 @@ class BasicProgram:
 
     def parse(self, lines):
         """parse and tokenize BASIC source"""
+        if self.labels:
+            lines = self.get_labels(lines)
         self.curr_lino = 100
         for i, line in enumerate(lines):
             if not line.strip():
@@ -392,7 +347,7 @@ class BasicProgram:
 
     def statements(self, text):
         """parse single line of one or more BASIC statements"""
-        # poorest man imaginable's lexer
+        # lexer of poorest man imaginable
         sep, _ = Tokens.tokens[',']
         tokens = []
         tok_type = Tokens.STMT
@@ -491,7 +446,7 @@ class BasicProgram:
                     if uword[0] == '@':
                         uword = uword[1:]  # remove optional @
                     if uword.isalnum():
-                        # NOTE: There is only one possible collision between label and variable: RUN A
+                        # NOTE: There is only one possible collision between label and variable: RUN A.
                         #       This conflict only occurs if label mode is active, but then RUN A with A
                         #       containing a line number makes no sense. --> No conflict at all!
                         try:
@@ -559,12 +514,12 @@ class BasicProgram:
         """build unquoted string token sequence"""
         return Tokens.ustr_token(self.unescape(lit))
 
-    def get_image(self, long_fmt=False, protected=False):
+    def get_image(self):
         """create PROGRAM image from tokens"""
-        last_addr = 0xffe8 if long_fmt else 0x37d8
+        last_addr = 0xffe8 if self.long_fmt else 0x37d8
         program = []
         idx = 0
-        if long_fmt:
+        if self.long_fmt:
             size = sum(len(self.lines[i]) for i in self.lines) + 2 * len(self.lines)
             if size < 254:
                 self.console.error('Program too short, will pad')
@@ -581,9 +536,9 @@ class BasicProgram:
         lino_table = b''.join(Util.chrw(lino) + Util.chrw(token_tab_addr + i + 1) for i, lino, _ in program)
         checksum = (token_tab_addr - 1) ^ lino_tab_addr
         assert lino_tab_addr + len(lino_table) + len(token_table) == last_addr
-        if protected:
+        if self.protected:
             checksum = -checksum % 0x10000
-        if long_fmt:
+        if self.long_fmt:
             header = (b'\xab\xcd' + Util.chrw(lino_tab_addr) + Util.chrw(token_tab_addr - 1) +
                       Util.chrw(checksum) + Util.chrw(last_addr - 1))
             chunks = [(lino_table + token_table)[i:i + 254]
@@ -673,24 +628,37 @@ class Console:
     """collects errors and warnings"""
 
     def __init__(self, disable_warnings=False, colors=None):
-        self.enabled_warnings = not disable_warnings
+        self.quiet = disable_warnings
         self.errors = False
+        self.no_messages_yet = True
         if colors is None:
             self.colors = platform.system() in ('Linux', 'Darwin')  # no auto color on Windows
         else:
             self.colors = colors == 'on'
 
+    def version(self):
+        """issue version information"""
+        self.color(f': xbas99, version {VERSION}')
+        self.no_messages_yet = False
+
     def info(self, message):
         """issue plain message"""
+        if self.no_messages_yet:
+            self.version()
         self.color(message, severity=0)
 
     def warn(self, message):
         """issue warning message"""
-        if self.enabled_warnings:
-            self.color(message, severity=1)
+        if self.quiet:
+            return
+        if self.no_messages_yet:
+            self.version()
+        self.color(message, severity=1)
 
     def error(self, message):
         """issue error message"""
+        if self.no_messages_yet:
+            self.version()
         self.errors = True
         self.color(message, severity=2)
 
@@ -707,119 +675,111 @@ class Console:
 
 # Command line processing
 
-def main():
-    import argparse
+class Xbas99Processor(CommandProcessor):
+    
+    def __init__(self):
+        super().__init__(BasicError)
+        self.program = None
+        self.console = None
+        
+    def parse(self):
+        args = argparse.ArgumentParser(description='TI BASIC and TI Extended BASIC tool, v' + VERSION)
+        args.add_argument('source', metavar='<source>', help='TI BASIC or TI Extended BASIC program')
+        cmd = args.add_mutually_exclusive_group()
+        cmd.add_argument('-c', '--create', action='store_true', dest='create',
+                         help='create TI (Extended) BASIC program file (default)')
+        cmd.add_argument('-d', '--decode', action='store_true', dest='decode',
+                         help='decode TI (Extended) BASIC program')
+        cmd.add_argument('-p', '--print', action='store_true', dest='print',
+                         help='print decoded TI (Extended) BASIC program')
+        cmd.add_argument('--dump', action='store_true', dest='dump',
+                         help=argparse.SUPPRESS)
+        args.add_argument('-l', '--labels', action='store_true', dest='labels',
+                          help='use labels instead of line numbers')
+        args.add_argument('--protect', action='store_true', dest='protect',
+                          help='listing-protect program')
+        args.add_argument('--merge', action='store_true', dest='merge',
+                          help='use merge format')
+        args.add_argument('-L', '--long', action='store_true', dest='long_',
+                          help='force long program format')
+        args.add_argument('-j', '--join-lines', dest='join', nargs='?', metavar='<count?,delta?>',
+                          help='join split source lines; <count> is max number of lines to merge, '
+                               '<delta> is max line number delta of consecutive lines')
+        args.add_argument('-o', '--output', dest='output', metavar='<file>',
+                          help='set output filename or target directory')
+        args.add_argument('--color', action='store', dest='color', choices=['off', 'on'],
+                          help='enable or disable color output')
+        args.add_argument('-q', action='store_true', dest='quiet',
+                          help='quiet, do not print warnings')
+    
+        try:
+            default_opts = os.environ[CONFIG].split()
+        except KeyError:
+            default_opts = []
+        self.opts = args.parse_args(args=default_opts + sys.argv[1:])  # passed opts override default opts
+    
+        if (self.opts.labels or self.opts.protect or self.opts.join) and self.opts.decode:
+            args.error('Cannot use options --labels, --protect, --join while decoding programs.')
+        if self.opts.labels and self.opts.join:
+            args.error('Cannot join lines for programs using labels.')
 
-    args = argparse.ArgumentParser(description='TI BASIC and TI Extended BASIC tool, v' + VERSION)
-    args.add_argument('source', metavar='<source>', help='TI BASIC or TI Extended BASIC program')
-    cmd = args.add_mutually_exclusive_group()
-    cmd.add_argument('-c', '--create', action='store_true', dest='create',
-                     help='create TI (Extended) BASIC program file (default)')
-    cmd.add_argument('-d', '--decode', action='store_true', dest='decode',
-                     help='decode TI (Extended) BASIC program')
-    cmd.add_argument('-p', '--print', action='store_true', dest='print',
-                     help='print decoded TI (Extended) BASIC program')
-    cmd.add_argument('--dump', action='store_true', dest='dump',
-                     help=argparse.SUPPRESS)
-    args.add_argument('-l', '--labels', action='store_true', dest='labels',
-                      help='use labels instead of line numbers')
-    args.add_argument('--protect', action='store_true', dest='protect',
-                      help='listing-protect program')
-    args.add_argument('--merge', action='store_true', dest='merge',
-                      help='use merge format')
-    args.add_argument('-L', '--long', action='store_true', dest='long_',
-                      help='force long program format')
-    args.add_argument('-j', '--join-lines', dest='join', nargs='?', metavar='<count?,delta?>',
-                      help='join split source lines; <count> is max number of lines to merge, '
-                           '<delta> is max line number delta of consecutive lines')
-    args.add_argument('-o', '--output', dest='output', metavar='<file>',
-                      help='set output filename or target directory')
-    args.add_argument('--color', action='store', dest='color', choices=['off', 'on'],
-                      help='enable or disable color output')
-    args.add_argument('-q', action='store_true', dest='quiet',
-                      help='quiet, do not print warnings')
+    def run(self):
+        basename = os.path.basename(self.opts.source)
+        self.barename, ext = os.path.splitext(basename)
+        self.console = Console(self.opts.quiet, self.opts.color)
+        self.program = BasicProgram(long_fmt=self.opts.long_, labels=self.opts.labels, protected=self.opts.protect,
+                                    console=self.console)
 
-    try:
-        default_opts = os.environ[CONFIG].split()
-    except KeyError:
-        default_opts = []
-    opts = args.parse_args(args=default_opts + sys.argv[1:])  # passed opts override default opts
-
-    if (opts.labels or opts.protect or opts.join) and not opts.create:
-        args.error('Options --labels, --protect, --join only apply'
-                   'to creating programs.')
-    if opts.labels and opts.join:
-        args.error('Cannot join lines for programs using labels.')
-
-    basename = os.path.basename(opts.source)
-    barename, ext = os.path.splitext(basename)
-
-    if opts.output and os.path.isdir(opts.output):  # -o file or directory?
-        path = opts.output
-        opts.output = None
-    else:
-        path = ''
-
-    console = Console(opts.quiet, opts.color)
-
-    try:
-        if opts.print or opts.decode:
-            # read program
-            if opts.source == '-':
-                image = sys.stdin.buffer.read()
-            else:
-                with open(opts.source, 'rb') as fin:
-                    image = fin.read()
-            if opts.merge:
-                program = BasicProgram(console=console)
-                program.merge(image)
-            else:
-                program = BasicProgram(data=image, long_fmt=opts.long_, console=console)
-            data = program.get_source()
-            name = '-' if opts.print else opts.output or barename + '.b99'
-            mode = 'w'
-        elif opts.dump:
-            with open(opts.source, 'rb') as fin:
-                image = fin.read()
-            program = BasicProgram(data=image, console=console)
-            data = program.dump_tokens()
-            name = opts.output or '-'
-            mode = 'w'
+    def prepare(self):
+        if self.opts.decode or self.opts.print:
+            self.decode()
+        elif self.opts.dump:
+            self.dump()
         else:
-            # create program
-            if opts.merge:
-                raise BasicError('Program creation in MERGE format is not supported')
-            lines = [line.rstrip('\n') for line in Util.readdata(opts.source, lines=True)]
-            if opts.join:
-                try:
-                    count, delta = opts.join.split(',')
-                    max_line_delta = Util.xint(count) if count else 3
-                    max_lino_delta = Util.xint(delta) if delta else 10
-                    lines = BasicProgram.join(lines, max_line_delta=max_line_delta, max_lino_delta=max_lino_delta)
-                except ValueError:
-                    raise BasicError('Invalid join parameter')
-            program = BasicProgram(source=lines, labels=opts.labels, console=console)
-            data = program.get_image(long_fmt=opts.long_, protected=opts.protect)
-            name = opts.output or barename + '.prg'
-            mode = 'wb'
+            self.create()
 
-        Util.writedata(os.path.join(path, name), data, mode=mode)
+    def decode(self):
+        image = Util.readdata(self.opts.source)
+        if self.opts.merge:
+            self.program.merge(image)
+        else:
+            self.program.load(image)
+        self.result.append(RFile(data=self.program.get_source(),
+                                 name='-' if self.opts.print else self.barename,
+                                 ext='.b99',
+                                 istext=True))
 
-        unused_labels = program.get_unused_labels()
+    def dump(self):
+        image = Util.readdata(self.opts.source)
+        self.program.load(image)
+        self.result.append(RFile(data=self.program.dump_tokens(), name='-', istext=True))
+
+    def create(self):
+        if self.opts.merge:
+            raise BasicError('Program creation in MERGE format is not supported')
+        lines = [line.rstrip('\n') for line in Util.readlines(self.opts.source)]
+        if self.opts.join:
+            try:
+                count, delta = self.opts.join.split(',')
+                max_line_delta = Util.xint(count) if count else 3
+                max_lino_delta = Util.xint(delta) if delta else 10
+                lines = BasicProgram.join(lines, max_line_delta=max_line_delta, max_lino_delta=max_lino_delta)
+            except ValueError:
+                raise BasicError('Invalid join parameter')
+        self.program.parse(lines)
+        prg_data = self.program.get_image()
+        self.result.append(RFile(data=prg_data, name=self.barename, ext='.prg'))
+
+    def output(self):
+        super().output()
+        unused_labels = self.program.get_unused_labels()
         if unused_labels:
-            console.warn('Warning: Unused labels: {}'.format(' '.join(unused_labels)))
+            self.console.warn('Warning: Unused labels: {}'.format(' '.join(unused_labels)))
 
-    except BasicError as e:
-        console.error('Error: ' + str(e))
-        return 1
-    except IOError as e:
-        console.error(f'File error: {e.filename:s}: {e.strerror:s}')
-        return 1
-
-    # return status
-    return 1 if console.errors else 0
+    def errors(self):
+        return 1 if self.console.errors else self.rc
 
 
 if __name__ == '__main__':
-    status = main()
+    status = Xbas99Processor().main()
     sys.exit(status)

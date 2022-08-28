@@ -42,9 +42,11 @@ INSTR_99000_I = "AM" | "SM"
 INSTR_99000_IV = "TMB" | "TCMB" | "TSMB" | "SLAM" | "SRAM"
 
 DIR_L = "DEF" | "END"
-DIR_E = "EQU" | "BSS" | "BES" | "DORG" | "XORG" | "BANK"
+DIR_E = "EQU" | "WEQU" | "BSS" | "BES" | "DORG" | "XORG" | "BANK"
 DIR_EO = "RORG" | "AORG"
 DIR_ES = "DATA" | "BYTE" | "SAVE"
+DIR_RA = "REQU"  // register alias
+DIR_R = "REQU"
 DIR_T = "TEXT" | "STRI"
 DIR_S = "TITL" | "IDT"
 DIR_C = "COPY" | "BCOPY"
@@ -133,6 +135,8 @@ CRLF = \n | \r | \r\n
  {DIR_E}               { return Xas99RTypes.DIR_E; }
  {DIR_EO}              { return Xas99RTypes.DIR_EO; }
  {DIR_ES}              { return Xas99RTypes.DIR_ES; }
+ {DIR_RA}              { return Xas99RTypes.DIR_RA; }
+ {DIR_R}               { return Xas99RTypes.DIR_R; }
  {DIR_T}               { return Xas99RTypes.DIR_T; }
  {DIR_S}               { return Xas99RTypes.DIR_S; }
  {DIR_C}               { return Xas99RTypes.DIR_C; }
@@ -143,7 +147,7 @@ CRLF = \n | \r | \r\n
 
  {PREPROC}             { yybegin(PREPROC); return Xas99RTypes.PREP; }
 
- {IDENT}               { return Xas99RTypes.UNKNOWN; }
+// {IDENT}               { return Xas99RTypes.UNKNOWN; }
  {WS}                  { yybegin(ARGUMENTS); return TokenType.WHITE_SPACE; }
 }
 

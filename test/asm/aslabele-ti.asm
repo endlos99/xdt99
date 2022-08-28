@@ -1,0 +1,27 @@
+* E/A INVALID LABELS
+
+A@B  EQU  1    ;ERROR
+A&B  EQU  2    ;ERROR
+A$B  EQU  3
+1AB  EQU  4    ;ERROR
+A!B  EQU  5    ;ERROR
+A%B  EQU  6    ;ERROR
+A#B  EQU  7
+A()B EQU  8    ;ERROR
+A\B  EQU  9    ;ERROR
+A[B  EQU  10   ;ERROR
+A^B  EQU  11   ;ERROR
+A+B  EQU  12   ;ERROR
+A*B  EQU  13   ;ERROR
+A-B  EQU  14   ;ERROR
+A.B  EQU  15   ;ERROR
+A,B  EQU  16   ;ERROR
+A;B  EQU  17   ;ERROR
+A:B  EQU  18   ;ERROR
+A~B  EQU  19   ;ERROR
+A|B  EQU  20   ;ERROR
+
+$AB  EQU  -1
+#AB  EQU  -2   ;ERROR
+
+     END

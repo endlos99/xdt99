@@ -7,6 +7,10 @@ import com.intellij.psi.PsiElement;
 
 public class Xas99RVisitor extends PsiElementVisitor {
 
+  public void visitAliasDefinition(@NotNull Xas99RAliasDefinition o) {
+    visitPsiElement(o);
+  }
+
   public void visitArgsI(@NotNull Xas99RArgsI o) {
     visitPsiElement(o);
   }
@@ -127,6 +131,10 @@ public class Xas99RVisitor extends PsiElementVisitor {
     visitPsiElement(o);
   }
 
+  public void visitOpAlias(@NotNull Xas99ROpAlias o) {
+    visitPsiElement(o);
+  }
+
   public void visitOpFilename(@NotNull Xas99ROpFilename o) {
     visitPsiElement(o);
   }
@@ -152,10 +160,6 @@ public class Xas99RVisitor extends PsiElementVisitor {
   }
 
   public void visitPreprocessor(@NotNull Xas99RPreprocessor o) {
-    visitPsiElement(o);
-  }
-
-  public void visitUnknownMnem(@NotNull Xas99RUnknownMnem o) {
     visitPsiElement(o);
   }
 

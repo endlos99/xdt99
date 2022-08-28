@@ -1,14 +1,14 @@
 xdt99: TI 99 Cross-Development Tools
 ====================================
 
-The **TI 99 Cross-Development Tools** (xdt99) are a small suite of programs that
-facilitate the development of programs for the TI 99 family of home computers on
-modern computer systems:
+The **TI 99 Cross-Development Tools** (xdt99) are a suite of programs that
+facilitate the development of programs for the 9900 family of home computers on
+modern computer systems.  The suite comprises these tools:
 
- * [`xas99`](#xas99): A TMS9900 cross-assembler
+ * [`xas99`](#xas99): A TMS 9900 and related cross-assembler
  * [`xga99`](#xga99): A GPL cross-assembler
  * [`xbas99`](#xbas99): A TI BASIC and TI Extended BASIC lister and encoder
- * [`xda99`](#xda99): A TMS9900 disassembler
+ * [`xda99`](#xda99): A TMS 9900 disassembler
  * [`xdg99`](#xda99): A GPL disassembler
  * [`xdm99`](#xdm99): A disk manager for sector-based TI disk images
  * [`xhm99`](#xhm99): A manager for HFE images used by HxC floppy emulators
@@ -53,13 +53,13 @@ For additional information, please refer to the [xdt99 homepage][1] or the
 [xdt99 manual][4].  Windows users unfamiliar with working with the command line
 will find some platform-specific information in the [Windows tutorial][5].
 
-**Latest version: 3.5.0**
+**Latest version: 3.5.1**
 
 The latest binary distribution of xdt99 is available on the project
 [releases page][2] on GitHub.  xdt99 requires [Python 3.8][6] or higher and runs
-on any platform that Python supports, including Linux, Windows, and maxOS.
+on any platform that Python supports, including Linux, Windows, and macOS.
 
-xdt99 is released under the GNU GPLv2.  All sources are available on
+xdt99 is released under the GNU GPLv3.  All sources are available on
 [GitHub][3].
 
 
@@ -69,15 +69,13 @@ Download and Installation
 Download the latest [binary release][2] from GitHub.  Alternatively, clone the
 entire xdt99 GitHub [repository][3].
 
-While almost all xdt99 tools are standalone, self-contained Python programs that
-can be used independently of each other, we strongly recommend placing all files
-together somewhere in your `$PATH` or wherever your Python installation will
-find them.
+Because of dependencies between invividual tools, all xdt99 files should be
+placed into the same directory somewhere in your `$PATH` or wherever your Python
+installation will find them.
 
-The `xdt99-mode` and `xdt99 IDEA` plugins provide editor support and may be used
-separately of the other xdt99 tools.  Likewise, `xas99` and others may be used
-without these plugins.  They do, however, provide useful assistance when
-creating or editing assembly, GPL, or TI (Extended) BASIC programs.
+The `xdt99-mode` and `xdt99 IDEA` plugins provide editor support for creating or
+editing assembly, GPL, or TI (Extended) BASIC programs.  The plugins can be
+used independenly of the other xdt99 tools.
 
 First-time xdt99 users running Windows will find additional information about
 installation and getting started in the [Windows tutorial][5].  Users of other
@@ -112,6 +110,10 @@ Generate raw binary data files:
 
     $ xbas99.py -b [--base <addr>] <source file>
 
+Generate C-style text file with byte values of resulting binary:
+
+    $ xbas99.py -t c2 <source file>
+
 Generate list file showing assigned addresses and generated data:
 
     $ xas99.py <source file> -L <list file>
@@ -119,15 +121,18 @@ Generate list file showing assigned addresses and generated data:
 For a complete overview of the available command-line options, see `xas99.py
 -h`.
 
-`xas99` offers various language extensions to the original Editor/Assembler
-module:
+`xas99` offers many language extensions and new features compared to the 
+original Editor/Assembler cartridge:
 
  * Relaxed syntax (e.g., labels, comments, whitespace, case insensitivity)
  * Improved expressions (e.g., Boolean operators, binary numbers, parentheses)
  * Label continuations and local labels (e.g., `! dec r0; jne -!`)
- * New directives (e.g., `BCOPY`, `XORG`, `SAVE`)
+ * New directives (e.g., `BCOPY`, `XORG`, `SAVE`, `FLOA`)
+ * Pseudo-addressing modes (e.g., `s#`, `w#`)
  * Conditional assembly (e.g., `.ifdef`)
  * Macros (`.defm`)
+ * Warnings about usage, optimizations, gotchas
+ * Linker for object code files and other formats
 
 Please refer to the [xdt99 manual][4] for a detailed description of these
 features.
@@ -162,6 +167,8 @@ For a complete overview of the available command-line options, see `xga99.py
 `xga99` offers various language extensions similar to `xas99`:
 
  * Relaxed syntax (e.g., labels, comments, whitespace, case insensitivity)
+ * Label continuations and local labels (`:`, `!`)
+ * New directives (e.g., `BCOPY`, `FLOAT`)
  * Conditional assembly (e.g., `.ifdef`)
  * Macros (`.defm`)
 
@@ -176,9 +183,9 @@ This is just a brief overview of the most common usages for `xbas99`.  For
 detailed information, please refer to the [xdt99 homepage][1] or the manual
 included with xdt99.
 
-List TI BASIC or TI Extended BASIC program on screen:
+Print TI BASIC or TI Extended BASIC program on screen:
 
-    $ xbas99.py -l <program file>
+    $ xbas99.py -p <program file>
 
 Decode BASIC program to source format (i.e., list to file):
 
@@ -187,6 +194,10 @@ Decode BASIC program to source format (i.e., list to file):
 Create BASIC program for interpreter from source listing:
 
     $ xbas99.py [-c] <source file> [-o <output file>]
+
+Create BASIC program from source listing with labels instead of line numbers:
+
+    $ xbas99.py [-c] -l <source file> [-o <output file>]
 
 List BASIC program stored on disk image (advanced use):
 

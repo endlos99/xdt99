@@ -11,7 +11,7 @@
 import os
 
 from config import Dirs, Disks, Files, XGA99_CONFIG
-from utils import xga, xdm, clear_env, delfile, check_gbc_files_eq, error
+from utils import xga, xdm, clear_env, delfile, check_gbc_files_eq, error, content
 from zipfile import ZipFile
 
 
@@ -50,6 +50,12 @@ def runtest():
             error('GPL cart', 'Main file mismatch')
         if 'layout.xml' not in zout.namelist() or 'meta-inf.xml' not in zout.namelist():
             error('GPL cart', 'Missing layout or meta-inf files in RPK')
+
+    # BCOPY and include path
+    source = os.path.join(Dirs.gplsources, 'gabcopy.gpl')
+    xga(source, '-I', 'gpl/test', '-o', Files.output, rc=0)
+    if content(Files.output) != bytes(range(10)):
+        error('bcopy', 'Binary mismatch')
 
     # cleanup
     delfile(Dirs.tmp)

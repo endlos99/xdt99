@@ -18,7 +18,7 @@ import java.util.List;
 
 public class Xas99Block extends AbstractBlock {
     private final static TokenSet statements = TokenSet.create(Xas99Types.INSTRUCTION, Xas99Types.DIRECTIVE,
-            Xas99Types.PREPROCESSOR, Xas99Types.UNKNOWN_MNEM);
+            Xas99Types.PREPROCESSOR, Xas99Types.ALIAS_DEFINITION);
     private final static TokenSet operators = TokenSet.create(Xas99Types.OP_AST, Xas99Types.OP_MISC);
     private final static TokenSet signs = TokenSet.create(Xas99Types.OP_PLUS, Xas99Types.OP_MINUS);
     private final static TokenSet modifiers = TokenSet.create(Xas99Types.MOD_AUTO, Xas99Types.MOD_LEN,
@@ -74,7 +74,7 @@ public class Xas99Block extends AbstractBlock {
             IElementType leftToken = left.getElementType();
             ASTNode right = ((Xas99Block) child2).getNode();
             IElementType rightToken = right.getElementType();
-            // label <-> mnemonic
+            // label/alias <-> mnemonic
             if (leftToken == Xas99Types.LABELDEF && statements.contains(rightToken)) {
                 return pad(Xas99CodeStyleSettings.XAS99_MNEMONIC_TAB_STOP - 1, left.getTextLength());
             }
@@ -96,7 +96,7 @@ public class Xas99Block extends AbstractBlock {
                     // whitespace <-> comment: line comment, leave untouched
                     return null;
                 } else if (e instanceof Xas99Instruction || e instanceof Xas99Directive ||
-                        e instanceof Xas99Preprocessor) {
+                        e instanceof Xas99AliasDefinition || e instanceof Xas99Preprocessor) {
                     // instruction <-> comment (with or without operands)
                     int diffLength = getPadDiffWithinInstruction(e);  // anticipated padding change within instruction
                     return pad(Xas99CodeStyleSettings.XAS99_COMMENT_TAB_STOP -

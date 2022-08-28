@@ -22,24 +22,16 @@
 import sys
 import re
 import os.path
+import argparse
+from xcommon import Util, RFile, CommandProcessor
 
 
-VERSION = '3.2.0'
+VERSION = '3.5.1'
 
 CONFIG = 'XDG99_CONFIG'
 
 
-# Utility functions
-
-def ordw(word):
-    """word ord"""
-    return (word[0] << 8) | word[1]
-
-
-def chrw(word):
-    """word chr"""
-    return bytes((word >> 8, word & 0xff))
-
+# Additional utility functions
 
 def xhex(text):
     """return string with optional > or 0x as hexadecimal value"""
@@ -47,36 +39,6 @@ def xhex(text):
         return text if text is None else int(re.sub(r'^>|^0x', '', text), 16)
     except ValueError:
         raise XdgError('Invalid hex value: ' + text)
-
-
-def escape(bytes_):
-    """escape non-printable characters"""
-    bytes_ = bytes_.replace(b"'", b"''")  # for internal quotes
-    return "'" + ''.join(chr(b) if 32 <= b < 127 else '.' for b in bytes_) + "'"
-
-
-def readbin(name, mode='rb'):
-    """read lines from file or STDIN"""
-    if name == '-':
-        if 'b' in mode:
-            return sys.stdin.buffer.read()
-        else:
-            return sys.stdin.read()
-    else:
-        with open(name, mode) as f:
-            return f.read()
-
-
-def writelines(name, data, mode):
-    """write lines to file or STDOUT"""
-    if name == '-':
-        if 'b' in mode:
-            sys.stdout.buffer.write(data)
-        else:
-            sys.stdout.write(data)
-    else:
-        with open(name, mode) as f:
-            f.write(data)
 
 
 # Error handling
@@ -527,7 +489,7 @@ class Opcodes:
         elif instr_format == 13:  # HTEXT, VTEXT
             v = (byte & 0x1f) + 1
             return Operand(code[idx].addr, code[idx].byte, v,
-                           escape(bytes(code[i].byte for i in range(idx, idx + v)))),
+                           Util.escape(bytes(code[i].byte for i in range(idx, idx + v)))),
         elif instr_format == 14:  # HCHAR, VCHAR
             v = (byte & 0x1f) + 1
             i1, o1 = 0, Operand(addr, v, 0, f'>{v:02X}')
@@ -701,7 +663,7 @@ class Literal(Entry):
         if isinstance(value, bytes):
             Entry.__init__(self, addr, byte, len(value))
             self.mnemonic = 'TEXT'
-            self.value = escape(value)
+            self.value = Util.escape(value)
         else:
             Entry.__init__(self, addr, byte, 1)
             self.mnemonic = 'BYTE'
@@ -940,11 +902,11 @@ class Disassembler:
                 self.decode(prog, idx, idx + 1, 0)  # decode BR
                 return [prog.code[idx].operands[0].dest]  # follow manually
             # regular cart, return menu entry start addresses
-            menu, starts = ordw(prog.binary[6:8]) - prog.addr, []
+            menu, starts = Util.ordw(prog.binary[6:8]) - prog.addr, []
             try:
                 while menu != 0x0000:
-                    starts.append(ordw(prog.binary[menu + 2:menu + 4]))
-                    menu = ordw(prog.binary[menu:menu + 2])
+                    starts.append(Util.ordw(prog.binary[menu + 2:menu + 4]))
+                    menu = Util.ordw(prog.binary[menu:menu + 2])
             except ValueError:
                 XdgLogger.warn('Bad cartridge menu structure')
             return starts
@@ -998,102 +960,113 @@ class Disassembler:
 
 # Command line processing
 
-def main():
-    import argparse
+class Xdg99Processor(CommandProcessor):
+    
+    def __init__(self):
+        super().__init__(XdgError)
+        self.program = None
+        self.disasm = None
+        self.end_addr = None
+        
+    def parse(self):
+        args = argparse.ArgumentParser(
+            description='GPL disassembler, v' + VERSION,
+            epilog="All addresses are hex values and may by prefixed optionally by '>' or '0x'.")
+        args.add_argument('source', metavar='<source>',
+                          help='GPL binary code')
+        cmd = args.add_mutually_exclusive_group(required=True)
+        cmd.add_argument('-r', '--run', metavar='<addr>', dest='runs', nargs='+',
+                         help="disassemble running from addresses, or 'start'")
+        cmd.add_argument('-f', '--from', metavar='<addr>', dest='frm',
+                         help="disassemble top-down from address or 'start'")
+        args.add_argument('-a', '--address', metavar='<addr>', dest='addr',
+                          help='GROM address of first byte')
+        args.add_argument('-t', '--to', metavar='<addr>', dest='to',
+                          help='disassemble to address (default: end)')
+        args.add_argument('-e', '--exclude', metavar='<addr>-<addr>', dest='exclude', nargs='+',
+                          help='exclude address ranges')
+        args.add_argument('-k', '--skip', metavar='<bytes>', dest='skip',
+                          help='skip bytes at beginning of file')
+        args.add_argument('-F', '--force', action='store_true', dest='force',
+                          help='force overwriting of previous disassembly')
+        args.add_argument('-p', '--program', action='store_true', dest='program',
+                          help='disassemble to complete program')
+        args.add_argument('-c', '--concise', action='store_true', dest='concise',
+                          help='show only disassembled parts')
+        args.add_argument('-n', '--strings', action='store_true', dest='strings',
+                          help='disassemble string literals')
+        args.add_argument('-s', '--strict', action='store_true', dest='strict',
+                          help='use strict legacy syntax')
+        args.add_argument('-y', '--syntax', metavar='<syntax>', dest='syntax',
+                          help='syntax variant to use')
+        args.add_argument('-S', '--symbols', metavar='<file>', dest='symfiles', nargs='+',
+                          help='known symbols files')
+        args.add_argument('-V', '--verbose', action='store_true', dest='verbose',
+                          help='verbose messages')
+        args.add_argument('-o', '--output', metavar='<file>', dest='output',
+                          help='output filename')
+        try:
+            default_opts = os.environ[CONFIG].split()
+        except KeyError:
+            default_opts = []
+        self.opts = args.parse_args(args=default_opts + sys.argv[1:])  # passed opts override default opts
 
-    args = argparse.ArgumentParser(
-        description='GPL disassembler, v' + VERSION,
-        epilog="All addresses are hex values and may by prefixed optionally by '>' or '0x'.")
-    args.add_argument('source', metavar='<source>',
-                      help='GPL binary code')
-    cmd = args.add_mutually_exclusive_group(required=True)
-    cmd.add_argument('-r', '--run', metavar='<addr>', dest='runs', nargs='+',
-                     help="disassemble running from addresses, or 'start'")
-    cmd.add_argument('-f', '--from', metavar='<addr>', dest='frm',
-                     help="disassemble top-down from address or 'start'")
-    args.add_argument('-a', '--address', metavar='<addr>', dest='addr',
-                      help='GROM address of first byte')
-    args.add_argument('-t', '--to', metavar='<addr>', dest='to',
-                      help='disassemble to address (default: end)')
-    args.add_argument('-e', '--exclude', metavar='<addr>-<addr>', dest='exclude', nargs='+',
-                      help='exclude address ranges')
-    args.add_argument('-k', '--skip', metavar='<bytes>', dest='skip',
-                      help='skip bytes at beginning of file')
-    args.add_argument('-F', '--force', action='store_true', dest='force',
-                      help='force overwriting of previous disassembly')
-    args.add_argument('-p', '--program', action='store_true', dest='program',
-                      help='disassemble to complete program')
-    args.add_argument('-c', '--concise', action='store_true', dest='concise',
-                      help='show only disassembled parts')
-    args.add_argument('-n', '--strings', action='store_true', dest='strings',
-                      help='disassemble string literals')
-    args.add_argument('-s', '--strict', action='store_true', dest='strict',
-                      help='use strict legacy syntax')
-    args.add_argument('-y', '--syntax', metavar='<syntax>', dest='syntax',
-                      help='syntax variant to use')
-    args.add_argument('-S', '--symbols', metavar='<file>', dest='symfiles', nargs='+',
-                      help='known symbols files')
-    args.add_argument('-V', '--verbose', action='store_true', dest='verbose',
-                      help='verbose messages')
-    args.add_argument('-o', '--output', metavar='<file>', dest='outfile',
-                      help='output filename')
-    try:
-        default_opts = os.environ[CONFIG].split()
-    except KeyError:
-        default_opts = []
-    opts = args.parse_args(args=default_opts + sys.argv[1:])  # passed opts override default opts
+    def run(self):
+        basename = os.path.basename(self.opts.source)
+        self.barename = os.path.splitext(basename)[0]
+        if self.opts.verbose:
+            XdgLogger.set_level(1)
+    
+        binary = Util.readdata(self.opts.source)[xhex(self.opts.skip) or 0:]
+        start_addr = xhex(self.opts.addr) if self.opts.addr is not None else 0x6000
+        self.end_addr = xhex(self.opts.to)
 
-    # setup
-    basename = os.path.basename(opts.source)
-    barename = os.path.splitext(basename)[0]
-    output = opts.outfile or barename + '.dis'
+        symbols = Symbols(symfiles=self.opts.symfiles)
+        self.program = Program(binary, start_addr, symbols=symbols)
+        syntax = Syntax.get(self.opts.syntax or 'xdt99')
+        excludes = [self.program.addr_range(e) for e in (self.opts.exclude or ())]
+        self.disasm = Disassembler(syntax, excludes)
 
-    if opts.verbose:
-        XdgLogger.set_level(1)
-
-    try:
-        binary = readbin(opts.source)[xhex(opts.skip) or 0:]
-        start_addr = xhex(opts.addr) if opts.addr is not None else 0x6000
-        end_addr = xhex(opts.to)
-
-        symbols = Symbols(symfiles=opts.symfiles)
-        program = Program(binary, start_addr, symbols=symbols)
-        syntax = Syntax.get(opts.syntax or 'xdt99')
-        excludes = [program.addr_range(e) for e in (opts.exclude or ())]
-        dis = Disassembler(syntax, excludes)
-
-        if opts.frm:
-            # top-down disassembler: uses specified start address -f
-            XdgLogger.info('top-down disassembly')
-            addr_from = min(dis.get_starts(program)) if opts.frm.lower() == 'start' else xhex(opts.frm)
-            dis.disassemble(program, addr_from, end_addr)
+    def prepare(self):
+        if self.opts.frm:
+            self.disass_from()
         else:
-            # run disassembler: uses specified run addresses -r
-            XdgLogger.info('run trace disassembly')
-            runs = [xhex(r) for r in (opts.runs or []) if r.lower() != 'start']
-            auto_run = any(r.lower() == 'start' for r in (opts.runs or []))
-            if auto_run:
-                runs += dis.get_starts(program)
-            for run in runs:
-                dis.run(program, run, end_addr, force=opts.force)
-        if opts.strings:
-            XdgLogger.info('extracting strings')
-            dis.find_strings(program)
-        if opts.program:
-            XdgLogger.info('finalizing into complete program')
-            dis.program(program)
-    except XdgError as e:
-        sys.exit(f'Error: {str(e):s}')
-    except IOError as e:
-        sys.exit(f'{e.filename:s}: {e.strerror:s}.')
-    try:
-        source = program.list(as_prog=opts.program or False, strict=opts.strict, concise=opts.concise)
-        writelines(output, source, 'w')
-    except IOError as e:
-        sys.exit(f'{e.filename:s}: {e.strerror:s}.')
-    return 0
+            self.disass()
+        if self.opts.strings:
+            self.find_strings()
+        if self.opts.program:
+            self.make_program()
+        source = self.program.list(as_prog=self.opts.program, strict=self.opts.strict, concise=self.opts.concise)
+        self.result.append(RFile(source, self.barename, '.dis', istext=True))
+
+    def disass_from(self):
+        """top-down disassembler: uses specified start address -f"""
+        XdgLogger.info('top-down disassembly')
+        if self.opts.frm.lower() == 'start':
+            addr_from = min(self.disasm.get_starts(self.program))
+        else:
+            addr_from = xhex(self.opts.frm)
+        self.disasm.disassemble(self.program, addr_from, self.end_addr)
+
+    def disass(self):
+        """run disassembler: uses specified run addresses -r"""
+        XdgLogger.info('run trace disassembly')
+        runs = [xhex(r) for r in (self.opts.runs or []) if r.lower() != 'start']
+        auto_run = any(r.lower() == 'start' for r in (self.opts.runs or []))
+        if auto_run:
+            runs += self.disasm.get_starts(self.program)
+        for run in runs:
+            self.disasm.run(self.program, run, self.end_addr, force=self.opts.force)
+
+    def find_strings(self):
+        XdgLogger.info('extracting strings')
+        self.disasm.find_strings(self.program)
+
+    def make_program(self):
+        XdgLogger.info('finalizing into complete program')
+        self.disasm.program(self.program)
 
 
 if __name__ == '__main__':
-    status = main()
+    status = Xdg99Processor().main()
     sys.exit(status)

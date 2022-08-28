@@ -1,108 +1,135 @@
-### Working with Archives
+## Installation
 
-`xdm99` supports creating, extracting, and viewing the contents of `ARK`-style
-archives originally created by Barry Boone.  An archive can be a stand-alone PC
-file or stored on a disk image, where is acts like a disk on a disk.
+All xdt99 files should be placed somewhere in the `$PATH` or where the
+command-line interpreter will find them.  Windows users will find Windows-
+specific instructions in the [Windows Guide][4].
 
-An archive is identified with the _archive_ option `-K` identies an archive.
-If no further options are given, `xdm99` prints the contents of the archive,
-where the output is organized similarly to a disk catalog.
 
-    $ xdm99.py -K examples/archive.tfi
-    Archive: ARCHIVE      Size (c/u): 30720 B / 57600 B   Ratio: 53.3%
-    ----------------------------------------------------------------------------
-    ARKFILE1T     5  DIS/VAR 80     841 B   18 recs   2022-03-01 19:54:22 C
-    ARKFILE2T    72  DIS/VAR 80   18001 B  237 recs   2022-03-01 19:54:22 C
-    ARKFILE3B   140  PROGRAM      35348 B             2022-03-01 19:54:22 C
-    ARKFILE4B    10  PROGRAM       2284 B             2022-03-01 19:54:22 C
-    ARKFILE5T     2  DIS/VAR 30     128 B    5 recs   2022-03-01 19:54:22 C
-    ARKFILE5T     2  DIS/VAR 30     128 B    5 recs   2022-03-01 19:31:30 C
+## Includes and Filename Handling
 
-Since the `ARCHIVE` file itself is a `INT/FIX128` file
+Please note that both path separators `/` and `\` are supported by `xas99`,
+independent of the platform used.  If both separators occur within one path,
+however, only the platform-native char is used as separator.
 
-    $ xdm99.py -I examples/archive.tfi
-    ARCHIVE     121  INT/FIX 128  30720 B  240 recs
 
-we can use either TIFILES files or plain files as stand-alone archive without
-loss of information.
+## Options with List Arguments
 
-When we combine `-K` with a disk image, the archive must reside on that disk,
-and all further options affect the archive and not the disk.
+As we explained in the tutorial, for options with multiple arguments, individual
+arguments may be separated by `,` or space.  When using spaces, however, Python
+is not able to determine where the list of arguments ends:
 
-    $ xdm99.py arkdisk.dsk -K ARCHIVE
-    Archive: ARCHIVE      Size (c/u): 30720 B / 57600 B   Ratio: 53.3%
-    ----------------------------------------------------------------------------
-    ARKFILE1T     5  DIS/VAR 80     841 B   18 recs   2022-03-01 19:55:14 C
-    ARKFILE2T    72  DIS/VAR 80   18001 B  237 recs   2022-03-01 19:55:14 C
-    ARKFILE3B   140  PROGRAM      35348 B             2022-03-01 19:55:14 C
-    ARKFILE4B    10  PROGRAM       2284 B             2022-03-01 19:55:14 C
-    ARKFILE5T     2  DIS/VAR 30     128 B    5 recs   2022-03-01 19:55:14 C
+    $ xas99.py -I lib helper sample.asm
 
-The most common options for disks also work for archives.  For example, we can
-add, extract, rename, (un)protect, or delete files:
+Is `sample.asm` an include path, or a source file?  What about `helper`?
 
-    $ xdm99.py -K examples/archive.tfi -a examples/ashello.asm -f dv80
-    $ xdm99.py -K examples/archive.tfi -e ARKFILE2T -t -o textfiles/
-    $ xdm99.py -K examples/archive.tfi -r ASHELLO:ASHELLO/S
-    $ xdm99.py -K examples/archive.tfi -w ARKFILE3B ARKFILE5T
-    $ xdm99.py -K examples/archive.tfi -d ASHELLO/S
+In general, non-options like the source file (or the disk name for `xdm99`)
+should never occur after multi-argument options.  In the case of options in
+`XAS99_CONFIG`, however, this is not possible, as environment options are
+prepended to the command line.
 
-To create a new empty archive, we use the _initialize archive_ option `-Y`:
+To allow multi-argument options in the environment, the list argument
+terminator `;` was introduced.  The statements
 
-    $ xdm99.py -Y -K newarchive
-    $ xdm99.py examples/work.disk -K NEWARK -Y
+    $ xas99.py -I incl1 incl2; source.asm
+    $ xas99.py -I incl1 incl2 ; source.asm
 
-It is possible to initialize both disk and archive at the same time.
+both define include paths `incl1` and `incl2` with source file `source.asm`
+without errors.  The terminator is still required if only one argument is given:
 
-    $ xdm99.py -X dssd sample.dsk -Y -K NEWARK
+    $ xas99.py -I incl; source.asm
 
-There are two additional operations specifically for archives on disk.  If we
-create such a disk
+Please be aware that on Linux and macOS platforms, a `;` on the command line
+has special meaning, so the `;` has to be enclosed in parentheses.
 
-    $ xdm99.py -X dssd sample.dsk -a examples/archive.tfi -t
-    $ xdm99.py sample.dsk
-    SAMPLE    :     123 used  597 free   180 KB  2S/1D 40T  9 S/T
-    ----------------------------------------------------------------------------
-    ARCHIVE     121  INT/FIX 128  30720 B  240 recs
+    $ xas99.py -I incl1 "incl2;" source.asm
+    $ xas99.py -I incl1 incl2 ";" source.asm
 
-we can then use the _in-place extract_ option `-E` to extract the contents of
-the archive to the disk.
+This restriction does *not* apply to `XAS99_CONFIG`, though.
 
-    $ xdm99.py sample.dsk -K ARCHIVE -E "*"
-    $ xdm99.py sample.dsk
-    SAMPLE    :     352 used  368 free   180 KB  2S/1D 40T  9 S/T
-    ----------------------------------------------------------------------------
-    ARCHIVE     121  INT/FIX 128  30720 B  240 recs
-    ARKFILE1T     5  DIS/VAR 80     841 B   18 recs   2022-03-01 20:01:00 C
-    ARKFILE2T    72  DIS/VAR 80   18001 B  237 recs   2022-03-01 20:01:00 C
-    ARKFILE3B   140  PROGRAM      35348 B             2022-03-01 20:01:00 C
-    ARKFILE4B    10  PROGRAM       2284 B             2022-03-01 20:01:00 C
-    ARKFILE5T     2  DIS/VAR 30     128 B    5 recs   2022-03-01 20:01:00 C
+Having said all that, it is rather unfortunate that the built-in help for
+`xas99` shows the source files after all list options without termination.
 
-The wildcard argument `"*"` extracts all files in the archive.  On Linux and
-macOS, that `*` has to be put in quotes to prevent the shell from expanding it.
+    usage: xas99.py [...]
+                    [-I <path> [<path> ...]] [-D <sym[=val]> [<sym[=val]> ...]]
+                    [...]
+                    [<source> ...]
 
-Similarly, we can use the _in-place add_ option `-A` to add files on the disk
-to an archive.
+We regret that we were unable to include this particular aspect of list options.
 
-    $ xdm99.py sample.dsk -X -K ARCHIVE2 -A "ARK*"
-    $ xdm99.py sample.dsk
-    SAMPLE    :     473 used  247 free   180 KB  2S/1D 40T  9 S/T
-    ----------------------------------------------------------------------------
-    ARCHIVE     121  INT/FIX 128  30720 B  240 recs
-    ARCHIVE2    121  INT/FIX 128  30720 B  240 recs   2022-03-01 20:04:26 C
-    ARKFILE1T     5  DIS/VAR 80     841 B   18 recs   2022-03-01 20:01:00 C
-    ARKFILE2T    72  DIS/VAR 80   18001 B  237 recs   2022-03-01 20:01:00 C
-    ARKFILE3B   140  PROGRAM      35348 B             2022-03-01 20:01:00 C
-    ARKFILE4B    10  PROGRAM       2284 B             2022-03-01 20:01:00 C
-    ARKFILE5T     2  DIS/VAR 30     128 B    5 recs   2022-03-01 20:01:00 C
 
-The new archive `ARCHIVE2` now contains all the files of `ARCHIVE`.
+## New directives [new summary]
 
-    Archive: ARCHIVE2     Size (c/u): 30720 B / 57600 B   Ratio: 53.3%
-    ----------------------------------------------------------------------------
-    ARKFILE1T     5  DIS/VAR 80     841 B   18 recs   2022-03-01 20:05:06 C
-    ARKFILE2T    72  DIS/VAR 80   18001 B  237 recs   2022-03-01 20:05:06 C
-    ARKFILE3B   140  PROGRAM      35348 B             2022-03-01 20:05:06 C
-    ARKFILE4B    10  PROGRAM       2284 B             2022-03-01 20:05:06 C
-    ARKFILE5T     2  DIS/VAR 30     128 B    5 recs   2022-03-01 20:05:06 C
+In additional to the directives supported by E/A, `xas99` add some new
+directives that simplify some tasks or control advanced functionality.
+
+    BCOPY STRI FLOA WEQU REQU XORG BANK SAVE AUTO
+
+The `BCOPY` directive includes an external binary file as a sequence of `BYTE`s.
+For example, if `sprite.raw` is a raw data file containing the sprite pattern
+
+    00000000  18 3c 7e ff ff 7e 3c 18                           |.<~..~<.|
+
+then including this file with `BCOPY`
+
+    sprite  bcopy "sprite.raw"
+
+is equivalent to statement
+
+    sprite  byte >18,>3c,>7e,>ff,>ff,>7e,>3c,>18
+
+The `STRI` directive is similar to `TEXT`, but prepends a length byte, so
+
+    stri 'HELLO WORLD'
+
+is equivalent to
+
+    byte 11
+    text 'HELLO WORLD'
+
+Note that both `TEXT` and `STRI` also support hex strings of arbitrary lengths
+
+    text >183c7effff7e3c18
+
+so non-ASCII characters can easily be included withinin a text string:
+
+    text 'THIS ', >a2, ' IS YOUR PLAYER.'
+
+When multiple arguments are provided to `STRI`, they are contatenated before
+prepending the length byte, so the following two instructions are equivalent:
+
+    stri 'hello', >40, 'world'
+    text >0b, 'hello@world'
+
+The `FLOA` directive stores a _floating point number_ in the 8-byte RADIX-100
+format used by the TI 99.  Note that digits exceeding the accuracy of RADIX-100
+are silently ignored.
+
+    floa 123.456789012
+
+The exponent notation `1e9` is currently not supported.
+
+The `WEQU` directive defines a _weak `EQU`_ that works like a normal `EQU`, but
+its value may be redefined.  For each rededinition, a warning is issued.
+
+Please note that `WEQU` is still experimental, and its behavior might change in
+a future version of `xas99`.
+
+The `REQU` directive defines a _register alias_, which can give registers `R0`
+through `R15` more expressive names.  While any symbol can be used in a register
+position as long as its value is valid, `REQU` highlightes which symbols are
+used instead of `R`_n_.
+
+    val  equ  1
+    reg  requ 2
+         clr  reg        ; intended usage
+         inc  val        ; also valid to keep compatibility with E/A
+         dec  @reg       ; valid, but issues usage warning
+
+A symbol and a register alias cannot have the same name.
+
+Note that register aliases can be used without specifying the `-R` option.
+
+Using `REQU` for register aliases instead of plain `EQU` helps pruning the
+suggestions for code completion in register positions when using the [IDEA
+plugin][8].  Unlike `xas99`, the plugin clearly separates between aliases and
+regular symbols and only considers one symbol type in any given context.

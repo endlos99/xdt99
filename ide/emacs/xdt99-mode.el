@@ -52,7 +52,7 @@
     "AORG" "RORG" "DORG" "PSEG" "PEND" "CSEG" "CEND" "DSEG" "DEND"
     "IDT" "UNL" "LIST" "PAGE" "TITL" "DXOP" "LOAD" "SREF"
     ; xdt99 extensions
-    "WEQU" "BCOPY" "XORG" "SAVE" "BANK" "STRI" "FLOA"))
+    "WEQU" "REQU" "BCOPY" "XORG" "SAVE" "BANK" "STRI" "FLOA" "AUTO"))
 
 (defvar asm99-preprocessor
   '(".IFDEF" ".IFNDEF" ".IFEQ" ".IFNE" ".IFGT" ".IFGE" ".ELSE" ".ENDIF" ".ERROR"))

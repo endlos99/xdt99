@@ -1,0 +1,7 @@
+* GPL version string
+
+       grom >6000
+       byte -1
+       .vers
+       byte -1
+       end

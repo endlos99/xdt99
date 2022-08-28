@@ -26,6 +26,14 @@ def chrw(word):
     return bytes((word >> 8, word & 0xff))
 
 
+def chrws(*words):
+    """word chr"""
+    bs = []
+    for word in words:
+        bs.extend((word >> 8, word & 0xff))
+    return bytes(bs)
+
+
 def xint(s):
     """return hex or decimal value"""
     return int(s.lstrip('>'), 16 if s[:2] == '0x' or s[:1] == '>' else 10)
@@ -151,11 +159,11 @@ def content(fn, mode='rb'):
     return data
 
 
-def content_lines(fn):
+def content_lines(fn, skip=0):
     """return lines of file"""
     with open(fn, 'r') as f:
-        lines = ' '.join(f.readlines())
-    return lines
+        lines = f.readlines()
+    return ' '.join(lines[skip:])
 
 
 def content_cat(fn):
@@ -579,17 +587,17 @@ def read_stderr(fn, include_warnings=False):
     """read stderr output"""
     errors = []
     with open(fn, 'r') as f:
-        lines = f.readlines()
-    for error, line in zip(lines[::2], lines[1::2]):
+        lines = f.readlines()[1:]  # ignore ": xas99, version ..."
+    for err, line in zip(lines[::2], lines[1::2]):
         if 'Warning' in line:
             if include_warnings:
-                warn = re.search(r'<.>\s+(\d+|\*+)\s+-', error)
+                warn = re.search(r'<.>\s+(\d+|\*+)\s+-', err)
                 if warn:
                     errors.append(warn.group(1))
             else:
                 continue  # ignore warnings
         else:
-            err = re.search(r'<.>\s+(\d+)', error)
+            err = re.search(r'<.>\s+(\d+)', err)
             if err:
                 errors.append(err.group(1))
     return errors

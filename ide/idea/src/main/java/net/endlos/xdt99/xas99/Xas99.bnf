@@ -19,6 +19,7 @@ xas99File ::=
     (line CRLF)*
 private line ::=
     linecomment | label? statement? pragma?
+    {pin=0}
 
 linecomment ::=  // used by folding builder
     LCOMMENT
@@ -33,9 +34,12 @@ labeldef ::=
      implements="net.endlos.xdt99.xas99.psi.Xas99NamedElement"
      methods=[getName setName getNameIdentifier getPresentation]}
 
+    // NOTE: It's not possible to define an "aliasdef", as any IDENT token would be parsed by the first
+    //       clause matching in rule "line", even if the next token won't.
+
 // mnemonics
 private statement ::=
-    directive | instruction | preprocessor | unknown_mnem
+    directive | instruction | preprocessor | alias_definition
     {recoverWhile="statement_recover"}
 private statement_recover ::=
     !CRLF
@@ -79,8 +83,8 @@ instruction ::=
 preprocessor ::=
     PREP (PP_ARG | PP_SEP)*
     {pin=1}
-unknown_mnem ::=
-    UNKNOWN
+alias_definition ::=
+    DIR_RA args_dir_E
     {pin=1}
 
 // arguments
@@ -163,7 +167,7 @@ private opValue ::=
     expr
     {name="value"}
 opRegister ::=
-    REGISTER | REGISTER0 | INT | PP_PARAM | opLabel
+    REGISTER | REGISTER0 | INT | PP_PARAM | opAlias
     {name="register"}
 opText ::=
     OP_MINUS? (OP_QUOTE TEXT? OP_QUOTE | INT | PP_PARAM)
@@ -174,6 +178,10 @@ opLabel ::=
     IDENT | PP_PARAM
     {methods=[getName setName getNameIdentifier getReference]
      name="label"}
+opAlias ::=
+    IDENT
+    {methods=[getName setName getNameIdentifier getReference]
+     name="alias"}
 opFloat ::=
     (OP_PLUS | OP_MINUS)? DIGIT* ("." DIGIT*)?
 
@@ -199,4 +207,4 @@ private atom ::=
     {name="value"}
 
 dummy ::=
-    COMMENT
+    COMMENT  // keep this!

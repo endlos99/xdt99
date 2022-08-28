@@ -4,8 +4,8 @@ import os
 import re
 
 from config import Dirs, Disks, Files, XAS99_CONFIG
-from utils import (chrw, ordw, xas, xdm, error, clear_env, delfile, content, content_len, check_obj_code_eq,
-                   check_binary_files_eq, check_image_files_eq, check_list_files_eq)
+from utils import (chrws, ordw, xas, xdm, error, clear_env, delfile, content, content_len, content_line_array,
+                   check_obj_code_eq, check_binary_files_eq, check_image_files_eq, check_list_files_eq)
 
 
 def remove(files):
@@ -47,23 +47,32 @@ def check_bin_text_equal_words(outfile, reffile):
         error('DATA', 'DATA/word mismatch')
 
 
-def check_symbols(outfile, symspec):
+def check_symbols(equ_file, symspec, strict=False):
     """check if all symbol/value pairs are in symfile"""
-    with open(outfile, 'r') as fout:
-        source = fout.readlines()
+    with open(equ_file, 'r') as fout:
+        equ_list = fout.readlines()
     equs = {}
     eref = []
     refs, symbols = symspec
-    for line in source:
-        if line.strip()[:3] == 'ref':
-            eref.extend([s.strip().upper() for s in line.strip()[3:].split(',')])
-    for i in range(0, len(source), 2):
-        if source[i].strip()[:3] == 'ref':
-            continue
-        sym = source[i].split(':')[0]
-        val = source[i + 1].upper().split('EQU', 1)[1].strip().split()[0]
-        equs[sym] = val
-
+    label = None
+    for l in equ_list:
+        line = l.strip()
+        if line[:3].lower() == 'ref':
+            eref.extend([s.strip().upper() for s in line[3:].split(',')])
+        elif l[0] != ' ':
+            if strict:
+                sym, _, op = re.split(r'\s+', line, maxsplit=2)
+                try:
+                    val, _ = op.split('*', maxsplit=1)
+                except ValueError:
+                    val = op
+                equs[sym.strip()] = val.strip()
+            else:
+                if label:
+                    equs[label] = line[4:].strip()
+                    label = None
+                else:
+                    label, _ = line.split(':', maxsplit=1)
     for ref in refs:
         if ref not in eref:
             error('symbols', f'Missing reference {ref}')
@@ -75,12 +84,35 @@ def check_symbols(outfile, symspec):
             error('symbols', f'Symbol mismatch for {sym}={val}/{equs.get(sym)}')
 
 
-# Main test
+def check_parsing(args):
+    """check parsing of positional arguments after list options"""
+    import sys
+    sys.path.append('..')
+    from xas99 import Xas99Processor
+    print(f'PP: (\'{args}\')')
+    sys.argv = ('xxx ' + args).split()
+    processor = Xas99Processor()
+    processor.parse()
+    return processor.opts.sources
+
 
 def runtest():
     """check command line interface"""
 
     clear_env(XAS99_CONFIG)
+
+    # parsing of positional arguments after list options
+    if check_parsing('-I foo bar -D x,y,z main1 main2 -l dummy'):  # should be empty list
+        error('parse', 'Parsed sources mismatch')
+
+    if check_parsing('-I foo bar; main1 main2') != ['main1', 'main2']:
+        error('parse', 'Parsed sources mismatch')
+
+    if check_parsing('-D x y z ; main1 main2') != ['main1', 'main2']:
+        error('parse', 'Parsed sources mismatch')
+
+    if check_parsing('main1 -I foo; -D x; main2') != ['main1', 'main2']:
+        error('parse', 'Parsed sources mismatch')
 
     # input and output files
     source = os.path.join(Dirs.sources, 'ashellon.asm')
@@ -94,7 +126,7 @@ def runtest():
         error('output', '-o <dir> failed')
 
     with open(Files.output, 'wb') as f:
-        xas(source, '-R', '-i', '-D', 'VSBW=>210C', 'VMBW=>2110', 'VWTR=>211C', 'KSCAN=>2108', '-o', '-', stdout=f)
+        xas(source, '-R', '-i', '-D', 'VSBW=>210C,VMBW=>2110,VWTR=>211C,KSCAN=>2108', '-o', '-', stdout=f)
     xdm(Disks.asmsrcs, '-e', 'ASHELLO-I', '-o', Files.reference)
     check_image_files_eq(Files.output, Files.reference)
 
@@ -102,6 +134,13 @@ def runtest():
         xas(source, '-R', '-q', '-o', Files.output, '-L', '-', stdout=f)
     xdm(Disks.asmsrcs, '-e', 'ASHELLO-L', '-o', Files.reference)
     check_list_files_eq(Files.output, Files.reference)
+
+    source = os.path.join(Dirs.sources, 'assyms.asm')
+    reference = os.path.join(Dirs.refs, 'assyms.equ')
+    with open(Files.output, 'w') as f:
+        xas(source, '-R', '-o', Files.input, '-E', '-', stdout=f)
+    if content(Files.output) != content(reference):
+        error('stdout', 'EQU file mismatch')
 
     source = os.path.join(Dirs.sources, 'nonexisting')
     with open(Files.error, 'w') as ferr:
@@ -122,7 +161,7 @@ def runtest():
 
     # command-line definitions
     source = os.path.join(Dirs.sources, 'asdef.asm')
-    xas(source, '-b', '-D', 's1=1', 's3=3', 's2=4', '-o', Files.output)
+    xas(source, '-b', '-D', 's1=1,s3=3,s2=4', '-o', Files.output)
     if content(Files.output) != b'\x01\x03':
         error('-D', 'Content mismatch')
     xas(source, '-b', '-D', 's1=2,s2=2,s3=3', '-o', Files.output)
@@ -158,10 +197,20 @@ def runtest():
 
     # symbols
     source = os.path.join(Dirs.sources, 'assyms.asm')
-    xas(source, '-b', '-R', '-o', Files.reference, '-E', Files.output)
+    xas(source, '-b', '-s', '-R', '-o', Files.reference, '-E', Files.output)
     check_symbols(Files.output,
                   (('VDPWA', 'SCAN'),  # references
-                   (('START', '>0000'), ('S1', '>0001'), ('S2', '>0018'))))  # symbols
+                   (('START', '>0000'), ('S1', '>0001'), ('S2', '>0018'))), strict=True)  # expected symbols
+
+    reference = os.path.join(Dirs.refs, 'assyms-s.equ')
+    xas(source, '-s', '-R', '-o', Files.reference, '-E', Files.output)
+    if content(Files.output) != content(reference):
+        error('equs', 'Strict EQU file mismatch')
+
+    reference = os.path.join(Dirs.refs, 'assyms.equ')
+    xas(source, '-R', '-o', Files.reference, '-E', Files.output)
+    if content(Files.output) != content(reference):
+        error('equs', 'Relaxed EQU file mismatch')
 
     # color
     source = os.path.join(Dirs.sources, 'aserrs.asm')
@@ -181,7 +230,7 @@ def runtest():
     with open(Files.error, 'w') as ferr:
         xas(source, '-b', '-R', '-q', '-o', Files.output, stderr=ferr, rc=0)
     if content_len(Files.error) > 0:
-        error('warn', 'warnings, even though disabled')
+        error('warn', 'Warnings, even though disabled')
 
     # linker
     source1 = os.path.join(Dirs.sources, 'aslink0a.asm')
@@ -191,24 +240,62 @@ def runtest():
     with open(Files.error, "w") as ferr:
         xas('-l', Files.input, '-ll', Files.output, '-o', Files.reference, rc=2, stderr=ferr)  # mutually exclusive
 
+    # multiple sources and errors
+    source = os.path.join(Dirs.sources, 'aserrsim.asm')
+    with open(Files.error, 'w') as ferr:
+        xas(source, source, '-R', '-o', Files.output, stderr=ferr, rc=0)
+    errs = content_line_array(Files.error)
+    if len(errs) != 5 or 'Warning' not in errs[2] or 'Warning' not in errs[4]:
+        error('multi source', 'Incorrect warnings')
+
+    with open(Files.error, 'w') as ferr:
+        xas(source, source, '-R', '-D', 'err', '-o', Files.output, stderr=ferr, rc=1)
+    errs = content_line_array(Files.error)
+    if len(errs) != 6 or 'Warning' not in errs[2] or 'Error' not in errs[4]:  # includes "1 error found" message
+        error('multi source', 'Incorrect errors')
+
     # default options
     delfile(Files.input)
     source = os.path.join(Dirs.sources, 'ashello.asm')
     os.environ[XAS99_CONFIG] = '-L ' + Files.input
     xas(source, '-R', '-o', Files.output)
     if content_len(Files.input) <= 0:
-        error('defaults', 'default options not working')
+        error('defaults', 'Default options not working')
 
     delfile(Files.input)
     delfile(Files.error)
     os.environ[XAS99_CONFIG] = '-L ' + Files.error
     xas(source, '-R', '-o', Files.output, '-L', Files.input)
     if content_len(Files.error) > 0:
-        error('defaults', 'default options override not working')
+        error('defaults', 'Default options override not working')
+
+    # platform-agnostic paths
+    source = os.path.join(Dirs.sources, 'aswin.asm')
+    xas(source, '-b', '-o', Files.output)
+    if content(Files.output) != bytes((0, 1, 0, 2, 0, 2, 0, 1)):
+        error('wincopy', 'File with Windows paths mismatch')
+
+    # paths as filenames for -o, -L, -E
+    source = os.path.join(Dirs.sources, 'asmulf.asm')
+    xas(source, '-i', '-o', Dirs.tmp)
+    if (content(os.path.join(Dirs.tmp, 'asmulf.img')) != chrws(0xffff, 0x10, 0x2000) + b'\x01' * 10 or
+            content(os.path.join(Dirs.tmp, 'asmulg.img')) != chrws(0xffff, 0x16, 0xa000) + b'\x02' * 16 or
+            content(os.path.join(Dirs.tmp, 'asmulh.img')) != chrws(0, 0x26, 0xe000) + b'\x03' * 32):
+        error('path output', 'Image contents mismatch')
+
+    xas(source, '-o', Files.output, '-L', Dirs.tmp)
+    if content_line_array(os.path.join(Dirs.tmp, 'asmulf.lst'))[0][:31] != 'XAS99 CROSS-ASSEMBLER   VERSION':
+        error('path output', 'List file contents mismatch')
+
+    xas(source, '-o', Files.output, '-L', Files.input, '-E', Dirs.tmp, '-s')
+    if len(content_line_array(os.path.join(Dirs.tmp, 'asmulf.equ'))) != 3:
+        error('path output', 'Equ file contents mismatch')
 
     # cleanup
     delfile(Dirs.tmp)
 
+
+# Main test
 
 if __name__ == '__main__':
     runtest()

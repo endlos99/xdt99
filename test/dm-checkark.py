@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 
+import sys
+sys.path.append('..')
 import os
 import shutil
 import re
 
-from xdm import Bitstream, LZW  # linked into test/ dir as a kludge
+from xdm99 import Bitstream, LZW  # linked into test/ dir as a kludge
 from config import Dirs, Disks, Files, Masks, XDM99_CONFIG
 from utils import (r, t, xdm, error, clear_env, delfile, content, content_lines, content_line_array,
                    check_binary_files_eq)
@@ -250,7 +252,7 @@ along with this program.  If not, see https www gnu org licenses."""
     # exark
     xdm(Disks.work, '-X', 'dssd', '-a', Files.archive, '-n', 'ARC', '-f', 'DIS/FIX128')
     xdm(Disks.work, '-K', 'ARC', '-E', 'F129', 'V16', 'V254')
-    xdm(Disks.work, '-t', '-e', 'F129', 'V16', 'V254')
+    xdm(Disks.work, '-t', '-e', 'F129', 'V16', 'V254', '-o', Dirs.tmp)
     for name in ('f129', 'v16', 'v254'):
         check_tifiles(t(name) + '.tfi', r(name.upper() + '.tfi'))
 

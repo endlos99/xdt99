@@ -5,6 +5,7 @@ import com.intellij.openapi.util.TextRange;
 import com.intellij.psi.*;
 import com.intellij.util.IncorrectOperationException;
 import net.endlos.xdt99.xas99.psi.Xas99Labeldef;
+import net.endlos.xdt99.xas99.psi.Xas99OpAlias;
 import net.endlos.xdt99.xas99.psi.impl.Xas99PsiImplUtil;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -14,12 +15,14 @@ import java.util.List;
 
 public class Xas99Reference extends PsiReferenceBase<PsiElement> implements PsiPolyVariantReference {
     private final String label;
+    private final boolean isAlias;
     private final int offset;
     private final int distance;
 
     public Xas99Reference(@NotNull PsiElement element, TextRange textRange) {
         super(element, textRange);
         label = element.getText().substring(textRange.getStartOffset(), textRange.getEndOffset()).toUpperCase();
+        isAlias = element instanceof Xas99OpAlias;
         offset = Xas99Util.findBeginningOfLine(element);
         distance = Xas99Util.getDistance(label, element);
     }
@@ -27,7 +30,12 @@ public class Xas99Reference extends PsiReferenceBase<PsiElement> implements PsiP
     @Override
     public ResolveResult @NotNull [] multiResolve(boolean incompleteCode) {
         Project project = myElement.getProject();
-        final List<Xas99Labeldef> labels = Xas99Util.findLabels(project, label, distance, myElement, offset, false);
+        List<Xas99Labeldef> labels;
+        if (isAlias) {
+            labels = Xas99Util.findAliases(project, label, false);
+        } else {
+            labels = Xas99Util.findLabels(project, label, distance, myElement, offset, false);
+        }
         List<ResolveResult> results = new ArrayList<ResolveResult>();
         for (Xas99Labeldef label : labels) {
             results.add(new PsiElementResolveResult(label));

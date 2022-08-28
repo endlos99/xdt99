@@ -116,9 +116,6 @@ def runtest():
     xas(source, '-R', '-D', 'sym2', '-q', '-o', Files.output)
     xdm(Disks.asmsrcs, '-e', 'ASXEXT1-O', '-o', Files.reference)
     check_obj_code_eq(Files.output, Files.reference)
-    xas(source, '-R', '-D', 'sym2=2', 'sym3=2', '-q', '-o', Files.output)
-    xdm(Disks.asmsrcs, '-e', 'ASXEXT2-O', '-o', Files.reference)
-    check_obj_code_eq(Files.output, Files.reference)
     xas(source, '-R', '-D', 'sym2=2,sym3=2', '-q', '-o', Files.output)
     xdm(Disks.asmsrcs, '-e', 'ASXEXT2-O', '-o', Files.reference)
     check_obj_code_eq(Files.output, Files.reference)
@@ -136,6 +133,15 @@ def runtest():
         xas(source, *opts, '-q', '-o', Files.output)
         xdm(Disks.asmsrcs, '-e', reffile, '-o', Files.reference)
         check_obj_code_eq(Files.output, Files.reference)
+
+    # predefined target symbol _xas99_*
+    source = os.path.join(Dirs.sources, 'asxtarg.asm')
+    xas(source, '-b', '-o', Files.output)
+    if content(Files.output) != b'\x11\x11\x33\x33\xff\xff':
+        error('target', 'Binary mismatch')
+    xas(source, '-i', '-o', Files.output)
+    if content(Files.output)[6:] != b'\x11\x11\x44\x44\xff\xff':
+        error('target', 'Image mismatch')
 
     # macro with text argument in listing
     source = os.path.join(Dirs.sources, 'asmactxt.asm')
@@ -374,7 +380,7 @@ def runtest():
  > asxpragw.asm <2> 0015 -        seto 2           ; WARN  ;: warn-usage=on, warn-opts=on
  ***** Warning: Treating 2 as register, did you intend an @address?
 """  # extra spaces for content_lines
-    if content_lines(Files.error) != expected:
+    if content_lines(Files.error, skip=1) != expected:
         error('pragmas', 'Incorrect warnings shown')
 
     with open(Files.error, 'w') as ferr:
@@ -384,8 +390,15 @@ def runtest():
  > asxpragw.asm <2> 0015 -        seto 2           ; WARN  ;: warn-usage=on, warn-opts=on
  ***** Warning: Treating 2 as register, did you intend an @address?
 """
-    if content_lines(Files.error) != expected:
+    if content_lines(Files.error, skip=1) != expected:
         error('pragmas', 'Incorrect warnings shown with --quiet-usage')
+
+    # pragmas: parsing error
+    source = os.path.join(Dirs.sources, 'asxprage.asm')
+    with open(Files.error, 'w') as ferr:
+        xas(source, '-o', Files.output, stderr=ferr, rc=0)
+    if content_len(Files.error) > 0:
+        error('pragmas', 'Incorrect parsing of non-pragma')
 
     # relaxed parsing
     source = os.path.join(Dirs.sources, 'asxrelax.asm')
@@ -401,6 +414,20 @@ def runtest():
     ref = os.path.join(Dirs.sources, 'asrelidxr.asm')
     xas(ref, '-R', '-o', Files.reference)
     check_binary_files_eq('relindex', Files.output, Files.reference)
+
+    # version string
+    source = os.path.join(Dirs.sources, 'asxvers.asm')
+    xas(source, '-b', '-q', '-o', Files.output, '-L', Files.input)
+    binary = content(Files.output)
+    if binary[:2] != b'\x07V' or binary[3:6:2] != b'..' or binary[-1] != 33 or not binary[2:7:2].decode().isdigit():
+        error('version', 'Binary with version string mismatch')
+
+    # register alias (3.5.1) [also see as-checkerr]
+    source = os.path.join(Dirs.sources, 'asxrals.asm')
+    xas(source, '-b', '-q', '-D', 'bin', '-o', Files.output)
+    if content(Files.output) != bytes((0x04, 0xcf, 0x02, 0x0f, 0x00, 0x07, 0x04, 0xc7, 0x05, 0xaf, 0x00, 0x07,
+                                       0x02, 0x01, 0x00, 0x2d)):
+        error('ralias', 'Binary mismatch')
 
     # cleanup
     delfile(Dirs.tmp)

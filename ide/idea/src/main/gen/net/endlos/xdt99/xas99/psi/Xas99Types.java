@@ -8,6 +8,7 @@ import net.endlos.xdt99.xas99.psi.impl.*;
 
 public interface Xas99Types {
 
+  IElementType ALIAS_DEFINITION = new Xas99ElementType("ALIAS_DEFINITION");
   IElementType ARGS_ADV_I = new Xas99ElementType("ARGS_ADV_I");
   IElementType ARGS_ADV_IA = new Xas99ElementType("ARGS_ADV_IA");
   IElementType ARGS_ADV_IV = new Xas99ElementType("ARGS_ADV_IV");
@@ -38,6 +39,7 @@ public interface Xas99Types {
   IElementType INSTRUCTION = new Xas99ElementType("INSTRUCTION");
   IElementType LABELDEF = new Xas99ElementType("LABELDEF");
   IElementType LINECOMMENT = new Xas99ElementType("LINECOMMENT");
+  IElementType OP_ALIAS = new Xas99ElementType("OP_ALIAS");
   IElementType OP_FILENAME = new Xas99ElementType("OP_FILENAME");
   IElementType OP_FLOAT = new Xas99ElementType("OP_FLOAT");
   IElementType OP_LABEL = new Xas99ElementType("OP_LABEL");
@@ -45,7 +47,6 @@ public interface Xas99Types {
   IElementType OP_TEXT = new Xas99ElementType("OP_TEXT");
   IElementType PRAGMA = new Xas99ElementType("PRAGMA");
   IElementType PREPROCESSOR = new Xas99ElementType("PREPROCESSOR");
-  IElementType UNKNOWN_MNEM = new Xas99ElementType("UNKNOWN_MNEM");
 
   IElementType COMMENT = new Xas99TokenType("COMMENT");
   IElementType CRLF = new Xas99TokenType("CRLF");
@@ -58,6 +59,7 @@ public interface Xas99Types {
   IElementType DIR_L = new Xas99TokenType("DIR_L");
   IElementType DIR_O = new Xas99TokenType("DIR_O");
   IElementType DIR_R = new Xas99TokenType("DIR_R");
+  IElementType DIR_RA = new Xas99TokenType("DIR_RA");
   IElementType DIR_S = new Xas99TokenType("DIR_S");
   IElementType DIR_T = new Xas99TokenType("DIR_T");
   IElementType DIR_X = new Xas99TokenType("DIR_X");
@@ -116,12 +118,14 @@ public interface Xas99Types {
   IElementType REGISTER = new Xas99TokenType("REGISTER");
   IElementType REGISTER0 = new Xas99TokenType("REGISTER0");
   IElementType TEXT = new Xas99TokenType("TEXT");
-  IElementType UNKNOWN = new Xas99TokenType("UNKNOWN");
 
   class Factory {
     public static PsiElement createElement(ASTNode node) {
       IElementType type = node.getElementType();
-      if (type == ARGS_ADV_I) {
+      if (type == ALIAS_DEFINITION) {
+        return new Xas99AliasDefinitionImpl(node);
+      }
+      else if (type == ARGS_ADV_I) {
         return new Xas99ArgsAdvIImpl(node);
       }
       else if (type == ARGS_ADV_IA) {
@@ -211,6 +215,9 @@ public interface Xas99Types {
       else if (type == LINECOMMENT) {
         return new Xas99LinecommentImpl(node);
       }
+      else if (type == OP_ALIAS) {
+        return new Xas99OpAliasImpl(node);
+      }
       else if (type == OP_FILENAME) {
         return new Xas99OpFilenameImpl(node);
       }
@@ -231,9 +238,6 @@ public interface Xas99Types {
       }
       else if (type == PREPROCESSOR) {
         return new Xas99PreprocessorImpl(node);
-      }
-      else if (type == UNKNOWN_MNEM) {
-        return new Xas99UnknownMnemImpl(node);
       }
       throw new AssertionError("Unknown element type: " + type);
     }

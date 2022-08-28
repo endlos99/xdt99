@@ -3,7 +3,7 @@
 import os
 
 from config import Files, Dirs, XBAS99_CONFIG
-from utils import xbas, check_binary_files_eq, error, clear_env, delfile, content_len
+from utils import xbas, check_binary_files_eq, error, clear_env, delfile, content, content_len
 
 
 # Main test
@@ -32,6 +32,10 @@ def runtest():
     with open(Files.error, 'w') as ferr:
         xbas(source, '-c', '-j', '10', '-o', Files.output, rc=1, stderr=ferr)  # incorrect
 
+    # labels without -c, -d
+    source = os.path.join(Dirs.basic, 'baslab1.bas')
+    xbas(source, '-l', '-o', Files.output, rc=0)
+
     # invalid option combinations
     source = os.path.join(Dirs.basic, 'bashello.bas')
     with open(Files.error, 'w') as ferr:
@@ -54,6 +58,26 @@ def runtest():
     xbas(source, '-c', '-o', Files.output)
     if content_len(Files.error) > 0 or content_len(Files.output) <= 0:
         error('defaults', 'default options override not working')
+
+    # no version string if no errors
+    source = os.path.join(Dirs.basic, 'baslab1.bas')
+    with open(Files.error, 'w') as ferr:
+        xbas(source, '-l', '-o', Files.output, stderr=ferr, rc=0)
+    if content_len(Files.error) > 0:
+        error('version', 'Erroneous version string in stderr')
+
+    source = os.path.join(Dirs.basic, 'baslwarn.bas')
+    with open(Files.error, 'w') as ferr:
+        xbas(source, '-l', '-q', '-o', Files.output, stderr=ferr, rc=0)
+    if content_len(Files.error) > 0:
+        error('version', 'Erroneous version string in stderr')
+
+    # paths as filenames for -o
+    source = os.path.join(Dirs.basic, 'bashello.bas')
+    xbas(source, '-o', Files.reference)
+    xbas(source, '-o', Dirs.tmp)
+    if content(Files.reference) != content(os.path.join(Dirs.tmp, 'bashello.prg')):
+        error('path output', 'Image contents mismatch')
 
     # cleanup
     delfile(Dirs.tmp)

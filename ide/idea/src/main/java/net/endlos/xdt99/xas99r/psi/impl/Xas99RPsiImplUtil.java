@@ -6,12 +6,9 @@ import com.intellij.openapi.util.TextRange;
 import com.intellij.psi.PsiElement;
 import com.intellij.psi.PsiFile;
 import com.intellij.psi.PsiReference;
-import net.endlos.xdt99.xas99r.psi.Xas99RLabeldef;
-import net.endlos.xdt99.xas99r.psi.Xas99ROpLabel;
-import net.endlos.xdt99.xas99r.psi.Xas99RTypes;
+import net.endlos.xdt99.xas99r.psi.*;
 import net.endlos.xdt99.xas99r.Xas99RIcons;
 import net.endlos.xdt99.xas99r.Xas99RReference;
-import net.endlos.xdt99.xas99r.psi.Xas99RElementFactory;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -29,6 +26,15 @@ public class Xas99RPsiImplUtil {
     }
 
     public static String getName(Xas99ROpLabel element) {
+        ASTNode keyNode = element.getNode().findChildByType(Xas99RTypes.IDENT);
+        if (keyNode != null) {
+            return keyNode.getText();
+        } else {
+            return null;
+        }
+    }
+
+    public static String getName(Xas99ROpAlias element) {
         ASTNode keyNode = element.getNode().findChildByType(Xas99RTypes.IDENT);
         if (keyNode != null) {
             return keyNode.getText();
@@ -57,6 +63,16 @@ public class Xas99RPsiImplUtil {
         return element;
     }
 
+    public static PsiElement setName(Xas99ROpAlias element, String newName) {
+        ASTNode keyNode = element.getNode().findChildByType(Xas99RTypes.IDENT);
+        if (keyNode != null) {
+            Xas99RLabeldef label = Xas99RElementFactory.createLabel(element.getProject(), newName);
+            ASTNode newKeyNode = label.getFirstChild().getNode();
+            element.getNode().replaceChild(keyNode, newKeyNode);
+        }
+        return element;
+    }
+
     public static PsiElement getNameIdentifier(Xas99RLabeldef element) {
         ASTNode keyNode = element.getNode().findChildByType(Xas99RTypes.IDENT);
         if (keyNode != null) {
@@ -75,7 +91,20 @@ public class Xas99RPsiImplUtil {
         }
     }
 
+    public static PsiElement getNameIdentifier(Xas99ROpAlias element) {
+        ASTNode keyNode = element.getNode().findChildByType(Xas99RTypes.IDENT);
+        if (keyNode != null) {
+            return keyNode.getPsi();
+        } else {
+            return null;
+        }
+    }
+
     public static PsiReference getReference(@NotNull Xas99ROpLabel element) {
+        return new Xas99RReference(element, TextRange.from(0, element.getTextLength()));
+    }
+
+    public static PsiReference getReference(@NotNull Xas99ROpAlias element) {
         return new Xas99RReference(element, TextRange.from(0, element.getTextLength()));
     }
 
@@ -109,6 +138,9 @@ public class Xas99RPsiImplUtil {
             label.setName(newElementName);
         } else if (myElement instanceof Xas99ROpLabel) {
             Xas99ROpLabel label = (Xas99ROpLabel) myElement;
+            label.setName(newElementName);
+        } else if (myElement instanceof Xas99ROpAlias) {
+            Xas99ROpAlias label = (Xas99ROpAlias) myElement;
             label.setName(newElementName);
         }
     }

@@ -1,0 +1,10 @@
+; Windows compatibility
+
+; include paths
+
+       data 1
+       copy "test\gawini.gpl"
+       copy "test/gawini.gpl"
+       data 1
+
+       end
