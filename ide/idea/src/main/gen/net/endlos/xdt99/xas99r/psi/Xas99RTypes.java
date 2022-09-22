@@ -18,6 +18,7 @@ public interface Xas99RTypes {
   IElementType ARGS_DIR_E = new Xas99RElementType("ARGS_DIR_E");
   IElementType ARGS_DIR_EO = new Xas99RElementType("ARGS_DIR_EO");
   IElementType ARGS_DIR_ES = new Xas99RElementType("ARGS_DIR_ES");
+  IElementType ARGS_DIR_EV = new Xas99RElementType("ARGS_DIR_EV");
   IElementType ARGS_DIR_F = new Xas99RElementType("ARGS_DIR_F");
   IElementType ARGS_DIR_L = new Xas99RElementType("ARGS_DIR_L");
   IElementType ARGS_DIR_R = new Xas99RElementType("ARGS_DIR_R");
@@ -55,6 +56,7 @@ public interface Xas99RTypes {
   IElementType DIR_E = new Xas99RTokenType("DIR_E");
   IElementType DIR_EO = new Xas99RTokenType("DIR_EO");
   IElementType DIR_ES = new Xas99RTokenType("DIR_ES");
+  IElementType DIR_EV = new Xas99RTokenType("DIR_EV");
   IElementType DIR_F = new Xas99RTokenType("DIR_F");
   IElementType DIR_L = new Xas99RTokenType("DIR_L");
   IElementType DIR_O = new Xas99RTokenType("DIR_O");
@@ -151,6 +153,9 @@ public interface Xas99RTypes {
       }
       else if (type == ARGS_DIR_ES) {
         return new Xas99RArgsDirESImpl(node);
+      }
+      else if (type == ARGS_DIR_EV) {
+        return new Xas99RArgsDirEVImpl(node);
       }
       else if (type == ARGS_DIR_F) {
         return new Xas99RArgsDirFImpl(node);

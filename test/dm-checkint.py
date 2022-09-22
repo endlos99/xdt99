@@ -1,10 +1,9 @@
 #!/usr/bin/env python3
 
 import shutil
-import os
 
 from config import Dirs, Disks, Files, XDM99_CONFIG
-from utils import xdm, error, clear_env, delfile, check_files_eq
+from utils import xdm, r, error, clear_env, delfile, check_files_eq
 
 
 # Check functions
@@ -51,7 +50,7 @@ def runtest():
     # read partially filled records
     for fn in ['intfix32v', 'intvar32v', 'intfix128v', 'intvar128v']:
         xdm(Disks.work, '-e', fn.upper(), '-o', Files.output)
-        ref = os.path.join(Dirs.refs, fn)
+        ref = r(fn)
         check_files_eq('INT Records', Files.output, ref, 'P')
 
     # re-write extracted records and check
@@ -74,7 +73,7 @@ def runtest():
             ('intfix32v', 'IF32'), ('intvar32v', 'IV32'),
             ('intfix128v', 'IF128'), ('intvar128v', 'IV128')
             ]:
-        ref = os.path.join(Dirs.refs, fn)
+        ref = r(fn)
         xdm(Disks.work, '-a', ref, '-n', 'TEST', '-f', fmt)
         xdm(Disks.work, '-e', 'TEST', '-o', Files.output)
         check_files_eq('Write INT', Files.output, ref, 'P')

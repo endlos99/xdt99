@@ -53,9 +53,10 @@ def runtest():
     # compare
     check_errors(ti_errors, warnings)
 
-    # invalid labels
+    # invalid labels and confirmation of label specs
     for fn, s in (('aslabele.asm', []),
-                  ('aslabele-ti.asm', ['-s'])):
+                  ('aslabele-ti.asm', ['-s']),
+                  ('asxlabe.asm', [])):
         source = os.path.join(Dirs.sources, fn)
         with open(Files.error, 'w') as ferr:
             xas(source, '-q', *s, '-o', Files.output, stderr=ferr, rc=1)
@@ -107,6 +108,14 @@ def runtest():
         msgs = ' '.join(fin.readlines())
     if 'Missing .endm' not in msgs:
         error('open', 'Missing error for open .defm/.endm')
+
+    # macro errors
+    source = os.path.join(Dirs.sources, 'asmacse.asm')
+    with open(Files.error, 'w') as ferr:
+        xas(source, '-o', Files.output, stderr=ferr, rc=1)
+    act_errors = read_stderr(Files.error)
+    exp_errors = get_source_markers(source, tag=r';ERROR')
+    check_errors(exp_errors, act_errors)
 
     # files not found
     source = os.path.join(Dirs.sources, 'ascopyi.asm')

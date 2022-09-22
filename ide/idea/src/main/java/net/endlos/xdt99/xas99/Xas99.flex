@@ -44,7 +44,8 @@ INSTR_99000_IV = "TMB" | "TCMB" | "TSMB" | "SLAM" | "SRAM"
 DIR_L = "DEF" | "END"
 DIR_E = "EQU" | "WEQU" | "BSS" | "BES" | "DORG" | "XORG" | "BANK"
 DIR_EO = "RORG" | "AORG"
-DIR_ES = "DATA" | "BYTE" | "SAVE"
+DIR_ES = "DATA" | "BYTE"
+DIR_EV = "SAVE"
 DIR_RA = "REQU"  // register alias
 DIR_T = "TEXT" | "STRI"
 DIR_S = "TITL" | "IDT"
@@ -134,6 +135,7 @@ CRLF = \n | \r | \r\n
  {DIR_E}              { return Xas99Types.DIR_E; }
  {DIR_EO}             { return Xas99Types.DIR_EO; }
  {DIR_ES}             { return Xas99Types.DIR_ES; }
+ {DIR_EV}             { return Xas99Types.DIR_EV; }
  {DIR_RA}             { return Xas99Types.DIR_RA; }
  {DIR_T}              { return Xas99Types.DIR_T; }
  {DIR_S}              { return Xas99Types.DIR_S; }

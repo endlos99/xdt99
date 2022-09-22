@@ -49,7 +49,7 @@ def runtest():
             ]:
         source = os.path.join(Dirs.sources, srcfile)
         xas(*[source, '-b'] + aopts + ['-q', '-o', Files.reference])
-        xda(Files.reference, '-a', addr, '-r', start, '-p', '-o', Files.input)
+        xda(Files.reference, '-a', addr, '-r', start, '-p', '-q', '-o', Files.input)
         xas(*[Files.input, '-b', '-R', '-q', '-o', Files.output])
         check_binary_files_eq(srcfile, Files.output, Files.reference)
 
@@ -83,7 +83,7 @@ def runtest():
             ('blobm.bin', '6012'),
             ('blobh.bin', 'start')):
         binary = os.path.join(Dirs.refs, binfile)
-        xda(binary, '-a', '6000', '-r', start, '-p', '-o', Files.input)
+        xda(binary, '-a', '6000', '-r', start, '-p', '-q', '-o', Files.input)
         xas(Files.input, '-b', '-R', '-q', '-o', Files.output)
         check_binary_files_eq(binary, Files.output, binary)
 

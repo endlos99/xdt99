@@ -6,7 +6,7 @@ import re
 import gzip
 
 from config import Dirs, Disks, Files, XHM99_CONFIG
-from utils import xhm, xdm, error, clear_env, delfile, check_files_eq, check_bin_text_eq, content_len
+from utils import xhm, xdm, error, clear_env, delfile, check_files_eq, check_bin_text_eq, content_len, content_lines
 
 
 # Check functions
@@ -91,6 +91,12 @@ def runtest():
     check_file_contains(Files.output, 'Tracks: 80')
     check_file_contains(Files.output, 'Sides: 2')
     check_file_contains(Files.output, 'Encoding: 2')  # SD
+
+    xhm(Disks.work, '-X', 'sssd', '-n', 'DISKNAME')
+    with open(Files.output, 'w') as fout:
+        xhm(Disks.work, '-i', stdout=fout)
+    if content_lines(Files.output)[:10] != 'DISKNAME  ':
+        error('init', 'Incorrect disk name when initializing')
 
     # messy stuff
     xdm(Disks.work, '-X', 'sssd')

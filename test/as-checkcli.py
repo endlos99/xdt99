@@ -4,7 +4,7 @@ import os
 import re
 
 from config import Dirs, Disks, Files, XAS99_CONFIG
-from utils import (chrws, ordw, xas, xdm, error, clear_env, delfile, content, content_len, content_line_array,
+from utils import (chrws, ordw, xas, xdm, t, r, error, clear_env, delfile, content, content_len, content_line_array,
                    check_obj_code_eq, check_binary_files_eq, check_image_files_eq, check_list_files_eq)
 
 
@@ -122,7 +122,7 @@ def runtest():
     check_obj_code_eq(Files.output, Files.reference)
 
     xas(source, '-R', '-o', Dirs.tmp)  # -o <dir>
-    if not os.path.isfile(os.path.join(Dirs.tmp, 'ashellon.obj')):
+    if not os.path.isfile(t('ashellon.obj')):
         error('output', '-o <dir> failed')
 
     with open(Files.output, 'wb') as f:
@@ -202,12 +202,12 @@ def runtest():
                   (('VDPWA', 'SCAN'),  # references
                    (('START', '>0000'), ('S1', '>0001'), ('S2', '>0018'))), strict=True)  # expected symbols
 
-    reference = os.path.join(Dirs.refs, 'assyms-s.equ')
+    reference = r('assyms-s.equ')
     xas(source, '-s', '-R', '-o', Files.reference, '-E', Files.output)
     if content(Files.output) != content(reference):
         error('equs', 'Strict EQU file mismatch')
 
-    reference = os.path.join(Dirs.refs, 'assyms.equ')
+    reference = r('assyms.equ')
     xas(source, '-R', '-o', Files.reference, '-E', Files.output)
     if content(Files.output) != content(reference):
         error('equs', 'Relaxed EQU file mismatch')
@@ -278,17 +278,17 @@ def runtest():
     # paths as filenames for -o, -L, -E
     source = os.path.join(Dirs.sources, 'asmulf.asm')
     xas(source, '-i', '-o', Dirs.tmp)
-    if (content(os.path.join(Dirs.tmp, 'asmulf.img')) != chrws(0xffff, 0x10, 0x2000) + b'\x01' * 10 or
-            content(os.path.join(Dirs.tmp, 'asmulg.img')) != chrws(0xffff, 0x16, 0xa000) + b'\x02' * 16 or
-            content(os.path.join(Dirs.tmp, 'asmulh.img')) != chrws(0, 0x26, 0xe000) + b'\x03' * 32):
+    if (content(t('asmulf.img')) != chrws(0xffff, 0x10, 0x2000) + b'\x01' * 10 or
+            content(t('asmulg.img')) != chrws(0xffff, 0x16, 0xa000) + b'\x02' * 16 or
+            content(t('asmulh.img')) != chrws(0, 0x26, 0xe000) + b'\x03' * 32):
         error('path output', 'Image contents mismatch')
 
     xas(source, '-o', Files.output, '-L', Dirs.tmp)
-    if content_line_array(os.path.join(Dirs.tmp, 'asmulf.lst'))[0][:31] != 'XAS99 CROSS-ASSEMBLER   VERSION':
+    if content_line_array(t('asmulf.lst'))[0][:31] != 'XAS99 CROSS-ASSEMBLER   VERSION':
         error('path output', 'List file contents mismatch')
 
     xas(source, '-o', Files.output, '-L', Files.input, '-E', Dirs.tmp, '-s')
-    if len(content_line_array(os.path.join(Dirs.tmp, 'asmulf.equ'))) != 3:
+    if len(content_line_array(t('asmulf.equ'))) != 3:
         error('path output', 'Equ file contents mismatch')
 
     # cleanup

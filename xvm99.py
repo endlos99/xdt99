@@ -20,15 +20,14 @@
 # along with this program; if not, see <http://www.gnu.org/licenses/>.
 
 import sys
-import platform
 import os.path
 import re
 import argparse
 import xdm99 as xdm
-from xcommon import Util, CommandProcessor, RContainer
+from xcommon import Util, CommandProcessor, RContainer, Warnings, Console
 
 
-VERSION = '3.5.1'
+VERSION = '3.5.2'
 
 CONFIG = 'XVM99_CONFIG'
 
@@ -53,14 +52,14 @@ class Volumes:
         image = data[::2]  # only every second byte is used
         return xdm.Disk.trim_sectors(image) if keepsize else image
 
-    def write_volume(self, vol_no, image, keepsize=False):
+    def write_volume(self, vol_no, image, keepsize=False, console=None):
         """write disk image to volume device"""
         size = len(image) * 2
         if size > self.BYTES_PER_VOLUME:
             raise ValueError('Disk image too large')
         if not keepsize:
             # use CF disk geometry and maximum sector count
-            disk = xdm.Disk(image)  # would need xdm99 console
+            disk = xdm.Disk(image, console)
             disk.set_geometry(cf=True)
             disk.resize_disk(Volumes.SECTORS_PER_VOLUME)
             image = disk.get_image()
@@ -117,30 +116,6 @@ class Volumes:
         return volumes
 
 
-class Console:
-    """collects errors and warnings"""
-
-    def __init__(self, colors=None):
-        if colors is None:
-            self.colors = platform.system() in ('Linux', 'Darwin')  # no auto color on Windows
-        else:
-            self.colors = colors == 'on'
-
-    def error(self, message):
-        """record error message"""
-        sys.stderr.write(self.color(message, severity=2) + '\n')
-
-    def color(self, message, severity=0):
-        if not self.colors:
-            return message
-        elif severity == 1:
-            return '\x1b[33m' + message + '\x1b[0m'  # yellow
-        elif severity == 2:
-            return '\x1b[31m' + message + '\x1b[0m'  # red
-        else:
-            return message
-
-
 # Command line processing
 
 class RVolume:
@@ -154,13 +129,24 @@ class RVolume:
         return self.container.iscontainer
 
 
+class Xvm99Console(Console):
+    """collects errors and warnings"""
+
+    def __init__(self, colors=None):
+        super().__init__('xvm99', None, colors=colors)
+
+    def error(self, message):
+        """record error message"""
+        super().error(None, 'Error: ' + message)
+
+
 class Xvm99Processor(CommandProcessor):
 
     def __init__(self):
         super().__init__((xdm.ContainerError, xdm.FileError))
-        self.console = None
         self.device = None
         self.xdm_opts = None
+        self.xdm_console = None
         self.default_opts = None
         self.volumes = []
 
@@ -199,8 +185,9 @@ class Xvm99Processor(CommandProcessor):
         self.opts, self.xdm_opts = args.parse_known_args(self.default_opts + sys.argv[1:])
         
     def run(self):
+        self.console = Xvm99Console(colors=self.opts.color)
+        self.xdm_console = xdm.Xdm99Console(Warnings(setall=True), colors=self.opts.color)
         self.device = Volumes(self.opts.device)
-        self.console = Console(colors=self.opts.color)
         self.volumes = Volumes.parse_volume_range(self.opts.volumes)
 
     def prepare(self):
@@ -216,7 +203,7 @@ class Xvm99Processor(CommandProcessor):
     def write(self):
         data = Util.readdata(self.opts.writevol)
         for volume in self.volumes:
-            self.device.write_volume(volume, data, keepsize=self.opts.keepsize)
+            self.device.write_volume(volume, data, keepsize=self.opts.keepsize, console=self.xdm_console)
 
     def read(self):
         for volume in self.volumes:
@@ -247,7 +234,7 @@ class Xvm99Processor(CommandProcessor):
                     self.result.append(RVolume(volume, result))
                 else:
                     self.result.append(result)
-        self.rc = self.rc or xdm_processor.rc  # accumulated return code
+        self.console.merge(xdm_processor.console)
 
     def output(self):
         try:
@@ -255,12 +242,12 @@ class Xvm99Processor(CommandProcessor):
             for item in self.result:
                 if isinstance(item, RVolume):
                     # for delegated volume changes
-                    self.device.write_volume(item.volume, item.container.data, keepsize=True)
+                    self.device.write_volume(item.volume, item.container.data, keepsize=True, console=self.console)
                 else:
                     item.write(self.opts.output, self.opts.encoding)
         except IOError as e:
-            self.console.error('Error: ' + str(e))
-            sys.exit(1)
+            sys.exit(self.console.colstr(str(e)))
+        self.console.print()
 
 
 if __name__ == '__main__':

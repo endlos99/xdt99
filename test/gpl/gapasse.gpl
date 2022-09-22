@@ -1,0 +1,36 @@
+* Check that error is only reported once
+
+        GROM 0
+
+L0      ALL  32
+
+S1      ST   1,@CPU1    * 5 -> 4 -> 3 BYTES
+S2      ST   2,@CPU2
+S3      ST   3,@CPU3
+S4      ST   4,@CPU4
+S5      ST   5,@CPU5
+S6      ST   6,@CPU6
+S7      ST   7,@CPU7
+S8      ST   8,@CPU8
+
+        EXIT
+
+X:
+Y       ;ERROR
+
+        ; in pass 0, all expressions evaluate to 0!
+M       EQU L2-L1             ; M=1 iff. pass 1+
+
+CPU1    EQU  >837F
+CPU2    EQU  >8380+((S2-S1-1-3)*M)
+CPU3    EQU  >8380+((S3-S1-1-3-3)*M)
+CPU4    EQU  >8380+((S4-S1-1-3-3-3)*M)
+CPU5    EQU  >8380+((S5-S1-1-3-3-3-3)*M)
+CPU6    EQU  >8380+((S6-S1-1-3-3-3-3-3)*M)
+CPU7    EQU  >8380+((S7-S1-1-3-3-3-3-3-3)*M)
+CPU8    EQU  >8380+((S8-S1-1-3-3-3-3-3-3-3)*M)
+
+L1      BYTE 1
+L2      BYTE 2
+
+        END

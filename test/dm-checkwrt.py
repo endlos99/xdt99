@@ -5,7 +5,7 @@ import shutil
 import random
 
 from config import Dirs, Disks, Files, XDM99_CONFIG
-from utils import xdm, error, clear_env, delfile, check_files_eq, check_text_files_eq
+from utils import xdm, r, t, error, clear_env, delfile, check_files_eq, check_text_files_eq
 
 
 # Utility functions
@@ -28,7 +28,7 @@ def create_text_file(count, length, fixed, partial):
     """create text file with random records"""
     name = 'D%c%03dX%03d%s' % ('F' if fixed else 'V', length, count,
                                'P' if partial else '')
-    path = os.path.join(Dirs.tmp, name.lower())
+    path = t(name.lower())
     lines = [create_textline(random.randint(0, length) if partial else length) for _ in range(count)]
     if fixed:
         data = ''.join([l + ' ' * (length - len(l)) for l in lines])
@@ -44,7 +44,7 @@ def create_text_file(count, length, fixed, partial):
 def create_binary_file(size):
     """create binary file with random binary data"""
     name = 'PROG%05d' % size
-    path = os.path.join(Dirs.tmp, name.lower())
+    path = t(name.lower())
     data = create_blob(size)
     with open(path, 'wb') as f:
         f.write(data)
@@ -117,8 +117,7 @@ def runtest():
         xdm('-F', Files.tifile, '-o', Files.output)
         check_files_eq('Write records', Files.output, Files.reference, fmt)
         xdm('-T', Files.reference, '-o', Files.output, '-f', fmt, '-n', name)
-        check_files_eq('Write records', Files.output, Files.tifile,
-                     'PROGRAM', [(0x1e, 0x26)])
+        check_files_eq('Write records', Files.output, Files.tifile, 'PROGRAM', [(0x1e, 0x26)])
 
     # add and remove TIFiles files
     for name, path, fmt in files:
@@ -129,7 +128,7 @@ def runtest():
     # convert to and from TIFiles cycle
     for name, fmt in [('intvar32v', 'IV32'), ('intfix32v', 'IF32'),
                       ('vardis', 'dv40')]:
-        path = os.path.join(Dirs.refs, name)
+        path = r(name)
         xdm(Disks.work, '-a', path, '-f', fmt, '-n', 'T')
         xdm(Disks.work, '-e', 'T', '-t', '-o', Files.output)
         xdm(Disks.work, '-d', 'T')
@@ -145,7 +144,7 @@ def runtest():
         xdm(Disks.work, '-d', name)
 
     # check truncating of DIS/VAR files with long records
-    path = os.path.join(Dirs.refs, 'vardis')
+    path = r('vardis')
     with open(path, 'r') as f:
         reflines = f.readlines()
     for l in [8, 7, 4]:
@@ -159,8 +158,6 @@ def runtest():
         xdm(Disks.work, '-a', path, '-f', fmt)
 
     # remove temporary files
-    for name, path, fmt in files + bigFiles:
-        os.remove(path)
     delfile(Dirs.tmp)
 
 

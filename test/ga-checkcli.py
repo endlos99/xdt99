@@ -4,8 +4,8 @@ import os
 import re
 
 from config import Dirs, Files, XGA99_CONFIG
-from utils import (xga, error, clear_env, delfile, check_files_eq, check_binary_files_eq, content, content_len,
-                   content_line_array)
+from utils import (xga, t, error, clear_env, delfile, check_files_eq, check_binary_files_eq, content, content_len,
+                   content_line_array, read_stderr, get_source_markers, check_errors)
 
 
 # check functions
@@ -80,7 +80,7 @@ def runtest():
     check_files_eq('stdout', Files.output, Files.reference, 'P')
 
     xga(source, '-o', Dirs.tmp)
-    if not os.path.isfile(os.path.join(Dirs.tmp, 'gacart.gbc')):
+    if not os.path.isfile(t('gacart.gbc')):
         error('output', '-o <dir> failed')
 
     with open(Files.output, 'wb') as f:
@@ -95,7 +95,7 @@ def runtest():
 
     source = os.path.join(Dirs.gplsources, 'nonexisting')
     with open(Files.error, 'w') as ferr:
-        xga(source, '-o', Files.output, stderr=ferr, rc=1)
+        xga(source, '-o', Files.output, '--color', 'off', stderr=ferr, rc=1)
     with open(Files.error, 'r') as ferr:
         errs = ferr.readlines()
     if len(errs) != 1 or errs[0].strip() != 'Error: File not found: nonexisting':
@@ -120,6 +120,14 @@ def runtest():
     xga(Files.error, '-o', Files.output)
     check_binary_files_eq('listing', Files.output, Files.reference)  # checks code
     check_list_addr_data(Files.input, Files.reference, 0x0000)  # checks addr and data
+
+    # macro errors
+    source = os.path.join(Dirs.gplsources, 'gamacse.gpl')
+    with open(Files.error, 'w') as ferr:
+        xga(source, '-o', Files.output, stderr=ferr, rc=1)
+    act_errors = read_stderr(Files.error)
+    exp_errors = get_source_markers(source, tag=r';ERROR')
+    check_errors(exp_errors, act_errors)
 
     # color
     source = os.path.join(Dirs.gplsources, 'gaerrs1.gpl')
@@ -158,17 +166,17 @@ def runtest():
     # paths as filenames for -o, -L, -E
     source = os.path.join(Dirs.gplsources, 'gamulf.gpl')
     xga(source, '-g', '-o', Dirs.tmp)
-    if (content(os.path.join(Dirs.tmp, 'gamulf_g1.gbc')) != b'\x01' * 10 or
-            content(os.path.join(Dirs.tmp, 'gamulf_g5.gbc')) != b'\x02' * 16 or
-            content(os.path.join(Dirs.tmp, 'gamulf_g7.gbc')) != b'\x03' * 32):
+    if (content(t('gamulf_g1.gbc')) != b'\x01' * 10 or
+            content(t('gamulf_g5.gbc')) != b'\x02' * 16 or
+            content(t('gamulf_g7.gbc')) != b'\x03' * 32):
         error('path output', 'Image contents mismatch')
 
     xga(source, '-o', Files.output, '-L', Dirs.tmp)
-    if content_line_array(os.path.join(Dirs.tmp, 'gamulf.lst'))[0][:31] != 'XGA99 CROSS-ASSEMBLER   VERSION':
+    if content_line_array(t('gamulf.lst'))[0][:31] != 'XGA99 CROSS-ASSEMBLER   VERSION':
         error('path output', 'List file contents mismatch')
 
     xga(source, '-o', Files.output, '-L', Files.input, '-E', Dirs.tmp)
-    if len(content_line_array(os.path.join(Dirs.tmp, 'gamulf.equ'))) != 6:
+    if len(content_line_array(t('gamulf.equ'))) != 6:
         error('path output', 'Equ file contents mismatch')
 
     # cleanup

@@ -121,7 +121,7 @@ def runtest():
     # force
     source = os.path.join(Dirs.gplsources, 'dgforce.gpl')
     xga(source, '-o', Files.reference)
-    xdg(Files.reference, '-a', 'a000', '-r', 'a000', '-o', Files.output)
+    xdg(Files.reference, '-a', 'a000', '-r', 'a000', '-q', '-o', Files.output)
     n = sum(count_mnemonics(Files.output, offset=9).values())
     if n != 7:
         error('force', 'Mnemonics count mismatch: %d != 7' % n)

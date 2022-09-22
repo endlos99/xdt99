@@ -20,6 +20,9 @@ public interface Xas99RDirective extends PsiElement {
   Xas99RArgsDirES getArgsDirES();
 
   @Nullable
+  Xas99RArgsDirEV getArgsDirEV();
+
+  @Nullable
   Xas99RArgsDirF getArgsDirF();
 
   @Nullable

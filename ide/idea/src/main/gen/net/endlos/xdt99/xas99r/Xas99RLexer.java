@@ -85,15 +85,15 @@ class Xas99RLexer implements FlexLexer {
     "\11\0\1\43\11\0\1\45\12\0\1\46\1\47\1\50"+
     "\1\51\1\52\1\51\1\53\1\54\2\14\1\0\1\55"+
     "\1\0\1\11\3\0\1\56\5\0\1\57\4\0\1\10"+
-    "\1\60\5\0\1\61\1\62\1\61\3\0\1\63\1\64"+
+    "\1\60\6\0\1\61\1\62\1\61\3\0\1\63\1\64"+
     "\2\0\1\65\1\0\1\65\3\0\1\66\1\0\1\45"+
     "\1\67\1\57\2\0\1\70\1\71\3\0\1\11\1\0"+
     "\1\72\2\0\1\73\1\0\1\74\1\75\1\76\1\77"+
     "\1\100\1\101\1\102\1\103\1\104\1\105\1\106\1\107"+
-    "\1\110\1\111\1\0\1\112";
+    "\1\110\1\111\1\112\1\0\1\113";
 
   private static int [] zzUnpackAction() {
-    int [] result = new int[229];
+    int [] result = new int[231];
     int offset = 0;
     offset = zzUnpackAction(ZZ_ACTION_PACKED_0, offset, result);
     return result;
@@ -140,16 +140,16 @@ class Xas99RLexer implements FlexLexer {
     "\0\u0a24\0\u1be3\0\u01d8\0\u0b86\0\u01d8\0\u1c1e\0\u1c59\0\u1c94"+
     "\0\u01d8\0\u1ccf\0\u1d0a\0\u1d45\0\u1d80\0\u1dbb\0\u01d8\0\u1df6"+
     "\0\u1e31\0\u1e6c\0\u1ea7\0\u1ee2\0\u1f1d\0\u1f58\0\u1f93\0\u1fce"+
-    "\0\u2009\0\u2044\0\u207f\0\u01d8\0\u01d8\0\u20ba\0\u20f5\0\u2130"+
-    "\0\u01d8\0\u01d8\0\u216b\0\u21a6\0\u01d8\0\u21e1\0\u221c\0\u221c"+
-    "\0\u2257\0\u2292\0\u01d8\0\u22cd\0\u01d8\0\u01d8\0\u2308\0\u2343"+
-    "\0\u237e\0\u01d8\0\u01d8\0\u23b9\0\u23f4\0\u2308\0\u242f\0\u246a"+
-    "\0\u01d8\0\u24a5\0\u24e0\0\u01d8\0\u251b\0\u01d8\0\u01d8\0\u01d8"+
+    "\0\u2009\0\u2044\0\u207f\0\u20ba\0\u01d8\0\u01d8\0\u20f5\0\u2130"+
+    "\0\u216b\0\u01d8\0\u01d8\0\u21a6\0\u21e1\0\u01d8\0\u221c\0\u2257"+
+    "\0\u2257\0\u2292\0\u22cd\0\u01d8\0\u2308\0\u01d8\0\u01d8\0\u2343"+
+    "\0\u237e\0\u23b9\0\u01d8\0\u01d8\0\u23f4\0\u242f\0\u2343\0\u246a"+
+    "\0\u24a5\0\u01d8\0\u24e0\0\u251b\0\u01d8\0\u2556\0\u01d8\0\u01d8"+
     "\0\u01d8\0\u01d8\0\u01d8\0\u01d8\0\u01d8\0\u01d8\0\u01d8\0\u01d8"+
-    "\0\u01d8\0\u01d8\0\u01d8\0\u2556\0\u2556";
+    "\0\u01d8\0\u01d8\0\u01d8\0\u01d8\0\u01d8\0\u2591\0\u2591";
 
   private static int [] zzUnpackRowMap() {
-    int [] result = new int[229];
+    int [] result = new int[231];
     int offset = 0;
     offset = zzUnpackRowMap(ZZ_ROWMAP_PACKED_0, offset, result);
     return result;
@@ -241,41 +241,41 @@ class Xas99RLexer implements FlexLexer {
     "\1\245\74\0\1\246\56\0\1\247\14\0\1\250\64\0"+
     "\1\251\63\0\1\247\110\0\1\252\74\0\1\235\54\0"+
     "\1\253\73\0\1\254\115\0\1\255\67\0\1\115\7\0"+
-    "\1\115\42\0\1\245\71\0\1\161\2\0\1\161\65\0"+
-    "\1\254\104\0\1\256\60\0\1\257\3\0\1\260\13\0"+
-    "\1\261\1\0\1\262\7\0\1\260\36\0\1\263\1\0"+
-    "\1\264\70\0\1\263\1\0\1\265\6\0\1\266\4\0"+
-    "\1\265\73\0\1\267\72\0\1\161\55\0\1\161\14\0"+
+    "\1\115\42\0\1\256\71\0\1\161\2\0\1\161\65\0"+
+    "\1\254\104\0\1\257\60\0\1\260\3\0\1\261\13\0"+
+    "\1\262\1\0\1\263\7\0\1\261\36\0\1\264\1\0"+
+    "\1\265\70\0\1\264\1\0\1\266\6\0\1\267\4\0"+
+    "\1\266\73\0\1\270\72\0\1\161\55\0\1\161\14\0"+
     "\1\161\65\0\1\161\74\0\1\161\67\0\1\161\72\0"+
     "\1\161\2\0\1\161\60\0\1\161\1\0\1\161\4\0"+
-    "\1\161\72\0\1\270\112\0\1\241\64\0\1\271\52\0"+
-    "\1\163\70\0\1\272\112\0\1\273\65\0\1\274\56\0"+
-    "\1\252\106\0\1\275\67\0\1\276\63\0\1\257\107\0"+
-    "\1\277\56\0\1\300\2\0\1\301\25\0\1\301\51\0"+
-    "\1\302\76\0\1\303\74\0\1\264\57\0\1\304\25\0"+
-    "\1\304\55\0\1\305\66\0\1\235\76\0\1\306\2\0"+
-    "\1\307\61\0\1\310\73\0\1\311\1\0\1\312\12\0"+
-    "\1\313\67\0\1\314\62\0\1\315\100\0\1\316\52\0"+
-    "\1\317\15\0\1\252\6\0\1\271\47\0\1\320\73\0"+
-    "\1\255\77\0\1\157\62\0\1\317\2\0\1\235\101\0"+
-    "\1\321\1\0\1\322\60\0\1\323\104\0\1\324\53\0"+
+    "\1\161\72\0\1\271\112\0\1\241\64\0\1\272\52\0"+
+    "\1\163\70\0\1\273\112\0\1\274\65\0\1\275\56\0"+
+    "\1\252\106\0\1\276\67\0\1\277\63\0\1\260\107\0"+
+    "\1\300\56\0\1\301\2\0\1\302\25\0\1\302\51\0"+
+    "\1\303\76\0\1\304\74\0\1\265\57\0\1\305\25\0"+
+    "\1\305\55\0\1\306\66\0\1\235\76\0\1\307\2\0"+
+    "\1\310\61\0\1\311\73\0\1\312\1\0\1\313\12\0"+
+    "\1\314\67\0\1\315\62\0\1\316\100\0\1\317\52\0"+
+    "\1\320\15\0\1\252\6\0\1\272\47\0\1\321\73\0"+
+    "\1\255\77\0\1\157\62\0\1\320\2\0\1\235\101\0"+
+    "\1\322\1\0\1\323\60\0\1\324\104\0\1\325\53\0"+
     "\40\12\4\0\1\12\1\0\1\12\3\0\2\12\3\223"+
-    "\1\12\6\0\1\12\3\0\1\12\20\0\1\325\66\0"+
-    "\1\326\105\0\1\241\7\0\1\241\53\0\1\250\101\0"+
-    "\1\327\7\0\1\327\53\0\1\235\76\0\1\330\60\0"+
-    "\1\331\77\0\1\303\104\0\1\332\55\0\1\333\102\0"+
-    "\1\333\67\0\1\334\6\0\1\334\44\0\1\125\77\0"+
-    "\1\335\25\0\1\335\42\0\1\235\110\0\1\336\64\0"+
-    "\1\337\103\0\1\340\7\0\1\340\54\0\1\337\56\0"+
-    "\1\272\116\0\1\333\44\0\1\235\111\0\1\324\66\0"+
-    "\1\340\74\0\1\321\75\0\1\334\76\0\1\341\7\0"+
-    "\1\341\51\0\1\324\67\0\1\324\76\0\1\303\70\0"+
-    "\1\241\73\0\1\334\107\0\1\342\60\0\1\334\53\0"+
-    "\1\331\106\0\1\235\75\0\1\324\64\0\1\334\61\0"+
-    "\1\343\107\0\1\344\55\0\1\345\71\0";
+    "\1\12\6\0\1\12\3\0\1\12\20\0\1\326\66\0"+
+    "\1\327\105\0\1\241\7\0\1\241\53\0\1\250\101\0"+
+    "\1\330\7\0\1\330\53\0\1\235\76\0\1\331\60\0"+
+    "\1\332\77\0\1\304\104\0\1\333\55\0\1\334\102\0"+
+    "\1\334\67\0\1\335\6\0\1\335\44\0\1\125\77\0"+
+    "\1\336\25\0\1\336\47\0\1\337\65\0\1\235\110\0"+
+    "\1\340\64\0\1\341\103\0\1\342\7\0\1\342\54\0"+
+    "\1\341\56\0\1\273\116\0\1\334\44\0\1\235\111\0"+
+    "\1\325\66\0\1\342\74\0\1\322\75\0\1\335\76\0"+
+    "\1\343\7\0\1\343\51\0\1\325\67\0\1\325\76\0"+
+    "\1\304\70\0\1\241\73\0\1\335\107\0\1\344\60\0"+
+    "\1\335\53\0\1\332\106\0\1\235\75\0\1\325\64\0"+
+    "\1\335\61\0\1\345\107\0\1\346\55\0\1\347\71\0";
 
   private static int [] zzUnpackTrans() {
-    int [] result = new int[9617];
+    int [] result = new int[9676];
     int offset = 0;
     offset = zzUnpackTrans(ZZ_TRANS_PACKED_0, offset, result);
     return result;
@@ -319,13 +319,13 @@ class Xas99RLexer implements FlexLexer {
     "\3\0\1\1\3\0\1\11\12\0\1\1\12\0\2\1"+
     "\4\0\1\11\11\0\1\1\11\0\1\1\12\0\1\1"+
     "\2\11\3\1\1\11\3\1\1\0\1\11\1\0\1\11"+
-    "\3\0\1\11\5\0\1\11\4\0\2\1\5\0\1\1"+
+    "\3\0\1\11\5\0\1\11\4\0\2\1\6\0\1\1"+
     "\2\11\3\0\2\11\2\0\1\11\1\0\1\1\3\0"+
     "\1\11\1\0\2\11\1\1\2\0\2\11\3\0\1\1"+
-    "\1\0\1\11\2\0\1\11\1\0\16\11\1\0\1\1";
+    "\1\0\1\11\2\0\1\11\1\0\17\11\1\0\1\1";
 
   private static int [] zzUnpackAttribute() {
-    int [] result = new int[229];
+    int [] result = new int[231];
     int offset = 0;
     offset = zzUnpackAttribute(ZZ_ATTRIBUTE_PACKED_0, offset, result);
     return result;
@@ -642,372 +642,377 @@ class Xas99RLexer implements FlexLexer {
             { return TokenType.BAD_CHARACTER;
             } 
             // fall through
-          case 75: break;
+          case 76: break;
           case 2: 
             { return Xas99RTypes.IDENT;
             } 
             // fall through
-          case 76: break;
+          case 77: break;
           case 3: 
             { yybegin(MNEMONIC); return TokenType.WHITE_SPACE;
             } 
             // fall through
-          case 77: break;
+          case 78: break;
           case 4: 
             { return Xas99RTypes.LCOMMENT;
             } 
             // fall through
-          case 78: break;
+          case 79: break;
           case 5: 
             { yybegin(YYINITIAL); return Xas99RTypes.CRLF;
             } 
             // fall through
-          case 79: break;
+          case 80: break;
           case 6: 
             { return Xas99RTypes.COMMENT;
             } 
             // fall through
-          case 80: break;
+          case 81: break;
           case 7: 
             { return Xas99RTypes.OP_COLON;
             } 
             // fall through
-          case 81: break;
+          case 82: break;
           case 8: 
             { return Xas99RTypes.INSTR_I;
             } 
             // fall through
-          case 82: break;
+          case 83: break;
           case 9: 
             { return Xas99RTypes.INSTR_VI;
             } 
             // fall through
-          case 83: break;
+          case 84: break;
           case 10: 
             { yybegin(ARGUMENTS); return TokenType.WHITE_SPACE;
             } 
             // fall through
-          case 84: break;
+          case 85: break;
           case 11: 
             { return TokenType.WHITE_SPACE;
             } 
             // fall through
-          case 85: break;
+          case 86: break;
           case 12: 
             { return Xas99RTypes.INT;
             } 
             // fall through
-          case 86: break;
+          case 87: break;
           case 13: 
             { return Xas99RTypes.OP_AST;
             } 
             // fall through
-          case 87: break;
+          case 88: break;
           case 14: 
             { return Xas99RTypes.OP_SEP;
             } 
             // fall through
-          case 88: break;
+          case 89: break;
           case 15: 
             { return Xas99RTypes.OP_MINUS;
             } 
             // fall through
-          case 89: break;
+          case 90: break;
           case 16: 
             { return Xas99RTypes.OP_MISC;
             } 
             // fall through
-          case 90: break;
+          case 91: break;
           case 17: 
             { return Xas99RTypes.OP_RPAREN;
             } 
             // fall through
-          case 91: break;
+          case 92: break;
           case 18: 
             { yybegin(TLIT); return Xas99RTypes.OP_QUOTE;
             } 
             // fall through
-          case 92: break;
+          case 93: break;
           case 19: 
             { yybegin(FLIT); return Xas99RTypes.OP_FQUOTE;
             } 
             // fall through
-          case 93: break;
+          case 94: break;
           case 20: 
             { return Xas99RTypes.OP_AT;
             } 
             // fall through
-          case 94: break;
+          case 95: break;
           case 21: 
             { return Xas99RTypes.OP_PLUS;
             } 
             // fall through
-          case 95: break;
+          case 96: break;
           case 22: 
             { return Xas99RTypes.OP_NOT;
             } 
             // fall through
-          case 96: break;
+          case 97: break;
           case 23: 
             { return Xas99RTypes.OP_LPAREN;
             } 
             // fall through
-          case 97: break;
+          case 98: break;
           case 24: 
             { return Xas99RTypes.OP_LC;
             } 
             // fall through
-          case 98: break;
+          case 99: break;
           case 25: 
             { return Xas99RTypes.PP_ARG;
             } 
             // fall through
-          case 99: break;
+          case 100: break;
           case 26: 
             { return Xas99RTypes.PP_SEP;
             } 
             // fall through
-          case 100: break;
+          case 101: break;
           case 27: 
             { return Xas99RTypes.PG_EQ;
             } 
             // fall through
-          case 101: break;
+          case 102: break;
           case 28: 
             { return Xas99RTypes.PG_SEP;
             } 
             // fall through
-          case 102: break;
+          case 103: break;
           case 29: 
             { return Xas99RTypes.TEXT;
             } 
             // fall through
-          case 103: break;
+          case 104: break;
           case 30: 
             { yybegin(ARGUMENTS); return Xas99RTypes.OP_QUOTE;
             } 
             // fall through
-          case 104: break;
+          case 105: break;
           case 31: 
             { return Xas99RTypes.FNAME;
             } 
             // fall through
-          case 105: break;
+          case 106: break;
           case 32: 
             { yybegin(ARGUMENTS); return Xas99RTypes.OP_FQUOTE;
             } 
             // fall through
-          case 106: break;
+          case 107: break;
           case 33: 
             { yybegin(PRAGMA); return Xas99RTypes.PG_START;
             } 
             // fall through
-          case 107: break;
+          case 108: break;
           case 34: 
             { return Xas99RTypes.INSTR_99000_I;
             } 
             // fall through
-          case 108: break;
+          case 109: break;
           case 35: 
             { return Xas99RTypes.INSTR_VIII;
             } 
             // fall through
-          case 109: break;
+          case 110: break;
           case 36: 
             { return Xas99RTypes.INSTR_II;
             } 
             // fall through
-          case 110: break;
+          case 111: break;
           case 37: 
             { yybegin(MNEMONICO); return Xas99RTypes.INSTR_O;
             } 
             // fall through
-          case 111: break;
+          case 112: break;
           case 38: 
             { yybegin(PREPROC); return Xas99RTypes.PREP;
             } 
             // fall through
-          case 112: break;
+          case 113: break;
           case 39: 
             { return Xas99RTypes.MOD_AUTO;
             } 
             // fall through
-          case 113: break;
+          case 114: break;
           case 40: 
             { return Xas99RTypes.MOD_XBANK;
             } 
             // fall through
-          case 114: break;
+          case 115: break;
           case 41: 
             { return Xas99RTypes.REGISTER;
             } 
             // fall through
-          case 115: break;
+          case 116: break;
           case 42: 
             { return Xas99RTypes.REGISTER0;
             } 
             // fall through
-          case 116: break;
+          case 117: break;
           case 43: 
             { return Xas99RTypes.MOD_LEN;
             } 
             // fall through
-          case 117: break;
+          case 118: break;
           case 44: 
             { return Xas99RTypes.PP_PARAM;
             } 
             // fall through
-          case 118: break;
+          case 119: break;
           case 45: 
             { return Xas99RTypes.PG_CYC;
             } 
             // fall through
-          case 119: break;
+          case 120: break;
           case 46: 
             { return Xas99RTypes.DIR_E;
             } 
             // fall through
-          case 120: break;
+          case 121: break;
           case 47: 
             { return Xas99RTypes.INSTR_III;
             } 
             // fall through
-          case 121: break;
+          case 122: break;
           case 48: 
             { return Xas99RTypes.INSTR_IX;
             } 
             // fall through
-          case 122: break;
+          case 123: break;
           case 49: 
             { return Xas99RTypes.INSTR_V;
             } 
             // fall through
-          case 123: break;
+          case 124: break;
           case 50: 
             { return Xas99RTypes.INSTR_F18A_IA;
             } 
             // fall through
-          case 124: break;
+          case 125: break;
           case 51: 
             { return Xas99RTypes.DIR_L;
             } 
             // fall through
-          case 125: break;
+          case 126: break;
           case 52: 
             { return Xas99RTypes.INSTR_99000_IV;
             } 
             // fall through
-          case 126: break;
+          case 127: break;
           case 53: 
             { return Xas99RTypes.INSTR_9995_VIII;
             } 
             // fall through
-          case 127: break;
+          case 128: break;
           case 54: 
             { return Xas99RTypes.INSTR_F18A_VI;
             } 
             // fall through
-          case 128: break;
+          case 129: break;
           case 55: 
             { return Xas99RTypes.INSTR_IX_X;
             } 
             // fall through
-          case 129: break;
+          case 130: break;
           case 56: 
             { yybegin(MNEMONICO); return Xas99RTypes.INSTR_F18A_O;
             } 
             // fall through
-          case 130: break;
+          case 131: break;
           case 57: 
             { return Xas99RTypes.DIR_R;
             } 
             // fall through
-          case 131: break;
+          case 132: break;
           case 58: 
             { return Xas99RTypes.DIR_S;
             } 
             // fall through
-          case 132: break;
+          case 133: break;
           case 59: 
             { yybegin(MNEMONICO); return Xas99RTypes.DIR_O;
             } 
             // fall through
-          case 133: break;
+          case 134: break;
           case 60: 
             { return Xas99RTypes.DIR_EO;
             } 
             // fall through
-          case 134: break;
+          case 135: break;
           case 61: 
             { return Xas99RTypes.INSTR_99000_VIII;
             } 
             // fall through
-          case 135: break;
+          case 136: break;
           case 62: 
             { return Xas99RTypes.INSTR_99000_VI;
             } 
             // fall through
-          case 136: break;
+          case 137: break;
           case 63: 
             { return Xas99RTypes.DIR_ES;
             } 
             // fall through
-          case 137: break;
+          case 138: break;
           case 64: 
             { return Xas99RTypes.DIR_C;
             } 
             // fall through
-          case 138: break;
+          case 139: break;
           case 65: 
             { yybegin(MNEMONICO); return Xas99RTypes.DIR_X;
             } 
             // fall through
-          case 139: break;
+          case 140: break;
           case 66: 
             { yybegin(MNEMONICO); return Xas99RTypes.INSTR_VII;
             } 
             // fall through
-          case 140: break;
+          case 141: break;
           case 67: 
             { return Xas99RTypes.INSTR_9995_VI;
             } 
             // fall through
-          case 141: break;
-          case 68: 
-            { return Xas99RTypes.INSTR_IV;
-            } 
-            // fall through
           case 142: break;
-          case 69: 
-            { return Xas99RTypes.INSTR_VIII_R;
+          case 68: 
+            { return Xas99RTypes.DIR_EV;
             } 
             // fall through
           case 143: break;
-          case 70: 
-            { return Xas99RTypes.DIR_T;
+          case 69: 
+            { return Xas99RTypes.INSTR_IV;
             } 
             // fall through
           case 144: break;
-          case 71: 
-            { return Xas99RTypes.INSTR_VIII_I;
+          case 70: 
+            { return Xas99RTypes.INSTR_VIII_R;
             } 
             // fall through
           case 145: break;
-          case 72: 
-            { return Xas99RTypes.DIR_RA;
+          case 71: 
+            { return Xas99RTypes.DIR_T;
             } 
             // fall through
           case 146: break;
-          case 73: 
-            { return Xas99RTypes.DIR_F;
+          case 72: 
+            { return Xas99RTypes.INSTR_VIII_I;
             } 
             // fall through
           case 147: break;
-          case 74: 
-            { return Xas99RTypes.PG_TERM;
+          case 73: 
+            { return Xas99RTypes.DIR_RA;
             } 
             // fall through
           case 148: break;
+          case 74: 
+            { return Xas99RTypes.DIR_F;
+            } 
+            // fall through
+          case 149: break;
+          case 75: 
+            { return Xas99RTypes.PG_TERM;
+            } 
+            // fall through
+          case 150: break;
           default:
             zzScanError(ZZ_NO_MATCH);
           }

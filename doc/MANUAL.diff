@@ -1,3 +1,5 @@
+# xdt99
+
 ## Installation
 
 All xdt99 files should be placed somewhere in the `$PATH` or where the
@@ -56,6 +58,8 @@ Having said all that, it is rather unfortunate that the built-in help for
 
 We regret that we were unable to include this particular aspect of list options.
 
+
+# xas99
 
 ## New directives [new summary]
 
@@ -133,3 +137,27 @@ Using `REQU` for register aliases instead of plain `EQU` helps pruning the
 suggestions for code completion in register positions when using the [IDEA
 plugin][8].  Unlike `xas99`, the plugin clearly separates between aliases and
 regular symbols and only considers one symbol type in any given context.
+
+
+## Pragmas
+
+Comments and pragmas can occur on the same line in arbitrary order
+
+    inc 0   ; advance to next item ;: warnings = off
+    inc 0   ;: warnings = off ; advance to next item
+
+but they cannot be split.
+
+    inc 0   ;: s+d- ; advance to next item ;: warnings = off
+    inc 0   ; advance to next item ;: warnings = off ; disable all warnings
+
+
+# xdm99
+
+## Disk geometry
+
+The size of the disk image is given by the number of sectors.  You may also use
+a disk geometry string, which is a string `<m>S<n>D` or `<m>S<n>D<t>T`, where
+`<m>` is the number sides, `<n>` the density and `<t>` the number of tracks.
+`<m>` and `<n>` can be one of `1`, `2`, `S`, or `D`.  If the number of tracks
+is not provided, 40 tracks are assumed.

@@ -2163,10 +2163,15 @@ Pragmas do not require an instruction to attach to.
 
     ;: warn-unused-syms = on
 
-Comments and pragmas can occur on the same line, but pragmas must succeed
-comments.
+Comments and pragmas can occur on the same line in arbitrary order
 
-          inc 0   ; advance to next item ;: warnings = off
+    inc 0   ; advance to next item ;: warnings = off
+    inc 0   ;: warnings = off ; advance to next item
+
+but they cannot be split.
+
+    inc 0   ;: s+d- ; advance to next item ;: warnings = off
+    inc 0   ; advance to next item ;: warnings = off ; disable all warnings
 
 All pragmas, except cycle counting pragmas, consist of a name and a value, both
 of which are case-insentitive.  Whitespace is ignored.
@@ -2177,6 +2182,7 @@ The currently defined pragmas are
     warn-opts = { on | off }
     warn-usage = { on | off }
     warn-symbols = { on | off }
+    warn-arith = { on | off }
     lwpi = <value>
 
 and the special short-form pragmas
@@ -2184,13 +2190,13 @@ and the special short-form pragmas
     s{+ | -}
     d{+ | -}
 
-The pragmas `warning`, `warn-opts`, `warn-usage`, and `warn-symbols` correspond
-to the options `-q`, `--quiet-opts`, `--quiet-usage`, and `--quiet-unused-syms`,
-respectively.  The difference between options and pragmas are that the latter
-don't affect the entire file and can be turned on and off at any line in the
-source file.
+The pragmas `warning`, `warn-opts`, `warn-usage`, `warn-symbols`, and
+`warn-arith` correspond to the options `-q`, `--quiet-opts`, `--quiet-usage`,
+`--quiet-unused-syms`, and `--quiet-arith` respectively.  The difference between
+options and pragmas are that the latter don't affect the entire file and can be
+turned on and off at any line in the source file.
 
-The other pragmas affect the cycle counter and are described there.
+The other pragmas effect the cycle counter and are described there.
 
 
 ### Support for other processors
@@ -2603,6 +2609,9 @@ _Literals_ may be decimal numbers, hexadecimal numbers prefixed by `>`, binary
 numbers prefixed by `:`, and text literals enclosed in single quotes `'`.
 
     byte 10, >10, :10, '1'
+
+Negative values and literals are equivalent to their two-complement byte or word
+value, depending on whether the argument position is for bytes or words, resp.
 
 The following mnemonics for the _`FMT` sub-language_ are recommended, but the
 styles of Ryte Data and RAG are also available.  Finally, we can choose other
@@ -3587,12 +3596,13 @@ name provided by `-n`.
     $ xdm99.py blank.dsk -X 720 -n BLANK
 
 The size of the disk image is given by the number of sectors.  You may also use
-a disk geometry string, which is any combination of the number of sides `<n>S`,
-the density `<n>D`, and an optional number of tracks `<n>T`, where `<n>` is an
-integer or the letters `S` or `D`.  If `<n>T` is missing, `40T` is assumed.
+a disk geometry string, which is a string `<m>S<n>D` or `<m>S<n>D<t>T`, where
+`<m>` is the number sides, `<n>` the density and `<t>` the number of tracks.
+`<m>` and `<n>` can be one of `1`, `2`, `S`, or `D`.  If the number of tracks
+is not provided, 40 tracks are assumed.
 
     $ xdm99.py blank.dsk -X DSDD
-    $ xdm99.py blank.dsk -X 1d2s80t
+    $ xdm99.py blank.dsk -X 1s2d80t
 
 `xdm99` cannot create disk images with more than 1600 sectors or with `2S2D80T`
 geometry.

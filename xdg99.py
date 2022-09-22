@@ -23,10 +23,10 @@ import sys
 import re
 import os.path
 import argparse
-from xcommon import Util, RFile, CommandProcessor
+from xcommon import Util, RFile, CommandProcessor, Warnings, Console
 
 
-VERSION = '3.5.1'
+VERSION = '3.5.2'
 
 CONFIG = 'XDG99_CONFIG'
 
@@ -51,46 +51,6 @@ class Invalid(Exception):
 class XdgError(Exception):
     """abort disassembly"""
     pass
-
-
-class XdgLogger:
-    """issue message"""
-
-    level_debug = 0
-    level_info = 1
-    level_warn = 2
-    level_error = 3
-
-    log_level = 3
-
-    @staticmethod
-    def set_level(level):
-        """change current log level"""
-        XdgLogger.log_level = level
-
-    @staticmethod
-    def error(message):
-        """issue error message"""
-        if XdgLogger.log_level <= XdgLogger.level_error:
-            print('ERROR:', message)
-
-    @staticmethod
-    def warn(message):
-        """issue warning"""
-        if XdgLogger.log_level <= XdgLogger.level_warn:
-            print('Warning:', message)
-
-    @staticmethod
-    def info(message):
-        """issue informational message"""
-        if XdgLogger.log_level <= XdgLogger.level_info:
-            print('Info:', message)
-
-    @staticmethod
-    def debug(message):
-        """issue debugging message"""
-        if XdgLogger.log_level <= XdgLogger.level_debug:
-            print('Debug:', message)
 
 
 # Language Syntax
@@ -181,7 +141,8 @@ class Syntax:
 class Symbols:
     """symbol table"""
 
-    def __init__(self, symfiles=None):
+    def __init__(self, symfiles=None, console=None):
+        self.console = console or Xdg99Console()
         # pre-defined symbols
         self.symbols = {
             # CPU RAM
@@ -213,7 +174,7 @@ class Symbols:
             # found label s, EQU, and value v
             symbol, value = m.group(1), xhex(m.group(2))
             if self.symbols.get(value) is not None:
-                XdgLogger.warn(f'Symbol for >{value:04X} already defined, overwritten')
+                self.console.warn(f'Symbol for >{value:04X} already defined, overwritten')
             self.symbols[value] = symbol
 
     def resolve(self, value, d=True):
@@ -381,9 +342,10 @@ class Opcodes:
                 self.indexed = v and not r
                 self.indr = False
 
-    def __init__(self, syntax):
+    def __init__(self, syntax, console=None):
         """complete listing to contain all 2*256 opcodes"""
         self.syntax = syntax
+        self.console = console or Xdg99Console()
         self.opcodes = {}
         for opc, mnem, iformat, in_fmt, toggle_fmt in self.opcode_list:
             # get unspecified bits in opcode byte
@@ -421,11 +383,11 @@ class Opcodes:
                                            prog.symbols, instr_format, fmt_level)
         except IndexError as e:
             # last instruction stepped beyond last index of program
-            XdgLogger.warn('Incomplete program')
+            self.console.warn('Incomplete program')
             return Literal(addr, byte, byte), fmt_level
         except Invalid as e:
             # disassembly was incorrect
-            XdgLogger.warn('Invalid disassembly: ' + str(e))
+            self.console.warn('Invalid disassembly: ' + str(e))
             return Literal(addr, byte, byte), fmt_level
         # update domain
         fmt_level += toggle_fmt
@@ -718,10 +680,11 @@ class Operand:
 class Program:
     """the program to disassemble"""
 
-    def __init__(self, binary, addr, symbols):
+    def __init__(self, binary, addr, symbols, console=None):
         self.binary = binary  # binary blob
         self.addr = addr  # initial address of binary
         self.symbols = symbols  # symbol table
+        self.console = console or Xdg99Console()
         self.code = [Unknown(addr + i, binary[i]) for i in range(len(binary))]  # listing of entries
         self.size = len(self.code)  # index size of program
         self.end = self.addr + self.size  # final address of program
@@ -751,7 +714,7 @@ class Program:
         if not force:
             for i in range(idx, idx + instr.size):
                 if not isinstance(self.code[i], Unknown):
-                    XdgLogger.warn('Would overwrite already disassembled index ' + str(i))
+                    self.console.warn('Would overwrite already disassembled index ' + str(i))
                     return False
         # persist instruction and mark bytes of operands as disassembled
         for i in range(idx + 1, idx + instr.size):
@@ -818,9 +781,10 @@ class BadSyntax:
 class Disassembler:
     """disassemble machine code"""
 
-    def __init__(self, syntax, excludes):
-        self.opcodes = Opcodes(syntax)  # prepare opcodes
+    def __init__(self, syntax, excludes, console=None):
+        self.opcodes = Opcodes(syntax, console)  # prepare opcodes
         self.excludes = excludes
+        self.console = console or Xdg99Console()
 
     def decode(self, prog, start_idx, end_idx, fmt_level):
         """decode range of instructions"""
@@ -840,7 +804,7 @@ class Disassembler:
         """run disassembler"""
         # check if address is valid
         if not prog.addr <= start < prog.end:
-            XdgLogger.warn(f'Cannot disassemble external context @>{start:04X}')
+            self.console.warn(f'Cannot disassemble external context @>{start:04X}')
             return  # cannot disassemble external content
         start_idx = prog.addr2idx(start)
         end_idx = prog.addr2idx(end or prog.end)
@@ -894,7 +858,7 @@ class Disassembler:
         if prog.binary[0] == 0xaa and prog.addr == 0x6000:
             # autostart?
             if prog.binary[1] >= 0x80:
-                XdgLogger.info('auto-starting cart')
+                self.console.info('auto-starting cart')
                 idx = 0x10 if prog.binary[16] != '\x00' else 0x13
                 # do not start disassembly at >6010/>6013, as the run
                 # disassembler would also follow >6011/>6014, which is
@@ -908,7 +872,7 @@ class Disassembler:
                     starts.append(Util.ordw(prog.binary[menu + 2:menu + 4]))
                     menu = Util.ordw(prog.binary[menu:menu + 2])
             except ValueError:
-                XdgLogger.warn('Bad cartridge menu structure')
+                self.console.warn('Bad cartridge menu structure')
             return starts
         else:
             # unknown binary
@@ -958,6 +922,24 @@ class Disassembler:
                 prog.register(idx + i, Unknown(prog.code[idx + i].addr, prog.code[idx + i].byte))
 
 
+# Console
+
+class Xdg99Console(Console):
+
+    def __init__(self, quiet=False, verbose=False, colors=False):
+        super().__init__('xda99', VERSION, {Warnings.DEFAULT: not quiet}, verbose=verbose, colors=colors)
+
+    def info(self, message):
+        """output info message"""
+        super().info(None, 'Info: ' + message)
+
+    def warn(self, message):
+        super().warn(None, 'Warning: ' + message)
+
+    def error(self, message):
+        super().warn(None, 'Error: ' + message)
+
+
 # Command line processing
 
 class Xdg99Processor(CommandProcessor):
@@ -972,7 +954,7 @@ class Xdg99Processor(CommandProcessor):
         args = argparse.ArgumentParser(
             description='GPL disassembler, v' + VERSION,
             epilog="All addresses are hex values and may by prefixed optionally by '>' or '0x'.")
-        args.add_argument('source', metavar='<source>',
+        args.add_argument('binary', metavar='<binary>',
                           help='GPL binary code')
         cmd = args.add_mutually_exclusive_group(required=True)
         cmd.add_argument('-r', '--run', metavar='<addr>', dest='runs', nargs='+',
@@ -1001,8 +983,12 @@ class Xdg99Processor(CommandProcessor):
                           help='syntax variant to use')
         args.add_argument('-S', '--symbols', metavar='<file>', dest='symfiles', nargs='+',
                           help='known symbols files')
+        args.add_argument('-q', '--quiet', action='store_true', dest='quiet',
+                          help='quiet, do not show warnings')
         args.add_argument('-V', '--verbose', action='store_true', dest='verbose',
                           help='verbose messages')
+        args.add_argument('--color', action='store', dest='color', choices=['off', 'on'],
+                          help='enable or disable color output')
         args.add_argument('-o', '--output', metavar='<file>', dest='output',
                           help='output filename')
         try:
@@ -1010,22 +996,23 @@ class Xdg99Processor(CommandProcessor):
         except KeyError:
             default_opts = []
         self.opts = args.parse_args(args=default_opts + sys.argv[1:])  # passed opts override default opts
+        # restore source files parsed as list option
+        self.fix_greedy_list_parsing('binary', 'runs', 'exclude', 'symfiles')
 
     def run(self):
-        basename = os.path.basename(self.opts.source)
+        self.console = Xdg99Console(quiet=self.opts.quiet, verbose=self.opts.verbose, colors=self.opts.color)
+
+        basename = os.path.basename(self.opts.binary)
         self.barename = os.path.splitext(basename)[0]
-        if self.opts.verbose:
-            XdgLogger.set_level(1)
-    
-        binary = Util.readdata(self.opts.source)[xhex(self.opts.skip) or 0:]
+        binary = Util.readdata(self.opts.binary)[xhex(self.opts.skip) or 0:]
         start_addr = xhex(self.opts.addr) if self.opts.addr is not None else 0x6000
         self.end_addr = xhex(self.opts.to)
 
-        symbols = Symbols(symfiles=self.opts.symfiles)
-        self.program = Program(binary, start_addr, symbols=symbols)
+        symbols = Symbols(symfiles=self.opts.symfiles, console=self.console)
+        self.program = Program(binary, start_addr, symbols=symbols, console=self.console)
         syntax = Syntax.get(self.opts.syntax or 'xdt99')
         excludes = [self.program.addr_range(e) for e in (self.opts.exclude or ())]
-        self.disasm = Disassembler(syntax, excludes)
+        self.disasm = Disassembler(syntax, excludes, console=self.console)
 
     def prepare(self):
         if self.opts.frm:
@@ -1041,7 +1028,7 @@ class Xdg99Processor(CommandProcessor):
 
     def disass_from(self):
         """top-down disassembler: uses specified start address -f"""
-        XdgLogger.info('top-down disassembly')
+        self.console.info('top-down disassembly')
         if self.opts.frm.lower() == 'start':
             addr_from = min(self.disasm.get_starts(self.program))
         else:
@@ -1050,7 +1037,7 @@ class Xdg99Processor(CommandProcessor):
 
     def disass(self):
         """run disassembler: uses specified run addresses -r"""
-        XdgLogger.info('run trace disassembly')
+        self.console.info('run trace disassembly')
         runs = [xhex(r) for r in (self.opts.runs or []) if r.lower() != 'start']
         auto_run = any(r.lower() == 'start' for r in (self.opts.runs or []))
         if auto_run:
@@ -1059,11 +1046,11 @@ class Xdg99Processor(CommandProcessor):
             self.disasm.run(self.program, run, self.end_addr, force=self.opts.force)
 
     def find_strings(self):
-        XdgLogger.info('extracting strings')
+        self.console.info('extracting strings')
         self.disasm.find_strings(self.program)
 
     def make_program(self):
-        XdgLogger.info('finalizing into complete program')
+        self.console.info('finalizing into complete program')
         self.disasm.program(self.program)
 
 

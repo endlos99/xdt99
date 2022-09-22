@@ -118,7 +118,7 @@ def runtest():
     # force
     source = os.path.join(Dirs.sources, 'daforce.asm')
     xas(source, '-b', '-R', '-q', '-o', Files.reference)
-    xda(Files.reference, '-a', 'a000', '-r', 'a000', '-o', Files.output)
+    xda(Files.reference, '-a', 'a000', '-r', 'a000', '-q', '-o', Files.output)
     movs = count_mnemonics(Files.output, offset=9, wanted='mov')
     if movs != 2:
         error('force', 'MOV mnemonics count mismatch: %d/2' % movs)

@@ -20,16 +20,15 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 import sys
-import platform
 import os.path
 import math
 import re
 import argparse
 import zipfile
-from xcommon import CommandProcessor, RFile, Util
+from xcommon import CommandProcessor, RFile, Util, Warnings, Console
 
 
-VERSION = '3.5.1'
+VERSION = '3.5.2'
 
 CONFIG = 'XGA99_CONFIG'
 
@@ -84,9 +83,10 @@ class Local:
 
 class Opcodes:
     op_imm = lambda parser, x: (parser.expression(x[0]),)
-    op_imm_gs = lambda parser, x: (parser.expression(x[0]),
-                                   parser.gaddress(x[1], is_gs=True))
-    op_opt_255 = lambda parser, x: (parser.expression(x[0]) if x else 255,)
+    op_immb = lambda parser, x: (parser.byte_expression(x[0]),)
+    op_immb_gs = lambda parser, x: (parser.byte_expression(x[0]),
+                                    parser.gaddress(x[1], is_gs=True))
+    op_opt_255 = lambda parser, x: (parser.byte_expression(x[0]) if x else 255,)
     op_gd = lambda parser, x: (parser.gaddress(x[0], is_gs=False),)
     op_gs_gd = lambda parser, x: (parser.gaddress(x[0], is_gs=True),
                                   parser.gaddress(x[1], is_gs=False))
@@ -172,15 +172,15 @@ class Opcodes:
         'DSRC': (0xe9, 1, op_gs_dgd),
         # 4.5 graphics and miscellaneous instructions
         'COINC': (0xed, 1, op_gs_dgd),
-        'BACK': (0x04, 2, op_imm),
-        'ALL': (0x07, 2, op_imm),
+        'BACK': (0x04, 2, op_immb),
+        'ALL': (0x07, 2, op_immb),
         'RAND': (0x02, 2, op_opt_255),
         'SCAN': (0x03, 5, None),
-        'XML': (0x0f, 2, op_imm),
+        'XML': (0x0f, 2, op_immb),
         'EXIT': (0x0b, 5, None),
-        'I/O': (0xf6, 8, op_imm_gs),  # opGsImm
+        'I/O': (0xf6, 8, op_immb_gs),  # opGsImm
         # BASIC
-        'PARSE': (0x0e, 2, op_imm),
+        'PARSE': (0x0e, 2, op_immb),
         'CONT': (0x10, 5, None),
         'EXEC': (0x11, 5, None),
         'RTNB': (0x12, 5, None),
@@ -557,6 +557,19 @@ class Symbols:
         fmt = '{}:\n       EQU  >{:04X}' if equ else '    {:.<20} >{:04X}'
         return '\n'.join(fmt.format(*symbol) for symbol in symlist)
 
+    def clone(self):
+        """internal method"""
+        return {val: sym for val, (sym, _) in self.symbols.items()}
+
+    def diff(self, syms1, syms2):
+        """internal method"""
+        print('*** ' + str(self.pass_no))
+        for sym in syms1:
+            val1 = Address.val(syms1[sym])
+            val2 = Address.val(syms2[sym])
+            if val1 != val2:
+                print(f'{sym}: >{val1:X} -> >{val2:X}')
+
 
 # Parser and Preprocessor
 
@@ -625,6 +638,7 @@ class Preprocessor:
         self.parser = parser
         self.parse = True
         self.parse_branches = []
+        self.parse_else = False
         self.parse_macro = None
         self.macros = {'VERS': [f" text '{VERSION}'"]}  # macros defined (with predefined macros)
 
@@ -637,6 +651,9 @@ class Preprocessor:
         if len(ops) != 1:
             raise AsmError('Invalid syntax')
         self.parse_macro = ops[0]
+        if self.parse_macro in ('DEFM', 'ENDM', 'IFDEF', 'IFNDEF', 'IFEQ', 'IFNE', 'IFGE', 'IFGT', 'IFLE', 'IFLT',
+                                'ELSE', 'ENDIF', 'PRINT', 'ERROR'):
+            raise AsmError('Invalid macro name')
         if self.parse_macro in self.macros:
             raise AsmError('Duplicate macro name')
         self.macros[self.parse_macro] = []
@@ -645,34 +662,46 @@ class Preprocessor:
         raise AsmError('Found .ENDM without .DEFM')
 
     def IFDEF(self, code, ops):
-        self.parse_branches.append(self.parse)
+        self.parse_branches.append((self.parse, self.parse_else))
         self.parse = code.symbols.is_symbol(ops[0]) if self.parse else None
+        self.parse_else = False
 
     def IFNDEF(self, code, ops):
-        self.parse_branches.append(self.parse)
+        self.parse_branches.append((self.parse, self.parse_else))
         self.parse = not code.symbols.is_symbol(ops[0]) if self.parse else None
+        self.parse_else = False
 
     def IFEQ(self, code, ops):
-        self.parse_branches.append(self.parse)
+        self.parse_branches.append((self.parse, self.parse_else))
         self.parse = self.cmp(*self.args(ops)) == 0 if self.parse else None
+        self.parse_else = False
 
     def IFNE(self, code, ops):
-        self.parse_branches.append(self.parse)
+        self.parse_branches.append((self.parse, self.parse_else))
         self.parse = self.cmp(*self.args(ops)) != 0 if self.parse else None
+        self.parse_else = False
 
     def IFGT(self, code, ops):
-        self.parse_branches.append(self.parse)
+        self.parse_branches.append((self.parse, self.parse_else))
         self.parse = self.cmp(*self.args(ops)) > 0 if self.parse else None
+        self.parse_else = False
 
     def IFGE(self, code, ops):
-        self.parse_branches.append(self.parse)
+        self.parse_branches.append((self.parse, self.parse_else))
         self.parse = self.cmp(*self.args(ops)) >= 0 if self.parse else None
+        self.parse_else = False
 
     def ELSE(self, code, ops):
+        if not self.parse_branches or self.parse_else:
+            raise AsmError("Misplaced .else")
         self.parse = not self.parse if self.parse is not None else None
+        self.parse_else = True
 
     def ENDIF(self, code, ops):
-        self.parse = self.parse_branches.pop()
+        try:
+            self.parse, self.parse_else = self.parse_branches.pop()
+        except IndexError:
+            raise AsmError('Misplaced .endif')
 
     def ERROR(self, code, ops):
         if self.parse:
@@ -735,6 +764,25 @@ class Preprocessor:
             return self.parse, operands, line
 
 
+class IntmLine:
+    """intermediate source line"""
+
+    OPEN = '$OPEN$'  # constants inserted into source to denote new or resumes source units
+    RESUME = '$RESM$'
+
+    def __init__(self, mnemonic, lino=0, lidx=0, label=None, operands=(), line=None, filename=None, path=None,
+                 is_statement=False):
+        self.label = label
+        self.mnemonic = mnemonic
+        self.operands = operands
+        self.lino = lino
+        self.lidx = lidx
+        self.line = line
+        self.filename = filename
+        self.path = path
+        self.is_statement = is_statement
+
+
 class Parser:
     """scanner and parser class"""
 
@@ -748,14 +796,15 @@ class Parser:
         self.prep = Preprocessor(self)
         self.text_literals = []
         self.filename = None  # current file name
-        self.source = None  # preprocessed GPL source file
+        self.source = None  # current source file in pass 0
+        self.intermediate_source = []  # preprocessed GPL source file
         self.macro_args = []
         self.in_macro_instantiation = False
         self.lino = -1  # current line number
+        self.srcline = None
         self.suspended_files = []
         self.fmt_mode = False  # parsing in FMT instruction?
         self.for_loops = []  # tracks open for loops
-        self.warnings = []  # list of warnings
 
     def reset(self):
         """reset state for new assembly pass"""
@@ -763,17 +812,13 @@ class Parser:
         self.for_loops = []
         self.path = self.initial_path
 
-    def warn(self, message, force=False):
-        # warn in pass 2 to avoid duplicates and to prevent false expr values 0
-        if (self.symbols.pass_no > 0 or force) and message not in self.warnings:
-            self.warnings.append(message)
-
     def open(self, filename=None, macro=None, macro_args=None):
         """open new source file or macro buffer"""
         if len(self.suspended_files) > 100:
             raise AsmError('Too many nested files or macros')
         if filename:
             newfile = '-' if filename == '-' else self.find(self.fix_path_separator(filename))
+            # CAUTION: don't suspend source if file does not exist!
         else:
             newfile = None
         if self.source is not None:
@@ -787,6 +832,7 @@ class Parser:
             self.macro_args = macro_args or []
             self.in_macro_instantiation = True
         self.lino = 0
+        self.intermediate_source.append(IntmLine(IntmLine.OPEN, filename=self.filename))
 
     def fix_path_separator(self, path):
         """replaces foreign file separators with system one"""
@@ -802,6 +848,7 @@ class Parser:
         """close current source file and resume previous one"""
         try:
             self.filename, self.path, self.source, self.macro_args, self.lino = self.suspended_files.pop()
+            self.intermediate_source.append(IntmLine(IntmLine.RESUME, filename=self.filename))
             return True
         except IndexError:
             self.source = None  # indicates end-of-source to pass; keep self.path!
@@ -832,16 +879,29 @@ class Parser:
                     return include_file
         raise AsmError(f'File not found: {filename}')
 
-    def read(self):
+    def lines(self):
         """get next logical line from source files"""
+        self.symbols.lidx = 0
         while self.source is not None:
             try:
                 line = self.source[self.lino]
+                self.srcline = line.rstrip()
                 self.lino += 1
-                return self.lino, line.rstrip(), self.filename
+                self.symbols.lidx += 1
+                yield self.lino, self.srcline, self.filename
             except IndexError:
                 self.resume()
-        return None, None, None
+
+    def intermediate_lines(self):
+        """return preprocessed source code"""
+        #lino, line, filename, self.parser.path, self.symbols.lidx,
+        for imline in self.intermediate_source:
+            self.lino = imline.lino
+            self.srcline = imline.line
+            self.filename = imline.filename
+            self.path = imline.path
+            self.symbols.lidx = imline.lidx
+            yield imline
 
     def line(self, line):
         """parse single source line"""
@@ -955,7 +1015,7 @@ class Parser:
         if is_gs:
             # immediate value as address
             if is_move:
-                self.warn(f"Treating '{op:s}' as ROM address, did you intend a GROM address?")
+                self.console.warn(f"Treating '{op:s}' as ROM address, did you intend a GROM address?")
             value = self.expression(op)
             return Operand(value, imm=2 if is_d else 1)
         raise AsmError('Invalid G{:s} address operand: {:s}'.format('s' if is_gs else 'd', op))
@@ -1015,6 +1075,11 @@ class Parser:
                 raise AsmError('Invalid operator: ' + op)
         return value.value
 
+    def byte_expression(self, expr, needed=False):
+        """parse complex arithmetical expression yield byte value"""
+        value = self.expression(expr, needed=needed)
+        return value & 0xff
+
     def check_arith_precedence(self, operators, i=2):
         """check if usual * over + arithmetic precedence is violated"""
         possible_violation = False
@@ -1029,7 +1094,7 @@ class Parser:
             elif op == '+' or op == '-':
                 possible_violation = True
             elif op in '*/%' and possible_violation:
-                self.warn('Expression with non-standard evaluation')
+                self.console.warn('Expression with non-standard evaluation')
                 return True, None
             elif op == '(':
                 violation, i = self.check_arith_precedence(operators, i + 2)
@@ -1229,60 +1294,55 @@ class Segment:
 class Assembler:
     """generate GPL virtual machine code"""
 
-    def __init__(self, syntax, grom, aorg, target, path, includes=None, definitions=(), warnings=True, listing=False,
-                 colors=None, relaxed=False):
+    def __init__(self, syntax, grom, aorg, target, path, includes=None, definitions=(), relaxed=False, debug=False,
+                 console=None):
         self.syntax = syntax
         self.includes = includes
         self.grom = grom
         self.offset = aorg
         self.relaxed = relaxed
+        self.debug_passes = debug
         self.target = target
         self.program = Program()
         self.symbols = Symbols(definitions)
-        self.console = Console(enable_warnings=warnings, colors=colors)
+        self.console = console or Xga99Console()
         self.parser = Parser(self.symbols, self.console, syntax=self.syntax, relaxed=relaxed, path=path,
                              includes=self.includes)
-        self.listing = Listing(enable=listing)
+        self.console.set_parser(self.parser)
+        self.listing = Listing()
         self.segment = None
         self.code = None
 
     def assemble(self, source_name):
         self.symbols.add_symbol('_XGA99_' + self.target, 1)
-        self.parser.open(source_name)
-        source = self.pass_0()
+        self.pass_0(source_name)
         if self.console.errors:
             return  # abort if errors in pass 0
-        self.pass_n(source)
+        self.pass_n()
         self.finalize()
 
-    def pass_0(self):
+    def pass_0(self, source_name):
         """initial pass of assembly scanning symbols"""
-        source = []
         self.symbols.pass_no = 0
-        self.symbols.lidx = 0
         self.org(self.grom, self.offset)
+        self.parser.open(filename=source_name)
         prev_label = None
-        while True:
-            # get next source line
-            lino, line, filename = self.parser.read()
-            self.symbols.lidx += 1
-            self.console.filename_text = filename
-            self.console.lino = lino
-            if lino is None:
-                break
+        for lino, line, filename in self.parser.lines():
             try:
                 # break line into fields
                 label, mnemonic, operands, comment, is_statement = self.parser.line(line)
                 keep, operands, line = self.parser.prep.process(self, label, mnemonic, operands, line)
                 if not keep:
                     continue
-                source.append((lino, self.symbols.lidx, label, mnemonic, operands, line,
-                               filename, self.parser.path, is_statement))
+                intm_line = IntmLine(mnemonic, lino=lino, lidx=self.symbols.lidx, label=label, operands=operands,
+                                     line=line, filename=filename, path=self.parser.path, is_statement=is_statement)
+                self.parser.intermediate_source.append(intm_line)  # store pre-processed line for subsequent passes
                 if not is_statement:
                     continue
                 # process continuation label
                 if prev_label:
                     if label:
+                        prev_label = None
                         raise AsmError('Invalid continuation for label')
                     label, prev_label = prev_label, None
                 elif label[-1:] == ':' and not mnemonic:
@@ -1294,16 +1354,15 @@ class Assembler:
                 Directives.process(self, label, mnemonic, operands) or \
                     Opcodes.process(self, label, mnemonic, operands)
             except AsmError as e:
-                self.console.error(str(e), filename=filename, pass_no=0, lino=lino, line=line)
+                self.console.error(str(e))
         if self.parser.prep.parse_branches:
-            self.console.error('***** Error: Missing .endif', filename=filename, pass_no=0)
+            self.console.error('***** Error: Missing .endif', nopos=True)
         if self.parser.prep.parse_macro:
-            self.console.error('***** Error: Missing .endm', filename=filename, pass_no=0)
-        return source
+            self.console.error('***** Error: Missing .endm', nopos=True)
 
-    def pass_n(self, source):
+    def pass_n(self):
         """subsequent passes generating GPL virtual machine code"""
-        # code generation (passes 1+)
+        syms_before = self.symbols.clone() if self.debug_passes else None
         while True:
             self.program.reset()  # reset state
             self.symbols.reset()
@@ -1311,44 +1370,47 @@ class Assembler:
             self.listing.reset()
             self.segment = None
             self.org(self.grom, self.offset)
-            prev_label = prev_filename = prev_path = None
+            prev_label = None
             abort = False
             self.symbols.pass_no += 1
             if self.symbols.pass_no > 32:
-                sys.exit('Too many assembly passes, aborting. :-(')
-
-            for lino, lidx, label, mnemonic, operands, line, filename, path, is_statement in source:
-                self.symbols.lidx = lidx
-                self.parser.path = path
-                if filename != prev_filename or path != prev_path:  # valid check, as file cannot include itself
-                    self.listing.open(self.symbols.LC, filename)
-                    self.console.filename = filename
-                    prev_filename = filename
-                    prev_path = path
-                self.listing.prepare(self.symbols.LC, Line(lino=lino, line=line))
-                if not is_statement:
-                    continue
-                if prev_label:
-                    if label:
-                        raise AsmError('Invalid continuation for label')
-                    label, prev_label = prev_label, None
-                elif label[-1:] == ':' and not mnemonic:
-                    prev_label = label
-                    continue
-                if label[-1:] == ':':
-                    label = label[:-1]
-                # process directives and opcodes
+                sys.exit(self.console.colstr('Too many assembly passes, aborting :-('))
+            for imline in self.parser.intermediate_lines():
                 try:
-                    Directives.process(self, label, mnemonic, operands) or \
-                        Opcodes.process(self, label, mnemonic, operands)
+                    if imline.mnemonic == IntmLine.OPEN:  # markers to indicate start ...
+                        self.listing.open(self.symbols.LC, imline.filename)
+                        continue
+                    elif imline.mnemonic == IntmLine.RESUME:  # ... and end of include file or macro
+                        self.listing.resume(self.symbols.LC, imline.filename)
+                        continue
+                    self.listing.prepare(self.symbols.LC, Line(lino=imline.lino, line=imline.line))
+                    if not imline.is_statement:
+                        continue
+                    # NOTE: Unlike xas99, we need to keep the complete label login in pass_n, since labels are
+                    #       re-evaluated for each pass.  This also applies to EQUs, which always need labels.
+                    label = imline.label  # create copy to not change intermediate source
+                    if prev_label:
+                        if label:
+                            prev_label = None
+                            raise AsmError('Invalid continuation for label')
+                        label, prev_label = prev_label, None
+                    elif label[-1:] == ':' and not imline.mnemonic:
+                        prev_label = label
+                        continue
+                    if label[-1:] == ':':
+                        label = label[:-1]
+                    # process directives and opcodes
+                    Directives.process(self, label, imline.mnemonic, imline.operands) or \
+                        Opcodes.process(self, label, imline.mnemonic, imline.operands)
                 except AsmError as e:
-                    self.console.error(str(e), filename=filename, pass_no=self.symbols.pass_no, lino=lino, line=line)
+                    self.console.error(str(e))
                     abort = True
-                for msg in self.parser.warnings:
-                    self.console.warn(msg, filename=filename, pass_no=self.symbols.pass_no, lino=lino, line=line)
-                self.parser.warnings = []
             if self.parser.fmt_mode:
-                self.console.warn('Source ends with open FMT block', pass_no=self.symbols.pass_no)
+                self.console.warn('Source ends with open FMT block', nopos=True, force=True)
+            if self.debug_passes:
+                syms_after = self.symbols.clone()
+                self.symbols.diff(syms_before, syms_after)
+                syms_before = syms_after
             if abort or not self.symbols.updated:
                 break
 
@@ -1386,7 +1448,7 @@ class Assembler:
             self.segment.LC = self.symbols.LC
         for fn, symbols in self.symbols.get_unused_symbols().items():
             symbols_text = ', '.join(symbols)
-            self.console.warn('Unused constants: ' + symbols_text.lower(), pass_no=1, filename=fn)
+            self.console.warn('Unused constants: ' + symbols_text.lower(), filename=fn, nopos=True, force=True)
 
     @staticmethod
     def get_target(cart, text):
@@ -1567,7 +1629,7 @@ class Word:
         return -1 if self.value & 0x8000 else +1
 
     def abs(self):
-        return self.value + 0x10000 if self.value & 0x8000 else self.value
+        return -self.value % 0x10000 if self.value & 0x8000 else self.value
 
     def add(self, arg):
         self.value = (self.value + arg.value) & 0xffff
@@ -1596,66 +1658,53 @@ class Word:
 
 # Console and Listing
 
-class Console:
+class Xga99Console(Console):
     """collects errors and warnings"""
 
-    def __init__(self, enable_warnings=True, colors=None):
-        self.console = []
-        self.filename = None
-        self.enabled = enable_warnings
-        self.errors = False
-        if colors is None:
-            self.colors = platform.system() in ('Linux', 'Darwin')  # no auto color on Windows
+    def __init__(self, warnings=None, colors=None):
+        self.parser = None
+        super().__init__('xga99', VERSION, warnings or {}, colors=colors)
+
+    def set_parser(self, parser):
+        self.parser = parser  # assembler or linker
+
+    def warn(self, message, filename=None, nopos=False, force=False):
+        """record warnings only for pass 1 to avoid duplicates"""
+        if self.parser.symbols.pass_no != 1 and not force:
+            return
+        pass_no = None if force else self.parser.symbols.pass_no
+        if nopos:
+            info, message = self._format(message, pass_no, filename, None, None)
         else:
-            self.colors = colors == 'on'
+            info, message = self._format(message, pass_no, filename or self.parser.filename, self.parser.lino,
+                                         self.parser.srcline)
+        super().warn(info, message)
 
-    def warn(self, message, pass_no=None, filename=None, lino=None, line=None):
-        if self.enabled and pass_no != 0:
-            self.console.append(('W', message, pass_no, filename, lino, line))
-
-    def error(self, message, pass_no=None, filename=None, lino=None, line=None):
-        self.console.append(('E', message, pass_no, filename, lino, line))
-        self.errors = True
-
-    def color(self, severity):
-        if not self.colors:
-            return ''
-        elif severity == 0:
-            return '\x1b[0m'  # reset to normal
-        elif severity == 1:
-            return '\x1b[33m'  # yellow
-        elif severity == 2:
-            return '\x1b[31m'  # red
+    def error(self, message, nopos=False):
+        """record errors for all passes"""
+        if nopos:
+            info, message = self._format(message, self.parser.symbols.pass_no, None, None, None, error=True)
         else:
-            return ''
+            info, message = self._format(message, self.parser.symbols.pass_no, self.parser.filename,
+                                         self.parser.lino, self.parser.srcline, error=True)
+        super().error(info, message)
 
-    def print(self):
+    def _format(self, message, pass_no, filename, lino, line, error=False):
         """print all console messages to stderr"""
-        if self.console:
-            sys.stderr.write(f': xga99, version {VERSION}\n')
-        for kind, message, pass_no, filename, lino, line in self.console:
-            text, severity = ('Error', 2) if kind == 'E' else ('Warning', 1)
-            s_filename = filename or '---'
-            s_pass = pass_no or '-'
-            s_lino = f'{lino:04d}' if lino is not None else '****'
-            s_line = line or ''
-            sys.stderr.write(f'> {s_filename} <{s_pass}> {s_lino} - {s_line}\n' +
-                             self.color(severity) + f'***** {text:s}: {message}' + self.color(0) + '\n')
-        error_count = sum(1 for kind, *_ in self.console if kind == 'E')
-        sys.stderr.write(self.color(0))
-        if error_count == 1:
-            sys.stderr.write('1 Error found.\n')
-        elif error_count > 1:
-            sys.stderr.write(f'{error_count} Errors found.\n')
+        text = 'Error' if error else 'Warning'
+        s_filename = filename or '---'
+        s_pass = str(pass_no) if pass_no is not None else '-'
+        s_lino = f'{lino:04d}' if lino is not None else '****'
+        s_line = line or ''
+        return f'> {s_filename} <{s_pass}> {s_lino} - {s_line}', f'***** {text:s}: {message}'
 
 
 class Listing:
     """listing file"""
 
-    def __init__(self, enable=False):
+    def __init__(self):
         self.listing = []
         self.prepared_line = None
-        self.enabled = enable
 
     def reset(self):
         """reset listing for next pass"""
@@ -1664,24 +1713,24 @@ class Listing:
 
     def open(self, LC, filename):
         """add new source unit to listing"""
-        if not self.enabled:
-            return
         if self.prepared_line:
             self.add(LC)
         self.listing.append(Line(line='> ' + filename, text1='****', text2='****'))
 
+    def resume(self, LC, filename):
+        """resume previous source unit"""
+        if self.prepared_line:
+            self.add(LC)
+        self.listing.append(Line(line='< ' + filename, text1='', text2=''))
+
     def prepare(self, LC, line):
         """send lino and line data, will be merged with upcoming addr and word"""
-        if not self.enabled:
-            return
         if self.prepared_line:
             self.add(LC)
         self.prepared_line = line
 
     def add(self, text1=None, text2=None):
         """add single line"""
-        if not self.enabled:
-            return
         if not self.prepared_line:
             self.prepared_line = Line()
         if text1 is not None:
@@ -1787,6 +1836,8 @@ class Xga99Processor(CommandProcessor):
                           help='quiet; do not show warnings')
         args.add_argument('--color', action='store', dest='color', choices=['off', 'on'],
                           help='enable or disable color output')
+        args.add_argument('--debug-passes', action='store_true', dest='debug',
+                          help=argparse.SUPPRESS)
         args.add_argument('-o', '--output', dest='output', metavar='<file>',
                           help='set output file name')
         try:
@@ -1794,6 +1845,8 @@ class Xga99Processor(CommandProcessor):
         except KeyError:
             default_opts = []
         self.opts = args.parse_args(args=default_opts + sys.argv[1:])  # passed opts override default opts
+        # restore source files parsed as list option
+        self.fix_greedy_list_parsing('sources', 'inclpath', 'defs')
 
     def run(self):
         # setup
@@ -1807,6 +1860,9 @@ class Xga99Processor(CommandProcessor):
         includes = [os.path.join(root, 'lib')] + Util.get_opts_list(self.opts.inclpath)
         target = Assembler.get_target(self.opts.cart, self.opts.text)
 
+        warnings = Warnings({Warnings.DEFAULT: not self.opts.quiet})
+        self.console = Xga99Console(warnings, colors=self.opts.color)
+
         # assembly
         self.asm = Assembler(syntax=self.opts.syntax,
                              grom=grom,
@@ -1815,15 +1871,12 @@ class Xga99Processor(CommandProcessor):
                              path=dirname,
                              includes=includes,
                              definitions=Util.get_opts_list(self.opts.defs),
-                             warnings=not self.opts.quiet,
-                             listing=self.opts.listing,
-                             colors=self.opts.color,
-                             relaxed=self.opts.relaxed)
+                             relaxed=self.opts.relaxed,
+                             debug=self.opts.debug,
+                             console=self.console)
         self.asm.assemble(basename)
-        self.asm.console.print()
-        if self.asm.console.errors:
-            self.rc = 1
-            return
+        if self.console.errors:
+            return True  # abort
         self.linker = Linker(self.asm.program, self.asm.symbols)
 
     def prepare(self):
@@ -1873,10 +1926,6 @@ class Xga99Processor(CommandProcessor):
         """generate equs"""
         equs = self.asm.symbols.list(equ=True)
         self.result.append(RFile(equs, self.barename, '.equ', output=self.opts.equs, istext=True))
-
-    def errors(self):
-        """error occurred?"""
-        return 1 if self.asm.console.errors else self.rc
 
 
 if __name__ == '__main__':

@@ -11,7 +11,7 @@
 import os
 
 from config import Dirs, Disks, Files, XGA99_CONFIG
-from utils import xga, xdm, clear_env, delfile, check_gbc_files_eq, error, content
+from utils import xga, xdm, r, clear_env, delfile, check_gbc_files_eq, error, content
 from zipfile import ZipFile
 
 
@@ -41,7 +41,7 @@ def runtest():
 
     # cart generation
     source = os.path.join(Dirs.gplsources, 'gahello.gpl')
-    ref = os.path.join(Dirs.refs, 'gahello.rpk')
+    ref = r('gahello.rpk')
     xga(source, '-c', '-o', Files.output)
     with ZipFile(Files.output, 'r') as zout, ZipFile(ref, 'r') as zref:
         outdata = zout.read('GAHELLO.bin')

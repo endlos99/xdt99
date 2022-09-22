@@ -83,6 +83,7 @@ def runtest():
     # cleanup
     delfile(Dirs.tmp)
 
+
 if __name__ == '__main__':
     runtest()
     print('OK')

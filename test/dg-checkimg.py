@@ -27,7 +27,7 @@ def runtest():
             ]:
         source = os.path.join(Dirs.gplsources, srcfile)
         xga(*[source] + aopts + ['-q', '-o', Files.reference])
-        xdg(*[Files.reference] + dopts + ['-p', '-o', Files.input])
+        xdg(*[Files.reference] + dopts + ['-p', '-q', '-o', Files.input])
         xga(*[Files.input] + aopts + ['-q', '-o', Files.output])
         check_files_eq(srcfile, Files.output, Files.reference, 'PROGRAM')
         check_bytes(Files.input, source)
@@ -46,10 +46,10 @@ def runtest():
             ]:
         source = os.path.join(Dirs.gplsources, srcfile)
         xga(*[source] + aopts + ['-q', '-o', Files.reference])
-        xdg(*[Files.reference] + dopts + ['-p', '-o', Files.input])
+        xdg(*[Files.reference] + dopts + ['-p', '-q', '-o', Files.input])
         xga(*[Files.input] + aopts + ['-q', '-o', Files.output])
         check_files_eq(srcfile, Files.output, Files.reference, 'PROGRAM')
-        xdg(*[Files.reference] + dopts + ['-o', Files.output])  # -p would introduce BYTEs where not disassembled
+        xdg(*[Files.reference] + dopts + ['-q', '-o', Files.output])  # -p would introduce BYTEs where not disassembled
         if count_bytes(Files.output) > 0:
             error('BYTE', 'Unwanted BYTE directives in result')
 
@@ -79,7 +79,7 @@ def runtest():
         binary = bytes([random.choice(randrange) for i in range(2048)])
         with open(Files.reference, 'wb') as fref:
             fref.write(binary)
-        xdg(Files.reference, '-a', '1000', '-f', '1000', '-p', '-o', Files.input)
+        xdg(Files.reference, '-a', '1000', '-f', '1000', '-p', '-q', '-o', Files.input)
         xga(Files.input, '-q', '-o', Files.output)
         check_files_eq('random' + str(r), Files.reference, Files.output, 'PROGRAM')
 

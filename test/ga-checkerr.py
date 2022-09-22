@@ -3,7 +3,7 @@
 import os
 
 from config import Dirs, Files, XGA99_CONFIG
-from utils import xga, error, clear_env, delfile, read_stderr, get_source_markers, check_errors
+from utils import xga, error, clear_env, delfile, read_stderr, get_source_markers, check_errors, content
 
 
 # Main test
@@ -62,6 +62,21 @@ def runtest():
     warnings = read_stderr(Files.error, include_warnings=True)
     markers = get_source_markers(source, r';WARN')
     check_errors(markers, warnings)
+
+    # label continuation errors
+    source = os.path.join(Dirs.gplsources, 'gapasse.gpl')  # only in pass 0
+    with open(Files.error, 'w') as ferr:
+        xga(source, '--color', 'off', '-o', Files.output, stderr=ferr, rc=1)
+    errs = content(Files.error, mode='r')
+    if '<0>' not in errs or '<1>' in errs or '<2>' in errs:
+        error('label:', 'Incorrect pass for label continuation error message')
+
+    source = os.path.join(Dirs.gplsources, 'gaxlabe.gpl')
+    with open(Files.error, 'w') as ferr:
+        xga(source, '--color', 'off', '-o', Files.output, stderr=ferr, rc=1)
+    act_errors = read_stderr(Files.error)
+    exp_errors = get_source_markers(source, tag=r';ERROR')
+    check_errors(exp_errors, act_errors)
 
     # cleanup
     delfile(Dirs.tmp)

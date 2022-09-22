@@ -20,14 +20,13 @@
 # along with this program; if not, see <http://www.gnu.org/licenses/>.
 
 import sys
-import platform
 import os.path
 import argparse
 import xdm99 as xdm
-from xcommon import Util, RContainer, CommandProcessor, GlobStore
+from xcommon import Util, RContainer, CommandProcessor, GlobStore, Warnings, Console
 
 
-VERSION = '3.5.1'
+VERSION = '3.5.2'
 
 CONFIG = 'XHM99_CONFIG'
 
@@ -509,30 +508,15 @@ class HFEDisk:
         return [msb, lsb]
 
 
-class Console:
+class Xhm99Console(Console):
     """collects errors and warnings"""
 
     def __init__(self, colors=None):
-        self.errors = False
-        if colors is None:
-            self.colors = platform.system() in ('Linux', 'Darwin')  # no auto color on Windows
-        else:
-            self.colors = colors == 'on'
+        super().__init__('xhm99', VERSION, colors=colors)
 
     def error(self, message):
         """record error message"""
-        self.errors = True
-        sys.stderr.write(self.color(message, severity=2) + '\n')
-
-    def color(self, message, severity=0):
-        if not self.colors:
-            return message
-        elif severity == 1:
-            return '\x1b[33m' + message + '\x1b[0m'  # yellow
-        elif severity == 2:
-            return '\x1b[31m' + message + '\x1b[0m'  # red
-        else:
-            return message
+        super().error(None, message)
 
 
 # Command line processing
@@ -541,8 +525,7 @@ class Xhm99Processor(CommandProcessor):
 
     def __init__(self):
         super().__init__((HFEError, xdm.ContainerError, xdm.FileError))
-        self.console = None
-    
+
     def parse(self):
         args = argparse.ArgumentParser(
             description='xhm99: HFE image and file manipulation tool, v' + VERSION,
@@ -562,7 +545,7 @@ class Xhm99Processor(CommandProcessor):
         cmd.add_argument('-I', '--hfe-info', action=GlobStore, dest='hfeinfo', nargs='+', metavar='<file>',
                          help='show basic information about HFE images')
         cmd.add_argument('--dump', action=GlobStore, dest='dump', nargs='+', metavar='<file>',
-                         help='dump raw decoded HFE data')
+                         help=argparse.SUPPRESS)
 
         # general options
         args.add_argument('-K', '--archive', dest='archive', metavar='<archive>',
@@ -581,7 +564,7 @@ class Xhm99Processor(CommandProcessor):
         self.opts, _ = args.parse_known_args(default_opts + sys.argv[1:])
 
     def run(self):
-        self.console = Console(colors=self.opts.color)
+        self.console = Xhm99Console(colors=self.opts.color)
 
     def prepare(self):
         if self.opts.filename:
@@ -602,7 +585,8 @@ class Xhm99Processor(CommandProcessor):
             disk = HFEDisk(image).to_disk_image()
         except IOError:
             disk = bytes(1)  # dummy, includes -X case
-        xdm_result, self.rc = xdm.Xdm99Processor().main(disk)  # local sys.argv will be passed to xdm99
+        xdm_processor = xdm.Xdm99Processor()
+        xdm_result, self.rc = xdm_processor.main(disk)  # local sys.argv will be passed to xdm99
         for item in xdm_result:
             if item.iscontainer:
                 # convert disk results into HFE disks
@@ -611,6 +595,7 @@ class Xhm99Processor(CommandProcessor):
                                               topc=item.topc, tiname=item.tiname))
             else:
                 self.result.append(item)
+        self.console.merge(xdm_processor.console)
 
     def fromhfe(self):
         for path in self.opts.fromhfe:

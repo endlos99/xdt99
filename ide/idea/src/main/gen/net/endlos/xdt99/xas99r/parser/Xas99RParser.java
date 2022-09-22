@@ -335,6 +335,49 @@ public class Xas99RParser implements PsiParser, LightPsiParser {
   }
 
   /* ********************************************************** */
+  // expr OP_SEP expr? |
+  //     OP_SEP expr
+  public static boolean args_dir_EV(PsiBuilder b, int l) {
+    if (!recursion_guard_(b, l, "args_dir_EV")) return false;
+    boolean r;
+    Marker m = enter_section_(b, l, _NONE_, ARGS_DIR_EV, "<args dir ev>");
+    r = args_dir_EV_0(b, l + 1);
+    if (!r) r = args_dir_EV_1(b, l + 1);
+    exit_section_(b, l, m, r, false, null);
+    return r;
+  }
+
+  // expr OP_SEP expr?
+  private static boolean args_dir_EV_0(PsiBuilder b, int l) {
+    if (!recursion_guard_(b, l, "args_dir_EV_0")) return false;
+    boolean r;
+    Marker m = enter_section_(b);
+    r = expr(b, l + 1);
+    r = r && consumeToken(b, OP_SEP);
+    r = r && args_dir_EV_0_2(b, l + 1);
+    exit_section_(b, m, null, r);
+    return r;
+  }
+
+  // expr?
+  private static boolean args_dir_EV_0_2(PsiBuilder b, int l) {
+    if (!recursion_guard_(b, l, "args_dir_EV_0_2")) return false;
+    expr(b, l + 1);
+    return true;
+  }
+
+  // OP_SEP expr
+  private static boolean args_dir_EV_1(PsiBuilder b, int l) {
+    if (!recursion_guard_(b, l, "args_dir_EV_1")) return false;
+    boolean r;
+    Marker m = enter_section_(b);
+    r = consumeToken(b, OP_SEP);
+    r = r && expr(b, l + 1);
+    exit_section_(b, m, null, r);
+    return r;
+  }
+
+  /* ********************************************************** */
   // opFloat
   public static boolean args_dir_F(PsiBuilder b, int l) {
     if (!recursion_guard_(b, l, "args_dir_F")) return false;
@@ -517,6 +560,7 @@ public class Xas99RParser implements PsiParser, LightPsiParser {
   //     DIR_E args_dir_E |
   //     DIR_EO args_dir_EO |
   //     DIR_ES args_dir_ES |
+  //     DIR_EV args_dir_EV |
   //     DIR_R args_dir_E |
   //     DIR_T args_dir_T |
   //     DIR_S args_dir_S |
@@ -537,10 +581,11 @@ public class Xas99RParser implements PsiParser, LightPsiParser {
     if (!r) r = directive_5(b, l + 1);
     if (!r) r = directive_6(b, l + 1);
     if (!r) r = directive_7(b, l + 1);
+    if (!r) r = directive_8(b, l + 1);
     if (!r) r = consumeToken(b, DIR_O);
     if (!r) r = consumeToken(b, DIR_X);
-    if (!r) r = directive_10(b, l + 1);
     if (!r) r = directive_11(b, l + 1);
+    if (!r) r = directive_12(b, l + 1);
     exit_section_(b, l, m, r, false, null);
     return r;
   }
@@ -589,9 +634,20 @@ public class Xas99RParser implements PsiParser, LightPsiParser {
     return r;
   }
 
-  // DIR_R args_dir_E
+  // DIR_EV args_dir_EV
   private static boolean directive_4(PsiBuilder b, int l) {
     if (!recursion_guard_(b, l, "directive_4")) return false;
+    boolean r;
+    Marker m = enter_section_(b);
+    r = consumeToken(b, DIR_EV);
+    r = r && args_dir_EV(b, l + 1);
+    exit_section_(b, m, null, r);
+    return r;
+  }
+
+  // DIR_R args_dir_E
+  private static boolean directive_5(PsiBuilder b, int l) {
+    if (!recursion_guard_(b, l, "directive_5")) return false;
     boolean r;
     Marker m = enter_section_(b);
     r = consumeToken(b, DIR_R);
@@ -601,8 +657,8 @@ public class Xas99RParser implements PsiParser, LightPsiParser {
   }
 
   // DIR_T args_dir_T
-  private static boolean directive_5(PsiBuilder b, int l) {
-    if (!recursion_guard_(b, l, "directive_5")) return false;
+  private static boolean directive_6(PsiBuilder b, int l) {
+    if (!recursion_guard_(b, l, "directive_6")) return false;
     boolean r;
     Marker m = enter_section_(b);
     r = consumeToken(b, DIR_T);
@@ -612,8 +668,8 @@ public class Xas99RParser implements PsiParser, LightPsiParser {
   }
 
   // DIR_S args_dir_S
-  private static boolean directive_6(PsiBuilder b, int l) {
-    if (!recursion_guard_(b, l, "directive_6")) return false;
+  private static boolean directive_7(PsiBuilder b, int l) {
+    if (!recursion_guard_(b, l, "directive_7")) return false;
     boolean r;
     Marker m = enter_section_(b);
     r = consumeToken(b, DIR_S);
@@ -623,8 +679,8 @@ public class Xas99RParser implements PsiParser, LightPsiParser {
   }
 
   // DIR_C args_dir_C
-  private static boolean directive_7(PsiBuilder b, int l) {
-    if (!recursion_guard_(b, l, "directive_7")) return false;
+  private static boolean directive_8(PsiBuilder b, int l) {
+    if (!recursion_guard_(b, l, "directive_8")) return false;
     boolean r;
     Marker m = enter_section_(b);
     r = consumeToken(b, DIR_C);
@@ -634,8 +690,8 @@ public class Xas99RParser implements PsiParser, LightPsiParser {
   }
 
   // DIR_F args_dir_F
-  private static boolean directive_10(PsiBuilder b, int l) {
-    if (!recursion_guard_(b, l, "directive_10")) return false;
+  private static boolean directive_11(PsiBuilder b, int l) {
+    if (!recursion_guard_(b, l, "directive_11")) return false;
     boolean r;
     Marker m = enter_section_(b);
     r = consumeToken(b, DIR_F);
@@ -645,8 +701,8 @@ public class Xas99RParser implements PsiParser, LightPsiParser {
   }
 
   // DIR_R args_dir_R
-  private static boolean directive_11(PsiBuilder b, int l) {
-    if (!recursion_guard_(b, l, "directive_11")) return false;
+  private static boolean directive_12(PsiBuilder b, int l) {
+    if (!recursion_guard_(b, l, "directive_12")) return false;
     boolean r;
     Marker m = enter_section_(b);
     r = consumeToken(b, DIR_R);

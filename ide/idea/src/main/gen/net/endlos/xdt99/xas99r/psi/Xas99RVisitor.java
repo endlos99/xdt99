@@ -91,6 +91,10 @@ public class Xas99RVisitor extends PsiElementVisitor {
     visitPsiElement(o);
   }
 
+  public void visitArgsDirEV(@NotNull Xas99RArgsDirEV o) {
+    visitPsiElement(o);
+  }
+
   public void visitArgsDirF(@NotNull Xas99RArgsDirF o) {
     visitPsiElement(o);
   }

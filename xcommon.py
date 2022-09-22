@@ -25,6 +25,7 @@ import os
 import re
 import argparse
 import glob
+import platform
 
 
 # xdt99 common assets
@@ -39,20 +40,19 @@ class CommandProcessor:
         self.opts = None
         self.barename = None
         self.name = None
+        self.console = None
         self.result = []
 
     def main(self):
         """entry point"""
         try:
-            self.parse()  # signal errors via self.rc
-            self.run()
-            self.prepare()
-            self.output()
+            self.parse() or self.run() or self.prepare()  # abort if one returns True
+            self.output()  # outputs result and error messages
             return self.errors()
         except IOError as e:
-            sys.exit(f'File error: {e.filename}: {e.strerror}.')
+            sys.exit(self.console.colstr(f'File error: {e.filename}: {e.strerror}'))
         except self.exception as e:
-            sys.exit('Error: ' + str(e))
+            sys.exit(self.console.colstr('Error: ' + str(e)))
 
     def parse(self):
         """syntax definition and parsing by argparse"""
@@ -67,21 +67,27 @@ class CommandProcessor:
         pass
 
     def output(self):
-        """output results"""
+        """output results and error messages"""
         for file in self.result:
             file.write(self.opts.output)  # default output name if not set explicitly before
+        if self.console:
+            self.console.print()
 
     def errors(self):
         """errors during processing?"""
+        try:
+            if self.console.errors:
+                return 1
+        except AttributeError:
+            pass
         return self.rc
 
     def fix_greedy_list_parsing(self, main_name, *opts_names):
         """Greedy parsing of options with list arguments may add positional arguments to list options.
-           As solution, lists may be terminated by trailing ';' in last list argument; this function
-           will split lists at this ';' and put the remaining arguments in opts.source.
-           Examples:
-           -I foo/ bar/ baz/;
-           -D x=1 y=2 z=3 ;
+           As solution, lists may be terminated by trailing ';' after last list argument, e.g.:
+              -I foo/ bar/ baz/;
+              -D x=1 y=2 z=3 ;
+           This function will split lists at this ';' and put the remaining arguments in opts.source.
         """
         main = getattr(self.opts, main_name, [])
         for opts_name in opts_names:
@@ -163,6 +169,155 @@ class GlobStore(argparse.Action):
             names = [glob.glob(fn) if '*' in fn or '?' in fn else [fn] for fn in values]
             values = [f for n in names for f in n]
         setattr(namespace, self.dest, values)
+
+
+class Warnings:
+    """warning categories and which ones to suppress"""
+
+    DEFAULT = 0
+    OPTIMIZATIONS = 1
+    BAD_USAGE = 2
+    UNUSED_SYMBOLS = 3
+    ARITH = 4
+    ALLOCATION = 5
+    GEOMETRY = 6
+    IMAGE = 7
+    _MAX = 8
+
+    def __init__(self, warnings=None, none=False, setall=False):
+        """set state for warning categories"""
+        if none:
+            self._warnings = {warn: False for warn in warnings}
+        elif setall:
+            self._warnings = {warn: True for warn in range(Warnings._MAX)}
+        else:
+            self._warnings = warnings  # initial state
+        self.warnings = dict(self._warnings)  # current state
+
+    def set(self, warning=DEFAULT, value=False, setall=None):
+        """enable or disable one or all warnings"""
+        if setall is not None:
+            self.warnings = {warn: setall for warn in self.warnings}
+        else:
+            self.warnings[warning] = value
+
+    def reset(self):
+        """copy current warning settings"""
+        self.warnings = dict(self._warnings)
+
+    def __getitem__(self, category):
+        try:
+            return self.warnings[category]
+        except KeyError:
+            return False
+
+
+class Console:
+    """collects errors and warnings"""
+
+    INFO = 0  # also equals severity
+    WARNING = 1
+    ERROR = 2
+
+    def __init__(self, tool, version, warnings=None, colors=None, verbose=False):
+        self.tool = tool
+        self.version = version
+        self.verbose = verbose
+        if warnings:
+            self.warnings = warnings
+        else:
+            self.warnings = Warnings({Warnings.DEFAULT: True})
+        self.console = []
+        self.filename = None
+        self.errors = False
+        self.entries = False
+        self.print_version = True  # should version info be printed
+        if colors is None:
+            self.colors = platform.system() in ('Linux', 'Darwin')  # no auto color on Windows
+        else:
+            self.colors = colors == 'on'
+
+    def reset(self):
+        """clear errors and warnings"""
+        self.console = []
+        self.errors = self.entries = False
+        self.print_version = False
+
+    def reset_warnings(self):
+        """reset enabled warnings"""
+        self.warnings.reset()
+
+    def info(self, info, message, category=Warnings.DEFAULT):
+        """informational message, if verbose and enabled"""
+        if not self.verbose or not self.warnings[category]:
+            return
+        self._add((Console.INFO, info, message, category))
+
+    def warn(self, info, message, category=Warnings.DEFAULT):
+        """warnings message, if enabled"""
+        if not self.warnings[category]:
+            return
+        self._add((Console.WARNING, info, message, category))
+        self.entries = True
+
+    def error(self, info, message):
+        """error message"""
+        self._add((Console.ERROR, info, message, None))
+        self.entries = self.errors = True
+
+    def _add(self, entry):
+        """prevent duplicate messages for same line"""
+        if self.console and self.console[-1] == entry:
+            return
+        self.console.append(entry)
+
+    def clear(self, category):
+        """clear errors or warnings of given category"""
+        self.console = [(kind, info, message, cat)
+                        for (kind, info, message, cat) in self.console if cat != category]
+        self.entries = any(self.console)
+        self.errors = any(kind for (kind, *_) in self.console if kind == Console.ERROR)
+
+    def merge(self, console):
+        """merge other console into self"""
+        self.console.extend(console.console)
+        if console.errors:
+            self.errors = True
+        if console.entries:
+            self.entries = True
+
+    def _color(self, severity):
+        """return ANSI color string"""
+        if not self.colors:
+            return ''
+        elif severity == Console.INFO:
+            return '\x1b[0m'  # reset to normal
+        elif severity == Console.WARNING:
+            return '\x1b[33m'  # yellow
+        elif severity == Console.ERROR:
+            return '\x1b[31m'  # red
+        else:
+            return ''
+
+    def colstr(self, s, severity=ERROR):
+        """wrap string in color"""
+        return self._color(severity) + s + self._color(0)
+
+    def print(self):
+        """print all console error and warning messages to stderr"""
+        if not self.console:
+            return
+        if self.version and self.print_version:
+            sys.stderr.write(f': {self.tool}, version {self.version}\n')
+        for severity, info, message, _ in self.console:
+            if info:
+                sys.stderr.write(info + '\n')
+            sys.stderr.write(self._color(severity) + message + self._color(0) + '\n')
+        error_count = sum(1 for kind, *_ in self.console if kind == Console.ERROR)
+        if error_count == 1:
+            sys.stderr.write('1 Error found.\n')
+        elif error_count > 1:
+            sys.stderr.write(f'{error_count} Errors found.\n')
 
 
 class Util:

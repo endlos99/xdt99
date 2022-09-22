@@ -30,7 +30,7 @@ def runtest():
     with open(Files.error, 'w') as ferr:
         xbas(source, '-c', '-l', '--color', 'off', '-o', Files.output, stderr=ferr, rc=1)
     if (content_cat(Files.error)[24:] !=  # skip version string
-            '[8]  GOTO @LOOX Error: Unknown label LOOX Warning: Unused labels: OUT DONE'):
+            '[8]  GOTO @LOOX Error: Unknown label LOOX Warning: Unused labels: OUT DONE 1 Error found.'):
         error('labels', 'Bad/missing errors')
 
     source = os.path.join(Dirs.basic, 'baslabe2.bas')

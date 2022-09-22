@@ -23,12 +23,11 @@ import sys
 import re
 import datetime
 import os
-import platform
 import argparse
-from xcommon import Util, RContainer, CommandProcessor, GlobStore
+from xcommon import Util, RContainer, CommandProcessor, GlobStore, Console, Warnings
 
 
-VERSION = '3.5.1'
+VERSION = '3.5.2'
 
 CONFIG = 'XDM99_CONFIG'
 
@@ -62,11 +61,11 @@ class Disk:
     RESERVED = 0x14
     DATA = 0x100
 
-    def __init__(self, image, console=None, init=False):
+    def __init__(self, image, console, init=False):
         if len(image) < 2 * Disk.BYTES_PER_SECTOR:
             raise ContainerError('Invalid disk image')
         self.image = image
-        self.console = console or Console()
+        self.console = console
         self.catalog = {}
         self.read_sectors = []
         # meta data
@@ -77,7 +76,7 @@ class Disk:
             self.name = sector_0[:self.DISK_NAME_LEN].decode()
         except UnicodeDecodeError:
             self.name = 'INVALID   '
-            self.console.warn('Disk name contains invalid Unicode', category=Console.CAT_IMAGE)
+            self.console.warn('Disk name contains invalid Unicode', category=Warnings.IMAGE)
         self.total_sectors = Util.ordn(sector_0[Disk.TOTAL_SECTORS:Disk.TOTAL_SECTORS_END])
         self.sectors_per_track = sector_0[Disk.SECTORS_PER_TRACK]
         self.dsk_id = sector_0[Disk.DSK_ID:Disk.DSK_ID_END]
@@ -87,15 +86,15 @@ class Disk:
         self.density = sector_0[Disk.DENSITY]
         self.alloc_bitmap = sector_0[Disk.ALLOC_BITMAP:]
         if self.dsk_id != b'DSK':
-            self.console.warn('Disk image not initialized', category=Console.CAT_IMAGE)
+            self.console.warn('Disk image not initialized', category=Warnings.IMAGE)
         if len(self.image) < self.total_sectors * Disk.BYTES_PER_SECTOR:
-            self.console.warn('Disk image truncated', category=Console.CAT_IMAGE)
+            self.console.warn('Disk image truncated', category=Warnings.IMAGE)
         self.used_sectors = 0
         try:
             for i in range(Util.used(self.total_sectors, 8)):
                 self.used_sectors += bin(self.alloc_bitmap[i]).count('1')
         except IndexError:
-            self.console.warn('Allocation map corrupted', category=Console.CAT_ALLOC)
+            self.console.warn('Allocation map corrupted', category=Warnings.ALLOCATION)
         self._check_geometry()
         self._init_catalog()
         self._check_allocation()
@@ -104,18 +103,10 @@ class Disk:
     @staticmethod
     def blank_image(geometry, name):
         """return initialized disk image"""
-        sectors, layout = Disk.parse_geometry(geometry, need_sectors=True)
-        if layout:
-            sides, density, tracks = layout
-        else:
-            sides = 2 if 360 <= (sectors - 1) % 720 else 1
-            density = 2 if 720 < sectors <= 1440 else 1  # favor DSSD over SSDD
-            tracks = Disk.DEFAULT_TRACKS
-        if not 2 < sectors <= Disk.MAX_SECTORS or sectors % 8 != 0 or not (sides and density):
-            raise ContainerError('Invalid disk size')
+        sectors, sides, density, sectors_per_track, tracks = Disk.parse_geometry(geometry)
         sector_0 = (b'%-10b%2b%cDSK ' % (name.encode()[:10],
                                          Util.chrn(sectors),
-                                         Disk.DEFAULT_SECTORS_PER_TRACK * density) +  # header
+                                         sectors_per_track) +  # header
                     bytes((tracks or Disk.DEFAULT_TRACKS, sides, density)) +
                     bytes(0x24) +  # reserved
                     b'\x03' + bytes(sectors // 8 - 1) +  # allocation map
@@ -125,47 +116,41 @@ class Disk:
                 Disk.BLANK_BYTE * ((sectors - 2) * Disk.BYTES_PER_SECTOR))  # sectors 2 and up
 
     @staticmethod
-    def parse_geometry(geometry, need_sectors=False):
+    def parse_geometry(geometry, no_sectors=False):
         """get disk size and layout from geometry string"""
-        if geometry.upper() == 'CF':
-            return 1600, (1, 1, Disk.DEFAULT_TRACKS)
         try:
             sectors = Util.xint(geometry)
-            return sectors, None
+            if no_sectors:
+                raise ContainerError('Invalid disk geometry: ' + geometry)
+            sides = 2 if (sectors - 1) % 720 >= 360 else 1
+            density = 2 if sectors > 720 else 1  # favor DSSD over SSDD
+            sectors_per_track = density * Disk.DEFAULT_SECTORS_PER_TRACK
+            tracks = Disk.DEFAULT_TRACKS
         except ValueError:
-            pass
-        sides = density = tracks = None
-        geometry_parts = re.split(r'(\d+|[SD])([SDT])', geometry.upper())
-        if ''.join(geometry_parts[::3]) not in ('', '/'):
-            raise ContainerError('Invalid disk geometry ' + geometry)
-        try:
-            for spec, part in zip(geometry_parts[1::3], geometry_parts[2::3]):
-                val = 1 if spec == 'S' else 2 if spec == 'D' else int(spec)
-                if part == 'S' and sides is None:
-                    sides = val
-                elif part == 'D' and density is None:
-                    density = val
-                elif part == 'T' and tracks is None:
-                    tracks = val
-                else:
-                    raise ContainerError('Invalid disk geometry: ' + geometry)
-        except (IndexError, ValueError):
-            raise ContainerError('Invalid disk geometry: ' + geometry)
-        try:
-            sectors = sides * (tracks or Disk.DEFAULT_TRACKS) * Disk.DEFAULT_SECTORS_PER_TRACK * density
-        except TypeError:
-            if need_sectors:
-                raise ContainerError('Unspecified disk geometry: ' + geometry)
+            if geometry.upper() == 'CF':
+                sectors = 1600
+                sides = density = 1
+                sectors_per_track = 20
+                tracks = 80
             else:
-                sectors = None
-        return sectors, (sides, density, tracks)
+                m = re.match(r'([12SD])S([12SD])D(?:(\d+)T)?', geometry.upper())
+                if not m:
+                    raise ContainerError('Invalid disk geometry: ' + geometry)
+                sides = 1 if m.group(1) in '1S' else 2
+                density = 1 if m.group(2) in '1S' else 2
+                sectors_per_track = Disk.DEFAULT_SECTORS_PER_TRACK * density
+                tracks = int(m.group(3)) if m.group(3) else Disk.DEFAULT_TRACKS
+                sectors = sides * tracks * sectors_per_track
+        if not 2 < sectors <= Disk.MAX_SECTORS or sectors % 8 != 0:
+            raise ContainerError('Invalid disk size')
+        return sectors, sides, density, sectors_per_track, tracks
 
     def _check_geometry(self):
         """check geometry against sector count"""
         if self.total_sectors != self.sides * self.tracks_per_side * self.sectors_per_track:
-            self.console.warn('Sector count does not match disk geometry', category=Console.CAT_GEOMETRY)
+            self.console.warn('Sector count does not match disk geometry', category=Warnings.GEOMETRY)
         if self.total_sectors % 8 != 0:
-            self.console.warn('Sector count is not multiple of 8', category=Console.CAT_GEOMETRY)
+            self.console.warn('Sector count is not multiple of 8', category=Warnings.GEOMETRY)
 
     def _init_catalog(self):
         """read all files from disk"""
@@ -285,7 +270,7 @@ class Disk:
         """is disk formatted?"""
         return image[Disk.DSK_ID:Disk.DSK_ID_END] == b'DSK'
 
-    def set_geometry(self, sides=1, density=1, tracks=9, cf=False):
+    def set_geometry(self, sides=1, density=1, sectors_per_track=DEFAULT_SECTORS_PER_TRACK, tracks=40, cf=False):
         """override geometry of disk image"""
         if cf:
             self.sides = self.density = 1
@@ -298,11 +283,11 @@ class Disk:
                 self.density = density
             if tracks:
                 self.tracks_per_side = tracks
-            self.sectors_per_track = Disk.DEFAULT_SECTORS_PER_TRACK * self.density
+            self.sectors_per_track = sectors_per_track
         self.image = (self.image[:Disk.SECTORS_PER_TRACK] + bytes((self.sectors_per_track,)) +
                       self.image[Disk.DSK_ID:Disk.TRACKS_PER_SIDE] +
                       bytes((self.tracks_per_side, self.sides, self.density)) + self.image[Disk.RESERVED:])
-        self.console.clear_warnings(Console.CAT_GEOMETRY)
+        self.console.clear_warnings(Warnings.GEOMETRY)
         self._check_geometry()
         self.modified = True
 
@@ -373,7 +358,7 @@ class Disk:
         try:
             return self.catalog[name]
         except KeyError:
-            raise ContainerError(f'File {name} not found')
+            raise ContainerError(f'File {name} not found on disk')
 
     def add_files(self, files):
         """add or update files"""
@@ -475,7 +460,7 @@ class Archive:
 
     def __init__(self, cdata=None, name='ARK', console=None):
         self.name = name
-        self.console = console or Console()
+        self.console = console or Xdm99Console()
         self.catalog = {}  # files in archive: {name: File}
         self.lzw = LZW()
         if cdata is None:
@@ -1018,7 +1003,7 @@ class File:
     HEADER_LEN = 0x80
 
     def __init__(self, fd=None, records=None, data=None, console=None):
-        self.console = console or Console()
+        self.console = console or Xdm99Console()
         self.fd = fd
         self.records = records
         self.data = data
@@ -1243,62 +1228,23 @@ class File:
         return self.fd.get_info()
 
 
-class Console:
+class Xdm99Console(Console):
     """collects errors and warnings"""
 
-    CAT_WARNING = 0
-    CAT_ALLOC = 1
-    CAT_GEOMETRY = 2
-    CAT_IMAGE = 3
+    def __init__(self, warnings=None, colors=None):
+        super().__init__('xdm99', None, warnings, colors=colors)  # don't show version string
 
-    ERROR = 2  # severity
-
-    def __init__(self, disable_warnings=False, colors=None):
-        self.enabled_warnings = not disable_warnings
-        self.warnings = {}  # category x list
-        self.errors = []
-        if colors is None:
-            self.colors = platform.system() in ('Linux', 'Darwin')  # no auto color on Windows
-        else:
-            self.colors = colors == 'on'
-
-    def warn(self, message, category=CAT_WARNING):
+    def warn(self, message, category=Warnings.DEFAULT):
         """record warning message"""
-        try:
-            if message not in self.warnings[category]:
-                self.warnings[category].append(message)
-        except KeyError:
-            self.warnings.setdefault(category, []).append(message)
+        super().warn(None, 'Warning: ' + message, category)
 
     def error(self, message):
         """record error message"""
-        self.errors.append(message)
+        super().error(None, 'Error: ' + message)
 
     def clear_warnings(self, category):
         """clear all warnings in given category"""
-        try:
-            del self.warnings[category]
-        except KeyError:
-            pass
-
-    def print(self):
-        """print all warnings and errors"""
-        if self.enabled_warnings:
-            for cat in self.warnings.keys():
-                for text in self.warnings[cat]:
-                    sys.stderr.write(self.color(f'Warning: {text}', severity=1) + '\n')
-        for text in self.errors:
-            sys.stderr.write(self.color(f'Error: {text}', severity=2) + '\n')
-
-    def color(self, message, severity=0):
-        if not self.colors:
-            return message
-        elif severity == 1:
-            return '\x1b[33m' + message + '\x1b[0m'  # yellow
-        elif severity == 2:
-            return '\x1b[31m' + message + '\x1b[0m'  # red
-        else:
-            return message
+        self.clear(category)
 
 
 # Command line processing
@@ -1317,7 +1263,6 @@ class Xdm99Processor(CommandProcessor):
         self.files = []
         self.format = None
         self.is_display_format = False
-        self.console = None
         self.prepare_fn = None
 
     def main(self, external_data=None, external_options=()):
@@ -1424,7 +1369,12 @@ class Xdm99Processor(CommandProcessor):
             args.error('Incorrect initialization')
 
     def run(self):
-        self.console = Console(disable_warnings=self.opts.quiet, colors=self.opts.color)
+        warnings = Warnings({Warnings.DEFAULT: True,
+                             Warnings.ALLOCATION: True,
+                             Warnings.GEOMETRY: True,
+                             Warnings.IMAGE: True},
+                            none=self.opts.quiet)
+        self.console = Xdm99Console(warnings, colors=self.opts.color)
         self.format = self.opts.format.upper() if self.opts.format else 'PROGRAM'
         self.is_display_format = self.format and 'D' in self.format
         if self.opts.compress or self.opts.decompress:
@@ -1447,8 +1397,7 @@ class Xdm99Processor(CommandProcessor):
         # files to process (opts are mutually exclusive)
         self.files = self.opts.fromfiad or self.opts.tofiad or self.opts.printfiad or self.opts.infofiad
         if self.opts.output and len(self.files) > 1 and not os.path.isdir(self.opts.output):
-            sys.exit(self.console.color('Error: -o must provide directory when providing multiple files',
-                                        severity=Console.ERROR))
+            sys.exit(self.console.colstr('Error: -o must provide directory when providing multiple files'))
         self.prepare_fn = self.prepare_tifiles
 
     def run_sector(self):
@@ -1612,8 +1561,7 @@ class Xdm99Processor(CommandProcessor):
     def extract(self):
         names = self.container.glob_files(self.opts.extract)
         if self.opts.output and len(names) > 1 and not os.path.isdir(self.opts.output):
-            sys.exit(self.console.color('Error: -o must provide directory when extracting multiple files',
-                                        severity=Console.ERROR))
+            sys.exit(self.console.colstr('Error: -o must provide directory when extracting multiple files'))
         for name in names:
             if self.opts.astifiles:
                 self.result.append(RContainer(self.container.get_tifiles_file(name),
@@ -1673,21 +1621,20 @@ class Xdm99Processor(CommandProcessor):
         self.container.protect_files(filenames)
 
     def resize(self):
-        size, layout = Disk.parse_geometry(self.opts.resize, need_sectors=True)
+        size, *layout = Disk.parse_geometry(self.opts.resize)
         self.container.resize_disk(size)
         if layout:
-            sides, density, tracks = layout
-            self.container.set_geometry(sides, density, tracks or Disk.DEFAULT_TRACKS)
+            self.container.set_geometry(*layout)
 
     def geometry(self):
-        size, layout = Disk.parse_geometry(self.opts.geometry)
+        size, *layout = Disk.parse_geometry(self.opts.geometry, no_sectors=True)
         try:
             self.container.set_geometry(*layout)
         except TypeError:
             raise ContainerError('Invalid container geometry: ' + self.opts.geometry)
 
     def check(self):
-        self.rc = 1 if self.console.errors or self.console.warnings else 0
+        self.rc = 1 if self.console.entries else 0  # check for errors and warnings
 
     def repair(self):
         self.container.fix_disk()
@@ -1717,14 +1664,14 @@ class Xdm99Processor(CommandProcessor):
             self.result.append(RContainer(self.disk.get_image(), self.opts.filename, iscontainer=True))
 
     def output(self):
-        self.console.print()  # show error and warning messages
         if self.external_data is not None:
             return  # output handled by caller
         try:
             for file in self.result:
                 file.write(self.opts.output, self.opts.encoding)  # will overwrite original container is no -o given
         except (IOError, ContainerError, FileError) as e:
-            sys.exit(self.console.color('Error: ' + str(e), severity=Console.ERROR))
+            sys.exit(self.console.colstr('Error: ' + str(e)))
+        self.console.print()
 
     def errors(self):
         return 1 if self.console.errors else self.rc

@@ -23,10 +23,10 @@ import sys
 import re
 import os.path
 import argparse
-from xcommon import Util, RFile, CommandProcessor
+from xcommon import Util, RFile, CommandProcessor, Warnings, Console
 
 
-VERSION = '3.5.1'
+VERSION = '3.5.2'
 
 CONFIG = 'XDA_CONFIG'
 
@@ -47,35 +47,6 @@ class XdaError(Exception):
     pass
 
 
-class XdaLogger(object):
-
-    level_debug = 0
-    level_info = 1
-    level_warn = 2
-    level_error = 3
-
-    log_level = 2
-
-    @staticmethod
-    def setlevel(level):
-        XdaLogger.log_level = level
-
-    @staticmethod
-    def warn(message):
-        if XdaLogger.log_level <= XdaLogger.level_warn:
-            print('Warning:', message)
-
-    @staticmethod
-    def info(message):
-        if XdaLogger.log_level <= XdaLogger.level_info:
-            print('Info:', message)
-
-    @staticmethod
-    def debug(message):
-        if XdaLogger.log_level <= XdaLogger.level_debug:
-            print('Debug:', message)
-
-
 # Symbol table
 
 class Symbols(object):
@@ -84,7 +55,8 @@ class Symbols(object):
     SYM_LABEL = 1  # used for B, JMP, ...
     SYM_VALUE = 2  # used for MOV, ADD, ...
 
-    def __init__(self, symfiles=None):
+    def __init__(self, symfiles=None, console=None):
+        self.console = console or Xda99Console()
         # pre-defined symbols
         self.predef_symbols = {
             0x210c: {'VSBW', Symbols.SYM_LABEL},
@@ -131,7 +103,7 @@ class Symbols(object):
                 continue
             symbol, addr = m.group(1), xhex(m.group(2))
             if self.symbols.get(addr) is not None:
-                XdaLogger.warn(f'Symbol for >{addr:04X} already defined, overwritten')
+                self.console.warn(f'Symbol for >{addr:04X} already defined, overwritten')
             self.symbols[addr] = symbol
 
     def resolve(self, value, context=SYM_VALUE):
@@ -557,10 +529,11 @@ class Literal(Entry):
 class Program(object):
     """a binary program"""
 
-    def __init__(self, binary, addr, symbols):
+    def __init__(self, binary, addr, symbols, console=None):
         self.binary = binary  # binary blob
         self.addr = addr  # start addr
         self.symbols = symbols  # symbol table
+        self.console = console or Xda99Console()
         self.code = [Unknown(addr + i, Util.ordw(binary[i:i + 2]))  # listing of entries
                      for i in range(0, len(binary), 2)]
         self.size = len(self.code)  # index size of programm
@@ -591,7 +564,7 @@ class Program(object):
         if not force:
             for i in range(idx, idx + instr.size):
                 if not isinstance(self.code[i], Unknown):
-                    XdaLogger.warn('Would overwrite already disassembled index ' + str(i))
+                    self.console.warn('Would overwrite already disassembled index ' + str(i))
                     return False
         # persist instruction and mark words of operands as disassembled
         for i in range(idx, idx + instr.size):
@@ -656,9 +629,10 @@ class BadSyntax(object):
 class Disassembler(object):
     """disassemble machine code"""
 
-    def __init__(self, excludes, no_r=False, tms9995=False, f18a=False):
+    def __init__(self, excludes, no_r=False, tms9995=False, f18a=False, console=None):
         self.opcodes = Opcodes(no_r, tms9995=tms9995, f18a=f18a)
         self.excludes = excludes
+        self.console = console or Xda99Console()
 
     def is_excluded(self, addr):
         """is addr in any excluded range?"""
@@ -689,7 +663,7 @@ class Disassembler(object):
         """run disassembler"""
         # check if address is valid
         if not program.addr <= start < program.end:
-            XdaLogger.warn(f'Cannot disassemble external context @>{start:04X}')
+            self.console.warn(f'Cannot disassemble external context @>{start:04X}')
             return  # cannot disassemble external content
         start_idx = program.addr2idx(start)
         end_idx = program.addr2idx(end or program.end)
@@ -748,7 +722,7 @@ class Disassembler(object):
                     starts.append(Util.ordw(program.binary[menu + 2:menu + 4]))
                     menu = Util.ordw(program.binary[menu:menu + 2])
             except IndexError:
-                XdaLogger.warn('Bad cartridge menu structure')
+                self.console.warn('Bad cartridge menu structure')
             return starts
         else:
             # unknown binary
@@ -790,6 +764,24 @@ class Disassembler(object):
                 program.code[idx] = Literal(instr.addr, instr.word, instr.word, program.symbols)
         # add symbol EQUs, if needed
         program.equ_text += ''.join('{:8s} EQU  >{:04X}\n'.format(s, v) for s, v in program.symbols.get_used())
+
+
+# Console
+
+class Xda99Console(Console):
+
+    def __init__(self, quiet=False, verbose=False, colors=False):
+        super().__init__('xda99', VERSION, {Warnings.DEFAULT: not quiet}, verbose=verbose, colors=colors)
+
+    def info(self, message):
+        """output info message"""
+        super().info(None, 'Info: ' + message)
+
+    def warn(self, message):
+        super().warn(None, 'Warning: ' + message)
+
+    def error(self, message):
+        super().warn(None, 'Error: ' + message)
 
 
 # Command line processing
@@ -840,8 +832,12 @@ class Xda99Processor(CommandProcessor):
                           help='use strict legacy syntax')
         args.add_argument('-S', '--symbols', metavar='<file>', dest='symfiles', nargs='+',
                           help='known symbols file(s)')
+        args.add_argument('-q', '--quiet', action='store_true', dest='quiet',
+                          help='quiet, do not show warnings')
         args.add_argument('-V', '--verbose', action='store_true', dest='verbose',
                           help='verbose messages')
+        args.add_argument('--color', action='store', dest='color', choices=['off', 'on'],
+                          help='enable or disable color output')
         args.add_argument('-o', '--output', metavar='<file>', dest='output',
                           help='output filename')
         try:
@@ -849,22 +845,23 @@ class Xda99Processor(CommandProcessor):
         except KeyError:
             default_opts = []
         self.opts = args.parse_args(args=default_opts + sys.argv[1:])  # passed opts override default opts
+        # restore source files parsed as list option
+        self.fix_greedy_list_parsing('binary', 'runs', 'exclude', 'symfiles')
 
     def run(self):
+        self.console = Xda99Console(quiet=self.opts.quiet, verbose=self.opts.verbose, colors=self.opts.color)
+
         basename = os.path.basename(self.opts.binary)
         self.barename = os.path.splitext(basename)[0]
-        if self.opts.verbose:
-            XdaLogger.setlevel(XdaLogger.level_info)
-
         binary = Util.readdata(self.opts.binary)[xhex(self.opts.skip) or 0:]
         addr = 0x6000 if self.opts.addr is None else xhex(self.opts.addr)
         self.addr_to = xhex(self.opts.to)
 
-        symbols = Symbols(self.opts.symfiles)
-        self.program = Program(binary, addr, symbols=symbols)
+        symbols = Symbols(self.opts.symfiles, console=self.console)
+        self.program = Program(binary, addr, symbols=symbols, console=self.console)
         excludes = [self.program.addr_range(e) for e in (self.opts.exclude or ())]
         self.disasm = Disassembler(excludes, no_r=self.opts.nor, tms9995=self.opts.dis_9995,
-                                   f18a=self.opts.dis_f18a)
+                                   f18a=self.opts.dis_f18a, console=self.console)
 
     def prepare(self):
         if self.opts.frm:
@@ -880,7 +877,7 @@ class Xda99Processor(CommandProcessor):
 
     def disass(self):
         # run disassembler: uses specified run addresses -r
-        XdaLogger.info('run disassembly')
+        self.console.info('run disassembly')
         runs = [xhex(r) for r in (self.opts.runs or []) if r.lower() != 'start']
         auto_run = any(r.lower() == 'start' for r in (self.opts.runs or []))
         if auto_run:
@@ -890,7 +887,7 @@ class Xda99Processor(CommandProcessor):
 
     def disass_from(self):
         # top-down disassembler: uses specified start address -f
-        XdaLogger.info('top-down disassembly')
+        self.console.info('top-down disassembly')
         if self.opts.frm.lower() == 'start':
             addr_from = min(self.disasm.get_starts(self.program))
         else:
@@ -898,46 +895,12 @@ class Xda99Processor(CommandProcessor):
         self.disasm.disassemble(self.program, addr_from, self.addr_to)
 
     def find_strings(self):
-        XdaLogger.info('extracting strings')
+        self.console.info('extracting strings')
         self.disasm.find_strings(self.program)
 
     def make_program(self):
-        XdaLogger.info('finalizing into complete program')
+        self.console.info('finalizing into complete program')
         self.disasm.make_program(self.program)
-
-
-        ###########################
-        # if self.opts.frm:
-        #     # top-down disassembler: uses specified start address -f
-        #     XdaLogger.info('top-down disassembly')
-        #     addr_from = min(disasm.get_starts(program)) if self.opts.frm.lower() == 'start' else xhex(self.opts.frm)
-        #     disasm.disassemble(program, addr_from, addr_to)
-        # else:
-        #     # run disassembler: uses specified run addresses -r
-        #     XdaLogger.info('run disassembly')
-        #     runs = [xhex(r) for r in (self.opts.runs or []) if r.lower() != 'start']
-        #     auto_run = any(r.lower() == 'start' for r in (self.opts.runs or []))
-        #     if auto_run:
-        #         runs += disasm.get_starts(program)
-        #     for run in runs:
-        #         disasm.run(program, run, addr_to, force=self.opts.force)
-        # if self.opts.strings:
-        #     XdaLogger.info('extracting strings')
-        #     disasm.find_strings(program)
-        # if self.opts.program:
-        #     XdaLogger.info('finalizing into complete program')
-        #     disasm.make_program(program)
-    # except XdaError as e:
-    #     sys.exit(f'Error: {str(e):s}.')
-    # except IOError as e:
-    #     sys.exit(f'{e.filename:s}: {e.strerror:s}.')
-
-    # try:
-    #     source = program.list(as_prog=self.opts.program or False, strict=self.opts.strict, concise=self.opts.concise)
-    #     File(source, barename, '.dis', istext=True).write(self.opts.output)
-    # except OSError as e:
-    #     sys.exit(f'{e.filename:s}: {e.strerror:s}.')
-    # return 0
 
 
 if __name__ == '__main__':

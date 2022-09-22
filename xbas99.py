@@ -22,12 +22,11 @@
 import sys
 import re
 import os.path
-import platform
 import argparse
-from xcommon import Util, RFile, CommandProcessor
+from xcommon import Util, RFile, CommandProcessor, Warnings, Console
 
 
-VERSION = '3.5.1'
+VERSION = '3.5.2'
 
 CONFIG = 'XBAS99_CONFIG'
 
@@ -171,23 +170,12 @@ class BasicProgram:
         self.long_fmt = long_fmt
         self.labels = labels
         self.protected = protected
-        self.console = console or Console()
+        self.console = console or Xbas99Console()
         self.lines = {}
         self.label_lino = {}  # Dict[str, Tuple[int, bool]]
         self.text_literals = []
         self.rem_literals = []
         self.curr_lino = 100
-        # if data is not None:
-        #     # get source from token stream
-        #     try:
-        #         self.load(data, long_fmt)
-        #     except IndexError:
-        #         self.console.error('Cannot read program file')
-        # elif source is not None:
-        #     # get token stream from source
-        #     if labels:
-        #         source = self.get_labels(source)
-        #     self.parse(source)
 
     # convert program to source
     def load(self, data):
@@ -325,8 +313,7 @@ class BasicProgram:
                 if lino is not None:  # None for label definitions
                     self.lines[lino] = tokens
             except BasicError as e:
-                self.console.info(f'[{i + 1:d}] {line}')
-                self.console.error(f'Error: {str(e):}')
+                self.console.error(f'Error: {str(e):}', info=f'[{i + 1:d}] {line}')
             self.curr_lino += 10
 
     def line(self, line):
@@ -587,7 +574,7 @@ class BasicProgram:
             if not line.strip():
                 prev_lino = None
                 continue
-            m = re.match('(\d+)\s+', line)  # check for line number at start of line
+            m = re.match(r'(\d+)\s+', line)  # check for line number at start of line
             if not m:
                 if prev_lino is None:
                     # we might backtrack here to increase parser robustness
@@ -624,53 +611,19 @@ class BasicProgram:
         return [label for label, (lino, used) in self.label_lino.items() if not used]
 
 
-class Console:
+class Xbas99Console(Console):
     """collects errors and warnings"""
 
-    def __init__(self, disable_warnings=False, colors=None):
-        self.quiet = disable_warnings
-        self.errors = False
-        self.no_messages_yet = True
-        if colors is None:
-            self.colors = platform.system() in ('Linux', 'Darwin')  # no auto color on Windows
-        else:
-            self.colors = colors == 'on'
-
-    def version(self):
-        """issue version information"""
-        self.color(f': xbas99, version {VERSION}')
-        self.no_messages_yet = False
-
-    def info(self, message):
-        """issue plain message"""
-        if self.no_messages_yet:
-            self.version()
-        self.color(message, severity=0)
+    def __init__(self, quiet=False, colors=None):
+        super().__init__('xbas99', VERSION, {Warnings.DEFAULT: not quiet}, colors=colors)
 
     def warn(self, message):
         """issue warning message"""
-        if self.quiet:
-            return
-        if self.no_messages_yet:
-            self.version()
-        self.color(message, severity=1)
+        super().warn(None, message)
 
-    def error(self, message):
+    def error(self, message, info=None):
         """issue error message"""
-        if self.no_messages_yet:
-            self.version()
-        self.errors = True
-        self.color(message, severity=2)
-
-    def color(self, message, severity=0):
-        if not self.colors:
-            sys.stderr.write(message + '\n')
-        elif severity == 1:
-            sys.stderr.write('\x1b[33m' + message + '\x1b[0m' + '\n')  # yellow
-        elif severity == 2:
-            sys.stderr.write('\x1b[31m' + message + '\x1b[0m' + '\n')  # red
-        else:
-            sys.stderr.write(message + '\n')
+        super().error(info, message)
 
 
 # Command line processing
@@ -680,8 +633,7 @@ class Xbas99Processor(CommandProcessor):
     def __init__(self):
         super().__init__(BasicError)
         self.program = None
-        self.console = None
-        
+
     def parse(self):
         args = argparse.ArgumentParser(description='TI BASIC and TI Extended BASIC tool, v' + VERSION)
         args.add_argument('source', metavar='<source>', help='TI BASIC or TI Extended BASIC program')
@@ -726,7 +678,7 @@ class Xbas99Processor(CommandProcessor):
     def run(self):
         basename = os.path.basename(self.opts.source)
         self.barename, ext = os.path.splitext(basename)
-        self.console = Console(self.opts.quiet, self.opts.color)
+        self.console = Xbas99Console(self.opts.quiet, self.opts.color)
         self.program = BasicProgram(long_fmt=self.opts.long_, labels=self.opts.labels, protected=self.opts.protect,
                                     console=self.console)
 
@@ -771,10 +723,10 @@ class Xbas99Processor(CommandProcessor):
         self.result.append(RFile(data=prg_data, name=self.barename, ext='.prg'))
 
     def output(self):
-        super().output()
         unused_labels = self.program.get_unused_labels()
         if unused_labels:
             self.console.warn('Warning: Unused labels: {}'.format(' '.join(unused_labels)))
+        super().output()
 
     def errors(self):
         return 1 if self.console.errors else self.rc

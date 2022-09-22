@@ -1,10 +1,9 @@
 #!/usr/bin/env python3
 
 import os
-import glob
 
 from config import Dirs, Disks, Files, XAS99_CONFIG
-from utils import (xas, xdm, error, clear_env, delfile, check_obj_code_eq, check_binary_files_eq, read_stderr,
+from utils import (xas, xdm, r, error, clear_env, delfile, check_obj_code_eq, check_binary_files_eq, read_stderr,
                    check_errors, get_source_markers, check_dat_file_eq, content, content_lines, content_len,
                    content_line_array)
 
@@ -158,7 +157,7 @@ def runtest():
 
     xas(source, '-t', 'a2', '-a', '0xb000', '-q', '-o', Files.output)
     for i, a in enumerate(['_b000', '_b023', '_b030', '_b080']):
-        ref = os.path.join(Dirs.refs, f'asxsave_{i}.bin')
+        ref = r(f'asxsave_{i}.bin')
         check_dat_file_eq(Files.output + a, ref)
 
     source = os.path.join(Dirs.sources, 'asxsavee.asm')
@@ -203,7 +202,7 @@ def runtest():
     source = os.path.join(Dirs.sources, 'asxbank1.asm')
     xas(source, '-b', '-X', '-q', '-o', Files.output)
     save2s = [Files.output + '_b' + str(ext) for ext in range(3)]
-    check_concat_eq(save2s, os.path.join(Dirs.refs, 'save2'))
+    check_concat_eq(save2s, r('save2'))
 
     source = os.path.join(Dirs.sources, 'asxbank2.asm')
     xas(source, '-b', '-q', '-M', '-X', '-o', Files.output)
@@ -268,7 +267,7 @@ def runtest():
     xas(source, '-t', 'c', '-o', Files.output + '5')
     save5s = [Files.output + ext
               for ext in ['1', '2', '3', '4', '5']]
-    check_lines_eq(save5s, os.path.join(Dirs.refs, 'asxtext'))
+    check_lines_eq(save5s, r('asxtext'))
 
     # new EQU and WEQU semantics
     source = os.path.join(Dirs.sources, 'asxwequ.asm')
@@ -331,18 +330,18 @@ def runtest():
     # floating-point numbers
     source = os.path.join(Dirs.sources, 'asfloat.asm')
     xas(source, '-b', '-o', Files.output)
-    ref = os.path.join(Dirs.refs, 'asfloat.ref')
+    ref = r('asfloat.ref')
     check_binary_files_eq('float', Files.output, ref)
 
     # 9995, 99000 and F18A
     source1 = os.path.join(Dirs.sources, 'as9995.asm')
     xas(source1, '-R', '-b', '-5', '-o', Files.output)
-    ref = os.path.join(Dirs.refs, 'as9995.ref')
+    ref = r('as9995.ref')
     check_binary_files_eq('9995', Files.output, ref)
 
     source2 = os.path.join(Dirs.sources, 'asf18a.asm')
     xas(source2, '-R', '-b', '--f18a', '-o', Files.output)
-    ref = os.path.join(Dirs.refs, 'asf18a.ref')
+    ref = r('asf18a.ref')
     check_binary_files_eq('f18a', Files.output, ref)
 
     with open(source1, 'r') as f1, open(source2, 'r') as f2:
@@ -354,25 +353,25 @@ def runtest():
 
     source = os.path.join(Dirs.sources, 'as99000.asm')
     xas(source, '-b', '-R', '--99105', '-o', Files.output)  # also option -105
-    ref = os.path.join(Dirs.refs, 'as99000.ref')
+    ref = r('as99000.ref')
     check_binary_files_eq('99000', Files.output, ref)
 
     # cycle counting
     source = os.path.join(Dirs.sources, 'asxtime.asm')
-    ref = os.path.join(Dirs.refs, 'asxtime.ref')
+    ref = r('asxtime.ref')
     xas(source, '-R', '-b', '-o', Files.output, '-L', Files.input)
     check_timing(Files.input, ref)
 
     # pragmas: cycle timing
     source = os.path.join(Dirs.sources, 'asxpragt.asm')
     xas(source, '-R', '-b', '-o', Files.output, '-L', Files.input)
-    ref = os.path.join(Dirs.refs, 'asxpragt.ref')
+    ref = r('asxpragt.ref')
     check_timing(Files.input, ref)
 
     # pragmas: warnings
     source = os.path.join(Dirs.sources, 'asxpragw.asm')
     with open(Files.error, 'w') as ferr:
-        xas(source, '-R', '--color', 'off', '-o', Files.output, stderr=ferr, rc=0)
+        xas(source, '-R', '--color', 'off', '--quiet-unused-syms', '-o', Files.output, stderr=ferr, rc=0)
     expected = """> asxpragw.asm <2> 0005 - start  clr 0            ; WARN
  ***** Warning: Treating 0 as register, did you intend an @address?
  > asxpragw.asm <2> 0010 -        b   @start       ;: warn-opts = off, usage=on

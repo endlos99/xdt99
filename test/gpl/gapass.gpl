@@ -1,7 +1,12 @@
 * MULTI-PASS TEST (9 PASSES)
- 
-        GROM >6000
-        AORG >0030
+* The 9th path is to confirm that no values change.
+
+* st 1, @0     = 5 bytes
+* st 1, @>8380 = 4 bytes
+* st 1, @>837F = 3 bytes
+
+
+        GROM 0
 
 L0      ALL  32
 
@@ -16,15 +21,19 @@ S8      ST   8,@CPU8
 
         EXIT
 
-CPU1    EQU  >837F
-CPU2    EQU  >837F+S2-S1-3
-CPU3    EQU  >837F+S3-S1-3-3
-CPU4    EQU  >837F+S4-S1-3-3-3
-CPU5    EQU  >837F+S5-S1-3-3-3-3
-CPU6    EQU  >837F+S6-S1-3-3-3-3-3
-CPU7    EQU  >837F+S7-S1-3-3-3-3-3-3
-CPU8    EQU  >837F+S8-S1-3-3-3-3-3-3-3
+* in pass 0, all expressions evaluate to 0!
+M       EQU L2-L1             ; M=1 iff. pass 1+
 
-        DATA S8
+CPU1    EQU  >837F
+CPU2    EQU  S2-S1-1-3*M+>8380      ; relies on non-standard precedence!
+CPU3    EQU  S3-S1-1-3-3*M+>8380
+CPU4    EQU  S4-S1-1-3-3-3*M+>8380
+CPU5    EQU  S5-S1-1-3-3-3-3*M+>8380
+CPU6    EQU  S6-S1-1-3-3-3-3-3*M+>8380
+CPU7    EQU  S7-S1-1-3-3-3-3-3-3*M+>8380
+CPU8    EQU  S8-S1-1-3-3-3-3-3-3-3*M+>8380
+
+L1      BYTE 1
+L2      BYTE 2
 
         END

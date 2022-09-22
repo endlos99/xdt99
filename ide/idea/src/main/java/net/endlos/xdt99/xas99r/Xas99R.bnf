@@ -47,6 +47,7 @@ directive ::=
     DIR_E args_dir_E |
     DIR_EO args_dir_EO |
     DIR_ES args_dir_ES |
+    DIR_EV args_dir_EV |
     DIR_R args_dir_E |
     DIR_T args_dir_T |
     DIR_S args_dir_S |
@@ -96,6 +97,9 @@ args_dir_EO ::=
     expr?
 args_dir_ES ::=
     expr (OP_SEP expr)*
+args_dir_EV ::=
+    expr OP_SEP expr? |
+    OP_SEP expr
 args_dir_T ::=
     opText (OP_SEP opText)*
 args_dir_S ::=

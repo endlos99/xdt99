@@ -3,7 +3,7 @@
 import os
 
 from config import Dirs, Disks, Files, XGA99_CONFIG
-from utils import (xga, xdm, error, clear_env, delfile, check_binary_files_eq, check_gbc_files_eq, content,
+from utils import (xga, xdm, r, error, clear_env, delfile, check_binary_files_eq, check_gbc_files_eq, content,
                    content_lines, content_line_array)
 
 
@@ -59,7 +59,7 @@ def runtest():
     # floating-point numbers
     source = os.path.join(Dirs.gplsources, 'gafloat.gpl')
     xga(source, '-o', Files.output)
-    ref = os.path.join(Dirs.refs, 'asfloat.ref')
+    ref = r('asfloat.ref')
     check_binary_files_eq('float', Files.output, ref)
 
     # GROM n or address
@@ -80,9 +80,9 @@ def runtest():
     source = os.path.join(Dirs.gplsources, 'gauusym.gpl')
     with open(Files.error, 'w') as ferr:
         xga(source, '--color', 'off', '-o', Files.output, stderr=ferr, rc=0)
-    expected = """> gauusym.gpl <1> **** - 
+    expected = """> gauusym.gpl <-> **** - 
  ***** Warning: Unused constants: s1:5
- > gauusymi.gpl <1> **** - 
+ > gauusymi.gpl <-> **** - 
  ***** Warning: Unused constants: si:1
 """
     if content_lines(Files.error, skip=1) != expected:

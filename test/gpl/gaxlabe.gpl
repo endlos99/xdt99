@@ -1,0 +1,14 @@
+* cont labels
+
+foo:
+bar    all 1                  ;ERROR
+
+baz
+quux:  all 1
+       all 2
+
+       .ifeq baz, quux
+       .error                 ;ERROR
+       .endif
+
+       end

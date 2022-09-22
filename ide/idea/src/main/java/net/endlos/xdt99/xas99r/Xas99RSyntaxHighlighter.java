@@ -27,8 +27,8 @@ public class Xas99RSyntaxHighlighter extends SyntaxHighlighterBase {
             Xas99RTypes.INSTR_99000_I, Xas99RTypes.INSTR_99000_IV, Xas99RTypes.INSTR_99000_VI,
             Xas99RTypes.INSTR_99000_VIII);
     public static final TokenSet directives = TokenSet.create(Xas99RTypes.DIR_L, Xas99RTypes.DIR_E, Xas99RTypes.DIR_ES,
-            Xas99RTypes.DIR_EO, Xas99RTypes.DIR_RA, Xas99RTypes.DIR_R, Xas99RTypes.DIR_T, Xas99RTypes.DIR_S,
-            Xas99RTypes.DIR_O, Xas99RTypes.DIR_X);
+            Xas99RTypes.DIR_EO, Xas99RTypes.DIR_EV, Xas99RTypes.DIR_RA, Xas99RTypes.DIR_R, Xas99RTypes.DIR_T,
+            Xas99RTypes.DIR_S, Xas99RTypes.DIR_O, Xas99RTypes.DIR_X);
     public static final TokenSet text = TokenSet.create(Xas99RTypes.OP_QUOTE, Xas99RTypes.TEXT, Xas99RTypes.OP_FQUOTE,
             Xas99RTypes.FNAME);
     public static final TokenSet operators = TokenSet.create(Xas99RTypes.OP_AT, Xas99RTypes.OP_AST,

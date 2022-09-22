@@ -5,7 +5,7 @@ import shutil
 import re
 
 from config import Dirs, Disks, Files, XDM99_CONFIG
-from utils import xdm, error, clear_env, delfile, check_bin_text_eq
+from utils import xdm, r, error, clear_env, delfile, check_bin_text_eq
 
 
 # Check functions
@@ -71,11 +71,9 @@ def runtest():
 
     # read special records
     xdm(Disks.work, '-e', 'F10R', '-o', Files.output)
-    check_bin_text_eq('VAR Records', Files.output,
-                      os.path.join(Dirs.refs, 'f10r.txt'))
+    check_bin_text_eq('VAR Records', Files.output, r('f10r.txt'))
     xdm(Disks.work, '-e', 'V10R', '-o', Files.output)
-    check_bin_text_eq('VAR Records', Files.output,
-                      os.path.join(Dirs.refs, 'v10r.txt'))
+    check_bin_text_eq('VAR Records', Files.output, r('v10r.txt'))
 
     # re-write extracted records and check
     for fn in [

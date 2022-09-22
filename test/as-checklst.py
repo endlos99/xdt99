@@ -3,7 +3,7 @@
 import os
 
 from config import Dirs, Disks, Files, XAS99_CONFIG
-from utils import (xas, xdm, error, clear_env, delfile, check_list_files_eq, check_text_files_eq,
+from utils import (xas, xdm, r, error, clear_env, delfile, check_list_files_eq, check_text_files_eq,
                    check_list_against_binary)
 
 
@@ -83,24 +83,24 @@ def runtest():
     # bytes and padding
     source = os.path.join(Dirs.sources, 'aslist.asm')
     xas(source, '-o', Files.input, '-L', Files.output)
-    ref = os.path.join(Dirs.refs, 'aslist.lst')
+    ref = r('aslist.lst')
     check_text_files_eq('listbytes', Files.output, ref, skip=1)
 
     # symbols
     source = os.path.join(Dirs.sources, 'ashello.asm')
     xas(source, '-R', '-L', Files.output, '-S', '-q', '-o', Files.input)
-    reffile = os.path.join(Dirs.refs, 'ashello.sym')
+    reffile = r('ashello.sym')
     check_end_equal(Files.output, reffile)
 
     # EQUs
     source = os.path.join(Dirs.sources, 'ashello.asm')
     xas(source, '-R', '-E', Files.output, '-q', '-o', Files.input)
-    reffile = os.path.join(Dirs.refs, 'ashello.sym')
+    reffile = r('ashello.sym')
     check_sym_equ_equiv(Files.output, reffile)
 
     # auto-generated constants
     source = os.path.join(Dirs.sources, 'asauto.asm')
-    reffile = os.path.join(Dirs.refs, 'asauto.lst')
+    reffile = r('asauto.lst')
     with open(reffile, 'r') as fref:
         reflines = [line.rstrip() for line in fref.readlines()]
     xas(source, '-R', '-o', Files.error, '-S', '-L', Files.output)

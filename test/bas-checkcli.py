@@ -3,7 +3,7 @@
 import os
 
 from config import Files, Dirs, XBAS99_CONFIG
-from utils import xbas, check_binary_files_eq, error, clear_env, delfile, content, content_len
+from utils import xbas, t, check_binary_files_eq, error, clear_env, delfile, content, content_len
 
 
 # Main test
@@ -21,7 +21,7 @@ def runtest():
     check_binary_files_eq('stdout', Files.output, Files.reference)
 
     xbas(source, '-c', '-o', Dirs.tmp)
-    if not os.path.isfile(os.path.join(Dirs.tmp, 'bashello.prg')):
+    if not os.path.isfile(t('bashello.prg')):
         error('output', '-o <dir> failed')
 
     # join
@@ -76,7 +76,7 @@ def runtest():
     source = os.path.join(Dirs.basic, 'bashello.bas')
     xbas(source, '-o', Files.reference)
     xbas(source, '-o', Dirs.tmp)
-    if content(Files.reference) != content(os.path.join(Dirs.tmp, 'bashello.prg')):
+    if content(Files.reference) != content(t('bashello.prg')):
         error('path output', 'Image contents mismatch')
 
     # cleanup

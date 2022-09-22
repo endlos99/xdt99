@@ -53,6 +53,12 @@ public class Xas99RDirectiveImpl extends ASTWrapperPsiElement implements Xas99RD
 
   @Override
   @Nullable
+  public Xas99RArgsDirEV getArgsDirEV() {
+    return findChildByClass(Xas99RArgsDirEV.class);
+  }
+
+  @Override
+  @Nullable
   public Xas99RArgsDirF getArgsDirF() {
     return findChildByClass(Xas99RArgsDirF.class);
   }
