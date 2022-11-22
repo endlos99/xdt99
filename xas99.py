@@ -29,7 +29,7 @@ from functools import reduce
 from xcommon import Util, RFile, CommandProcessor, Warnings, Console
 
 
-VERSION = '3.5.2'
+VERSION = '3.5.3'
 
 CONFIG = 'XAS99_CONFIG'
 
@@ -2008,6 +2008,7 @@ class Program:
         self.idt = None
         self.entry = None  # start address of program
         self.unit_count = 0
+        self.max_bank = 0
         self.max_reloc_LC = {}  # by unit_id
         self.reloc_intervals = {}  # by unit_id
         self.absolute_intervals = []
@@ -2025,6 +2026,7 @@ class Program:
             self.idt = name
 
     def layout_program(self, base, resolve_conflicts):
+        """prepare linking process"""
         self.sort_segments()
         if resolve_conflicts:
             return self.get_resolved_unit_offsets(base)
@@ -2036,6 +2038,8 @@ class Program:
         for segment in self.segments:
             unit_id = segment.symbols.unit_id
             self.unit_count = max(self.unit_count, unit_id + 1)
+            if segment.bank != Symbols.BANK_ALL:
+                self.max_bank = max(self.max_bank, segment.bank or 0)
             if segment.dummy or (segment.root and segment.max_LC == 0):
                 continue  # exclude dummy segments and empty root segments
             if segment.reloc:
@@ -3429,7 +3433,8 @@ class Xas99Processor(CommandProcessor):
         else:
             use_base = Program.max_bins_per_bank(binaries) > 1
             for bank, save, addr, data in binaries:
-                tag = Util.name_suffix(base=addr, bank=bank, use_base=use_base, bank_count=self.linker.bank_count)
+                tag = Util.name_suffix(base=addr, bank=bank, use_base=use_base, bank_count=self.linker.bank_count,
+                                       max_bank=self.linker.program.max_bank)
                 self.result.append(RFile(data, self.barename, '.bin', suffix=tag))
 
     def text(self):
@@ -3439,7 +3444,8 @@ class Xas99Processor(CommandProcessor):
         else:
             use_base = Program.max_bins_per_bank(texts) > 1
             for bank, save, addr, text in texts:
-                tag = Util.name_suffix(base=addr, bank=bank, use_base=use_base, bank_count=self.linker.bank_count)
+                tag = Util.name_suffix(base=addr, bank=bank, use_base=use_base, bank_count=self.linker.bank_count,
+                                       max_bank=self.linker.program.max_bank)
                 self.result.append(RFile(text, self.barename, '.dat', suffix=tag, istext=True))
 
     def image(self):

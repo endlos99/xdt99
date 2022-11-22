@@ -421,9 +421,10 @@ class Util:
         return "'" + ''.join(chr(b) if 32 <= b < 127 else '.' for b in bytes_) + "'"
 
     @staticmethod
-    def name_suffix(base=None, bank=None, use_base=False, bank_count=0):
+    def name_suffix(base=None, bank=None, use_base=False, bank_count=0, max_bank=0):
+        bank_len = len(str(max_bank))  # avoid log()ing ...
         return (('' if not use_base else f'_{base:04x}') +
-                ('' if bank is None or bank_count <= 1 else f'_b{bank}'))
+                ('' if bank is None or bank_count <= 1 else f'_b{bank:0{bank_len}d}'))
 
     @staticmethod
     def barename(path):

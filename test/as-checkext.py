@@ -226,6 +226,17 @@ def runtest():
     xas(ref2, '-b', '-R', '-X', '-o', Files.reference)
     check_binary_files_eq('BANK', Files.output + '_b1', Files.reference)
 
+    # equal length bank suffix
+    source = os.path.join(Dirs.sources, 'asxbankf.asm')
+    xas(source, '-b', '-o', Files.output)
+    for i in range(10):
+        if not os.path.isfile(Files.output + f'_b{i}'):
+            error('bank format', 'bad bank suffix')
+    xas(source, '-b', '-D', 'L2', '-o', Files.input)
+    for i in range(12):
+        if not os.path.isfile(Files.input + f'_b{i:02d}'):
+            error('bank format', 'bad bank suffix')
+
     # cross-bank access
     source = os.path.join(Dirs.sources, 'asxbank.asm')
     with open(Files.error, 'w') as ferr:
