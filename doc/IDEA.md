@@ -127,7 +127,7 @@ is shown here:
 
   - ![Squiggle](img/squiggle.png) Squiggles denote syntax errors, such as bad
     operands, incorrect expressions, or erroneous spaces.
-  - ![Red Text](img/red-text.png) Read text highlight other errors, such as
+  - ![Red Text](img/red-text.png) Red text highlight other errors, such as
     undefined symbols.
   - ![Grey Labels](img/grey-text.png) Grey labels represent unused labels.
   - ![Colored Background](img/colored-background.png) A color background
@@ -308,11 +308,11 @@ The highlighter also marks the following errors and warnings:
 
   - ![Squiggle](img/squiggle-basic.png) Squiggles denote basic syntax errors and
     string/number mismatches
-  - ![Red Text](img/red-basic.png) Read text highlights other errors, such as
-    variables that are never written to (and thus can be replaced by 0), or TI
+  - ![Red Text](img/red-basic.png) Red text highlights other errors, such as
+    variables that are never written to (and thus potentially misspelled), or TI
     Extended BASIC constructs used in a TI BASIC program
-  - ![Grey Variables](img/grey-vars.png) Grey variables are variables that are
-    never read (and thus are useless)
+  - ![Grey Variables](img/grey-vars.png)Grey variables are variables that are 
+    never read (and thus useless)
 
 Hovering over any mark for errors or warnings provides additional information on
 why this part of the code has been flagged.
