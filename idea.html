@@ -7,7 +7,9 @@ pre > code { border: 0; margin: 0; padding: 0; }
 table { text-align: left; }
 th { border-bottom: 1px dashed; padding-left: 1.5ex; }
 td { padding-left: 1.5ex; }
-a, a:visited { color: #11a; text-decoration: none; }
+a { color: #11a !important; text-decoration: none; }
+a:visited { color: #77f !important; text-decoration: none; }
+a:hover { text-decoration: underline; }
 </style>
 <h1>xdt99 IDEA Plugin</h1>
 <p>The <em>xdt99 IDEA plugin</em> version 3.3 makes the IntelliJ IDEA IDE's advanced code
@@ -99,7 +101,7 @@ is shown here:</p>
 <ul>
 <li><img alt="Squiggle" src="img/squiggle.png" /> Squiggles denote syntax errors, such as bad
     operands, incorrect expressions, or erroneous spaces.</li>
-<li><img alt="Red Text" src="img/red-text.png" /> Read text highlight other errors, such as
+<li><img alt="Red Text" src="img/red-text.png" /> Red text highlight other errors, such as
     undefined symbols.</li>
 <li><img alt="Grey Labels" src="img/grey-text.png" /> Grey labels represent unused labels.</li>
 <li><img alt="Colored Background" src="img/colored-background.png" /> A color background
@@ -228,11 +230,8 @@ their meaning.</p>
 <ul>
 <li><img alt="Squiggle" src="img/squiggle-basic.png" /> Squiggles denote basic syntax errors and
     string/number mismatches</li>
-<li><img alt="Red Text" src="img/red-basic.png" /> Read text highlights other errors, such as
-    variables that are never written to (and thus can be replaced by 0), or TI
-    Extended BASIC constructs used in a TI BASIC program</li>
-<li><img alt="Grey Variables" src="img/grey-vars.png" /> Grey variables are variables that are
-    never read (and thus are useless)</li>
+<li><img alt="Red Text" src="img/red-basic.png" /> Red text highlights other errors, such as variables that are never written to (and thus potentially misspelled), non-existing line numbers or labels, or TI Extended BASIC constructs used in a TI BASIC program</li>
+<li><img alt="Grey Variables" src="img/grey-vars.png" /> Grey variables are variables that are never read (and thus useless)</li>
 </ul>
 <p>Hovering over any mark for errors or warnings provides additional information on
 why this part of the code has been flagged.</p>
