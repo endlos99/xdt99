@@ -28,7 +28,7 @@ import zipfile
 from xcommon import CommandProcessor, RFile, Util, Warnings, Console
 
 
-VERSION = '3.5.2'
+VERSION = '3.5.4'
 
 CONFIG = 'XGA99_CONFIG'
 
@@ -640,19 +640,22 @@ class Preprocessor:
         self.parse_branches = []
         self.parse_else = False
         self.parse_macro = None
+        self.parse_repeat = False  # parsing repeat section?
+        self.repeat_count = 0  # number of repetitions
         self.macros = {'VERS': [f" text '{VERSION}'"]}  # macros defined (with predefined macros)
 
     def args(self, ops):
-        lhs = self.parser.expression(ops[0], needed=True)
-        rhs = self.parser.expression(ops[1], needed=True) if len(ops) > 1 else 0
+        lhs = self.parser.expression(ops[0], for_pass_0=True)
+        rhs = self.parser.expression(ops[1], for_pass_0=True) if len(ops) > 1 else 0
         return lhs, rhs
 
     def DEFM(self, code, ops):
+        """define macro"""
         if len(ops) != 1:
             raise AsmError('Invalid syntax')
         self.parse_macro = ops[0]
         if self.parse_macro in ('DEFM', 'ENDM', 'IFDEF', 'IFNDEF', 'IFEQ', 'IFNE', 'IFGE', 'IFGT', 'IFLE', 'IFLT',
-                                'ELSE', 'ENDIF', 'PRINT', 'ERROR'):
+                                'ELSE', 'ENDIF', 'REPT', 'ENDR', 'PRINT', 'ERROR'):
             raise AsmError('Invalid macro name')
         if self.parse_macro in self.macros:
             raise AsmError('Duplicate macro name')
@@ -660,6 +663,16 @@ class Preprocessor:
 
     def ENDM(self, code, ops):
         raise AsmError('Found .ENDM without .DEFM')
+
+    def REPT(self, asm, ops):
+        """repeat section n times"""
+        self.repeat_count = self.parser.expression(ops[0], for_pass_0=True)
+        self.parse_repeat = True
+        self.parse_macro = '.rept'  # use lower case name as impossible macro name
+        self.macros['.rept'] = []  # collect repeated section as '.rept' macro
+
+    def ENDR(self, asm, ops):
+        raise AsmError('Found .ENDR without .REPT')
 
     def IFDEF(self, code, ops):
         self.parse_branches.append((self.parse, self.parse_else))
@@ -733,11 +746,30 @@ class Preprocessor:
 
     def process(self, asm, label, mnemonic, operands, line):
         """process preprocessor directive"""
+        if self.parse_repeat:
+            if mnemonic == '.ENDR':
+                self.parse_repeat = False
+                self.parse_macro = None
+                self.macros['.rept'] *= self.repeat_count  # repeat section
+                self.parser.open(macro='.rept', macro_args=())  # open '.rept' macro
+            elif mnemonic == '.REPT':
+                raise AsmError('Cannot repeat within repeat section')
+            elif mnemonic == '.DEFM':
+                raise AsmError('Cannot define macro within repeat section')
+            elif mnemonic == '.ENDM':
+                raise AsmError('Found .ENDM without .DEFM')
+            else:
+                self.macros[self.parse_macro].append(line)
+            return False, None, None
         if self.parse_macro:
             if mnemonic == '.ENDM':
                 self.parse_macro = None
             elif mnemonic == '.DEFM':
                 raise AsmError('Cannot define macro within macro')
+            elif mnemonic == '.REPT':
+                raise AsmError('Cannot repeat section within macro')
+            elif mnemonic == '.ENDR':
+                raise AsmError('Found .ENDR without .REPT')
             else:
                 self.macros[self.parse_macro].append(line)
             return False, None, None
@@ -822,7 +854,8 @@ class Parser:
         else:
             newfile = None
         if self.source is not None:
-            self.suspended_files.append((self.filename, self.path, self.source, self.macro_args, self.lino))
+            self.suspended_files.append((self.filename, self.path, self.source,
+                                         self.in_macro_instantiation, self.macro_args, self.lino))
         if filename:
             self.path, self.filename = os.path.split(newfile)
             self.source = Util.readlines(newfile)
@@ -831,6 +864,7 @@ class Parser:
             self.source = self.prep.macros[macro]
             self.macro_args = macro_args or []
             self.in_macro_instantiation = True
+        self.filename = filename or macro
         self.lino = 0
         self.intermediate_source.append(IntmLine(IntmLine.OPEN, filename=self.filename))
 
@@ -847,7 +881,8 @@ class Parser:
     def resume(self):
         """close current source file and resume previous one"""
         try:
-            self.filename, self.path, self.source, self.macro_args, self.lino = self.suspended_files.pop()
+            (self.filename, self.path, self.source,
+             self.in_macro_instantiation, self.macro_args, self.lino) = self.suspended_files.pop()
             self.intermediate_source.append(IntmLine(IntmLine.RESUME, filename=self.filename))
             return True
         except IndexError:
@@ -1020,7 +1055,7 @@ class Parser:
             return Operand(value, imm=2 if is_d else 1)
         raise AsmError('Invalid G{:s} address operand: {:s}'.format('s' if is_gs else 'd', op))
 
-    def expression(self, expr, needed=False):
+    def expression(self, expr, for_pass_0=False):
         """parse complex arithmetical expression"""
         value = Word(0, pass_no=self.symbols.pass_no)
         stack = []
@@ -1049,7 +1084,7 @@ class Parser:
                         op, term, negate, corr = '+', terms[i + 1], False, 0
                         value = Word(0)
                     i += 2
-                term_val = self.term(term, needed)
+                term_val = self.term(term, for_pass_0)
                 if isinstance(term_val, Local):
                     dist = -term_val.distance if negate else term_val.distance
                     term_val = self.symbols.get_local(term_val.name, dist)
@@ -1075,9 +1110,9 @@ class Parser:
                 raise AsmError('Invalid operator: ' + op)
         return value.value
 
-    def byte_expression(self, expr, needed=False):
+    def byte_expression(self, expr, for_pass_0=False):
         """parse complex arithmetical expression yield byte value"""
-        value = self.expression(expr, needed=needed)
+        value = self.expression(expr, for_pass_0=for_pass_0)
         return value & 0xff
 
     def check_arith_precedence(self, operators, i=2):
@@ -1109,7 +1144,7 @@ class Parser:
             possible_sign = True
         return False, None
 
-    def term(self, op, needed=False):
+    def term(self, op, for_pass_0=False):
         """parse term"""
         if op[0] == '>':
             return int(op[1:], 16)
@@ -1133,7 +1168,7 @@ class Parser:
             else:
                 raise AsmError('Invalid text literal: ' + c)
         else:
-            v = self.symbols.get_symbol(op, required=True, for_pass_0=needed)
+            v = self.symbols.get_symbol(op, required=True, for_pass_0=for_pass_0)
             return v
 
     def value(self, op):
@@ -1356,9 +1391,11 @@ class Assembler:
             except AsmError as e:
                 self.console.error(str(e))
         if self.parser.prep.parse_branches:
-            self.console.error('***** Error: Missing .endif', nopos=True)
-        if self.parser.prep.parse_macro:
-            self.console.error('***** Error: Missing .endm', nopos=True)
+            self.console.error('Missing .ENDIF', nopos=True)
+        if self.parser.prep.parse_repeat:
+            self.console.error('Missing .ENDR', nopos=True)
+        elif self.parser.prep.parse_macro:
+            self.console.error('Missing .ENDM', nopos=True)
 
     def pass_n(self):
         """subsequent passes generating GPL virtual machine code"""

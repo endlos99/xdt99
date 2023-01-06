@@ -173,10 +173,12 @@ def content_cat(fn):
     return lines
 
 
-def content_line_array(fn):
+def content_line_array(fn, strip=False):
     """return lines of file"""
     with open(fn, 'r') as f:
         lines = f.readlines()
+    if strip:
+        return [line.strip() for line in lines]
     return lines
 
 

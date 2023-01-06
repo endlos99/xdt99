@@ -29,7 +29,7 @@ from functools import reduce
 from xcommon import Util, RFile, CommandProcessor, Warnings, Console
 
 
-VERSION = '3.5.3'
+VERSION = '3.5.4'
 
 CONFIG = 'XAS99_CONFIG'
 
@@ -1220,6 +1220,8 @@ class Preprocessor:
         self.parse_else = False  # has .else branch been parsed for current .if?
         self.parse_branches = []  # parse status before hitting .ifX
         self.parse_macro = None  # name of macro currently parsing
+        self.parse_repeat = False  # parsing repeat section?
+        self.repeat_count = 0  # number of repetitions
         self.macros = {'VERS': [f" text '{VERSION}'"]}  # macros defined (including predefined macros)
 
     def args(self, ops):
@@ -1235,11 +1237,12 @@ class Preprocessor:
                 for op in ops]
 
     def DEFM(self, asm, ops):
+        """define macro"""
         if len(ops) != 1:
             raise AsmError('Invalid syntax')
         self.parse_macro = ops[0]
         if self.parse_macro in ('DEFM', 'ENDM', 'IFDEF', 'IFNDEF', 'IFEQ', 'IFNE', 'IFGE', 'IFGT', 'IFLE', 'IFLT',
-                                'ELSE', 'ENDIF', 'PRINT', 'ERROR'):
+                                'ELSE', 'ENDIF', 'REPT', 'ENDR', 'PRINT', 'ERROR'):
             raise AsmError('Invalid macro name')
         if self.parse_macro in self.macros:
             raise AsmError('Duplicate macro name')
@@ -1247,6 +1250,16 @@ class Preprocessor:
 
     def ENDM(self, asm, ops):
         raise AsmError('Found .ENDM without .DEFM')
+
+    def REPT(self, asm, ops):
+        """repeat section n times"""
+        self.repeat_count = self.parser.expression(ops[0], well_defined=True)
+        self.parse_repeat = True
+        self.parse_macro = '.rept'  # use lower case name as impossible macro name
+        self.macros['.rept'] = []  # collect repeated section as '.rept' macro
+
+    def ENDR(self, asm, ops):
+        raise AsmError('Found .ENDR without .REPT')
 
     def IFDEF(self, asm, ops):
         self.parse_branches.append((self.parse, self.parse_else))
@@ -1335,11 +1348,30 @@ class Preprocessor:
 
     def process(self, asm, label, mnemonic, operands, line):
         """process preprocessor commands (for pass 1)"""
+        if self.parse_repeat:
+            if mnemonic == '.ENDR':
+                self.parse_repeat = False
+                self.parse_macro = None
+                self.macros['.rept'] *= self.repeat_count  # repeat section
+                self.parser.open(macro='.rept', macro_args=())  # open '.rept' macro
+            elif mnemonic == '.REPT':
+                raise AsmError('Cannot repeat within repeat section')
+            elif mnemonic == '.DEFM':
+                raise AsmError('Cannot define macro within repeat section')
+            elif mnemonic == '.ENDM':
+                raise AsmError('Found .ENDM without .DEFM')
+            else:
+                self.macros[self.parse_macro].append(line)
+            return False, False, None, None  # macro definition
         if self.parse_macro:
             if mnemonic == '.ENDM':
                 self.parse_macro = None
             elif mnemonic == '.DEFM':
                 raise AsmError('Cannot define macro within macro')
+            elif mnemonic == '.REPT':
+                raise AsmError('Cannot repeat section within macro')
+            elif mnemonic == '.ENDR':
+                raise AsmError('Found .ENDR without .REPT')
             else:
                 self.macros[self.parse_macro].append(line)
             return False, False, None, None  # macro definition
@@ -1426,7 +1458,8 @@ class Parser:
         else:
             newfile = None
         if self.source is not None:
-            self.suspended_files.append((self.filename, self.path, self.source, self.macro_args, self.lino))
+            self.suspended_files.append((self.filename, self.path, self.source,
+                                         self.in_macro_instantiation, self.macro_args, self.lino))
         if filename:
             self.path, self.filename = os.path.split(newfile)
             self.source = Util.readlines(newfile)  # might throw error
@@ -1452,7 +1485,8 @@ class Parser:
     def resume(self):
         """close current source file and resume previous one"""
         try:
-            self.filename, self.path, self.source, self.macro_args, self.lino = self.suspended_files.pop()
+            (self.filename, self.path, self.source,
+             self.in_macro_instantiation, self.macro_args, self.lino) = self.suspended_files.pop()
             self.intermediate_source.append(IntmLine(IntmLine.RESUME, filename=self.filename))
             return True
         except IndexError:
@@ -2183,9 +2217,11 @@ class SymbolAssembler:
             except AsmError as e:
                 self.console.error(str(e))
         if self.parser.prep.parse_branches:
-            self.console.error('***** Error: Missing .endif', nopos=True)
-        if self.parser.prep.parse_macro:
-            self.console.error('***** Error: Missing .endm', nopos=True)
+            self.console.error('Missing .ENDIF', nopos=True)
+        if self.parser.prep.parse_repeat:
+            self.console.error('Missing .ENDR', nopos=True)
+        elif self.parser.prep.parse_macro:
+            self.console.error('Missing .ENDM', nopos=True)
 
     def org(self, base, reloc=False, bank=None, dummy=False, xorg=False):
         """open new segment"""

@@ -98,7 +98,7 @@ def runtest():
         xas(source, '-o', Files.output, stderr=ferr, rc=1)
     with open(Files.error, 'r') as fin:
         msgs = ' '.join(fin.readlines())
-    if 'Missing .endif' not in msgs:
+    if 'Missing .ENDIF' not in msgs:
         error('open', 'Missing error for open .if/.endif')
 
     source = os.path.join(Dirs.sources, 'asopenmac.asm')
@@ -106,7 +106,7 @@ def runtest():
         xas(source, '-o', Files.output, stderr=ferr, rc=1)
     with open(Files.error, 'r') as fin:
         msgs = ' '.join(fin.readlines())
-    if 'Missing .endm' not in msgs:
+    if 'Missing .ENDM' not in msgs:
         error('open', 'Missing error for open .defm/.endm')
 
     # macro errors
@@ -261,6 +261,18 @@ def runtest():
     errors = read_stderr(Files.error)
     markers = get_source_markers(source, r';ERROR')
     check_errors(markers, errors)
+
+    # .rept/.endr
+    source = os.path.join(Dirs.sources, 'asxrepte.asm')
+    with open(Files.error, 'w') as ferr:
+        xas(source, '-o', Files.output, stderr=ferr, rc=1)
+    errors = read_stderr(Files.error)
+    markers = get_source_markers(source, r';ERROR')
+    check_errors(markers, errors)
+
+    source = os.path.join(Dirs.sources, 'asxrepte2.asm')
+    with open(Files.error, 'w') as ferr:
+        xas(source, '-o', Files.output, stderr=ferr, rc=1)
 
     # cleanup
     delfile(Dirs.tmp)

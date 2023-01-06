@@ -1,0 +1,25 @@
+* .rept
+
+r:
+       equ  2
+n:
+       equ  0
+
+       grom 3
+       aorg 0
+
+       byte >11
+
+       .rept r + 1
+       byte >22
+       .endr
+
+       byte >88
+
+       .rept n
+       byte >ee
+       .endr
+
+       byte >ff
+
+       end

@@ -36,7 +36,7 @@ def runtest():
         xga(source, '-o', Files.output, stderr=ferr, rc=1)
     with open(Files.error, 'r') as fin:
         msgs = ' '.join(fin.readlines())
-    if 'Missing .endif' not in msgs:
+    if 'Missing .ENDIF' not in msgs:
         error('open', 'Missing error for open .if/.endif')
 
     source = os.path.join(Dirs.gplsources, 'gaopenmac.gpl')
@@ -44,7 +44,7 @@ def runtest():
         xga(source, '-o', Files.output, stderr=ferr, rc=1)
     with open(Files.error, 'r') as fin:
         msgs = ' '.join(fin.readlines())
-    if 'Missing .endm' not in msgs:
+    if 'Missing .ENDM' not in msgs:
         error('open', 'Missing error for open .defm/.endm')
 
     # warnings
@@ -77,6 +77,18 @@ def runtest():
     act_errors = read_stderr(Files.error)
     exp_errors = get_source_markers(source, tag=r';ERROR')
     check_errors(exp_errors, act_errors)
+
+    # .rept/.endr
+    source = os.path.join(Dirs.gplsources, 'gaxrepte.gpl')
+    with open(Files.error, 'w') as ferr:
+        xga(source, '-o', Files.output, stderr=ferr, rc=1)
+    errors = read_stderr(Files.error)
+    markers = get_source_markers(source, r';ERROR')
+    check_errors(markers, errors)
+
+    source = os.path.join(Dirs.gplsources, 'gaxrepte2.gpl')
+    with open(Files.error, 'w') as ferr:
+        xga(source, '-o', Files.output, stderr=ferr, rc=1)
 
     # cleanup
     delfile(Dirs.tmp)

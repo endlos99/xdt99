@@ -437,7 +437,21 @@ def runtest():
     xas(source, '-b', '-q', '-D', 'bin', '-o', Files.output)
     if content(Files.output) != bytes((0x04, 0xcf, 0x02, 0x0f, 0x00, 0x07, 0x04, 0xc7, 0x05, 0xaf, 0x00, 0x07,
                                        0x02, 0x01, 0x00, 0x2d)):
-        error('ralias', 'Binary mismatch')
+        error('ralias', 'Binary output mismatch')
+
+    # .rept/.endr
+    source = os.path.join(Dirs.sources, 'asxrept.asm')
+    xas(source, '-b', '-L', Files.input, '-o', Files.output)
+    if content(Files.output) != b'\x11' * 2 + b'\x22' * 6 + b'\x88' * 2 + b'\xff' * 2:
+        error('rept', 'Binary output mismatch')
+    listing = content_line_array(Files.input, strip=True)
+    try:
+        idx = listing.index('**** ****     > .rept') + 1
+        for i in range(3):
+            if listing[idx + i] != f'000{i + 1:d} 000{2*i + 2} 2222            data >2222':
+                error('rept', 'List file mismatch')
+    except ValueError:
+        error('rept', 'List file .rept marker mismatch')
 
     # cleanup
     delfile(Dirs.tmp)

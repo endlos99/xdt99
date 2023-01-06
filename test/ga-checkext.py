@@ -103,6 +103,20 @@ def runtest():
     if binary[0] != 255 or binary[2:5:2] != b'..' or binary[-1] != 255 or not binary[1:6:2].decode().isdigit():
         error('version', 'Binary with version string mismatch')
 
+    # .rept/.endr
+    source = os.path.join(Dirs.gplsources, 'gaxrept.gpl')
+    xga(source, '-L', Files.input, '-o', Files.output)
+    if content(Files.output) != b'\x11' + b'\x22' * 3 + b'\x88\xff':
+        error('rept', 'Binary output mismatch')
+    listing = content_line_array(Files.input, strip=True)
+    try:
+        idx = listing.index('> .rept') + 1
+        for i in range(3):
+            if listing[idx + i] != f'000{i + 1:d} 600{i + 1} 22         byte >22':
+                error('rept', 'List file mismatch')
+    except ValueError:
+        error('rept', 'List file .rept marker mismatch')
+
     # cleanup
     delfile(Dirs.tmp)
 

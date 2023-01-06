@@ -2080,6 +2080,10 @@ The `.error` command prints a message to `stderr` and aborts the assembly.
            .error 'Cartridge program too large'
            .endif
 
+The `.rept`_n_ preprocessor command repeats the code section between `.rept` and
+`.endr` _n_ times, where _n_ is a well-defined expression.  (As we can see in
+the list file, `.rept` is implemented internally as a macro.)
+
 In addition to symbols defined by labels, `xas99` also sets exactly one of
 
     _xas99_obj
