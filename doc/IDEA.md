@@ -309,8 +309,9 @@ The highlighter also marks the following errors and warnings:
   - ![Squiggle](img/squiggle-basic.png) Squiggles denote basic syntax errors and
     string/number mismatches
   - ![Red Text](img/red-basic.png) Red text highlights other errors, such as
-    variables that are never written to (and thus potentially misspelled), or TI
-    Extended BASIC constructs used in a TI BASIC program
+    variables that are never written to (and thus potentially misspelled), 
+    non-existing line numbers or labels, or TI Extended BASIC constructs used in
+    a TI BASIC program
   - ![Grey Variables](img/grey-vars.png)Grey variables are variables that are 
     never read (and thus useless)
 

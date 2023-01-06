@@ -16,7 +16,7 @@ def runtest():
     for filename, opts, rc, errortext, n in (
             ('baserr1.bas', ('-l', '-c'), 1, 'Error: Unknown label HONK', 2),
             ('baserr2.bas', ('-l', '-c'), 1, 'Error: Label END conflicts with reserved keyword', 0),
-            ('baserr3.bas', ('-c',), 0, 'Syntax error after GO', 1)
+            ('baserr3.bas', ('-c',), 1, 'Error: Syntax error after GO', 2)
     ):
         source = os.path.join(Dirs.basic, filename)
         with open(Files.error, 'w') as ferr:

@@ -1,20 +1,62 @@
-# xdt99
+Changes Version 3.5.4
+=====================
 
-## Installation
+xbas99 TI BASIC and TI Extended BASIC Tool
+------------------------------------------
+
+### xdt99 Extensions
+
+Currently, `xbas99` supports only one extension to the standard BASIC syntax.
+
+In quoted strings (delimited by `"`) and unquoted strings (used, e.g., in `DATA`
+values without quotes), we can include non-ASCII characters by specifying their
+code point with `\x`_nn_ and `\d`_nnn_.  `\x` takes a two-digit hex value, and
+`\d` a three-digit decimal value.
+
+For example, both lines
+
+    200 PRINT "- \xa1 ... 10 POINTS"
+    200 PRINT "- \d161 ... 10 POINTS"
+
+are equivalent to line
+
+    200 PRINT "- "&CHR$(161)&" ... 10 POINTS"
+
+but while the former generates a single literal, the latter only generates an
+expression that is evaluated at run-time.  Thus, using `\d` and `\x` is faster
+(and more concise) than using `CHR$`.
+
+An invalid escape code, such as `\x1foo` or `\d\x`, yields an error.
+
+If we want to include either `\x` or `\d` in a string verbatim, we need to write
+`\\x` or `\\d`, resp.  Note, however, that `\\` still yields `\\`.
+
+To disable character escape codes entirely, we can use the strict option `-s`.
+
+
+
+Changes Version 3.5.2
+=====================
+
+Installation
+------------
 
 All xdt99 files should be placed somewhere in the `$PATH` or where the
 command-line interpreter will find them.  Windows users will find Windows-
 specific instructions in the [Windows Guide][4].
 
 
-## Includes and Filename Handling
+Tutorial
+--------
+
+### Includes and Filename Handling
 
 Please note that both path separators `/` and `\` are supported by `xas99`,
 independent of the platform used.  If both separators occur within one path,
 however, only the platform-native char is used as separator.
 
 
-## Options with List Arguments
+### Options with List Arguments
 
 As we explained in the tutorial, for options with multiple arguments, individual
 arguments may be separated by `,` or space.  When using spaces, however, Python
@@ -59,9 +101,10 @@ Having said all that, it is rather unfortunate that the built-in help for
 We regret that we were unable to include this particular aspect of list options.
 
 
-# xas99
+xas99 Cross-Assembler
+---------------------
 
-## New directives [new summary]
+### New directives [new summary]
 
 In additional to the directives supported by E/A, `xas99` add some new
 directives that simplify some tasks or control advanced functionality.
@@ -139,7 +182,7 @@ plugin][8].  Unlike `xas99`, the plugin clearly separates between aliases and
 regular symbols and only considers one symbol type in any given context.
 
 
-## Pragmas
+### Pragmas
 
 Comments and pragmas can occur on the same line in arbitrary order
 
@@ -152,9 +195,10 @@ but they cannot be split.
     inc 0   ; advance to next item ;: warnings = off ; disable all warnings
 
 
-# xdm99
+xdm99 Disk Manager
+------------------
 
-## Disk geometry
+### Disk geometry
 
 The size of the disk image is given by the number of sectors.  You may also use
 a disk geometry string, which is a string `<m>S<n>D` or `<m>S<n>D<t>T`, where

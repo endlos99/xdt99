@@ -26,7 +26,7 @@ import argparse
 from xcommon import Util, RFile, CommandProcessor, Warnings, Console
 
 
-VERSION = '3.5.2'
+VERSION = '3.5.4'
 
 CONFIG = 'XBAS99_CONFIG'
 
@@ -100,37 +100,37 @@ class Tokens:
               for i, (w, t) in enumerate(tokenlist) if w is not None}
     literals = {0x81 + i: (w, t) for i, (w, t) in enumerate(tokenlist)}
 
-    @classmethod
-    def token(cls, tok):
+    def __init__(self, strict):
+        self.strict = strict
+
+    def token(self, tok):
         """get BASIC token for text literal"""
         try:
-            return cls.tokens[tok.upper()]
+            return self.tokens[tok.upper()]
         except KeyError:
             return None, None
 
-    @classmethod
-    def is_token(cls, tok):
+    def is_token(self, tok):
         """get BASIC token for text literal"""
-        return tok.upper() in cls.tokens
+        return tok.upper() in self.tokens
 
-    @classmethod
-    def qstr_token(cls, s):
+    def qstr_token(self, s):
         """return quoted string token"""
+        bs = self.deasciify(s)
         try:
-            return bytes((cls.QS_VAL,)) + bytes((len(s),)) + s.encode('ascii')
-        except UnicodeEncodeError:
-            raise BasicError('Cannot include non-ASCII characters in program')
+            return bytes((self.QS_VAL,)) + bytes((len(bs),)) + bs
+        except ValueError:
+            raise BasicError('Quoted string too long')
 
-    @classmethod
-    def ustr_token(cls, s):
+    def ustr_token(self, s):
         """return unquoted string token"""
+        bs = self.deasciify(s)
         try:
-            return bytes((cls.US_VAL,)) + bytes((len(s),)) + s.encode('ascii')
-        except UnicodeEncodeError:
-            raise BasicError('Cannot include non-ASCII characters in program')
+            return bytes((self.US_VAL,)) + bytes((len(bs),)) + bs
+        except ValueError:
+            raise BasicError('Unquoted string too long')
 
-    @classmethod
-    def lino_token(cls, s):
+    def lino_token(self, s):
         """return line number token"""
         try:
             lino = int(s)
@@ -138,25 +138,90 @@ class Tokens:
             lino = 0
         if not 1 <= lino <= 32767:
             raise BasicError(f'Invalid line number: {s}')
-        return bytes((cls.LINO_VAL,)) + Util.chrw(lino)
+        return bytes((self.LINO_VAL,)) + Util.chrw(lino)
 
-    @classmethod
-    def literal(cls, tokens):
+    def text(self, tokens):
         """return textual representation of BASIC token(s)"""
-        lit_type, _ = cls.literals[tokens[0]]
+        lit_type, _ = self.literals[tokens[0]]
         try:
             if lit_type == 'qs':
                 lit_value = tokens[1]
-                return '"' + tokens[2:2 + lit_value].decode('ascii').replace('"', '""') + '"', lit_type, lit_value + 2
+                return '"' + self.asciify(tokens[2:2 + lit_value]).replace('"', '""') + '"', lit_type, lit_value + 2
             elif lit_type == 'us':
                 lit_value = tokens[1]
-                return tokens[2:2 + lit_value].decode('ascii'), lit_type, lit_value + 2
+                return self.asciify(tokens[2:2 + lit_value]), lit_type, lit_value + 2
             elif lit_type == 'ln':
                 return str(Util.ordw(tokens[1:3])), lit_type, 3
             else:
                 return lit_type, None, 1  # for all other cases, lit_type == token
         except UnicodeDecodeError:
             raise BasicError('Non-ASCII characters found in program')
+
+    def asciify(self, bs):
+        """decode bytes into ASCII by escaping non-ASCII bytes"""
+        if self.strict:
+            try:
+                return bs.decode('ascii')
+            except UnicodeDecodeError:
+                raise BasicError('Invalid non-ASCII characters found')
+        s = []
+        i = 0
+        while i < len(bs):
+            bb = bs[i:i + 2]
+            if bb == b'\\x' or bb == b'\\d':
+                s.append('\\\\' + chr(bb[1]))  # add extra '\' escape escape sequence
+                i += 1
+            elif 32 <= bb[0] < 128:
+                s.append(chr(bb[0]))  # include ASCII chars in printable range verbatim
+            else:
+                s.append('\\x{:02x}'.format(bb[0]))  # create escape sequence
+            i += 1
+        return ''.join(s)
+
+    def deasciify(self, s):
+        """encode ascii into bytes, resolving escaped non-ASCII codes \\x99 and \\d999"""
+        if self.strict:
+            try:
+                return s.encode('ascii')
+            except UnicodeEncodeError:
+                raise BasicError('Invalid non-ASCII characters found')
+        t = []
+        i = 0
+        while i < len(s) - 1:
+            c = s[i]
+            if c == '\\':  # begin of escape sequence
+                if s[i + 1:i + 3] in ('\\x', '\\d'):  # escaped char escape code
+                    t.append(ord(c))
+                    i += 2
+                    continue
+                base = s[i + 1]
+                try:
+                    if base == 'x':  # append hex value
+                        s[i + 3]  # ensure value has 2 digits
+                        t.append(int(s[i + 2:i + 4], 16))  # \xnn always between 0 and 255
+                        i += 4
+                        continue
+                    elif base == 'd':  # append decimal value
+                        s[i + 4]  # ensure value has 3 digits
+                        v = int(s[i + 2:i + 5])
+                        if not 0 <= v <= 255:
+                            raise BasicError(f'Invalid value in character escape code: {v:d}')
+                        t.append(v)
+                        i += 5
+                        continue
+                    # other escape codes are left verbatim
+                except (IndexError, ValueError):
+                    raise BasicError('Malformed character escape code')
+            t.append(ord(c))
+            i += 1
+        try:
+            t.append(ord(s[i]))  # last char, which might be a single '\'
+        except IndexError:
+            pass
+        try:
+            return bytes(t)
+        except ValueError:
+            raise BasicError('Invalid non-escaped non-ASCII character in string')
 
 
 # BASIC Program
@@ -166,10 +231,12 @@ class BasicProgram:
     # maximum number of bytes/tokens per BASIC line
     max_tokens_per_line = 254
 
-    def __init__(self, long_fmt=False, labels=False, protected=False, console=None):
+    def __init__(self, long_fmt=False, labels=False, protected=False, strict=False, console=None):
         self.long_fmt = long_fmt
         self.labels = labels
         self.protected = protected
+        self.strict = strict
+        self.tokens = Tokens(strict)
         self.console = console or Xbas99Console()
         self.lines = {}
         self.label_lino = {}  # Dict[str, Tuple[int, bool]]
@@ -178,6 +245,7 @@ class BasicProgram:
         self.curr_lino = 100
 
     # convert program to source
+
     def load(self, data):
         """load tokenized BASIC program"""
         try:
@@ -206,12 +274,12 @@ class BasicProgram:
                     self.console.error('Missing line termination')
                 self.lines[lino] = tokens[j + 1:j + line_len]
         except IndexError:
-            self.console.error('Cannot read program file')
+            self.console.error('Cannot read program file, bad format')
 
     def merge(self, data):
         """load tokenized BASIC program in merge format
-           Merge format is stored as DIS/VAR 254, even though the data is binary, and
-           type INT/VAR 254 would be more appropriate.  The problem with DISPLAY is that
+           Merge format is stored as DIS/VAR 163, even though the data is binary, and
+           type INT/VAR 163 would be more appropriate.  The problem with DISPLAY is that
            we must recognize the record terminator, which differs by platform: Linux
            and MacOS use \n, whereas Windows uses \r\n.  We will ignore older platforms
            which might use \r and \n\r.  Luckily, records are terminated by 0, so the
@@ -234,7 +302,7 @@ class BasicProgram:
             if data[idx + 1:idx + 2] == b'\n':
                 idx += 2
             elif data[idx + 1:idx + 3] == b'\r\n':  # \r must be start of \r\n
-               idx += 3
+                idx += 3
             else:
                 self.console.error('Missing line termination')
 
@@ -251,12 +319,12 @@ class BasicProgram:
                     idx += 1
                 if idx > save_idx:
                     try:
-                        text.append((' ' if softspace else '') + tokens[save_idx:idx].decode('ascii'))
+                        text.append((' ' if softspace else '') + tokens[save_idx:idx].decode('ascii'))  # var names
                     except UnicodeDecodeError:
                         raise BasicError('Non-ASCII characters found in program')
                     softspace = True
                 else:
-                    lit, lit_type, n = Tokens.literal(tokens[idx:])
+                    lit, lit_type, n = self.tokens.text(tokens[idx:])
                     # try to mimic TI BASIC's seemingly random distribution of spaces
                     is_text = lit[0] in ('ABCDEFGHIJKLMNOPQRSTUVWXYZ' + Tokens.STMT_SEP) and lit_type is None
                     if (((is_text or lit == '#' or lit_type == 'us' or lit_type == 'ln') and softspace) or
@@ -278,7 +346,7 @@ class BasicProgram:
         text_2 = text_1.replace(Tokens.STMT_SEP, '::')
         return text_2
 
-    # source -> program
+    # convert source to program
 
     def get_labels(self, lines):
         """gather all label definitions, return remaining lines"""
@@ -290,12 +358,12 @@ class BasicProgram:
             m = re.match(r'(\w+):$', line)
             if m:
                 label = m.group(1).upper()
-                if Tokens.is_token(label):
+                if self.tokens.is_token(label):
                     raise BasicError(f'Label {label} conflicts with reserved keyword')
                 self.label_lino[label] = self.curr_lino, False  # lino x used
             else:
                 if not line[:1].isspace():
-                    raise BasicError(f'Missing indention in line {i + 1}')
+                    raise BasicError(f'Missing indentation in line {i + 1}')
                 remaining.append(line)
                 self.curr_lino += 10
         return remaining
@@ -313,7 +381,7 @@ class BasicProgram:
                 if lino is not None:  # None for label definitions
                     self.lines[lino] = tokens
             except BasicError as e:
-                self.console.error(f'Error: {str(e):}', info=f'[{i + 1:d}] {line}')
+                self.console.error(str(e), info=f'[{i + 1:d}] {line}')
             self.curr_lino += 10
 
     def line(self, line):
@@ -338,7 +406,7 @@ class BasicProgram:
         sep, _ = Tokens.tokens[',']
         tokens = []
         tok_type = Tokens.STMT
-        parts = re.split(r'(\s+|"\d+"|[0-9.]+[Ee]-[0-9]+|[!,;:()&=<>+\-*/^#' + Tokens.STMT_SEP + r'])', text)
+        parts = re.split(r'(\s+|"\d+"|[\d.]+[Ee]-\d+|[!,;:()&=<>+\-*/^#' + Tokens.STMT_SEP + r'])', text)
         i = 0
         while i < len(parts):
             word = parts[i]
@@ -354,7 +422,7 @@ class BasicProgram:
                 pass  # skip empty parts
             elif tok_type == Tokens.STMT:
                 # STMT base case
-                token, follow = Tokens.token(uword)
+                token, follow = self.tokens.token(uword)
                 if token:  # keywords and operators
                     tokens.append(token)
                     if follow != Tokens.KEEP:
@@ -371,17 +439,15 @@ class BasicProgram:
                         raise BasicError('Non-ASCII character found in variable name')
             elif tok_type == Tokens.GO_PRFX:
                 if uword in ('TO', 'SUB'):
-                    token, _ = Tokens.token(uword)
+                    token, _ = self.tokens.token(uword)
                     tokens.append(token)
                     tok_type = Tokens.LINO
                 else:
-                    self.console.warn('Syntax error after GO')
-                    tok_type = Tokens.STMT
-                    continue
+                    raise BasicError('Syntax error after GO')
             elif tok_type == Tokens.LORS:
                 # lino or statements following THEN or ELSE
                 if self.labels:
-                    token, _ = Tokens.token(uword)
+                    token, _ = self.tokens.token(uword)
                     if token is None:
                         if uword[0] == '@':
                             uword = uword[1:]  # remove @ from label
@@ -416,12 +482,12 @@ class BasicProgram:
                 tok_type = Tokens.STMT
             else:
                 # LINO or RUNS
-                token, follow = Tokens.token(uword)
+                token, follow = self.tokens.token(uword)
                 if token is not None:
                     tokens.append(token)
                     tok_type = follow
                 elif word.isdigit():
-                    tokens.append(Tokens.lino_token(uword))
+                    tokens.append(self.tokens.lino_token(uword))
                 elif word[0] == word[-1] == '"':
                     tok_type = Tokens.QSTR  # for USING and RUN
                     continue
@@ -440,7 +506,7 @@ class BasicProgram:
                             lino, used = self.label_lino[uword]
                             if not used:
                                 self.label_lino[uword] = lino, True
-                            tokens.append(Tokens.lino_token(str(lino)))
+                            tokens.append(self.tokens.lino_token(str(lino)))
                         except KeyError:
                             raise BasicError(f'Unknown label {uword}')
                     else:
@@ -493,13 +559,13 @@ class BasicProgram:
         """build quoted string token sequence"""
         try:
             s = self.text_literals[int(lit[1:-1])]
-            return Tokens.qstr_token(s)
+            return self.tokens.qstr_token(s)
         except (ValueError, IndexError):
             raise RuntimeError('Invalid text literal id ' + lit[1:-1])
 
     def ustr(self, lit):
         """build unquoted string token sequence"""
-        return Tokens.ustr_token(self.unescape(lit))
+        return self.tokens.ustr_token(self.unescape(lit))
 
     def get_image(self):
         """create PROGRAM image from tokens"""
@@ -619,11 +685,11 @@ class Xbas99Console(Console):
 
     def warn(self, message):
         """issue warning message"""
-        super().warn(None, message)
+        super().warn(None, 'Warning: ' + message)
 
     def error(self, message, info=None):
         """issue error message"""
-        super().error(info, message)
+        super().error(info, 'Error: ' + message)
 
 
 # Command line processing
@@ -657,6 +723,8 @@ class Xbas99Processor(CommandProcessor):
         args.add_argument('-j', '--join-lines', dest='join', nargs='?', metavar='<count?,delta?>',
                           help='join split source lines; <count> is max number of lines to merge, '
                                '<delta> is max line number delta of consecutive lines')
+        args.add_argument('-s', '--strict', action='store_true', dest='strict',
+                          help='disable xbas99 extensions')
         args.add_argument('-o', '--output', dest='output', metavar='<file>',
                           help='set output filename or target directory')
         args.add_argument('--color', action='store', dest='color', choices=['off', 'on'],
@@ -723,9 +791,12 @@ class Xbas99Processor(CommandProcessor):
         self.result.append(RFile(data=prg_data, name=self.barename, ext='.prg'))
 
     def output(self):
-        unused_labels = self.program.get_unused_labels()
-        if unused_labels:
-            self.console.warn('Warning: Unused labels: {}'.format(' '.join(unused_labels)))
+        if self.opts.print:
+            self.opts.output = '-'  # print writes to stdout, cannot be redirected
+        elif not self.opts.decode:
+            unused_labels = self.program.get_unused_labels()
+            if unused_labels:
+                self.console.warn('Unused labels: {}'.format(' '.join(unused_labels)))
         super().output()
 
     def errors(self):
