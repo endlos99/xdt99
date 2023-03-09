@@ -4,7 +4,7 @@ import os
 import re
 
 from config import Files, Dirs, XBAS99_CONFIG
-from utils import xbas, error, delfile, check_binary_files_eq, content_line_array
+from utils import xbas, error, delfile, check_binary_files_eq, check_text_files_eq, content_line_array
 
 
 # Check functions
@@ -74,6 +74,26 @@ def runtest():
 
     xbas(Files.input, '-d', '-o', Files.output)
     check_source_escs_eq(source, Files.output)
+
+    # relaxed whitespace
+    source = os.path.join(Dirs.basic, 'whitespc.bas')
+    xbas(source, '-l', '-o', Files.output)
+    ref = os.path.join(Dirs.basic, 'whiteref.bas')
+    xbas(ref, '-o', Files.reference)
+    check_binary_files_eq('whitespace', Files.output, Files.reference)
+
+    # shorten labels for compiler
+    source = os.path.join(Dirs.basic, 'shorten.bas')
+    xbas(source, '--shorten-labels', '-o', Files.output)
+    ref = os.path.join(Dirs.refs, 'shorten.xbc')
+    check_text_files_eq('shorten', Files.output, ref)
+
+    # local labels for subprograms
+    source = os.path.join(Dirs.basic, 'local.bas')
+    xbas(source, '-l', '-q', '-o', Files.output)
+    ref = os.path.join(Dirs.basic, 'localref.bas')
+    xbas(ref, '-o', Files.reference)
+    check_binary_files_eq('local labels', Files.output, Files.reference)
 
     # cleanup
     delfile(Dirs.tmp)

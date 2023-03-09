@@ -40,6 +40,26 @@ def runtest():
             'Error: Label RND conflicts with reserved keyword\n'):
         error('labels', 'Reserved keyword')
 
+    source = os.path.join(Dirs.basic, 'duplaberr.bas')
+    with open(Files.error, 'w') as ferr:
+        xbas(source, '-l', '--color', 'off', '-o', Files.output, stderr=ferr, rc=1)
+    if 'Duplicate label DUP_LABEL' not in content_line_array(Files.error)[0]:
+        error('labels', 'Incorrect duplicate label error message')
+
+    # bad local labels
+    source = os.path.join(Dirs.basic, 'localerr1.bas')
+    with open(Files.error, 'w') as ferr:
+        xbas(source, '-l', '-q', '--color', 'off', '-o', Files.output, stderr=ferr, rc=1)
+    err = content_line_array(Files.error, strip=True)
+    if err[1][-6:] != '!ERROR' or err[3][-6:] != '!ERROR':
+        error('local labels', 'Incorrect error messages')
+
+    source = os.path.join(Dirs.basic, 'localerr2.bas')
+    with open(Files.error, 'w') as ferr:
+        xbas(source, '-l', '--color', 'off', '-o', Files.output, stderr=ferr, rc=1)
+    if content_line_array(Files.error)[0] != 'Error: Duplicate label A%LABEL\n':
+        error('local labels', 'Missed duplicate local label')
+
     # cleanup
     delfile(Dirs.tmp)
 

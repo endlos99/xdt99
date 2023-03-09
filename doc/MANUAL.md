@@ -3137,18 +3137,19 @@ tokenized program.
 Instead, targets for branch statements such as `GOTO` or `THEN` are defined by
 labels.
 
-A label has to start at the beginning of the line and must end in a colon.
-Other lines must be indented by at least one blank.
+A label definition is an alphanumeric label name including `_` at the beginning
+of a line and ending in a colon.  All other lines must be indented by at least
+one blank or tab.
 
     START:
       INPUT "CHECK WHICH NUMBER? ":N
-      GOSUB @ISPRIME
-      IF PRIME THEN @PRIME
+      GOSUB ISPRIME
+      IF PRIME THEN PRIME
       PRINT "NOT PRIME"
-      GOTO @START
+      GOTO START
     PRIME:
       PRINT "PRIME!"
-      GOTO @START
+      GOTO START
     ISPRIME:
       REM CHECK IF N IS PRIME
       ...
@@ -3156,6 +3157,14 @@ Other lines must be indented by at least one blank.
       ...
       PRIME=1
       RETURN
+
+Label and variables are different namespaces, so `PRIME` can be both label and
+variable without conflicts.  If desired, labels might be prepended by `@` to
+emphasize that the symbol is a label and not a variable.
+
+     IF PRIME THEN @PRIME
+
+`xbas99`, however, is able to tell labels and variables apart even without `@`.
 
 To tokenize a label-based program, we use the label option `-l`.
 
@@ -3172,12 +3181,40 @@ programs, so decoding `-d` will never yield a label-based program.
     140 GOTO 100
     ...
 
-The long option `-L` instructs `xbas99` to create the program in long format.
+`xbas99` also supportes _local labels_ starting with `%`, which are not visible
+outside the subprogram in which they are defined.
+
+    MAIN:
+     CALL A(X) :: CALL B(X)
+     GOTO MAIN
+     SUB A(X)
+    %LABEL:
+     X=INT(RND*10) :: IF X=5 THEN %LABEL
+     SUBEND
+     SUB B(X)
+    %LABEL:
+     PRINT X :: X=X-1 :: IF X>=0 THEN %LABEL
+     SUBEND
+
+Internally, `xbas99` prepends each local label with the surrounding subprogram 
+name, making each local label globally unique.
+
+Local labels cannot be defined or used outside of subprograms.
+
+The _shorten label option_ `-S` takes a BASIC program with labels and creates an
+equivalent BASIC program with labels where no label is longer than 6 chars.  
+This is achieved by shortening original label names to 6 chars and resolving any
+conflicts by replacing conflicting label suffixes by increasingly large numbers.
+
+This resulting program with default extension `.xbc` is a valid input for the
+Extended BASIC compiler by senior_falcon.
+
+The _long option_ `-L` instructs `xbas99` to create the program in long format.
 Long programs are stored within the 32 KB memory expansion and may be larger
 than conventional programs.  The creation of programs in merge format is
 currently not supported.
 
-The protection option `--protect` will add list protection to the generated
+The _protection option_ `--protect` will add list protection to the generated
 program.  Programs with list protection cannot be listed or edited by the BASIC
 interpreters.  Note, however, that the print option `-p` of `xbas99` will _not_
 honor the protection flag.

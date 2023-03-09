@@ -26,7 +26,7 @@ import argparse
 from xcommon import Util, RFile, CommandProcessor, Warnings, Console
 
 
-VERSION = '3.5.4'
+VERSION = '3.5.5'
 
 CONFIG = 'XBAS99_CONFIG'
 
@@ -55,7 +55,7 @@ class Tokens:
     KEEP = 13  # keep previous follow token type
     GO_PRFX = 14  # GO prefix
 
-    # unused token code for escaping statement separator '::'
+    # additional token values
     QS_VAL = 0xc7  # token value for quoted string
     US_VAL = 0xc8  # token value for unquoted string
     LINO_VAL = 0xc9  # token value for line number
@@ -140,7 +140,7 @@ class Tokens:
             raise BasicError(f'Invalid line number: {s}')
         return bytes((self.LINO_VAL,)) + Util.chrw(lino)
 
-    def text(self, tokens):
+    def text(self, tokens, labels=None):
         """return textual representation of BASIC token(s)"""
         lit_type, _ = self.literals[tokens[0]]
         try:
@@ -151,7 +151,8 @@ class Tokens:
                 lit_value = tokens[1]
                 return self.asciify(tokens[2:2 + lit_value]), lit_type, lit_value + 2
             elif lit_type == 'ln':
-                return str(Util.ordw(tokens[1:3])), lit_type, 3
+                lino = Util.ordw(tokens[1:3])
+                return labels[lino] if labels else str(lino), lit_type, 3
             else:
                 return lit_type, None, 1  # for all other cases, lit_type == token
         except UnicodeDecodeError:
@@ -228,8 +229,8 @@ class Tokens:
 
 class BasicProgram:
 
-    # maximum number of bytes/tokens per BASIC line
-    max_tokens_per_line = 254
+    max_tokens_per_line = 254  # maximum number of bytes/tokens per BASIC line
+    MAX_SHORT_LABEL_LEN = 6  # maximum number of chars for "short labels"
 
     def __init__(self, long_fmt=False, labels=False, protected=False, strict=False, console=None):
         self.long_fmt = long_fmt
@@ -240,9 +241,11 @@ class BasicProgram:
         self.console = console or Xbas99Console()
         self.lines = {}
         self.label_lino = {}  # Dict[str, Tuple[int, bool]]
+        self.sub_labels = {}
         self.text_literals = []
         self.rem_literals = []
-        self.curr_lino = 100
+        self.curr_lino = 100  # fictitious line number for labeled programs
+        self.curr_sub = None  # current subprogram name
 
     # convert program to source
 
@@ -306,11 +309,17 @@ class BasicProgram:
             else:
                 self.console.error('Missing line termination')
 
-    def get_source(self):
+    def get_source(self, labels=None):
         """return textual representation of token sequence"""
         text = [' ']  # dummy element
         for lino, tokens in sorted(self.lines.items()):
-            text.append(f'{lino:d} ')
+            if labels:
+                try:
+                    text.append(f'{labels[lino]}:\n ')
+                except KeyError:
+                    text.append(' ')
+            else:
+                text.append(f'{lino:d} ')
             softspace = False
             idx = 0
             while idx < len(tokens):
@@ -324,7 +333,7 @@ class BasicProgram:
                         raise BasicError('Non-ASCII characters found in program')
                     softspace = True
                 else:
-                    lit, lit_type, n = self.tokens.text(tokens[idx:])
+                    lit, lit_type, n = self.tokens.text(tokens[idx:], labels=labels)
                     # try to mimic TI BASIC's seemingly random distribution of spaces
                     is_text = lit[0] in ('ABCDEFGHIJKLMNOPQRSTUVWXYZ' + Tokens.STMT_SEP) and lit_type is None
                     if (((is_text or lit == '#' or lit_type == 'us' or lit_type == 'ln') and softspace) or
@@ -352,20 +361,42 @@ class BasicProgram:
         """gather all label definitions, return remaining lines"""
         remaining = []
         self.curr_lino = 100
+        curr_sub = None
         for i, line in enumerate(lines):
             if not line.rstrip():
                 continue
-            m = re.match(r'(\w+):$', line)
+            m = re.match(r'(%?)(\w+):(\s*!.*)?$', line)
             if m:
-                label = m.group(1).upper()
+                local = m.group(1)
+                label = m.group(2).upper()
                 if self.tokens.is_token(label):
-                    raise BasicError(f'Label {label} conflicts with reserved keyword')
+                    raise BasicError(f'Label {local + label} conflicts with reserved keyword')
+                if local:
+                    if curr_sub:
+                        label = curr_sub + local + label
+                    else:
+                        raise BasicError(f'Local label definition {local + label} outside of subprogram')
+                if label in self.label_lino:
+                    raise BasicError('Duplicate label ' + label)
                 self.label_lino[label] = self.curr_lino, False  # lino x used
             else:
                 if not line[:1].isspace():
                     raise BasicError(f'Missing indentation in line {i + 1}')
                 remaining.append(line)
                 self.curr_lino += 10
+                # keep track of subprogram scopes, handle these special cases:
+                # 1) SUB A :: ... :: SUBEND         -->  no local labels possible
+                # 2) ... :: SUBEND :: SUB B :: ...  -->  start of B automatically closes prev subprogram
+                m_sub = None
+                while m := re.search(r'\bSUB(?:\s+(\w+)|(END\b))', line):  # find last occurrence of SUB or SUBEND
+                    m_sub = m
+                    line = line[m.pos + 1:]
+                if m_sub is None:
+                    pass
+                elif m_sub.group(1):  # SUB
+                    curr_sub = m_sub.group(1).upper()  # entering subprogram
+                elif m_sub.group(2):  # SUBEND
+                    curr_sub = None  # leaving subprogram
         return remaining
 
     def parse(self, lines):
@@ -379,7 +410,7 @@ class BasicProgram:
             try:
                 lino, tokens = self.line(line)
                 if lino is not None:  # None for label definitions
-                    self.lines[lino] = tokens
+                    self.lines[lino] = b''.join(tokens)
             except BasicError as e:
                 self.console.error(str(e), info=f'[{i + 1:d}] {line}')
             self.curr_lino += 10
@@ -402,12 +433,13 @@ class BasicProgram:
 
     def statements(self, text):
         """parse single line of one or more BASIC statements"""
-        # lexer of poorest man imaginable
+        # very poor man's lexer
         sep, _ = Tokens.tokens[',']
         tokens = []
         tok_type = Tokens.STMT
         parts = re.split(r'(\s+|"\d+"|[\d.]+[Ee]-\d+|[!,;:()&=<>+\-*/^#' + Tokens.STMT_SEP + r'])', text)
         i = 0
+        is_sub_name = False
         while i < len(parts):
             word = parts[i]
             uword = word.upper()  # keywords and vars are case-insensitive, but not DATA, IMAGE, REM, ...
@@ -419,7 +451,7 @@ class BasicProgram:
                     raise BasicError('Non-ASCII character found in comment')
                 break
             elif not word.strip():
-                pass  # skip empty parts
+                pass  # skip whitespace parts
             elif tok_type == Tokens.STMT:
                 # STMT base case
                 token, follow = self.tokens.token(uword)
@@ -427,6 +459,10 @@ class BasicProgram:
                     tokens.append(token)
                     if follow != Tokens.KEEP:
                         tok_type = follow
+                    if uword == 'SUB':
+                        is_sub_name = True
+                    elif uword == 'SUBEND':
+                        self.curr_sub = None
                 elif word[0] == word[-1] == '"':
                     tok_type = Tokens.QSTR  # for USING and RUN
                     continue
@@ -445,23 +481,12 @@ class BasicProgram:
                 else:
                     raise BasicError('Syntax error after GO')
             elif tok_type == Tokens.LORS:
-                # lino or statements following THEN or ELSE
+                # identify if lino/label or statements is following THEN or ELSE
                 if self.labels:
-                    token, _ = self.tokens.token(uword)
-                    if token is None:
-                        if uword[0] == '@':
-                            uword = uword[1:]  # remove @ from label
-                        if uword in self.label_lino:
-                            tok_type = Tokens.LINO
-                        elif self.is_assignment(parts, i + 1):
-                            tok_type = Tokens.STMT
-                        else:
-                            raise BasicError(f'Unknown label {uword}')
-                    else:
-                        tok_type = Tokens.STMT
+                    tok_type = self.get_lors_token_type(uword, parts[i + 1:])
                 else:
                     tok_type = Tokens.LINO if word.isdigit() else Tokens.STMT
-                continue
+                continue  # redo
             elif tok_type == Tokens.IMAGE_STR:
                 remaining = ''.join(parts[i:]).strip()
                 if remaining:
@@ -478,6 +503,9 @@ class BasicProgram:
                 tokens.append(self.qstr(word))
                 tok_type = Tokens.STMT
             elif tok_type == Tokens.USTR:
+                if is_sub_name:
+                    self.curr_sub = uword  # name after SUB keyword
+                    is_sub_name = False
                 tokens.append(self.ustr(uword))
                 tok_type = Tokens.STMT
             else:
@@ -496,29 +524,81 @@ class BasicProgram:
                     continue
                 # keep tok_type, escapes at next token
                 elif self.labels:
-                    if uword[0] == '@':
-                        uword = uword[1:]  # remove optional @
-                    if uword.isalnum():
-                        # NOTE: There is only one possible collision between label and variable: RUN A.
-                        #       This conflict only occurs if label mode is active, but then RUN A with A
-                        #       containing a line number makes no sense. --> No conflict at all!
-                        try:
-                            lino, used = self.label_lino[uword]
-                            if not used:
-                                self.label_lino[uword] = lino, True
-                            tokens.append(self.tokens.lino_token(str(lino)))
-                        except KeyError:
-                            raise BasicError(f'Unknown label {uword}')
-                    else:
-                        raise BasicError('Bad label')
+                    tokens.append(self.get_lino_for_ustr(uword))
                 elif tok_type == Tokens.RUNS:
                     tok_type = Tokens.STMT  # variable
                     continue
                 else:
                     raise BasicError('Syntax error, line number expected')
-
             i += 1
         return tokens
+
+    def resolve_label(self, word):
+        """resolve @ and % labels"""
+        if word[0] == '@':
+            word = word[1:]  # remove @ from label
+        elif word[0] == '%':  # local label
+            if self.curr_sub is None:
+                raise BasicError(f'Local label {word} undefined outside of subprogram')
+            word = self.curr_sub + word  # build full non-local label name
+        return word
+
+    def get_lors_token_type(self, word, next_parts):
+        """get token type for label or statement"""
+        token, _ = self.tokens.token(word)
+        if token is None:
+            word = self.resolve_label(word)
+            if self.is_assignment(next_parts):
+                return Tokens.STMT
+            elif word in self.label_lino:
+                return Tokens.LINO
+            else:
+                raise BasicError(f'Unknown label {word}')
+        else:
+            return Tokens.STMT
+
+    def get_lino_for_ustr(self, ustr):
+        """find lino for label name usage (@ and % already processed)"""
+        ustr = self.resolve_label(ustr)
+        if re.fullmatch(r'(\w+%)?\w+', ustr):
+            # NOTE: There is only one possible collision between label and variable: RUN A.
+            #       This conflict only occurs if label mode is active, but then RUN A with A
+            #       containing a line number makes no sense. --> No conflict at all!
+            try:
+                lino, used = self.label_lino[ustr]
+                if not used:
+                    self.label_lino[ustr] = lino, True
+                return self.tokens.lino_token(str(lino))
+            except KeyError:
+                raise BasicError('Unknown label ' + ustr)
+        else:
+            raise BasicError('Bad label name ' + ustr)
+
+    def shorten_labels(self):
+        """shorten labels for Extended BASIC compiler to 6 chars max"""
+        labels = []
+        short_labels = {}  # label: short_label
+        for label in self.label_lino:
+            short_label = label[:BasicProgram.MAX_SHORT_LABEL_LEN]
+            if short_label not in labels:
+                short_labels[label] = short_label
+                labels.append(short_label)
+            else:
+                # try to find unique label by appending increasingly large suffixes
+                i = 1
+                suffix = '1'
+                while len(suffix) < BasicProgram.MAX_SHORT_LABEL_LEN:
+                    suffixed_label = short_label[:-len(suffix)] + suffix
+                    if suffixed_label not in labels:
+                        short_labels[label] = suffixed_label
+                        labels.append(suffixed_label)
+                        i = 0  # signal unique short label found
+                        break
+                    i += 1
+                    suffix = str(i)
+                if i != 0:
+                    raise BasicError(f'Could not find unique short label for {label}.')  # extremely unlikely
+        return {lino: short_labels[label] for label, (lino, used) in self.label_lino.items()}
 
     @staticmethod
     def is_number(text):
@@ -526,10 +606,12 @@ class BasicProgram:
         return re.match(r'(\d+(\.\d*)?|\.\d+)(E-?\d+)?', text)
 
     @staticmethod
-    def is_assignment(parts, i):
+    def is_assignment(parts):
         """check if parts starting at i-1 are assignment"""
         subexpr = 0
-        for word in parts[i:]:
+        for word in parts:
+            if not word.strip():
+                continue
             if word == '(':  # start of subexpr
                 subexpr += 1
             elif word == ')':  # end of subexpr
@@ -580,9 +662,8 @@ class BasicProgram:
                 program.append((0, 32767, bytes((pad_len - 1, 0x83)) + b'\x21' * (pad_len - 3) + bytes(1)))
                 idx = pad_len
         for lino, tokens in sorted(self.lines.items(), reverse=True):
-            token_bytes = b''.join(tokens)
-            program.append((idx, lino, bytes((len(token_bytes) + 1,)) + token_bytes + bytes(1)))
-            idx += len(token_bytes) + 2
+            program.append((idx, lino, bytes((len(tokens) + 1,)) + tokens + bytes(1)))
+            idx += len(tokens) + 2
         token_tab_addr = last_addr - idx
         lino_tab_addr = token_tab_addr - 4 * len(program)
         token_table = b''.join(tokens for p, lino, tokens in program)
@@ -710,6 +791,8 @@ class Xbas99Processor(CommandProcessor):
                          help='decode TI (Extended) BASIC program')
         cmd.add_argument('-p', '--print', action='store_true', dest='print',
                          help='print decoded TI (Extended) BASIC program')
+        cmd.add_argument('-S', '--shorten-labels', action='store_true', dest='shorten',
+                         help='shorten labels for Extended BASIC compiler')
         cmd.add_argument('--dump', action='store_true', dest='dump',
                          help=argparse.SUPPRESS)
         args.add_argument('-l', '--labels', action='store_true', dest='labels',
@@ -740,19 +823,21 @@ class Xbas99Processor(CommandProcessor):
     
         if (self.opts.labels or self.opts.protect or self.opts.join) and self.opts.decode:
             args.error('Cannot use options --labels, --protect, --join while decoding programs.')
-        if self.opts.labels and self.opts.join:
+        if self.opts.join and (self.opts.labels or self.opts.shorten):
             args.error('Cannot join lines for programs using labels.')
 
     def run(self):
         basename = os.path.basename(self.opts.source)
         self.barename, ext = os.path.splitext(basename)
         self.console = Xbas99Console(self.opts.quiet, self.opts.color)
-        self.program = BasicProgram(long_fmt=self.opts.long_, labels=self.opts.labels, protected=self.opts.protect,
-                                    console=self.console)
+        self.program = BasicProgram(long_fmt=self.opts.long_, labels=self.opts.labels or self.opts.shorten,
+                                    protected=self.opts.protect, console=self.console)
 
     def prepare(self):
         if self.opts.decode or self.opts.print:
             self.decode()
+        elif self.opts.shorten:
+            self.shorten_labels()
         elif self.opts.dump:
             self.dump()
         else:
@@ -767,6 +852,15 @@ class Xbas99Processor(CommandProcessor):
         self.result.append(RFile(data=self.program.get_source(),
                                  name='-' if self.opts.print else self.barename,
                                  ext='.b99',
+                                 istext=True))
+
+    def shorten_labels(self):
+        lines = [line.rstrip('\n') for line in Util.readlines(self.opts.source)]
+        self.program.parse(lines)
+        lino_labels = self.program.shorten_labels()
+        self.result.append(RFile(data=self.program.get_source(labels=lino_labels),
+                                 name=self.barename,
+                                 ext='.xbc',  # for XB compiler
                                  istext=True))
 
     def dump(self):

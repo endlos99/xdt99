@@ -1,0 +1,8 @@
+ REM BASIC WITH EXTRA WHITESPACE
+A:
+ LET A = A + 1
+B:
+ LET  B  =  A  *  A
+ IF 2 * A <> B THEN  A ELSE  B  = A / 2 :: GOTO B
+ PRINT A , B
+ END

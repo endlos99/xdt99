@@ -1,15 +1,43 @@
-Changes Version 3.5.4
+Changes Version 3.5.5
 =====================
 
-xas99 Cross-Assembler/xga99 GPL Cross-Assembler
------------------------------------------------
+xbas99 TI BASIC and TI Extended BASIC Tool
+------------------------------------------
 
-### Preprocessor
+### xdt99 Extensions
 
-The `.rept`_n_ preprocessor command repeats the code section between `.rept` and
-`.endr` _n_ times, where _n_ is a well-defined expression.  (As we can see in
-the list file, `.rept` is implemented internally as a macro.)
+`xbas99` also supportes _local labels_ starting with `%`, which are not visible
+outside the subprogram in which they are defined.
 
+    MAIN:
+     CALL A(X) :: CALL B(X)
+     GOTO MAIN
+     SUB A(X)
+    %LABEL:
+     X=INT(RND*10) :: IF X=5 THEN %LABEL
+     SUBEND
+     SUB B(X)
+    %LABEL:
+     PRINT X :: X=X-1 :: IF X>=0 THEN %LABEL
+     SUBEND
+
+Internally, `xbas99` prepends each local label with the surrounding subprogram
+name, making each local label globally unique.
+
+Local labels cannot be defined or used outside of subprograms.
+
+The _shorten label option_ `-S` takes a BASIC program with labels and creates an
+equivalent BASIC program with labels where no label is longer than 6 chars.
+This is achieved by shortening original label names to 6 chars and resolving any
+conflicts by replacing conflicting label suffixes by increasingly large numbers.
+
+This resulting program with default extension `.xbc` is a valid input for the
+Extended BASIC compiler by senior_falcon.
+
+
+
+Changes Version 3.5.4
+=====================
 
 xbas99 TI BASIC and TI Extended BASIC Tool
 ------------------------------------------
