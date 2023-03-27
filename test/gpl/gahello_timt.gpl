@@ -1,5 +1,7 @@
 * HELLO GPL WORLD!
 
+         aorg >30
+
 speed    equ >80
 
 iterp    equ >8300

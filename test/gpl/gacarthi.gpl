@@ -1,0 +1,18 @@
+* higher >AA
+
+       grom 3
+       byte 2
+
+       grom 4
+       aorg >1000
+       byte 3
+
+       grom 5
+
+       .ifdef AA
+       byte >aa
+       .endif
+
+       text '................................'
+
+       end

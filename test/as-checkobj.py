@@ -3,8 +3,8 @@
 import os
 
 from config import Dirs, Disks, Files, XAS99_CONFIG
-from utils import (xas, xdm, sinc, error, clear_env, delfile, check_obj_code_eq, check_image_set_eq,
-                   check_image_files_eq, read_stderr, get_source_markers, check_errors, content_len)
+from utils import (xas, xdm, error, clear_env, delfile, check_obj_code_eq, check_image_set_eq, check_image_files_eq,
+                   read_stderr, get_source_markers, check_errors, content_len, content_line_array)
 
 
 # Main test
@@ -108,6 +108,15 @@ def runtest():
     ref = os.path.join(Dirs.sources, 'asdorg-ti.asm')
     xas(ref, '-a', '>2000', '-o', Files.reference)
     check_obj_code_eq(Files.output, Files.reference)
+
+    # REF and built-ins
+    source = os.path.join(Dirs.sources, 'asrefs.asm')
+    xas(source, '-o', Files.output, '-L', Files.input)
+    ref = os.path.join(Dirs.refs, 'asrefs.obj')
+    check_obj_code_eq(Files.output, ref)
+    words = ''.join(w[10:15] for w in content_line_array(Files.input)[1:] if w[10:15].strip())
+    if words != '**** C820 8300 8C02 0620 0000e16FA 045B ':
+        error('ref', 'Incorrect list file words')
 
     # cleanup
     delfile(Dirs.tmp)

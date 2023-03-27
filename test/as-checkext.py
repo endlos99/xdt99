@@ -453,6 +453,54 @@ def runtest():
     except ValueError:
         error('rept', 'List file .rept marker mismatch')
 
+    # joined binary -B
+    source = os.path.join(Dirs.sources, 'asxjoin.asm')
+    xas(source, '-B', '-o', Files.output)
+    result = content(Files.output)
+    if (len(result) != 0x4000 or
+            result[:0x40] != bytes(0x40) or
+            result[0x40:0x46] != b'COMMON' or
+            result[0x60:0x65] != bytes((1, 2, 3, 4, 5)) or
+            result[0x1f00:0x1f04] != b'FINI' or
+            result[0x2040:0x2046] != b'COMMON' or
+            result[0x2090:0x2095] != bytes((255, 254, 253, 252, 251)) or
+            result[0x3f00:0x3f04] != b'FINI' or
+            any(result[i] != 0 for i in range(0x65, 0x1000)) or
+            any(result[i] != 0 for i in range(0x2095, 0x3000))):
+        error('join', 'Incorrect joined binary w/o saves')
+
+    xas(source, '-B', '-o', Files.output, '-D', 'saves')
+    result = content(Files.output)
+    if (len(result) != 0x4000 or
+            result[:0x40] != bytes(0x40) or
+            result[0x40:0x46] != b'COMMON' or
+            result[0x60:0x65] != bytes((1, 2, 3, 4, 5)) or
+            result[0x1f00:0x1f04] != b'FINI' or
+            result[0x2040:0x2046] != b'COMMON' or
+            result[0x2090:0x2095] != bytes((255, 254, 253, 252, 251)) or
+            result[0x3f00:0x3f04] != b'FINI' or
+            any(result[i] != 0 for i in range(0x65, 0x1000)) or
+            any(result[i] != 0 for i in range(0x2095, 0x3000))):
+        error('join', 'Incorrect joined binary w/saves')
+
+    source = os.path.join(Dirs.sources, 'asxjoinl.asm')
+    xas(source, '-B', '-o', Files.output)
+    result = content(Files.output)
+    if (len(result) != 0x8000 or
+            any(result[i] != 0 for i in range(0x2010, 0x5ff0)) or
+            result[0x200f] != 0x10 or
+            result[0x6008] != 0xff):
+        error('join', 'Incorrect large joined binary')
+
+    # macro call in list file
+    source = os.path.join(Dirs.sources, 'asmaclst.asm')
+    xas(source, '-R', '-b', '-S', '-o', Files.output, '-L', Files.input)
+    listing = content_lines(Files.input)
+    if 'lab    .push r2  ; save register' not in listing:
+        error('mac list', 'Macro call not in list file')
+    if 'lab.....' not in listing:
+        error('mac list', 'Label missing in list file')
+
     # cleanup
     delfile(Dirs.tmp)
 

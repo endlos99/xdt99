@@ -1,6 +1,7 @@
 * SYMBOLS GENERATION TEST
 
        REF  VDPWA,SCAN
+       REF  Z
 
 S1     EQU  1
 

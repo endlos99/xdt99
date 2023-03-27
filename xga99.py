@@ -28,7 +28,7 @@ import zipfile
 from xcommon import CommandProcessor, RFile, Util, Warnings, Console
 
 
-VERSION = '3.5.4'
+VERSION = '3.6.0'
 
 CONFIG = 'XGA99_CONFIG'
 
@@ -744,35 +744,41 @@ class Preprocessor:
         parts[::2] = [self.instantiate_macro_args(p, restore_lits=True) for p in parts[::2]]
         return ''.join(parts)
 
+    def process_repeat(self, mnemonic, line):
+        if mnemonic == '.ENDR':
+            self.parse_repeat = False
+            self.parse_macro = None
+            self.macros['.rept'] *= self.repeat_count  # repeat section
+            self.parser.open(macro='.rept', macro_args=())  # open '.rept' macro
+        elif mnemonic == '.REPT':
+            raise AsmError('Cannot repeat within repeat section')
+        elif mnemonic == '.DEFM':
+            raise AsmError('Cannot define macro within repeat section')
+        elif mnemonic == '.ENDM':
+            raise AsmError('Found .ENDM without .DEFM')
+        else:
+            self.macros[self.parse_macro].append(line)
+        return False, None, None
+
+    def process_macro(self, mnemonic, line):
+        if mnemonic == '.ENDM':
+            self.parse_macro = None
+        elif mnemonic == '.DEFM':
+            raise AsmError('Cannot define macro within macro')
+        elif mnemonic == '.REPT':
+            raise AsmError('Cannot repeat section within macro')
+        elif mnemonic == '.ENDR':
+            raise AsmError('Found .ENDR without .REPT')
+        else:
+            self.macros[self.parse_macro].append(line)
+        return False, None, None
+
     def process(self, asm, label, mnemonic, operands, line):
         """process preprocessor directive"""
         if self.parse_repeat:
-            if mnemonic == '.ENDR':
-                self.parse_repeat = False
-                self.parse_macro = None
-                self.macros['.rept'] *= self.repeat_count  # repeat section
-                self.parser.open(macro='.rept', macro_args=())  # open '.rept' macro
-            elif mnemonic == '.REPT':
-                raise AsmError('Cannot repeat within repeat section')
-            elif mnemonic == '.DEFM':
-                raise AsmError('Cannot define macro within repeat section')
-            elif mnemonic == '.ENDM':
-                raise AsmError('Found .ENDM without .DEFM')
-            else:
-                self.macros[self.parse_macro].append(line)
-            return False, None, None
+            return self.process_repeat(mnemonic, line)
         if self.parse_macro:
-            if mnemonic == '.ENDM':
-                self.parse_macro = None
-            elif mnemonic == '.DEFM':
-                raise AsmError('Cannot define macro within macro')
-            elif mnemonic == '.REPT':
-                raise AsmError('Cannot repeat section within macro')
-            elif mnemonic == '.ENDR':
-                raise AsmError('Found .ENDR without .REPT')
-            else:
-                self.macros[self.parse_macro].append(line)
-            return False, None, None
+            return self.process_macro(mnemonic, line)
         if self.parse and asm.parser.in_macro_instantiation and operands:
             operands = [self.instantiate_macro_args(op) for op in operands]
             line = self.instantiate_line(line)  # only for display
@@ -781,7 +787,7 @@ class Preprocessor:
             name = mnemonic[1:]
             if name in self.macros:
                 if self.parse:
-                    self.parser.open(macro=name, macro_args=operands)
+                    self.parser.open(macro=name, macro_args=operands, label=label, line=line)
             else:
                 try:
                     fn = getattr(Preprocessor, name)
@@ -844,7 +850,7 @@ class Parser:
         self.for_loops = []
         self.path = self.initial_path
 
-    def open(self, filename=None, macro=None, macro_args=None):
+    def open(self, filename=None, macro=None, macro_args=None, label=None, line=None):
         """open new source file or macro buffer"""
         if len(self.suspended_files) > 100:
             raise AsmError('Too many nested files or macros')
@@ -864,6 +870,8 @@ class Parser:
             self.source = self.prep.macros[macro]
             self.macro_args = macro_args or []
             self.in_macro_instantiation = True
+            if label or line:
+                self.intermediate_source.append(IntmLine('.', lino=self.lino, label=label, line=line))
         self.filename = filename or macro
         self.lino = 0
         self.intermediate_source.append(IntmLine(IntmLine.OPEN, filename=self.filename))
@@ -1500,9 +1508,10 @@ class Assembler:
 class Linker:
     """generate byte code"""
 
-    def __init__(self, program, symbols):
+    def __init__(self, program, symbols, console):
         self.program = program
         self.symbols = symbols
+        self.console = console
 
     def fill_memory(self):
         """load segments into memory"""
@@ -1527,8 +1536,11 @@ class Linker:
                     memory[LC] = byte_
         return memories
 
-    def generate_byte_code(self, split_groms=False):
-        """generate GPL byte code for each GROM"""
+    def generate_byte_code(self, split_groms=False, padded_groms=False, aligned=False):
+        """generate GPL byte code for each GROM
+           split GROMs: one file per GROM
+           full GROMs: every GROM starts at N * >2000
+        """
         binaries = []
         memories = self.fill_memory()
         for grom, memory in memories.items():
@@ -1537,36 +1549,42 @@ class Linker:
             min_addr = min(memory.keys())
             max_addr = max(memory.keys()) + 1
             binary = bytes(memory.get(addr, 0) for addr in range(min_addr, max_addr))
+            if padded_groms:
+                binary = bytes(min_addr % 0x2000) + binary + bytes(-max_addr % 0x2000)
+                min_addr = Util.trunc(min_addr, 0x2000)
+                max_addr = min_addr + 0x2000
             binaries.append(ByteCode(grom, min_addr, max_addr, binary))
         if split_groms:
             return binaries
         binaries.sort()
-        min_grom = binaries[0].grom
-        max_grom = binaries[-1].grom
         all_min_addr = binaries[0].min_addr
-        all_max_addr = binaries[-1].max_addr
-        binary = b''.join(bin.byte_code + bytes(0x2000 - len(bin.byte_code) if bin.grom < max_grom else 0)
-                          for bin in binaries)
-        return ByteCode(min_grom, all_min_addr, all_max_addr, binary),
+        all_max_addr = binaries[-1].max_addr  # inclusive
+        min_grom = binaries[0].grom
+        if aligned:
+            all_min_addr = Util.trunc(all_min_addr, 0x2000)
+        chunks = []
+        last_addr = all_min_addr
+        for binary in binaries:
+            chunks.append(bytes(binary.min_addr - last_addr))
+            chunks.append(binary.byte_code)
+            last_addr = binary.max_addr
+        joined_binary = b''.join(chunks)
+        return ByteCode(min_grom, all_min_addr, all_max_addr, joined_binary),
 
-    def generate_gpl_header(self, grom_addr, offset, name):
+    def generate_gpl_header(self, base_addr, name):
         """generate GPL header"""
-        if offset < 0x16:
-            raise AsmError('No space for GROM header')
-        entry = self.program.entry or self.symbols.get_symbol('START') or offset
-        gpl_header = bytes((0xaa, 1, 0, 0, 0, 0)) + Util.chrw(grom_addr + 0x10) + bytes(8)
-        menu_name = name[:offset - 0x15]
-        info = bytes(2) + Util.chrw(Address.val(entry)) + bytes((len(menu_name),)) + menu_name.encode()
-        padding = bytes(offset - len(gpl_header) - len(info))
-        return gpl_header + info + padding
+        entry = self.program.entry or self.symbols.get_symbol('START') or base_addr + 0x30
+        gpl_header = bytes((0xaa, 1, 0, 0, 0, 0)) + Util.chrw(base_addr + 0x10) + bytes(8)
+        try:
+            menu_name = name[:0x15].encode('ascii')
+        except UnicodeEncodeError:
+            raise AsmError('Cart name contains non-ASCII chars')
+        menu = bytes(2) + Util.chrw(Address.val(entry)) + bytes((len(menu_name),)) + menu_name
+        padding = bytes(0x30 - len(gpl_header) - len(menu))
+        return gpl_header + menu + padding
 
-    def generate_cart_binary(self, byte_code, name):
-        """generate memory image for GROM"""
-
-    def generate_cart(self, byte_code, name):
-        """generate RPK file for use as MAME rom cartridge"""
-        if len(byte_code) > 1:
-            raise AsmError('Cannot create cart image from separate GROM files')
+    def generate_cart(self, name):
+        """generate RPK file for use as MAME cartridge"""
         layout = f"""<?xml version='1.0' encoding='utf-8'?>
                     <romset version='1.0'>
                         <resources>
@@ -1582,12 +1600,25 @@ class Linker:
                      <meta-inf>
                          <name>{name}</name>
                      </meta-inf>"""
-        binary = byte_code[0]
-        offset = binary.min_addr - (binary.grom << 13)
-        header = self.generate_gpl_header(binary.grom << 13, offset, name)
-        return header + binary.byte_code, layout, metainf
+        byte_code, = self.generate_byte_code(aligned=True)
+        # check all n * >2000 addresses in byte code for >AA header
+        # byte_code.min_addr is multiple of >2000
+        if all(byte_code.byte_code[base - byte_code.min_addr] != 0xaa
+               for base in range(byte_code.min_addr, byte_code.max_addr + 1, 0x2000)):
+            # generate GPL header if GROM addr does not exist or is not >AA
+            if any(b for b in byte_code.byte_code[:0x30]):
+                self.console.warn('Generated GPL header overwrites non-zero data')
+            header = self.generate_gpl_header(byte_code.min_addr, name)
+            data = header + byte_code.byte_code[0x30:]
+        else:
+            data = byte_code.byte_code
+        # MESS RPK format only supports GROM start addr >6000 right now, so pad if necessary
+        if byte_code.min_addr < 0x6000:
+            raise AsmError('MESS carts only support GROMs 3 and higher')
+        pad = bytes(byte_code.min_addr - 0x6000)
+        return pad + data, layout, metainf
 
-    def generate_text(self, byte_code, mode, split_groms=True):
+    def generate_text(self, mode, split_groms=True):
         """convert binary data into text representation"""
         if 'r' in mode:
             word = lambda i: Util.ordw(binary.byte_code[i + 1:((i - 1) if i > 0 else None):-1])  # byte-swapped
@@ -1616,13 +1647,14 @@ class Linker:
             raise AsmError('Bad text format: ' + mode)
 
         result = []
+        byte_code = self.generate_byte_code(split_groms=True)
         for binary in byte_code:
             text = ''
             if 'a' in mode:
                 text += f';      grom >%{binary.grom:04x}\n'
             if '4' in mode:  # words
                 if len(binary.byte_code) % 2:
-                    byte_code.binary += bytes(1)  # pad to even length
+                    binary.byte_code += bytes(1)  # pad to even length
                 ws = [value_fmt.format(hex_prefix, val(word(i))) for i in range(0, len(binary.byte_code), 2)]
                 lines = [data_prefix + ', '.join(ws[i:i + 4]) + suffix
                          for i in range(0, len(ws), 4)]
@@ -1849,6 +1881,8 @@ class Xga99Processor(CommandProcessor):
                          help='create text file with binary values')
         args.add_argument('-n', '--name', dest='name', metavar='<name>',
                           help='set program name')
+        args.add_argument('-B', '--fully-padded', action='store_true', dest='pad',
+                          help='pad GROMs to size of >2000 bytes')
         args.add_argument('-G', '--grom', dest='grom', metavar='<GROM>',
                           help='set GROM base address')
         args.add_argument('-A', '--aorg', dest='aorg', metavar='<origin>',
@@ -1892,7 +1926,7 @@ class Xga99Processor(CommandProcessor):
         self.barename = os.path.splitext(basename)[0]
         self.name = self.opts.name or self.barename[:16].upper()
         grom = Util.xint(self.opts.grom) if self.opts.grom is not None else 0x6000 if self.opts.cart else 0x0000
-        aorg = Util.xint(self.opts.aorg) if self.opts.aorg is not None else 0x0030 if self.opts.cart else 0x0000
+        aorg = Util.xint(self.opts.aorg) if self.opts.aorg is not None else 0x0000
         root = os.path.dirname(os.path.realpath(__file__))  # installation dir (path to xga99)
         includes = [os.path.join(root, 'lib')] + Util.get_opts_list(self.opts.inclpath)
         target = Assembler.get_target(self.opts.cart, self.opts.text)
@@ -1914,7 +1948,7 @@ class Xga99Processor(CommandProcessor):
         self.asm.assemble(basename)
         if self.console.errors:
             return True  # abort
-        self.linker = Linker(self.asm.program, self.asm.symbols)
+        self.linker = Linker(self.asm.program, self.asm.symbols, self.console)
 
     def prepare(self):
         if self.opts.cart:
@@ -1930,8 +1964,7 @@ class Xga99Processor(CommandProcessor):
 
     def cart(self):
         """generate cart archive"""
-        byte_code = self.linker.generate_byte_code(split_groms=False)
-        data, layout, metainf = self.linker.generate_cart(byte_code, self.name)
+        data, layout, metainf = self.linker.generate_cart(self.name)
         try:
             with zipfile.ZipFile(Util.outname(self.barename, '.rpk', output=self.opts.output), 'w') as archive:
                 archive.writestr(self.name + '.bin', data)
@@ -1943,14 +1976,13 @@ class Xga99Processor(CommandProcessor):
 
     def text(self):
         """generate text file"""
-        byte_code = self.linker.generate_byte_code(split_groms=True)
-        binaries = self.linker.generate_text(byte_code, self.opts.text.lower(), split_groms=self.opts.splitgroms)
+        binaries = self.linker.generate_text(self.opts.text.lower(), split_groms=self.opts.splitgroms)
         for grom, data in binaries:
             self.result.append(RFile(data, self.barename, '.dat', suffix=ByteCode.suffix(grom), istext=True))
 
     def byte_code(self):
         """generate byte code"""
-        for binary in self.linker.generate_byte_code(split_groms=self.opts.splitgroms):
+        for binary in self.linker.generate_byte_code(split_groms=self.opts.splitgroms, padded_groms=self.opts.pad):
             suffix = ByteCode.suffix(binary.grom) if self.opts.splitgroms else ''
             self.result.append(RFile(binary.byte_code, self.barename, '.gbc', suffix=suffix))
 

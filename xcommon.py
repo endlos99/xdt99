@@ -333,6 +333,11 @@ class Util:
         return n - n % 2
 
     @staticmethod
+    def align(addr, base=0x2000):
+        """align addr to n * base"""
+        return addr - addr % base
+
+    @staticmethod
     def ordw(word):
         """word ord"""
         return (word[0] << 8) | word[1]
@@ -383,12 +388,24 @@ class Util:
     @staticmethod
     def xint(s):
         """return hex or decimal value"""
-        return 0 if s is None else int(s.lstrip('>0x'), 16 if s[:2] == '0x' or s[:1] == '>' else 10)
+        if s is None:
+            return 0
+        elif s[:2] == '0x':
+            return int(s[2:], 16)
+        elif s[:1] == '>':
+            return int(s[1:], 16)
+        else:
+            return int(s)
 
     @staticmethod
     def trunc(i, m):
         """round integer down to multiple of m"""
         return i - i % m
+
+    @staticmethod
+    def top(i, m):
+        """round integer up to multiple of m"""
+        return i + -i % m
 
     @staticmethod
     def used(n, m):

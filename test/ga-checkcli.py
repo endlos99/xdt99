@@ -2,6 +2,7 @@
 
 import os
 import re
+import zipfile
 
 from config import Dirs, Files, XGA99_CONFIG
 from utils import (xga, t, error, clear_env, delfile, check_files_eq, check_binary_files_eq, content, content_len,
@@ -61,7 +62,7 @@ def check_list_addr_data(infile, reffile, addr):
             if code_lines[addr] != byte_:
                 error('listing', f'Address/data mismatch at address >{addr:x}')
         except KeyError:
-            error('listing', f'issing address >{addr:x} in listing file')
+            error('listing', f'Missing address >{addr:x} in listing file')
         addr += 1
 
 
@@ -119,7 +120,7 @@ def runtest():
         fout.writelines(listfile)
     xga(Files.error, '-o', Files.output)
     check_binary_files_eq('listing', Files.output, Files.reference)  # checks code
-    check_list_addr_data(Files.input, Files.reference, 0x0000)  # checks addr and data
+    check_list_addr_data(Files.input, Files.reference, 0x0030)  # checks addr and data
 
     # macro errors
     source = os.path.join(Dirs.gplsources, 'gamacse.gpl')
@@ -178,6 +179,56 @@ def runtest():
     xga(source, '-o', Files.output, '-L', Files.input, '-E', Dirs.tmp)
     if len(content_line_array(t('gamulf.equ'))) != 6:
         error('path output', 'Equ file contents mismatch')
+
+    # new cart
+    source = os.path.join(Dirs.gplsources, 'ganalign.gpl')  # prerequisite: proper padding between GROMs
+    xga(source, '-o', Files.output)
+    data = content(Files.output)
+    if data[0] != 5 or data[0x1800] != 6 or data[0x4f00] != 7:
+        error('padding', 'Incorrect non-aligned byte code')
+
+    xga(source, '-B', '-o', Files.output)
+    data = content(Files.output)
+    if len(data) != 0x6000 or data[0x1000] != 5 or data[0x2800] != 6 or data[0x5f00] != 7:
+        error('padding', 'Incorrect GROM padding')
+
+    source = os.path.join(Dirs.gplsources, 'gacart.gpl')
+    xga(source, '-c', '-o', Files.output)  # assumes GROM 3
+    with zipfile.ZipFile(Files.output, 'r') as archive:
+        data = archive.read('GACART.bin')
+    if data[0] != 0xaa or data[0x12:0x14] != b'\x60\x1b' or data[0x30] == 0xaa:
+        error('cart', 'Incorrect GPL header')
+
+    source = os.path.join(Dirs.gplsources, 'gacarthdr.gpl')
+    xga(source, '-c', '-o', Files.output)
+    with zipfile.ZipFile(Files.output, 'r') as archive:
+        data = archive.read('GACARTHDR.bin')
+    if len(data) != 0x2031 or data[0x1000] != 1 or data[0] != 0xaa or data[0x2000] == 0xaa:
+        error('cart', 'Incorrect GPL header')
+
+    source = os.path.join(Dirs.gplsources, 'gacarthdr.gpl')
+    xga(source, '-c', '-D', 'AA', '-o', Files.output)
+    with zipfile.ZipFile(Files.output, 'r') as archive:
+        data = archive.read('GACARTHDR.bin')
+    if len(data) != 0x2031 or data[0x1000] != 1 or data[0] == 0xaa or data[0x2000] != 0xaa:
+        error('cart', 'Incorrect GPL header')
+
+    source = os.path.join(Dirs.gplsources, 'gacarthi.gpl')
+    with open(Files.error, 'w') as ferr:
+        xga(source, '-c', '-o', Files.output, stderr=ferr, rc=0)
+    with zipfile.ZipFile(Files.output, 'r') as archive:
+        data = archive.read('GACARTHI.bin')
+    if len(data) != 0x4020 or data[0] != 0xaa or data[0x3000] != 3 or data[0x2000] == 0xaa or data[0x4000] != 0x2e:
+        error('cart', 'Incorrect cart without GPL header')
+    if not content(Files.error):
+        error('cart', 'Missing warning about overwriting data')
+
+    xga(source, '-c', '-D', 'AA', '-o', Files.output)
+    with zipfile.ZipFile(Files.output, 'r') as archive:
+        data = archive.read('GACARTHI.bin')
+    if (len(data) != 0x4021 or data[0] == 0xaa or data[0x3000] != 3 or data[0x2000] == 0xaa or data[0x4000] != 0xaa or
+            data[0x4001] != 0x2e):
+        error('cart', 'Incorrect cart with GPL header')
 
     # cleanup
     delfile(Dirs.tmp)

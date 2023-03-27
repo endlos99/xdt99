@@ -2,6 +2,7 @@
 
 import os
 import re
+import zipfile
 
 from config import Dirs, Disks, Files, XAS99_CONFIG
 from utils import (chrws, ordw, xas, xdm, t, r, error, clear_env, delfile, content, content_len, content_line_array,
@@ -199,7 +200,7 @@ def runtest():
     source = os.path.join(Dirs.sources, 'assyms.asm')
     xas(source, '-b', '-s', '-R', '-o', Files.reference, '-E', Files.output)
     check_symbols(Files.output,
-                  (('VDPWA', 'SCAN'),  # references
+                  (('Z',),  # references
                    (('START', '>0000'), ('S1', '>0001'), ('S2', '>0018'))), strict=True)  # expected symbols
 
     reference = r('assyms-s.equ')
@@ -268,6 +269,7 @@ def runtest():
     xas(source, '-R', '-o', Files.output, '-L', Files.input)
     if content_len(Files.error) > 0:
         error('defaults', 'Default options override not working')
+    del os.environ[XAS99_CONFIG]
 
     # platform-agnostic paths
     source = os.path.join(Dirs.sources, 'aswin.asm')
@@ -290,6 +292,63 @@ def runtest():
     xas(source, '-o', Files.output, '-L', Files.input, '-E', Dirs.tmp, '-s')
     if len(content_line_array(t('asmulf.equ'))) != 3:
         error('path output', 'Equ file contents mismatch')
+
+    # joined binary
+    source = os.path.join(Dirs.sources, 'asjoin.asm')
+    xas(source, '-B', '-o', Files.output)
+    data = content(Files.output)
+    if (data[0x10] != 1 or data[0x1020] != 2 or data[0x2030] != 3 or data[0x3040] != 4 or
+            data[0x4050] != 5 or data[0x5060] != 6):
+        error('joined', 'Incorrect data in joined binary')
+    if len(data) != 0x6000:
+        error('joined', 'Incorrect joined binary size')
+
+    xas(source, '-B', '-M', '-o', Files.output)
+    data = content(Files.output)
+    if (data[0x10] != 1 or data[0x1020] != 2 or data[0x2030] != 3 or data[0x3040] != 4 or
+            data[0x4050] != 5 or data[0x5060] != 6):
+        error('joined', 'Incorrect data in minimized joined binary')
+    if len(data) != 0x5061:
+        error('joined', 'Incorrect minimized joined binary size')
+
+    # new cart
+    source = os.path.join(Dirs.sources, 'ascart.asm')
+    reference = r('ASCART.bin')
+    xas(source, '-R', '-c', '-o', Files.output)
+    with zipfile.ZipFile(Files.output, 'r') as archive:
+        data = archive.read('ASCART.bin')
+        layout = archive.read('layout.xml')
+        _metainf = archive.read('meta-inf.xml')
+    if data != content(reference):
+        error('cart', 'Incorrect data in cart')
+    if b"pcb type='standard'" not in layout:
+        error('cart', 'Incorrect paging in layout.xml')
+
+    source = os.path.join(Dirs.sources, 'ascarthd.asm')
+    reference = r('ASCARTHD.bin')
+    xas(source, '-R', '-c', '-o', Files.output)
+    with zipfile.ZipFile(Files.output, 'r') as archive:
+        data = archive.read('ASCARTHD.bin')
+    if data != content(reference):
+        error('cart', 'Incorrect data in cart')
+
+    source = os.path.join(Dirs.sources, 'ascartrel.asm')
+    for x in (['-q'], ['-D', 'SIXM']):
+        xas(source, '-R', '-c', *x, '-o', Files.output)
+        with zipfile.ZipFile(Files.output, 'r') as archive:
+            data = archive.read('ASCARTREL.bin')
+        if data[0] != 0xaa or data[0x30] == 0xaa or data[0x12:0x14] != b'\x60\x16':
+            error('cart', 'Incorrect header in cart')
+
+    source = os.path.join(Dirs.sources, 'ascartbnk.asm')
+    xas(source, '-c', '-o', Files.output)
+    with zipfile.ZipFile(Files.output, 'r') as archive:
+        data = archive.read('ASCARTBNK.bin')
+        layout = archive.read('layout.xml')
+    if data[0] != 0xaa or data[0x30] == 0xaa:
+        error('cart', 'Incorrect data in cart')
+    if b"pcb type='paged378'" not in layout:
+        error('cart', 'Incorrect paging in layout.xml')
 
     # cleanup
     delfile(Dirs.tmp)

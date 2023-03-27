@@ -3,7 +3,7 @@ xdt99: TI 99 Cross-Development Tools
 
 The **TI 99 Cross-Development Tools** (xdt99) are a suite of programs that
 facilitate the development of programs for the TI 99 family of home computers
-and other TMS9900-based systems on modern computer systems.
+and other TMS99xx-based systems on modern computer systems.
 
 As of this release, the cross-development tools comprise
 
@@ -31,6 +31,8 @@ syntax highlighting and symbol lookup.
 
 To get started with the xdt99 tools, follow the [installation](#installation) 
 instructions and read the [tutorial](#tutorial).
+
+This document covers xdt99 version 3.6.0.
 
 xdt99 is released under the GNU GPL version 3.  The latest [binary release][3]
 as well as all [sources][2] are available on GitHub.
@@ -123,7 +125,7 @@ expected parameters, if any.
 Options enclosed in brackets `[` ... `]` are optional, and options separated
 by `|` are mutually exclusive.
 
-The help option `-h` also lists all available options, but includes a short
+The _help option_ `-h` also lists all available options, but includes a short
 description for each.
 
     $ xas99.py -h
@@ -190,7 +192,7 @@ object code_ with option `-C` reduces both size and loading time:
     $ xas99.py -R -C ashello.asm -o ashello-c.obj
 
 In order to not overwrite our already existing `ashello.obj` file, we overrode
-the default output filename with the output option `-o`.
+the default output filename with the _output name option_ `-o`.
 
 Compressed object code contains unprintable characters, but if we replace those
 by `.`, we can show the contents:
@@ -223,7 +225,7 @@ The list file or _listing_ provides insight into the assembled program by
 showing where each assembled instruction is placed in memory.  List files are
 thus particularly useful during development.
 
-Similar to the Editor/Assembler, we create list files using the list option
+Similar to the Editor/Assembler, we create list files using the _list option_
 `-L`, followed by a filename:
 
     $ xas99.py -R ashello.asm -L ashello.lst
@@ -296,7 +298,7 @@ which source file a certain listing sequence belongs to:
         ...
 
 In addition to option 3 object code, `xas99` can also generate _images_ for E/A
-option 5 using the image option `-i`.
+option 5 using the _image option_ `-i`.
 
     $ xas99.py -R -i ashello.asm -o ashello5.img
 
@@ -382,8 +384,8 @@ has a capacity of 90 KB and is formatted as one-sided, single density with 40
 tracks and 9 sectors per track.  Note that 2 sectors are always reserved for
 disk information and the catalog.
 
-We can _add files_ to the disk image with the add option `-a`, generally
-together with the format option `-f`.
+We can _add files_ to the disk image with the _add option_ `-a`, generally
+together with the _format option_ `-f`.
 
     $ xdm99.py work.dsk -a ashello.obj -f DIS/FIX80
     $ xdm99.py work.dsk -a ashello5.img
@@ -396,7 +398,7 @@ If no format is given, `PROGRAM` type is assumed, and if the record length is
 omitted, a record length of 80 is used.
 
 If we add a single file to a disk image, we can also override the TI filename
-on the disk with the name option `-n`.
+on the disk with the _name option_ `-n`.
 
 Our disk image now contains two files:
 
@@ -407,7 +409,7 @@ Our disk image now contains two files:
     ASHELLO5      2  PROGRAM        248 B              2020-03-25 12:13:26 C
 
 Should we have no blank disk image available, we can create a _new image_ with
-the initialize option `-X`:
+the _initialize option_ `-X`:
 
     $ xdm99.py -X sssd work.dsk
 
@@ -458,7 +460,7 @@ even though the emulator cannot write to disk images.  The native format of
 Classic 99 are so-called _files in a directory_ (FIAD) in _TIFILES_ format.
 
 `xdm99` can convert plain files and files on disk images into TIFILES format by
-using the TIFILES options `-T` and `-t`, resp.
+using the _TIFILES options_ `-T` and `-t`, resp.
 
 For plain files, `-T` converts one or more files into TIFILES format.  Unless we
 are creating files of type `PROGRAM`, we also have to provide the file type
@@ -478,8 +480,8 @@ we're using the `-o` option again.
     $ xdm99.py -T ashello.obj -f DIS/FIX80 -o ASHELLO
     $ xdm99.py -T ashello5.img -o ASHELLO5
 
-We can examine the stored metadata of TIFILES or v9t9 files by using the info
-option `-I`.
+We can examine the stored metadata of TIFILES or v9t9 files by using the _info
+option_ `-I`.
 
     $ xdm99.py -I ASHELLO
     ASHELLO       4  DIS/FIX 80     672 B   8 recs     2020-03-25 18:32:24 C
@@ -489,7 +491,7 @@ To convert in the other direction, we use the "from TIFILES" option `-F`:
     $ xdm99.py -F ASHELLO -o ashello.obj
 
 The conversion becomes even simpler if we use our disk image instead of plain
-files.  The _extract_ option `-e` will create a local copy of a file stored on
+files.  The _extract option_ `-e` will create a local copy of a file stored on
 the disk image.  If we combine `-e` with the TIFILES option `-t`,  the local
 file will be in TIFILES format.
 
@@ -573,7 +575,7 @@ contains a valid disk image.
 For a Lotharek HxC drive, we need to convert the disk image to HFE format.  This
 is the job of the `xhm99` _HFE image manager_.
 
-To convert a disk image to HFE format, we use the "to HFE" option `-T`.
+To convert a disk image to HFE format, we use the _"to HFE" option_ `-T`.
 
     $ xhm99.py -T work.dsk
 
@@ -588,7 +590,7 @@ We can also check the contents of our HFE disk ty typing
     ASHELLO       4  DIS/FIX 80     672 B   8 recs     2020-03-25 12:13:22 C
     ASHELLO5      2  PROGRAM        248 B              2020-03-25 12:13:26 C
 
-To convert in the other direction, we would use the "from HFE" option `-F`.
+To convert in the other direction, we would use the _"from HFE" option_ `-F`.
 
 `xhm99` and `xvm99` support almost all options of `xdm99` but apply them to HFE
 images or nanoPEB volumes instead of disk images.
@@ -600,33 +602,27 @@ to `xas99` now.  The cross-assembler not only generates code for the
 Editor/Assembler cartridge, but also raw binary code and MAME-style cartridges,
 which can be used independently of E/A.
 
-The cartridge option `-c` automatically generates a GPL header and then
-assembles everything into a MAME-style RPK cartridge archive.
+The _cartridge option_ `-c` generates a MAME-style RPK cartridge archive.
 
     $ xas99.py -R -c ascart.asm -n "HELLO CART"
+
+If the assembled code lacks a GPL header, it will automatically be added.  In
+this case, we can use the _name option_ `-n` to set the program name that shows 
+up in the TI menu screen.  Since our name contains a space, we need to quote the
+entire name.  If no name is given, the filename without extension is used.
 
 Note that `ascart.asm` does not make use of VDP utilities, so we don't have to
 include them on the command line.
 
-The name option `-n` sets the program name that shows up in the TI menu screen.
-Since our name contains a space, we need to quote the entire name.  If no name
-is given, the filename without extension is used.
-
-In order to add the GPL header, the source program must not use memory range
-`>6000` to `>6030`.  We can ensure this by using either an `AORG >6030` or
-higher directive or an `RORG` directive at the beginning of the program.  In
-case of using `RORG`, `xas99` automatically relocates the code to address
-`>6030`.
-
 The start address of the cartridge should be provided by an `END` directive with
-a corresponding label (see `ascart.asm` as an example).  If no label or no `END` 
-directive is found, the first instruction of the generated code is used as entry
-point, so the first word must be executable.
+a corresponding label (see `ascart.asm` as an example).  If no `END` directive
+with label is found, the first instruction of the generated code is used as 
+entry point, so the first word must be executable.
 
 As a side note, we can manually relocate the relocatable segments of a program
-with the rebase option `-a` during assembly.  Thus, if the source code does not
-contain any `AORG` or `XORG` directives, we can use `-a` to move the generatred
-code to any memory address.
+with the _rebase option_ `-a` during assembly.  Thus, if the source code does
+not contain any `AORG` or `XORG` directives, we can use `-a` to move the
+generated code to any memory address.
 
 The resulting file with extension `.rpk` can be used as-is with the MAME
 emulator:
@@ -638,23 +634,19 @@ the (trivial) sample program.  Note that the programs runs without the 32K
 memory expansion, as the program code is stored entirely inside the cartridge
 ROM.
 
-Generating cartridge images with option `-c` is recommended only for very
-simple programs, since the capabilities of the generated GPL header are limited,
-and the resulting `.rpk` file can only be used for MAME.
-
-A more general approach is to write the GPL header yourself and then to assemble
-the program with the binary option `-b`.
+Images generated by `-c` can only be used for MAME.  For other emulators or for
+real iron we might want to use the _binary option_ `-b`.
 
     $ xas99.py -R -b ascart_hdr.asm
 
 The resulting binary file `ascart_hdr.bin` corresponds to an "executable" on
 other platforms and contains only machine code, without any headers or padding.
-It can be used as cartridge file for Classic 99, or put on a multi-cart or Flash
+It can be used as cartridge file for Classic 99 or put on a multi-cart or Flash 
 cart such as the FlashROM or the [FinalGROM][6].
 
 The `-b` option is not limited to cartridges.  We can also use it to create
-DSRs, or code we want to load dynamically into memory, e.g., by DSR opcode 5.
-We can put the binaries in an EPROM, or store them in a microcontroller or FPGA.
+DSRs or code we want to load dynamically into memory, e.g., by DSR opcode 5.  We
+can put the binaries in an EPROM, or store them in a microcontroller or FPGA.
 As such, binary is arguably the simplest, but also the most versatile format.
 
 #### E/A Utility Functions
@@ -731,7 +723,7 @@ this process, the linker will find a memory layout for all program segments, and
 match the list of `REF` symbols with the list of `DEF` symbols.
 
 To invoke the linker and join multiple object code files together, we use the
-link option`-l`.
+_link option_`-l`.
 
     $ xas99.py -l part1.obj part2.obj -o whole.obj
 
@@ -833,12 +825,14 @@ additionally expect some header information `xga99` currently not provides.
 For the MAME emulator, we cannot use `.gbc` files directly, but we can use them
 to build an RPK cartridge archives.
 
-Alternatively, `xga99` supports the creation of cartridges with automatically
-generated GPL headers using the cartridge option `-c`:
+Alternatively, `xga99` supports the creation of MAME cartridges using the
+_cartridge option_ `-c`:
 
     $ xga99.py -c gahello.gpl
 
-Again, the memory area `>6000`-`>6030` is reserved for the generated GPL header.
+If no GPL header is found in any GROM, `xga99` automatically generates one in
+the lowest GROM.
+
 To place code at some particular address, we use the `GROM` directive to choose
 the GROM, and then optionally the `AORG` directive to define an offset relative
 to the start of the GROM.  `GROM` supports both GROM numbers `0`, `1`, ..., `7`
@@ -849,15 +843,12 @@ The result of the previous command is a `.rpk` file we can use with MAME:
     $ mame ti99_4a -cart gahello.rpk
 
 The emulated TI menu screen will show our program as `GAHELLO`.  We can override
-that name with the name option `-n`.
+that name with the _name option_ `-n`.
 
-Again, we recommend using `-c` only for simple cases, and working with GPL byte
-code otherwise.
-
-When we create GPL programs for the FinalGROM, we need to make sure to assemble
-to GPL byte code and to rename the resulting `.gbc` file so that it ends in `G`
-and has a `.bin` extension.  Otherwise, the FinalGROM will erroneously assume
-that the file contains TMS9900 machine code.
+When we create GPL programs for the [FinalGROM][6], we need to make sure to 
+assemble to GPL byte code and to rename the resulting `.gbc` file so that it
+ends in `G` and has a `.bin` extension.  Otherwise, the FinalGROM will
+erroneously assume that the file contains TMS9900 machine code.
 
 
 ### Working with BASIC Programs
@@ -873,7 +864,7 @@ one format into the other format.
 The TI BASIC program `nim.bas` in the `examples/` directory is in listing
 format, just as if we typed a listing printed in a 80's home computer magazine
 into our home computer.  To convert this into a program that we can load and
-run, we must tokenize the listing with the optional create option `-c`.
+run, we must tokenize the listing with the optional _create option_ `-c`.
 
     $ xbas99.py -c nim.bas
     $ xbas99.py nim.bas
@@ -905,14 +896,14 @@ to `RUN` it, the interpreter will throw an error:
     * BAD NAME IN 10
 
 When given a program in an internal format, such as our `nim.prg`, we can decode
-it into a textual format with the decode option `-d`.
+it into a textual format with the _decode option_ `-d`.
 
     $ xbas99.py -d nim.prg -o nim2.bas
 
 Files `nim.bas` and `nim2.bas` should be identical.
 
 We can also decode to the screen, i.e., print the decoded listing on the console
-with the print option `-p`.
+with the _print option_ `-p`.
 
     $ xbas99 -p nim.prg
     100 REM A VERSION OF NIM
@@ -964,7 +955,7 @@ For readability, a label used in a statement may be prefixed by `@`.
      X=X*2 :: Y=Y+1
      IF X<10 THEN @COUNT
 
-In order to tokenize a program with labels, the label option `-l` must be
+In order to tokenize a program with labels, the _label option_ `-l` must be
 supplied.
 
     $ xbas99.py -c -l nim_labels.bas
@@ -1082,7 +1073,7 @@ Assembler option 3 loader.
     $ xas99.py -R ashello.asm
 
 This command yields object code file `ashello.obj`.  We can override the output
-filename with the output option `-o`.
+filename with the _output name option_ `-o`.
 
     $ xas99.py -R ashello.asm -o HELLO-O
 
@@ -1149,7 +1140,7 @@ The assembler may also issue a number of _warnings_, e.g.,
     ***** Warning: Unused constants: L1
 
 Warnings indicate a likely oversight made by the developer.  Warnings are also
-written to `stderr`, unless they are suppressed with the quiet option `-q`.
+written to `stderr`, unless they are suppressed with the _quiet option_ `-q`.
 
 Most warnings are also associated with one of these groups: optimizations,
 potentially incorrect usages of arguments, ambiguous arithmetical expressions,
@@ -1171,8 +1162,8 @@ crash our program.
 
 On Linux and macOS platforms, all warnings and errors are _colored_ by default.
 Irrespective of platform, the use of color can be turned on or off by using the
-color options `--color on` or `--color off`, resp.  (Technical note: Colors
-require so-called ANSI escape sequences, something that Windows `cmd.exe` only
+_color options_ `--color on` or `--color off`, resp.  (Technical note: Colors
+use so-called ANSI escape sequences, something that Windows `cmd.exe` only
 started to support recently.)
 
 Frequently used options, such as `-R` or `--color on/off` can be stored in the
@@ -1204,7 +1195,7 @@ terminated with `;`!
 
 ### Creating Program Images
 
-The image option `-i` tells `xas99` to generate image files that can be loaded
+The _image option_ `-i` tells `xas99` to generate image files that can be loaded
 using Editor/Assembler option 5.
 
     $ xas99.py -R -i ashello.asm
@@ -1234,9 +1225,9 @@ though the original `SAVE` utility cannot generate such images.
 For further control about the memory regions to include in the image, see the
 `SAVE` directive below.
 
-We can use the base option `-a` to define the base address for relocatable code.
-If no base address is given, default address `>A000` is used for relocatable
-code in images.  For example, creating an image file from the source
+We can use the _base option_ `-a` to define the base address for relocatable 
+code.  If no base address is given, default address `>A000` is used for
+relocatable code in images.  For example, creating an image file from the source
 
     data >1111
     aorg >a002
@@ -1256,14 +1247,14 @@ All the usual restrictions for program images apply.  In particular, the first
 word of the first image file must be an executable instruction, and the E/A
 utility functions must be provided by the program.
 
-Since the command above
+Since the command above yields a warning about unresolved VDP utility functions
 
     $ xas99.py -R -i ashello.asm
     > --- <L> **** -
     ***** Warning: Unresolved references: VSBW, VMBW, KSCAN, VWTR
 
-yields a warning about unresolved VDP utility functions, we need to provide
-these functions ourselves, e.g., by supplying them on the command line.
+we need to provide these functions ourselves, e.g., by supplying them on the
+command line.
 
     $ xas99.py -R -i ashello.asm vsbw_ea.asm vmbw_ea.asm vwtr_ea.asm kscan_ea.asm
 
@@ -1284,7 +1275,7 @@ Image files for E/A option 5 contain the actual program code that is loaded
 verbatim into memory.  They also contain 6 bytes of metadata that instructs the
 loader how many files to load and where to store the data.
 
-The binary option `-b` tells `xas99` to generate raw binary files without
+The _binary option_ `-b` tells `xas99` to generate raw binary files without
 metadata.
 
     $ xas99.py -b -R -a ">6000" ascart.asm
@@ -1303,23 +1294,22 @@ can lead to sparse programs containing large sections of zero bytes if the
 source comprises non-contiguous segments.  We can avoid this by using the
 `SAVE` directive described below.
 
-The base option `-a` sets the base address for relocatable segments; if not set,
-relocatable code is kept at base 0.
+The _base option_ `-a` sets the base address for relocatable segments; if not 
+set, relocatable code is kept at base 0.
+
+The `-b` option will create one file per bank per `SAVE` directive.  To join
+these files into a single file, we can use the _joined binary option_ `-B`.  
+This option will also align the start address of the binary to a multiple of
+`>2000`.  If the _minimize option_ `-M` is not supplied, the binary is also
+padded to a multiple of `>2000`.
 
 
 ### Creating MAME Cartridges
 
-The cartridge option `-c` tells `xas99` to add a GPL header and create an RPK
-cartridge file suitable for the MAME emulator.
+The _cartridge option_ `-c` creates an RPK cartridge file suitable for the MAME
+emulator.
 
     $ xas99.py -c -R ascart.asm -n "HELLO CART"
-
-The name option `-n` overrides the default name of the program that shows up in
-the TI menu screen.
-
-Note that the first word in the code must be an executable instruction, or we
-need to supply the start symbol as operand of the `END` directive, like was done
-in `ascart.asm`.
 
 The resulting RPK file is a ZIP archive containing the actual program code plus
 various information for the MAME emulator on how to execute the program.
@@ -1332,21 +1322,30 @@ various information for the MAME emulator on how to execute the program.
           491  02-12-2020 07:03   layout.xml
           131  02-12-2020 07:03   meta-inf.xml
 
-`xas99` will automatically generate a suitable GPL header and relocate the
-program to address `>6030`.  When using `AORG`, make sure to leave an unused >30
-byte buffer at the beginning of the program.
+If the source code does not contain a GPL header, `xas99` will automatically add
+one.  In this case, the _name option_ `-n` can be used to set the program name
+that will be displayed in the menu screen.
 
-Note that this option is very limited in what kind of headers it can generate.
-We therefore recommended `-c` for only the simplest programs, and suggest
-using `-b` instead.
+When adding a GPL header, `xas99` replaces bytes `>6000` through `>602F` with
+the header data.  Thus, if we want to make use of this functionality, our
+program should start at address `>6030` or higher.  `xas99` will issue a warning
+if the GPL header overwrites any non-zero data.
+
+If the program is entirely relocatable, i.e., using `RORG` but no `AORG`, a GPL
+header is added if no header is found at relocatable addresses `>0000` or
+`>6000`.  For `>0000`, the program is also relocated to base address `>6000`.
+
+The first word in the code must be an executable instruction, or we need to
+supply the start symbol as operand of the `END` directive, like was done in 
+`ascart.asm`.
 
 
 ### Creating Text Files
 
-The text option `-t` generates a textual representation of the binary that would
-be generated by `-b`.  Option `-t` has one parameter that specifies the format
-of the text.  One of the following characters sets the target platform of the
-generated text:
+The _text option_ `-t` generates a textual representation of the binary that 
+would be generated by `-b`.  Option `-t` has one parameter that specifies the
+format of the text.  One of the following characters sets the target platform of
+the generated text:
 
 | Character | Generated statement | For use in        |
 | --------- | ------------------- | ----------------- |
@@ -1373,6 +1372,9 @@ The result can be `COPY`ed, `#include`d, or just copy-pasted.
 
 A typical use case for this option is to include a program written in language X
 in another program of language Y.
+
+Note that instead of `COPY`ing textual data into an assembly or GPL program, we
+might simply use the binary copy directive `BCOPY` instead.
 
 
 ### Embedding Code
@@ -1402,7 +1404,7 @@ assembly code!
 
 ### Creating List Files
 
-The list option `-L` instructs `xas99` to generate a list file for the
+The _list option_ `-L` instructs `xas99` to generate a list file for the
 assembled source code:
 
     $ xas99.py -R ashello.asm -L ashello.lst
@@ -1432,7 +1434,7 @@ addresses and `e` for unknown external symbols introduced by `REF`.
 The list file is useful for understanding the program layout in memory and the
 values of expressions.
 
-The symbol option `-S` will append a dump of the symbol table to the listing.
+The _symbol option_ `-S` will append a dump of the symbol table to the listing.
 Relocatable symbols are marked by `REL`.
 
 
@@ -1479,7 +1481,7 @@ will not be found when using TI paths!
 
 `xas99` searches for files in the current directory of the including file and
 the `lib` directory of the xdt99 installation.  We can provide additional search
-paths with the include path option `-I`.
+paths with the _include path option_ `-I`.
 
     $ xas99.by ashello.asm -I gfx/ ../disk2/
 
@@ -1840,8 +1842,8 @@ supported.
 The _cross-bank access_ modifier `x#` enables cross-bank symbol access.  For a
 detailed description on `x#`, see the paragraph on bank switching further down.
 
-We can supply _additional symbols_ from the command line with the define option
-`-D`.
+We can supply _additional symbols_ from the command line with the _define 
+option_ `-D`.
 
     $ xas99.py ashello.asm -D symbol1 symbol2=2
 
@@ -1850,8 +1852,8 @@ If no value is given, the symbol is set to value `1`.
 Symbols defined by `-D` are treated internally like labels and are stored as
 absolute address.  They are not added to the `DEF` lists.
 
-The symbol option `-E` dumps all symbols in EQU-like syntax to an external
-file `sym.asm`:
+The _dump symbol option_ `-E` dumps all symbols in EQU-like syntax to an
+external file `sym.asm`:
 
     $ xas99.py -R ashello.asm -E sym.asm
 
@@ -1911,8 +1913,8 @@ into a binary will yield files `asbank_b0.bin` and `asbank_b1.bin`.
 `xas99` detects cross-bank accesses in address arguments.  Of those, accesses
 from and to shared code segments are fine, but others are at least dubious.
 
-By default, `xas99` allows all cross-bank accesses.  Using the cross-check
-option `-X`, however, makes the assembler issues an error for each illegal
+By default, `xas99` allows all cross-bank accesses.  Using the _cross-check
+option_ `-X`, however, makes the assembler issues an error for each illegal
 cross-bank access.
 
 So, assuming `-X` is supplied for the following program, only the `ok` accesses
@@ -2015,7 +2017,7 @@ range specified.
 By default, the resulting binary will contain the entire address range of the
 SAVE(s), with bytes at unspecified addresses set to 0.
 
-When supplying the minimize option `-M`, however, save ranges are minimized,
+When supplying the _minimize option_ `-M`, however, save ranges are minimized,
 i.e., the resulting binary only contains those addresses contained in the
 program (and zero any gaps between them).
 
@@ -2354,8 +2356,8 @@ accomodate architectures other than the TI 99/4A.
 ### Linker
 
 `xas99` features a linker that can join object code files into any supported
-format.  The linker is invoked by link option `-l` or by supplying more than one
-source file.
+format.  The linker is invoked by _link option_ `-l` or by supplying more than
+one source file.
 
 If `fileN.obj` is the object code of source file `fileN.asm`, then these
 commands are equivalent and yield the same file `result.obj`:
@@ -2407,7 +2409,7 @@ yields this file (ignoring the order of instructions, but not their addresses):
         data 5
 
 The `xas99` linker has two modes.  The default mode follows the logic of the
-E/A loader.  The safe mode, invoked by safe link option `-ll`, additionally
+E/A loader.  The safe mode, invoked by _safe link option_ `-ll`, additionally
 resolves conflicts that may arise when linking relocatable code with absolute
 code.  As an example, linking
 
@@ -2441,7 +2443,7 @@ program, normal linking should be sufficient.
 
 ### Compatibility with E/A
 
-The strictness option `-s` disables most `xas99`-specific extensions, in
+The _strictness option_ `-s` disables most `xas99`-specific extensions, in
 particular the relaxed whitespace handling, to improve backwards compatibility
 for legacy sources:
 
@@ -2464,6 +2466,9 @@ The `xga99` GPL cross-assembler translates programs written in TI's proprietary
 Graphics Programming Language into byte code that can be interpreted by the TI
 99 home computer.
 
+
+### Assembling Source Code
+
 Invoking `xga99` in standard mode will assemble a GPL source code file into
 _GPL byte code_ that may be placed in a physical or emulated GROM or GRAM
 device.
@@ -2471,43 +2476,47 @@ device.
     $ xga99.py gahello.gpl
     $ xga99.py gahello.gpl -o HELLOG
 
-The output parameter `-o` may be used to override the default output filename
-using extension `.gbc` (for "GPL byte code").
+The _output name option_ `-o` may be used to override the default output
+filename using extension `.gbc` (for "GPL byte code").
 
 Note that in `gahello.asm`, the `GROM` directive is commented out, which places
-the byte code in GROM 0 by default.  We can override this with the GROM option
+the byte code in GROM 0 by default.  We can override this with the _GROM option_
 `-G`.  For example, to place the byte code in the cartridge GROM,
 
     $ xga99.py gahello.gpl -G ">6000"
 
 By default, `xga99` will yield one single file for the entire program, even if
-it spans multiple GROMs.  To generate one file per GROM, we can use the split
-GROM option `-g`.
+it spans multiple GROMs.  To generate one file per GROM, we can use the _split
+GROM option_ `-g`.
 
     $ xga99.py sample.gpl -g
 
 Note that `-g` splits based on `GROM` directives, and not by size.  Therefore,
 we must ensure ourselves that the size of each GROM does not exceed >2000 bytes.
 
-The cartridge parameter `-c` relocates the GPL program to the cartridge GROM
-area, generates GPL header data, and packages the byte code image into a
-cartridge file suitable for the MAME emulator.
+The _pad option_ `-B` pads each GROM with zero bytes so that it starts at
+address _G_ * `>2000` and is >2000 bytes in size.
+
+The _cartridge option_ `-c` generates an RPK cartridge file suitable for the 
+MAME emulator.  The option implies `GROM 6` and will create a GPL header in the
+lowest GROM of the program automatically if no header is found at `>6000`,
+`>8000`, ..., or `>E000`.
 
     $ xga99.py -c gahello.gpl
+
+`xga99` will issue a warning if the generated GPL header overwrites any non-zero
+data.
 
 The resulting `.rpk` file may be executed as-is by the MAME emulator:
 
     $ mame64 ti99_4a -cart gahello.rpk
 
-The name parameter `-n` overrides the default name of the program that shows up
+The _name option_ `-n` overrides the default name of the program that shows up
 in the TI 99 menu selection screen.
 
     $ xga99.py -c gahello.gpl -n "HELLO GPL WORLD"
 
-Again, we recommend `-c` only for very simple programs, and suggest using plain
-byte code instead.
-
-The text option `-t` creates a textual representation of the byte code.  The
+The _text option_ `-t` creates a textual representation of the byte code.  The
 text format can be specified similarly to `xas99`.
 
     $ xga99.py -t b4 gahello.gpl -o -
@@ -2518,16 +2527,18 @@ text format can be specified similarly to `xas99`.
     DATA 13382, 27309, -9019, 24291
     ...
 
-The listing option `-L` creates a list file that shows the addresses and byte
+The _listing option_ `-L` creates a list file that shows the addresses and byte
 values for each source line.
 
     $ xga99.py gahello.gpl -L gahello.lst
 
-When `-L` is given, the symbol dump option `-S` includes the symbol table in the
-list file.
+When `-L` is given, the _symbol dump option_ `-S` includes the symbol table in 
+the list file.
 
-The include path option `-I`, the define option `-D`, the quiet option `-q` and
-the symbol dump option `-E` work identical to their `xas99` counterparts.  
+The _include path option_ `-I`, the _define option_ `-D`, the _quiet option_
+`-q` and the _symbol dump option_ `-E` work identical to their `xas99` 
+counterparts.
+
 Please also note the section about options with list arguments in the `xas99`
 manual.
 
@@ -2536,7 +2547,7 @@ existing tools for assembling GPL source code differ substantially in the syntax
 they use.  `xga99` adopts a combination of the Ryte Data and the RAG GPL
 Assemblers' syntax as its native format.
 
-We can choose other syntax styles, however, with the syntax parameter `-y`.
+We can choose other syntax styles, however, with the _syntax option_ `-y`.
 Currently, the only extra syntax is the syntax of the TI Image Tool
 disassembler, available with name `mizapf` (named after the creator of the image
 tool).
@@ -2681,8 +2692,8 @@ addresses _within_ the given GROM.  The address argument is thus relative to
 the GROM base address given by `GROM`.
 
 Instead of using the `GROM` and `AORG` directives, the location of the byte code
-may also be specified by the GROM option `-G` and AORG option `-A`, resp.  The
-cartridge option `-c` implies `-G 0x6000` and `-A 0x30`.
+may also be specified by the _GROM option_ `-G` and _AORG option_ `-A`, resp. 
+The cartridge option `-c` implies `-G 0x6000`.
 
 Options `-G` and `-A` will not override `GROM` or `AORG` directives, but set the
 GROM and address offset of the first line of the code.
@@ -2720,8 +2731,8 @@ which we can create by typing
     $ xas99.py -R -b ascart.asm
 
 To disassemble a binary machine code file, we need to tell the disassembler the
-first address of the machine code with address option `-a` and the starting
-address for the disassembly with "from" option `-f`:
+first address of the machine code with _address option_ `-a` and the starting
+address for the disassembly with _"from" option_ `-f`:
 
 	$ xda99.py ascart.bin -a 6000 -f 600c
 
@@ -2748,17 +2759,17 @@ listing-like format:
 We see for each addresses the contents and the assembly instruction located at
 the address.  Words showing `?` have not been disassembled.
 
-The output option `-o` redirects the output to a different file, or prints to
+The _output option_ `-o` redirects the output to a different file, or prints to
 `stdout` when using the special filename `-`.
 
-We can also specify an upper bound on the range to disassemble with the "to"
-option `-t`.
+We can also specify an upper bound on the range to disassemble with the _"to"
+option_ `-t`.
 
 By default, `xda99` disassembles TMS9900 machine code.  We can, however, extend
 the recognized opcodes to TMS9995 and F18A by supplying options `-5` or `-18`,
 resp.
 
-The skip option `-k` skips some bytes at the beginning of the binary to
+The _skip option_ `-k` skips some bytes at the beginning of the binary to
 disassemble.  For example, when disassembling an E/A option 5 image, we use `-k`
 to skip the 6-byte header:
 
@@ -2814,7 +2825,7 @@ Disassembling the machine code generated by above program with `-f a000` yields
     ...
 
 If the data segments are known, those can be excluded from disassembly with the
-exclude option `-e`.
+_exclude option_ `-e`.
 
 	$ xda99.py ascart.bin -a 6000 -f 6000 -e 6000-600c
 
@@ -2861,7 +2872,7 @@ a given instruction was branched to:
     606a d020   movb @>8375, r0
     606c 8375
 
-The program option `-p` turns the disassembly into actual source code that can
+The _program option_ `-p` turns the disassembly into actual source code that can
 be re-assembled again:
 
            aorg >6000
@@ -2886,7 +2897,7 @@ The `-p` options will also include an `EQU` stanza of all symbols used, in this
 case all `xas99` internal symbols that were imported with `REF` by the program.
 
 To use more symbols, a symbol file can be supplied with the `-S` parameter.  The
-symbol file can be generated with the EQU option `-E` of `xas99`, or written
+symbol file can be generated with the _EQU option_ `-E` of `xas99`, or written
 manually in a fairly free style, e.g.,
 
     s1 equ >10
@@ -2896,7 +2907,7 @@ manually in a fairly free style, e.g.,
     s4: 0x10
 
 Data segments often contain strings, that can be restored heuristically by using
-the string option `-n`, either with or without the `-p` option.
+the _string option_ `-n`, either with or without the `-p` option.
 
     $ xda99.py ascart.bin -a 6000 -f 600c -n -o -
                 aorg >6000
@@ -2917,8 +2928,8 @@ will not leave behind any data segments where strings could be found.
 
 Note that currently, `xda99` only disassembles even length strings.
 
-The concise option `-c` ignores all non-disassembled addresses in the output by
-merging those addresses marked by `?` and replacing them by `....`.
+The _concise option_ `-c` ignores all non-disassembled addresses in the output
+by merging those addresses marked by `?` and replacing them by `....`.
 
                 aorg >2000
     2000 1008   jmp  >2012
@@ -2932,10 +2943,10 @@ merging those addresses marked by `?` and replacing them by `....`.
 
 Options `-c` and `-p` cannot be combined.
 
-The strict option `-s` generates output files in legacy Editor/Assembler format,
-in particular in upper-case and without extra whitespace.
+The _strict option_ `-s` generates output files in legacy Editor/Assembler 
+format, in particular in upper-case and without extra whitespace.
 
-The register option `-R` tells the disassembler to use plain integers for
+The _register option_ `-R` tells the disassembler to use plain integers for
 registers, i.e., to _not_ prepend registers with `R`.
 
 
@@ -2967,9 +2978,9 @@ disassembled address (i.e., an operator), which raises a conflict about which
 version is correct.
 
 The default behavior of `xda99` is to stop the run, leaving the previous
-disassembly untouched.  You can override the default with the force option `-F`,
-which will always overwrite previous results.  This is done cleanly, so that
-run 2 above will reset the overridden instruction at address `@>6000`.
+disassembly untouched.  You can override the default with the _force option_ 
+`-F`, which will always overwrite previous results.  This is done cleanly, so
+that run 2 above will reset the overridden instruction at address `@>6000`.
 
 There is no recommendation to disassemble with or without force.  The result of
 each disassembly may vary with each binary, and should be tried out.
@@ -3010,8 +3021,8 @@ disassembles byte code file `gacart.bin`, into GPL instructions:
     6037 48
     ...
 
-The only option that `xdg99` features over `xda99` is the syntax selection
-option `-y`, which is already known from `xga99`:
+The only option that `xdg99` features over `xda99` is the _syntax selection
+option_ `-y`, which is already known from `xga99`:
 
 	$ xdg99.py gacart.bin -a 6000 -f 6030
     ...
@@ -3048,7 +3059,7 @@ Typical use cases for `xbas99` include the listing of programs stored in
 internal format and the creation of program files for the BASIC interpreter from
 a text file with BASIC statements.
 
-The print option `-p` lists the statements of a BASIC program in tokenized
+The _print option_ `-p` lists the statements of a BASIC program in tokenized
 format on the screen.  Formatting is identical to the built-in BASIC `LIST`
 command modulo the line wrapping.
 
@@ -3058,16 +3069,16 @@ command modulo the line wrapping.
     30 PRINT "HELLO ";NAME$
     40 END
 
-The similar decode option `-d` saves the listing of program to a file.
+The similar _decode option_ `-d` saves the listing of program to a file.
 
     $ xbas99.py -d bashello.prg -o bashello2.bas
 
 BASIC programs in long format are detected automatically.  To list programs in
-merge format, we must add the merge option `--merge`.  Merge format is currently
-not detected automatically.
+merge format, we must add the _merge option_ `--merge`.  Merge format is 
+currently not detected automatically.
 
-The create option `-c` encodes a BASIC listing into internal format so that the
-resulting file can be loaded and run by one of the BASIC interpreters.
+The _create option_ `-c` encodes a BASIC listing into internal format so that
+the resulting file can be loaded and run by one of the BASIC interpreters.
 
     $ xbas99.py -c bashello.bas
 
@@ -3084,8 +3095,8 @@ one line of the program.  If the listing has been formatted with a fixed line
 width, e.g., when stored as `DIS/VAR`, or derived from a physical print-out by
 OCR, this assumption may not hold.
 
-To join split lines, we can use the join option `-j`.  However, this task is not
-as simple as it seems, as this example in `DIS/VAR 40` shows:
+To join split lines, we can use the _join option_ `-j`.  However, this task is
+not as simple as it seems, as this example in `DIS/VAR 40` shows:
 
     100 CALL CLEAR :: CALL SCREEN(2) :: CALL
      HCHAR(1,1,42,768)
@@ -3166,7 +3177,7 @@ emphasize that the symbol is a label and not a variable.
 
 `xbas99`, however, is able to tell labels and variables apart even without `@`.
 
-To tokenize a label-based program, we use the label option `-l`.
+To tokenize a label-based program, we use the _label option_ `-l`.
 
     $ xbas99.py -c -l prime.bas
 
@@ -3252,7 +3263,7 @@ An invalid escape code, such as `\x1foo` or `\d\x`, yields an error.
 If we want to include either `\x` or `\d` in a string verbatim, we need to write
 `\\x` or `\\d`, resp.  Note, however, that `\\` still yields `\\`.
 
-To disable character escape codes entirely, we can use the strict option `-s`.
+To disable character escape codes entirely, we can use the _strict option_ `-s`.
 
 
 ### Running BASIC Programs
@@ -3318,22 +3329,22 @@ is also shown.
 files that are not allocated in the allocation map.  For example, when using the
 Editor/Assembler on a real machine with the TI Floppy Disk Controller, these
 inconsistencies happen more frequently than one would assume.  Files affected
-are flagged with `ERR` in the catalog.  In such cases, we can use the repair
-option `-R` to automatically try to repair disks with inconsistencies.
+are flagged with `ERR` in the catalog.  In such cases, we can use the _repair
+option_ `-R` to automatically try to repair disks with inconsistencies.
 
 
 ### Extracting Files
 
-The extract option `-e` extracts one or more files from the disk image to the
+The _extract option_ `-e` extracts one or more files from the disk image to the
 local file system.
 
     $ xdm99.py work.dsk -e HELLO-S CART-S
 
 The local filename is derived automatically from the TI filename by lowercasing.
 If we want to keep the original filename as it was on the disk, we can use the
-TI-style name option `-N`.
+TI-style _name option_ `-N`.
 
-We can override the default name with the output option `-o`.
+We can override the default name with the _output name option_ `-o`.
 
     $ xdm99.py work.dsk -e HELLO-S -o hello.asm
 
@@ -3344,7 +3355,8 @@ If `-o` specifies a directory, all output files are placed in that directory.
 When extracting two or more files, `-o` may only be used with a directory
 argument.
 
-To print the contents of a file to `stdout`, the print option `-p` may be used.
+To print the contents of a file to `stdout`, the _print option_ `-p` may be 
+used.
 
     $ xdm99.py work.dsk -p HELLO-S
 
@@ -3380,10 +3392,10 @@ TIFILES or v9t9 format, described below.
 
 ### Working with Disks
 
-The _add_ option `-a` adds local files to the disk image.  `xdm99` will infer a
+The _add option_ `-a` adds local files to the disk image.  `xdm99` will infer a
 suitable TI filename from the local filename unless an explicit filename is
-given by the _name_ option `-n`.  If the file is not of type `PROGRAM`, we must
-provide the file type using the _file type_ option `-f`.
+given by the _name option_ `-n`.  If the file is not of type `PROGRAM`, we must
+provide the file type using the _file type option_ `-f`.
 
     $ xdm99.py work.dsk -a ashello.asm -n HELLO-S -f DIS/VAR80
 
@@ -3397,7 +3409,7 @@ get that filename, but with the last character incremented for each file.
 
 will add the three files as `NAME`, `NAMF`, and `NAMG` to the disk image.
 
-The _rename_ option `-r` renames one or more files on the disk.
+The _rename option_ `-r` renames one or more files on the disk.
 
     $ xdm99.py work.dsk -r HELLO-S:HELLO/S
 
@@ -3408,7 +3420,7 @@ To rename the disk itself, we use the `-n` option without `-e` or `-a` options.
 
     $ xdm99.py work.dsk -n WORK-2
 
-The _delete_ parameter `-d` deletes one or more files from the disk.
+The _delete option_ `-d` deletes one or more files from the disk.
 
     $ xdm99.py work.dsk -d HELLO-I HELLO-O
     $ xdm99.py work.dsk -d "*-O"
@@ -3416,8 +3428,8 @@ The _delete_ parameter `-d` deletes one or more files from the disk.
 Note that the deletion is "secure" in the sense that the contents of the deleted
 files cannot be found anywhere on the disk after the deletion.
 
-The _write protection_ parameter `-w` toggles the current protection status of
-the given files.
+The _write protection option_ `-w` toggles the current protection status of the
+given files.
 
     $ xdm99.py work.dsk -w HELLO HELLO-CPY
 
@@ -3463,8 +3475,8 @@ and the v9t9 header contains
     00000020  00 00 00 00 00 00 00 00  00 00 00 00 00 00 00 00  |................|
     ...
 
-`xdm99` supports both TIFILES and v9t9 formats by adding the TIFILES option `-t`
-or the v9t9 option `-9` options to add or extract operations.
+`xdm99` supports both TIFILES and v9t9 formats by adding the _TIFILES option_
+`-t` or the _v9t9 option_ `-9` options to add or extract operations.
 
     $ xdm99.py work.disk -t -e HELLO-S
     $ xdm99.py work.disk -9 -e HELLO-S
@@ -3500,12 +3512,12 @@ The `-N` option changes the host filename, not the TI filename.  It is therefore
 only useful for short TIFILES files, e.g., for use with the Classic 99 emulator.
 
 If we want to view the metadata information of a TIFILES or v9t9 file, we can
-use the info option `-I`.
+use the _info option_ `-I`.
 
     $ xdm99.py -I ashello.asm.tfi
     ASHELLO       5  DIS/VAR 80     938 B  63 recs     2020-03-15 17:59:10 C
 
-If we want to see the contents, we use the print `-P` option instead.
+If we want to see the contents, we use the _print option_ `-P` instead.
 
     $ ../xdm99.py -P ashello.asm.tfi
     *  HELLO WORLD
@@ -3535,7 +3547,7 @@ though.
 archives originally created by Barry Boone.  An archive can be a stand-alone PC
 file or stored on a disk image, where is acts like a disk on a disk. 
 
-An archive is identified with the _archive_ option `-K` identies an archive.
+An archive is identified with the _archive option_ `-K` identies an archive.
 If no further options are given, `xdm99` prints the contents of the archive,
 where the output is organized similarly to a disk catalog.
 
@@ -3578,7 +3590,7 @@ add, extract, rename, (un)protect, or delete files:
     $ xdm99.py -K examples/archive.tfi -w ARKFILE3B ARKFILE5T
     $ xdm99.py -K examples/archive.tfi -d ASHELLO/S
 
-To create a new empty archive, we use the _initialize archive_ option `-Y`:
+To create a new empty archive, we use the _initialize archive option_ `-Y`:
 
     $ xdm99.py -Y -K newarchive
     $ xdm99.py examples/work.disk -K NEWARK -Y
@@ -3596,7 +3608,7 @@ create such a disk
     ----------------------------------------------------------------------------
     ARCHIVE     121  INT/FIX 128  30720 B  240 recs   
 
-we can then use the _in-place extract_ option `-E` to extract the contents of
+we can then use the _in-place extract option_ `-E` to extract the contents of
 the archive to the disk.
 
     $ xdm99.py sample.dsk -K ARCHIVE -E "*"
@@ -3613,7 +3625,7 @@ the archive to the disk.
 The wildcard argument `"*"` extracts all files in the archive.  On Linux and
 macOS, that `*` has to be put in quotes to prevent the shell from expanding it.
 
-Similarly, we can use the _in-place add_ option `-A` to add files on the disk
+Similarly, we can use the _in-place add option_ `-A` to add files on the disk
 to an archive.
 
     $ xdm99.py sample.dsk -X -K ARCHIVE2 -A "ARK*"
@@ -3641,7 +3653,7 @@ The new archive `ARCHIVE2` now contains all the files of `ARCHIVE`.
 
 ### Analyzing Disks
 
-The _check disk_ option `-C` analyzes a disk image for errors and prints a
+The _check disk option_ `-C` analyzes a disk image for errors and prints a
 summary to `stderr`.  While all disk operations, including cataloging, also
 check and report any disk errors found, the `-C` parameter restricts the output
 of `xdm99` to those errors only.
@@ -3652,7 +3664,7 @@ The `-C` parameter also causes `xdm99` to set its return value to non-zero for
 warnings, making it simple to write shell scripts for batch processing bad disk
 images.
 
-The _disk repair_ option `-R` tries to fix any disk errors, mostly by deleting
+The _disk repair option_ `-R` tries to fix any disk errors, mostly by deleting
 erroneous files from it.
 
     $ xdm99.py -R bad.dsk
@@ -3661,7 +3673,7 @@ erroneous files from it.
 The repair operation is likely to cause data loss, so it is best to extract
 erroneous files beforehand or to specify an alternative output file with `-o`.
 
-The _initialize_ option `-X` creates a new, blank disk image, using an optional
+The _initialize option_ `-X` creates a new, blank disk image, using an optional
 name provided by `-n`.
 
     $ xdm99.py blank.dsk -X 720 -n BLANK
@@ -3708,7 +3720,7 @@ density, and the number of tracks of the disk image.
 The `--set-geometry` command is rarely required for regular images but may be
 helpful for experimenting with non-standard disk image formats.
 
-The _sector dump_ option `-S` prints the hexadecimal contents of individual
+The _sector dump option_ `-S` prints the hexadecimal contents of individual
 sectors to `stdout`.  This can be used to further analyze disk errors or to save
 fragments of corrupted files.
 

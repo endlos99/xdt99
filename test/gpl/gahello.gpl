@@ -1,7 +1,7 @@
 * HELLO GPL WORLD!
 
 *       grom >6000
-*       aorg >0030
+        aorg >0030
 
 speed   equ >80
 

@@ -1,0 +1,15 @@
+* macro call in list file
+
+       grom >6000
+
+       .defm push
+       sub   2, @>8300
+       dst   $1, *>8300
+       .endm
+
+start  all 32
+lab    .push >69  ; push marker
+       scan
+       data lab
+
+       end

@@ -1,0 +1,12 @@
+* joined groms byte code
+
+       grom >2000
+       byte 2
+
+       grom >a000
+       byte >a
+
+       grom >e000
+       byte >e
+
+       end

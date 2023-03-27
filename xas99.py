@@ -29,7 +29,7 @@ from functools import reduce
 from xcommon import Util, RFile, CommandProcessor, Warnings, Console
 
 
-VERSION = '3.5.4'
+VERSION = '3.6.0'
 
 CONFIG = 'XAS99_CONFIG'
 
@@ -477,7 +477,7 @@ class Opcodes:
         self.asm.process_label(label)
         try:
             m, ops, op_count = Opcodes.pseudos[mnemonic]
-            if self.asm.symbols.pass_no == 2 and self.asm.relaxed and len(operands) != op_count:
+            if self.asm.symbols.pass_no == 2 and self.asm.parser.relaxed and len(operands) != op_count:
                 raise AsmError('Bad operand count')
             if ops is not None:
                 ops = [o.replace('<R>', 'R' if self.asm.parser.r_prefix else '') for o in ops]
@@ -868,37 +868,26 @@ class Directives:
 class Externals:
     """externally defined and referenced symbols"""
 
-    def __init__(self, target, definitions=()):
+    def __init__(self, target):
         self.target = target
         self.references = []
-        self.definitions = {
-            'SCAN': (0x000e, -1),  # unit_id -1 = built-in
-            'PAD': (0x8300, -1),
-            'GPLWS': (0x83e0, -1),
-            'SOUND': (0x8400, -1),
-            'VDPRD': (0x8800, -1),
-            'VDPSTA': (0x8802, -1),
-            'VDPWD': (0x8c00, -1),
-            'VDPWA': (0x8c02, -1),
-            'SPCHRD': (0x9000, -1),
-            'SPCHWT': (0x9400, -1),
-            'GRMRD': (0x9800, -1),
-            'GRMRA': (0x9802, -1),
-            'GRMWD': (0x9c00, -1),
-            'GRMWA': (0x9c02, -1)
+        self.definitions = {}
+        self.builtins = {
+            'SCAN': 0x000e,
+            'PAD': 0x8300,
+            'GPLWS': 0x83e0,
+            'SOUND': 0x8400,
+            'VDPRD': 0x8800,
+            'VDPSTA': 0x8802,
+            'VDPWD': 0x8c00,
+            'VDPWA': 0x8c02,
+            'SPCHRD': 0x9000,
+            'SPCHWT': 0x9400,
+            'GRMRD': 0x9800,
+            'GRMRA': 0x9802,
+            'GRMWD': 0x9c00,
+            'GRMWA': 0x9c02,
         }
-        self.add_env(definitions)
-
-    def add_env(self, definitions):
-        """add external symbol definitions (-D)"""
-        for def_ in definitions:
-            try:
-                name, value_str = def_.split('=')
-                value = Parser.external(value_str)
-            except ValueError:
-                name, value = def_, 1
-            # add as Address(), to keep equality with DEFs inferred from 5/6 tags
-            self.definitions[name.upper()] = Address(value, reloc=False), -1
 
 
 class Symbols:
@@ -916,7 +905,7 @@ class Symbols:
     WEQU = 2  # weak EQU symbol (can be redefined by other value)
     BANK_ALL = 411  # shared code
 
-    def __init__(self, externals, console, add_registers=False, strict=False, target=None):
+    def __init__(self, externals, console, extdefs=(), add_registers=False, strict=False, target=None):
         self.externals = externals
         self.console = console
         self.registers = {'R' + str(i): i for i in range(16)} if add_registers else {}
@@ -944,7 +933,18 @@ class Symbols:
         self.bank_LC = None  # next LC for each bank
         self.bank_base = 0  # base addr of BANK <addr>
         self.segment_reloc = self.xorg_offset = self.pad_idx = None
+        self.add_env(extdefs)
         self.reset()
+
+    def add_env(self, extdefs):
+        """add external symbol definitions (-D)"""
+        for def_ in extdefs:
+            try:
+                name, value_str = def_.split('=')
+                value = Parser.external(value_str)
+            except ValueError:
+                name, value = def_, 1
+            self.add_symbol(name.upper(), Address(value, reloc=False))
 
     def reset(self):
         """initialize some properties before each pass"""
@@ -1080,12 +1080,17 @@ class Symbols:
         self.externals.definitions[name] = (value, self.unit_id)
 
     def add_ref(self, name):
-        """add referenced symbol (also adds as unknown value to symbol table)"""
+        """add referenced symbol (also adds value to symbol table)"""
         if not self.valid(name):
             raise AsmError('Invalid reference: ' + name)
-        if name not in self.externals.references:
-            self.externals.references.append(name)
-            self.add_symbol(name, Reference(name))  # don't set reloc when defining reference
+        try:
+            value = self.externals.builtins[name]
+            if name not in self.symbols:
+                self.add_symbol(name, value)
+        except KeyError:
+            if name not in self.externals.references:
+                self.externals.references.append(name)
+                self.add_symbol(name, Reference(name))  # don't set reloc when defining reference
 
     def add_XOP(self, name, mode):
         """define XOP operation"""
@@ -1103,10 +1108,7 @@ class Symbols:
             if unused:
                 self.symbols[name] = value, equ, False  # symbol has been used
         except KeyError:
-            try:
-                value, _ = self.externals.definitions.get(name)
-            except TypeError:
-                value = None
+            value = None
         return value
 
     def get_locals(self, name, distance):
@@ -1177,8 +1179,8 @@ class Symbols:
         symbol_list = []
         reference_list = []
         for symbol in sorted(self.symbols):
-            if symbol in self.registers or '%' in symbol or symbol == self.target:
-                continue  # skip registers, local and internal symbols
+            if symbol in self.registers or symbol in self.externals.builtins or '%' in symbol or symbol == self.target:
+                continue  # skip registers and built-in, local and internal symbols
             addr, _, _ = self.symbols.get(symbol)
             if isinstance(addr, Address):
                 # add extra information to addresses
@@ -1346,35 +1348,41 @@ class Preprocessor:
         parts[::2] = [self.instantiate_macro_args(p, restore_lits=True) for p in parts[::2]]
         return ''.join(parts)
 
+    def process_repeat(self, mnemonic, line):
+        if mnemonic == '.ENDR':
+            self.parse_repeat = False
+            self.parse_macro = None
+            self.macros['.rept'] *= self.repeat_count  # repeat section
+            self.parser.open(macro='.rept', macro_args=())  # open '.rept' macro
+        elif mnemonic == '.REPT':
+            raise AsmError('Cannot repeat within repeat section')
+        elif mnemonic == '.DEFM':
+            raise AsmError('Cannot define macro within repeat section')
+        elif mnemonic == '.ENDM':
+            raise AsmError('Found .ENDM without .DEFM')
+        else:
+            self.macros[self.parse_macro].append(line)
+        return False, None, None  # start repetition
+
+    def process_macro(self, mnemonic, line):
+        if mnemonic == '.ENDM':
+            self.parse_macro = None
+        elif mnemonic == '.DEFM':
+            raise AsmError('Cannot define macro within macro')
+        elif mnemonic == '.REPT':
+            raise AsmError('Cannot repeat section within macro')
+        elif mnemonic == '.ENDR':
+            raise AsmError('Found .ENDR without .REPT')
+        else:
+            self.macros[self.parse_macro].append(line)
+        return False, None, None  # macro definition
+
     def process(self, asm, label, mnemonic, operands, line):
         """process preprocessor commands (for pass 1)"""
         if self.parse_repeat:
-            if mnemonic == '.ENDR':
-                self.parse_repeat = False
-                self.parse_macro = None
-                self.macros['.rept'] *= self.repeat_count  # repeat section
-                self.parser.open(macro='.rept', macro_args=())  # open '.rept' macro
-            elif mnemonic == '.REPT':
-                raise AsmError('Cannot repeat within repeat section')
-            elif mnemonic == '.DEFM':
-                raise AsmError('Cannot define macro within repeat section')
-            elif mnemonic == '.ENDM':
-                raise AsmError('Found .ENDM without .DEFM')
-            else:
-                self.macros[self.parse_macro].append(line)
-            return False, False, None, None  # macro definition
+            return self.process_repeat(mnemonic, line)
         if self.parse_macro:
-            if mnemonic == '.ENDM':
-                self.parse_macro = None
-            elif mnemonic == '.DEFM':
-                raise AsmError('Cannot define macro within macro')
-            elif mnemonic == '.REPT':
-                raise AsmError('Cannot repeat section within macro')
-            elif mnemonic == '.ENDR':
-                raise AsmError('Found .ENDR without .REPT')
-            else:
-                self.macros[self.parse_macro].append(line)
-            return False, False, None, None  # macro definition
+            return self.process_macro(mnemonic, line)
         if self.parse and asm.parser.in_macro_instantiation and operands:
             operands = [self.instantiate_macro_args(op) for op in operands]
             line = self.instantiate_line(line)  # only for display
@@ -1383,8 +1391,8 @@ class Preprocessor:
             name = mnemonic[1:]
             if name in self.macros:
                 if self.parse:
-                    self.parser.open(macro=name, macro_args=operands)
-                    return False, label, None, line
+                    self.parser.open(macro=name, macro_args=operands, label=label, line=line)
+                    return False, None, None
             else:
                 try:
                     fn = getattr(Preprocessor, name)
@@ -1394,9 +1402,9 @@ class Preprocessor:
                     fn(self, asm, operands)
                 except (IndexError, ValueError):
                     raise AsmError('Syntax error')
-            return False, False, None, None  # eliminate preprocessor commands
+            return False, None, None  # eliminate preprocessor commands
         else:
-            return self.parse, False, operands, line  # normal statement
+            return self.parse, operands, line  # normal statement
 
 
 class IntmLine:
@@ -1448,7 +1456,7 @@ class Parser:
     def __iter__(self):
         return self
 
-    def open(self, filename=None, macro=None, macro_args=None):
+    def open(self, filename=None, macro=None, macro_args=None, label=None, line=None):
         """open new source file or macro buffer"""
         if len(self.suspended_files) > 100:
             raise AsmError('Too many nested files or macros')
@@ -1468,6 +1476,8 @@ class Parser:
             self.source = self.prep.macros[macro]
             self.macro_args = macro_args or []
             self.in_macro_instantiation = True
+            if label or line:
+                self.intermediate_source.append(IntmLine('.', lino=self.lino, label=label, line=line))
         self.filename = filename or macro
         self.lino = 0
         self.intermediate_source.append(IntmLine(IntmLine.OPEN, filename=self.filename))
@@ -2034,10 +2044,10 @@ class Program:
              a program unit consists of multiple segments.
     """
 
-    def __init__(self, target, segments=None, definitions=None):
+    def __init__(self, target, segments=None):
         self.target = target
         self.segments = segments or []
-        self.externals = Externals(target, definitions)
+        self.externals = Externals(target)
         self.saves = []  # save ranges
         self.idt = None
         self.entry = None  # start address of program
@@ -2159,7 +2169,64 @@ class Segment:
             self.code[LC + 1] = value & 0xff
 
 
-class SymbolAssembler:
+class Assembler:
+    """generate object code"""
+
+    def __init__(self, program, opcodes, target=None, includes=None, extdefs=(), r_prefix=False, strict=False,
+                 relaxed=False, timing=True, bank_cross_check=False, console=None):
+        self.program = program
+        self.opcodes = opcodes
+        self.includes = includes or []
+        self.extdefs = extdefs
+        self.console = console or Xas99Console()
+        self.listing = Listing(timing=timing)
+        self.strict = strict
+        self.relaxed = relaxed
+        self.r_prefix = r_prefix
+        self.bank_cross_check = bank_cross_check
+        self.target = target
+        self.symbols = None
+        self.parser = None
+        self.pragmas = None
+        self.symasm = None
+        self.codeasm = None
+        self.segment = None
+        self.demux = None  # are unknown accesses for source, dest operand demuxed?
+
+    def assemble(self, path, srcname):
+        """assemble one base file"""
+        self.symbols = Symbols(self.program.externals, self.console, extdefs=self.extdefs, add_registers=self.r_prefix,
+                               strict=self.strict, target=self.target)  # new symbol table for each file
+        self.parser = Parser(self.symbols, self.listing, self.console, path, includes=self.includes,
+                             r_prefix=self.r_prefix, bank_cross_check=self.bank_cross_check, strict=self.strict,
+                             relaxed=self.relaxed)
+        self.console.set_parser(self.parser)
+        self.pragmas = Pragmas(self.parser)
+        self.symasm = Pass1Assembler(self.program, self.opcodes, self.symbols, self.parser, self.pragmas, self.console)
+        self.codeasm = Pass2Assembler(self.program, self.opcodes, self.symbols, self.parser, self.pragmas,
+                                      self.listing, self.console)
+        self.opcodes.use_asm(self.symasm)
+        self.symasm.assemble(srcname)  # continue even with errors, to display them all
+        self.opcodes.use_asm(self.codeasm)
+        self.codeasm.assemble()
+
+    @staticmethod
+    def get_target(bin=False, image=False, cart=False, text=False, embed=False):
+        """return target format string"""
+        if bin:
+            return 'BIN'
+        if image:
+            return 'IMAGE'
+        if cart:
+            return 'CART'
+        if text:
+            return 'TEXT'
+        if embed:
+            return 'XB'
+        return 'OBJ'
+
+
+class Pass1Assembler:
     """dummy code generation for keeping track of line counter"""
 
     def __init__(self, program, opcodes, symbols, parser, pragmas, console):
@@ -2171,7 +2238,7 @@ class SymbolAssembler:
         self.console = console
         self.segment = False  # no actual Segment required for symbols
 
-    def assemble_pass_1(self, srcname):
+    def assemble(self, srcname):
         """pass 1: gather symbols, apply preprocessor"""
         self.symbols.pass_no = 1
         self.symbols.reset()
@@ -2185,12 +2252,8 @@ class SymbolAssembler:
                 # break line into fields
                 label, mnemonic, operands, comment, is_statement = self.parser.line(line)
                 pragmas = self.pragmas.parse(comment)  # get all pragmas from comment into list
-                keep, add_label, operands, line = self.parser.prep.process(self, label, mnemonic, operands, line)
-                if not keep:
-                    if add_label:
-                        int_line = IntmLine("", lino=lino, lidx=self.symbols.lidx, label=label, line=line,
-                                            filename=filename, path=self.parser.path, is_statement=True)
-                        self.parser.intermediate_source.append(int_line)
+                process, operands, line = self.parser.prep.process(self, label, mnemonic, operands, line)
+                if not process:
                     continue
                 int_line = IntmLine(mnemonic, lino=lino, lidx=self.symbols.lidx, label=label, operands=operands,
                                     pragmas=pragmas, line=line, filename=filename, path=self.parser.path,
@@ -2289,44 +2352,21 @@ class SymbolAssembler:
         self.symbols.autos_defined.add(self.symbols.bank)
 
 
-class Assembler:
+class Pass2Assembler:
     """generate object code"""
 
-    def __init__(self, program, opcodes, target=None, includes=None, r_prefix=False, strict=False, relaxed=False,
-                 timing=True, bank_cross_check=False, console=None):
+    def __init__(self, program, opcodes, symbols, parser, pragmas, listing, console):
         self.program = program
         self.opcodes = opcodes
-        self.includes = includes or []
-        self.console = console or Xas99Console()
-        self.listing = Listing(timing=timing)
-        self.strict = strict
-        self.relaxed = relaxed
-        self.r_prefix = r_prefix
-        self.bank_cross_check = bank_cross_check
-        self.target = target
-        self.symbols = None
-        self.parser = None
-        self.pragmas = None
-        self.symasm = None
+        self.symbols = symbols
+        self.parser = parser
+        self.pragmas = pragmas
+        self.console = console
+        self.listing = listing
         self.segment = None
         self.demux = None  # are unknown accesses for source, dest operand demuxed?
 
-    def assemble(self, path, srcname):
-        self.symbols = Symbols(self.program.externals, self.console, add_registers=self.r_prefix, strict=self.strict,
-                               target=self.target)
-        self.parser = Parser(self.symbols, self.listing, self.console, path, includes=self.includes,
-                             r_prefix=self.r_prefix, bank_cross_check=self.bank_cross_check, strict=self.strict,
-                             relaxed=self.relaxed)
-        self.console.set_parser(self.parser)
-        self.pragmas = Pragmas(self.parser)
-        self.symasm = SymbolAssembler(self.program, self.opcodes, self.symbols, self.parser, self.pragmas, self.console)
-        self.opcodes.use_asm(self.symasm)
-        self.symasm.assemble_pass_1(srcname)  # continue even with errors, to display them all
-        self.opcodes.use_asm(self)
-        self.assemble_pass_2()
-        self.finalize()
-
-    def assemble_pass_2(self):
+    def assemble(self):
         """second pass: generate machine code, ignore symbol definitions"""
         self.symbols.pass_no = 2
         self.symbols.reset()
@@ -2339,6 +2379,12 @@ class Assembler:
             elif imline.mnemonic == IntmLine.RESUME:  # ... and end of include file or macro
                 self.listing.resume(self.symbols.LC, imline.filename)
                 continue
+            try:
+                if imline.mnemonic[0] == '.':  # macro call, only kept for inclusion in list file
+                    self.listing.prepare(None, Line(lino=imline.lino, line=imline.line))
+                    continue
+            except (TypeError, IndexError):
+                pass
             self.demux_reset()
             self.pragmas.process(self, imline.pragmas)
             self.listing.prepare(self.symbols.LC, Line(lino=imline.lino, line=imline.line))
@@ -2346,7 +2392,7 @@ class Assembler:
                 continue
             # NOTE: Pass 2 can discard any label information, since (1) Assembler.process_label is empty,
             #       and (2) the EQU directive ignores the label for pass 2.
-            #       Also, no the syntax check for bad label continuation is not required, since output will
+            #       Also, the syntax check for bad label continuation is not required, since output will
             #       be discarded if error in pass 1 occurred.
             if imline.label and imline.label[-1] == ':' and not imline.mnemonic:
                 continue
@@ -2356,10 +2402,13 @@ class Assembler:
                   Parser.raise_invalid_statement()
             except AsmError as e:
                 self.console.error(str(e))
+        # complete code generation
+        if self.segment:
+            self.segment.close(self.symbols.LC)
         # unused symbols per filename
         for fn, symbols in self.symbols.get_unused_symbols().items():
             symbols_text = ', '.join(symbols)
-            self.console.warn('Unused constants: ' + (symbols_text if self.strict else symbols_text.lower()),
+            self.console.warn('Unused constants: ' + (symbols_text if self.parser.strict else symbols_text.lower()),
                               category=Warnings.UNUSED_SYMBOLS, filename=fn, nopos=True)
 
     def process_label(self, label, real_LC=False, tracked=False):
@@ -2423,7 +2472,7 @@ class Assembler:
     def auto_constants(self):
         """create code stanza for auto-constants"""
         def list_autoconsts(name, local_value, local_lc, byte=False):
-            auto_name = name if self.strict else name.lower()
+            auto_name = name if self.parser.strict else name.lower()
             self.listing.prepare(self.symbols.LC, Line(line=auto_name))
             if byte:
                 self.listing.add(self.symbols.LC, text1=local_lc, byte=local_value)
@@ -2448,29 +2497,9 @@ class Assembler:
                 self.symbols.LC += 1
         self.symbols.autos_generated.add(self.symbols.bank)
 
-    def finalize(self):
-        """complete code generation"""
-        if self.segment:
-            self.segment.close(self.symbols.LC)
-
     def demux_reset(self):
         """reset operand demuxed state"""
         self.demux = {'S': True, 'D': True}  # memory demuxed for operands?
-
-    @staticmethod
-    def get_target(binary, image, cart, text, embed):
-        """return target format string"""
-        if binary:
-            return 'BIN'
-        if image:
-            return 'IMAGE'
-        if cart:
-            return 'CART'
-        if text:
-            return 'TEXT'
-        if embed:
-            return 'XB'
-        return 'OBJ'
 
 
 class Records:
@@ -2572,7 +2601,7 @@ class Linker:
         self.resolve_conflicts = resolve_conflicts
         self.symbols = None
         self.offsets = None  # dict of program relocation offsets
-        self.bank_count = None
+        self.bank_count = None  # number of banks; 0 if no/one bank
 
     def load(self, files):
         """link external object code, E/A #5 program file, or binary"""
@@ -2721,7 +2750,7 @@ class Linker:
         """instantiate ref chain with Reference objects"""
         # NOTE: Because 0 denotes the end of the patch chain,
         #       you cannot have a reference at address 0!
-        while addr:  # neither 0 and nor None
+        while addr:  # neither 0 nor None
             addr = self.patch_addr(segments, addr, symbol)
 
     @staticmethod
@@ -2741,10 +2770,10 @@ class Linker:
                 pass  # addr not in this segment, try next
         return None
 
-    def link(self, warn_about_unresolved_refs=False):
+    def link(self, warn_unresolved_refs=False):
         """link object code"""
         self.offsets = self.program.layout_program(self.reloc_base, self.resolve_conflicts)
-        self.resolve_references(warn_about_unresolved_refs)
+        self.resolve_references(warn_unresolved_refs)
         self.bank_count = self.get_bank_count()
 
     def get_offset(self, entity):
@@ -2990,6 +3019,34 @@ class Linker:
             binaries.append((bank, min_addr, min_addr + offset, binary))
         return binaries
 
+    def generate_joined_binary(self, start_addr=None, minimize=False):
+        """join banked binaries into single binary file with padding
+           start address of resulting binary is >x000, length is multiple of >2000 unless minimized
+        """
+        binaries = self.generate_binaries()  # bank, save_addr, min_addr, binary
+        if start_addr is None:
+            start_addr = Util.align(min(min_addr for _, _, min_addr, _ in binaries))
+        if self.bank_count:
+            binary = b''.join(self.join_bank_chunks(binaries, bank, start_addr,
+                                                    minimize=minimize and bank == self.bank_count - 1)
+                              for bank in range(self.bank_count))
+        else:
+            binary = self.join_bank_chunks(binaries, None, start_addr, minimize=minimize)
+        return start_addr, binary
+
+    def join_bank_chunks(self, binaries, bank, start_addr, minimize=False):
+        """join disjoint chunks to single aligned full-size bank"""
+        parts = []
+        chunks = sorted((first_addr, data) for bank_, _, first_addr, data in binaries if bank_ == bank)
+        last_addr = start_addr
+        for first_addr, data in chunks:
+            parts.append(bytes(first_addr - last_addr))
+            parts.append(data)
+            last_addr = first_addr + len(data)
+        if not minimize:
+            parts.append(bytes(-last_addr % 0x2000))
+        return b''.join(parts)
+
     def generate_text(self, mode):
         """convert binary data into text representation"""
         if 'r' in mode:
@@ -3113,27 +3170,35 @@ class Linker:
                   for i in range(0, len(lino_table + token_table), 254)]
         return bytes((len(header),)) + header + b''.join(bytes((len(c),)) + c for c in chunks)
 
+    @staticmethod
+    def get_cart_base(program):
+        """find reloc base address"""
+        for segment in program:
+            if segment.dummy or not segment.code:
+                continue
+            if not segment.reloc:
+                return 0  # for mixed reloc/non-reloc, do not relocate at all
+            try:
+                if segment.min_LC == 0 and segment.code[0] == 0xaa:
+                    return 0x6000  # move header to cart range
+            except (IndexError, TypeError):
+                pass
+            try:
+                if segment.min_LC == 0x6000 and segment.code[0x6000] == 0xaa:
+                    return 0  # keep as-is
+            except (IndexError, TypeError):
+                pass
+        return 0x6030  # no header found, so add one
+
     def generate_cartridge(self, name):
         """generate RPK file for use as MESS rom cartridge"""
-        if self.bank_count > 1:
-            raise AsmError('Cannot create banked cartridge with -c')
-        send = self.program.entry or Address(0x6030)
-        entry = send.addr + 0x6030 if send.reloc else send.addr
-        gpl_header = bytes((0xaa, 0x01, 0x00, 0x00, 0x00, 0x00, 0x60, 0x10)) + bytes(8)
-        try:
-            program_info = Util.chrw(0) + Util.chrw(entry) + bytes((len(name),)) + name.encode()
-        except UnicodeEncodeError:
-            raise AsmError(f'Bad program name "{name}"')
-        padding = bytes(27 - len(name))
-        binaries = self.generate_binaries()
-        _, _, _, data = binaries[0]
         layout = f"""<?xml version='1.0' encoding='utf-8'?>
                     <romset version='1.0'>
                         <resources>
                             <rom id='romimage' file='{name:s}.bin'/>
                         </resources>
                         <configuration>
-                            <pcb type='standard'>
+                            <pcb type='{'paged378' if self.bank_count >= 2 else 'standard'}'>
                                 <socket id='rom_socket' uses='romimage'/>
                             </pcb>
                         </configuration>
@@ -3142,7 +3207,26 @@ class Linker:
                      <meta-inf>
                          <name>{name:s}</name>
                      </meta-inf>"""
-        return gpl_header + program_info + padding + data, layout, metainf
+        base_addr, cart_image = self.generate_joined_binary(minimize=True)
+        if base_addr != 0x6000:  # aligned to multiple of >2000 by joined_binary
+            raise AsmError('Invalid address range for cart image')
+        if len(cart_image) > 0x2000 * (self.bank_count or 1):
+            raise AsmError(f'Image too large for cart with {self.bank_count or "no"} banks')
+        if cart_image[0] != 0xaa:
+            # create simple GPL header for specified entry (replaces first >30 bytes in image)
+            if any(b != 0 for b in cart_image[:0x30]):
+                self.console.warn('Generated GPL header overwrites non-zero data')
+            entry = self.program.entry or Address(self.reloc_base)  # or first word of cart
+            start_addr = entry.addr + self.reloc_base if entry.reloc else entry.addr
+            try:
+                menu = Util.chrw(0) + Util.chrw(start_addr) + bytes((len(name),)) + name.encode(encoding='ascii')
+            except UnicodeEncodeError:
+                raise AsmError(f'Program name "{name}" is not ASCII')
+            cart_image = (bytes((0xaa, 0x01, 0x00, 0x00, 0x00, 0x00, 0x60, 0x10)) + bytes(8) +
+                          menu +
+                          bytes(27 - len(name)) +  # pad header to size of 0x30 bytes
+                          cart_image[0x30:])
+        return cart_image, layout, metainf
 
 
 # Console and Listing
@@ -3303,6 +3387,8 @@ class Xas99Processor(CommandProcessor):
         cmd = args.add_mutually_exclusive_group()
         cmd.add_argument('-b', '--binary', action='store_true', dest='bin',
                          help='create program binaries')
+        cmd.add_argument('-B', '--single-binary', action='store_true', dest='joinbin',
+                         help='create single joined program binary')
         cmd.add_argument('-i', '--image', action='store_true', dest='image',
                          help='create program image (E/A option 5)')
         cmd.add_argument('-c', '--cart', action='store_true', dest='cart',
@@ -3338,8 +3424,8 @@ class Xas99Processor(CommandProcessor):
                           help='add symbol table to listing (TI Assembler option S)')
         args.add_argument('-E', '--symbol-equs', dest='equs', metavar='<file>',
                           help='put symbols in EQU file')
-        args.add_argument('-M', '--minimal-chunks', action='store_true', dest='minchunk',
-                          help='create minimal chunks when generating binaries with SAVE')
+        args.add_argument('-M', '--minimized-binary', action='store_true', dest='minm',
+                          help='create minimized SAVE binaries or joined binary')
         args.add_argument('-X', '--cross-checks', action='store_true', dest='x_checks',
                           help='enable cross-bank checks for banked programs')
         args.add_argument('-q', action='store_true', dest='quiet',
@@ -3372,7 +3458,7 @@ class Xas99Processor(CommandProcessor):
 
         if not (self.opts.sources or self.opts.linker or self.opts.linker_resolve):
             args.error('One of <source> or -l/-ll is required.')
-        if self.opts.base and (self.opts.cart or self.opts.embed):
+        if self.opts.base and self.opts.embed:
             args.error('Cannot set base address when embedding or creating cart.')
 
     def run(self):
@@ -3385,8 +3471,9 @@ class Xas99Processor(CommandProcessor):
                             none=self.opts.quiet)
         self.console = Xas99Console(warnings, self.opts.color)
         foreign_architecture = self.opts.use_9995 or self.opts.use_f18a or self.opts.use_99000
-        target = Assembler.get_target(self.opts.bin, self.opts.image, self.opts.cart, self.opts.text, self.opts.embed)
-        program = Program(target=target, definitions=Util.get_opts_list(self.opts.defs))
+        target = Assembler.get_target(bin=self.opts.bin, image=self.opts.image, cart=self.opts.cart,
+                                      text=self.opts.text, embed=self.opts.embed)
+        program = Program(target=target)
 
         # assembly step
         if self.opts.sources:
@@ -3396,6 +3483,7 @@ class Xas99Processor(CommandProcessor):
             self.asm = Assembler(program, opcodes,
                                  target=target,
                                  includes=includes,
+                                 extdefs=Util.get_opts_list(self.opts.defs),
                                  r_prefix=self.opts.r_prefix,
                                  strict=self.opts.strict,
                                  relaxed=self.opts.relaxed,
@@ -3427,26 +3515,35 @@ class Xas99Processor(CommandProcessor):
             self.name = self.opts.name or 'A'
     
         # link step
-        base = (Util.xint(self.opts.base) if self.opts.base else
-                0xa000 if self.opts.image else
-                0x6030 if self.opts.cart else
-                0)
-        self.linker = Linker(program, base=base, resolve_conflicts=self.opts.linker_resolve, console=self.console)
+        self.linker = Linker(program, base=self.reloc_base(self.opts, program),
+                             resolve_conflicts=self.opts.linker_resolve, console=self.console)
         try:
             if self.opts.linker or self.opts.linker_resolve:
                 data = [(filename, Util.readdata(filename))
                         for filename in (self.opts.linker or self.opts.linker_resolve)]
                 self.linker.load(data)
-            self.linker.link(warn_about_unresolved_refs=self.opts.image or self.opts.bin or self.opts.embed or
-                                                        self.opts.text or self.opts.cart)
+            self.linker.link(warn_unresolved_refs=
+                             self.opts.image or self.opts.bin or self.opts.embed or self.opts.text or self.opts.cart)
             if self.linker.console.entries:
                 self.linker.console.print()
         except AsmError as e:
             sys.exit(self.console.colstr(f'Error: {str(e)}.'))
 
+    def reloc_base(self, opts, program):
+        if opts.base:
+            return Util.xint(self.opts.base)
+        elif opts.image:
+            return 0xa000
+        elif opts.cart:
+            return Linker.get_cart_base(program)
+        else:
+            return 0
+
     def prepare(self):
         if self.opts.bin:
             self.bin()
+        elif self.opts.joinbin:
+            self.joinbin()
         elif self.opts.text:
             self.text()
         elif self.opts.image:
@@ -3463,7 +3560,7 @@ class Xas99Processor(CommandProcessor):
             self.equs()
 
     def bin(self):
-        binaries = self.linker.generate_binaries(minimize=self.opts.minchunk)
+        binaries = self.linker.generate_binaries(minimize=self.opts.minm)
         if not binaries:
             self.result.append(RFile(bytes(0), self.barename, '.bin'))
         else:
@@ -3472,6 +3569,10 @@ class Xas99Processor(CommandProcessor):
                 tag = Util.name_suffix(base=addr, bank=bank, use_base=use_base, bank_count=self.linker.bank_count,
                                        max_bank=self.linker.program.max_bank)
                 self.result.append(RFile(data, self.barename, '.bin', suffix=tag))
+
+    def joinbin(self):
+        _, binary = self.linker.generate_joined_binary(minimize=self.opts.minm)
+        self.result.append(RFile(binary, self.barename, '.bin'))
 
     def text(self):
         texts = self.linker.generate_text(self.opts.text.lower())

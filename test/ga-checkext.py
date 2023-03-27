@@ -117,6 +117,15 @@ def runtest():
     except ValueError:
         error('rept', 'List file .rept marker mismatch')
 
+    # macro call in list file
+    source = os.path.join(Dirs.gplsources, 'gamaclst.gpl')
+    xga(source, '-o', Files.output, '-L', Files.input, '-S')
+    listing = content_lines(Files.input)
+    if 'lab    .push >69  ; push marker' not in listing:
+        error('mac list', 'Macro call not found in list file')
+    if 'LAB................. >6002' not in listing:
+        error('mac list', 'Label missing in list file')
+
     # cleanup
     delfile(Dirs.tmp)
 

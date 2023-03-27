@@ -1,5 +1,4 @@
-       ref  scan
-       ref  vdpwa
+       ref  z
 s1:
        equ  >0001  ;     
 s2:

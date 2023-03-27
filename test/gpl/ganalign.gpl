@@ -1,0 +1,15 @@
+* non-aligned GROMs
+
+       grom 5
+       aorg >1000
+       byte 5
+
+       grom 6
+       aorg >0800
+       byte 6
+
+       grom 7
+       aorg >1f00
+       byte 7
+
+       end

@@ -1,5 +1,4 @@
-       REF  SCAN
-       REF  VDPWA
+       REF  Z
 S1     EQU  >0001    *     
 S2     EQU  >0018    * REL 
 START  EQU  >0000    * REL 

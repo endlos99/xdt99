@@ -1,0 +1,16 @@
+* joined byte code
+
+       grom >6000
+       aorg >0000
+       byte 1
+
+       aorg >0100
+       byte 2
+
+       aorg >0300
+       byte 3
+
+       aorg >0f00
+       byte >f
+
+       end

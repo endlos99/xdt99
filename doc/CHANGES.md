@@ -1,3 +1,58 @@
+Changes Version 3.6.0
+=====================
+
+xas99 Cross-Assembler
+---------------------
+
+### Creating Binaries
+
+The `-b` option will create one file per bank per `SAVE` directive.  To join
+these files into a single file, we can use the _joined binary option_ `-B`.  
+This option will also align the start address of the binary to a multiple of
+`>2000`.  If the _minimize option_ `-M` is not supplied, the binary is also
+padded to a multiple of `>2000`.
+
+
+### Creating MAME Cartridges
+
+If the source code does not contain a GPL header, `xas99` will automatically add
+one.  In this case, the _name option_ `-n` can be used to set the program name
+that will be displayed in the menu screen.
+
+When adding a GPL header, `xas99` replaces bytes `>6000` through `>602F` with
+the header data.  Thus, if we want to make use of this functionality, our
+program should start at address `>6030` or higher.  `xas99` will issue a warning
+if the GPL header overwrites any non-zero data.
+
+If the program is entirely relocatable, i.e., using `RORG` but no `AORG`, a GPL
+header is added if no header is found at relocatable addresses `>0000` or
+`>6000`.  For `>0000`, the program is also relocated to base address `>6000`.
+
+The first word in the code must be an executable instruction, or we need to
+supply the start symbol as operand of the `END` directive, like was done in 
+`ascart.asm`.
+
+
+xga99 GPL Cross-Assembler
+-------------------------
+
+### Assembling Source Code
+
+The _pad option_ `-B` pads each GROM with zero bytes so that it starts at
+address _G_ * `>2000` and is >2000 bytes in size.
+
+The _cartridge option_ `-c` generates an RPK cartridge file suitable for the 
+MAME emulator.  The option implies `GROM 6` and will create a GPL header in the
+lowest GROM of the program automatically if no header is found at `>6000`,
+`>8000`, ..., or `>E000`.
+
+    $ xga99.py -c gahello.gpl
+
+`xga99` will issue a warning if the generated GPL header overwrites any non-zero
+data.
+
+
+
 Changes Version 3.5.5
 =====================
 

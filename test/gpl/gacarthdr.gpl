@@ -1,0 +1,18 @@
+* cart and header
+
+       grom 3
+       aorg >1000
+       byte 1
+
+       grom 4
+       .ifdef AA
+       byte >aa
+       .else
+       byte >bb
+       .endif
+       text '+++++++++++++++'
+       text '****************'
+       text '################'
+       byte >ff
+
+       end
