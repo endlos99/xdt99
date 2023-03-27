@@ -34,7 +34,7 @@ public class Xas99SyntaxHighlighter extends SyntaxHighlighterBase {
     public static final TokenSet operators = TokenSet.create(Xas99Types.OP_AT, Xas99Types.OP_AST,
             Xas99Types.OP_PLUS, Xas99Types.OP_MINUS, Xas99Types.OP_NOT, Xas99Types.OP_LPAREN, Xas99Types.OP_RPAREN,
             Xas99Types.OP_MISC, Xas99Types.MOD_AUTO, Xas99Types.MOD_LEN, Xas99Types.MOD_XBANK);
-    public static final TokenSet preprocessor = TokenSet.create(Xas99Types.PREP);  // could add PP_ARG
+    public static final TokenSet preprocessor = TokenSet.create(Xas99Types.PPCMD, Xas99Types.PPDEFM, Xas99Types.PPMAC);
 
     public static final TextAttributesKey INSTRUCTION =
             createTextAttributesKey("XAS99_INSTR", DefaultLanguageHighlighterColors.KEYWORD);
@@ -119,7 +119,7 @@ public class Xas99SyntaxHighlighter extends SyntaxHighlighterBase {
             return REGISTER_KEYS;
         } else if (operators.contains(tokenType)) {
             return OPERATOR_KEYS;
-        } else if (tokenType.equals(Xas99Types.OP_SEP) || tokenType.equals(Xas99Types.PP_SEP)) {
+        } else if (tokenType.equals(Xas99Types.OP_SEP)) {
             return SEPARATOR_KEYS;
         } else if (tokenType.equals(Xas99Types.PRAGMA)) {
             return PRAGMA_KEYS;

@@ -50,7 +50,11 @@ DIR_T = "TEXT" | "STRI" | "TITLE"
 DIR_C = "COPY" | "BCOPY"
 DIR_F = "FLOAT"
 
-PREP = "." [A-Za-z0-9]+
+PPDEFM = ".DEFM"
+PPCMD = ".IFDEF" | ".IFNDEF" | ".IFEQ" | ".IFNE" | ".IFGT" | ".IFGE" | ".IFLT" | ".IFLE" | ".ELSE" | ".ENDIF" |
+        ".REPT" | ".ENDR" | ".ENDM" | ".PRINT" | ".ERROR"
+PPMAC = "."
+PPPARM = "$" {DIGIT}+
 
 LINE_COMMENT = "*" [^\r\n]*
 EOL_COMMENT = ";" [^\r\n]*
@@ -58,8 +62,7 @@ EOL_COMMENT = ";" [^\r\n]*
 IDENT = ("!"+ | [A-Za-z_]) {ALPHA}*
 INT = {DIGIT}+ | ">" {HEX}+ | ":" [01]+
 OPMISC = [/%&|\^]
-PPARG = [^, \t\r\n]+
-PPPARM = "#" {DIGIT}+
+VREG = "#" {DIGIT}
 
 ALPHA = [^-+*/%&|~\^()#@\"',: \t\r\n]
 DIGIT = [0-9]
@@ -80,7 +83,7 @@ GADDR = "G@" | "g@"
 VADDR = "V@" | "v@"
 VINDR = "V*" | "v*"
 
-%state MNEMONIC FMNEMONIC MNEMONICO ARGUMENTS COMMENT PREPROC TLIT FLIT
+%state MNEMONIC FMNEMONIC MNEMONICO ARGUMENTS COMMENT PP TLIT FLIT
 
 %%
 
@@ -114,7 +117,10 @@ VINDR = "V*" | "v*"
  {DIR_C}               { return Xga99Types.DIR_C; }
  {DIR_F}               { return Xga99Types.DIR_F; }
 
- {PREP}                { yybegin(PREPROC); return Xga99Types.PREP; }
+ {PPCMD}               { yybegin(ARGUMENTS); return Xga99Types.PPCMD; }
+ {PPDEFM}              { yybegin(ARGUMENTS); return Xga99Types.PPDEFM; }
+ {PPMAC}               { yybegin(PP); return Xga99Types.PPMAC; }
+
  {IDENT}               { yybegin(COMMENT); return Xga99Types.UNKNOWN; }
  {WS}                  { yybegin(ARGUMENTS); return TokenType.WHITE_SPACE; }
 }
@@ -129,13 +135,20 @@ VINDR = "V*" | "v*"
  {INSTR_F_X}           { fmtLevel -= 1; return Xga99Types.INSTR_F_X; }
                        // NOTE: FEND may have an argument, so we cannot use FMNEMONICO,
                        //       and thus comments may not work here.
- {PREP}                { yybegin(PREPROC); return Xga99Types.PREP; }
+ {PPCMD}               { yybegin(ARGUMENTS); return Xga99Types.PPCMD; }
+ {PPDEFM}              { yybegin(ARGUMENTS); return Xga99Types.PPDEFM; }
+ {PPMAC}               { yybegin(PP); return Xga99Types.PPMAC; }
+
  {IDENT}               { yybegin(COMMENT); return Xga99Types.UNKNOWN; }
  {WS}                  { yybegin(ARGUMENTS); return TokenType.WHITE_SPACE; }
 }
 
 <MNEMONICO> {
  {WS}                  { yybegin(COMMENT); return TokenType.WHITE_SPACE; }
+}
+
+<PP> {
+  {IDENT}              { yybegin(ARGUMENTS); return Xga99Types.IDENT; }
 }
 
 <ARGUMENTS> {
@@ -154,16 +167,10 @@ VINDR = "V*" | "v*"
  {VINDR}               { return Xga99Types.VINDR; }
  {IDENT}               { return Xga99Types.IDENT; }
  {INT}                 { return Xga99Types.INT; }
+ {VREG}                { return Xga99Types.VREG; }
  {QUOTE}               { yybegin(TLIT); return Xga99Types.OP_QUOTE; }
  {FQUOTE}              { yybegin(FLIT); return Xga99Types.OP_FQUOTE; }
  {PPPARM}              { return Xga99Types.PP_PARAM; }
- {FIELDSEP}            { yybegin(COMMENT); return TokenType.WHITE_SPACE; }
- {SPACE}               { return TokenType.WHITE_SPACE; }
-}
-
-<PREPROC> {
- ","                   { return Xga99Types.PP_SEP; }
- {PPARG}               { return Xga99Types.PP_ARG; }
  {FIELDSEP}            { yybegin(COMMENT); return TokenType.WHITE_SPACE; }
  {SPACE}               { return TokenType.WHITE_SPACE; }
 }

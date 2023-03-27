@@ -1,12 +1,12 @@
 <idea-plugin>
     <id>net.endlos.xdt99.idea</id>
     <name>xdt99 IDEA Editor Support</name>
-    <version>3.3.4</version>
+    <version>3.6.0</version>
     <vendor email="r@ti99.pro" url="https://www.github.com/endlos99">endlos 99</vendor>
     <description><![CDATA[
     TI 99 Cross-Development Tools (xdt99)
     <br>
-    Copyright (c) 2015-2022 Ralph Benzinger
+    Copyright (c) 2015-2023 Ralph Benzinger
     <br>
     The xdt99 IntelliJ Plugin provides code assistance for developing TMS 9900
     assembly, GPL, and TI (Extended) BASIC programs.

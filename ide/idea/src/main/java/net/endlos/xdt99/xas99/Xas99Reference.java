@@ -6,6 +6,8 @@ import com.intellij.psi.*;
 import com.intellij.util.IncorrectOperationException;
 import net.endlos.xdt99.xas99.psi.Xas99Labeldef;
 import net.endlos.xdt99.xas99.psi.Xas99OpAlias;
+import net.endlos.xdt99.xas99.psi.Xas99OpMacro;
+import net.endlos.xdt99.xas99.psi.Xas99OpMacrodef;
 import net.endlos.xdt99.xas99.psi.impl.Xas99PsiImplUtil;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -15,7 +17,7 @@ import java.util.List;
 
 public class Xas99Reference extends PsiReferenceBase<PsiElement> implements PsiPolyVariantReference {
     private final String label;
-    private final boolean isAlias;
+    private final boolean isAlias, isMacro;
     private final int offset;
     private final int distance;
 
@@ -23,6 +25,7 @@ public class Xas99Reference extends PsiReferenceBase<PsiElement> implements PsiP
         super(element, textRange);
         label = element.getText().substring(textRange.getStartOffset(), textRange.getEndOffset()).toUpperCase();
         isAlias = element instanceof Xas99OpAlias;
+        isMacro = element instanceof Xas99OpMacro;
         offset = Xas99Util.findBeginningOfLine(element);
         distance = Xas99Util.getDistance(label, element);
     }
@@ -30,15 +33,22 @@ public class Xas99Reference extends PsiReferenceBase<PsiElement> implements PsiP
     @Override
     public ResolveResult @NotNull [] multiResolve(boolean incompleteCode) {
         Project project = myElement.getProject();
-        List<Xas99Labeldef> labels;
-        if (isAlias) {
-            labels = Xas99Util.findAliases(project, label, false);
-        } else {
-            labels = Xas99Util.findLabels(project, label, distance, myElement, offset, false);
-        }
         List<ResolveResult> results = new ArrayList<ResolveResult>();
-        for (Xas99Labeldef label : labels) {
-            results.add(new PsiElementResolveResult(label));
+        if (isMacro) {
+            List<Xas99OpMacrodef> macros = Xas99Util.findMacros(project, label, false);
+            for (Xas99OpMacrodef macro : macros) {
+                results.add(new PsiElementResolveResult(macro));
+            }
+        } else {
+            List<Xas99Labeldef> labels;
+            if (isAlias) {
+                labels = Xas99Util.findAliases(project, label, false);
+            } else {
+                labels = Xas99Util.findLabels(project, label, distance, myElement, offset, false);
+            }
+            for (Xas99Labeldef label : labels) {
+                results.add(new PsiElementResolveResult(label));
+            }
         }
         return results.toArray(new ResolveResult[results.size()]);
     }

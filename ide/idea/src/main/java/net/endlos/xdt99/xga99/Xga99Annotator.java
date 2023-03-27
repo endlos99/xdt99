@@ -8,9 +8,11 @@ import com.intellij.openapi.util.TextRange;
 import com.intellij.psi.PsiElement;
 import com.intellij.psi.PsiWhiteSpace;
 import com.intellij.psi.tree.TokenSet;
-import net.endlos.xdt99.xga99.psi.Xga99Labeldef;
-import net.endlos.xdt99.xga99.psi.Xga99OpLabel;
-import net.endlos.xdt99.xga99.psi.Xga99Types;
+import net.endlos.xdt99.xas99.Xas99SyntaxHighlighter;
+import net.endlos.xdt99.xas99.Xas99Util;
+import net.endlos.xdt99.xas99.psi.Xas99OpMacro;
+import net.endlos.xdt99.xas99.psi.Xas99OpMacrodef;
+import net.endlos.xdt99.xga99.psi.*;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.List;
@@ -66,6 +68,37 @@ public class Xga99Annotator implements Annotator {
                     holder.newAnnotation(HighlightSeverity.ERROR, "Undefined symbol")
                             .range(labelRange).highlightType(ProblemHighlightType.LIKE_UNKNOWN_SYMBOL).create();
                 }
+            }
+        } else if (element instanceof Xga99OpMacrodef) {
+            Xga99OpMacrodef macrodef = (Xga99OpMacrodef) element;
+            // duplicate symbols?
+            List<Xga99OpMacrodef> definitions = Xga99Util.findMacros(element.getProject(), macrodef.getName(),
+                    false);
+            if (definitions.size() > 1) {
+                holder.newAnnotation(HighlightSeverity.ERROR, "Duplicate macro")
+                        .range(element.getTextRange()).highlightType(ProblemHighlightType.GENERIC_ERROR).create();
+                return;
+            }
+            // is defined macro used at all?
+            List<Xga99OpMacro> usages = Xga99Util.findMacroUsages(macrodef);
+            if (usages.isEmpty()) {
+                holder.newAnnotation(HighlightSeverity.WARNING, "Unused macro")
+                        .range(element.getTextRange()).highlightType(ProblemHighlightType.LIKE_UNUSED_SYMBOL)
+                        .create();
+            }
+        } else if (element instanceof Xga99OpMacro) {
+            // annotate macro references
+            String macro = element.getText();
+            if (macro == null)
+                return;
+            TextRange macroRange = element.getTextRange();
+            holder.newSilentAnnotation(HighlightSeverity.INFORMATION)
+                    .range(macroRange).textAttributes(Xga99SyntaxHighlighter.PREPROCESSOR).create();
+            // undefined macro?
+            List<Xga99OpMacrodef> macrodefs = Xga99Util.findMacros(element.getProject(), macro, false);
+            if (macrodefs.isEmpty()) {
+                holder.newAnnotation(HighlightSeverity.ERROR, "Undefined macro")
+                        .range(macroRange).highlightType(ProblemHighlightType.LIKE_UNKNOWN_SYMBOL).create();
             }
         } else if (Xga99CodeStyleSettings.XGA99_STRICT && element instanceof PsiWhiteSpace) {
             // no space after ',' in strict mode

@@ -31,7 +31,7 @@ public class Xga99SyntaxHighlighter extends SyntaxHighlighterBase {
     public static final TokenSet operators = TokenSet.create(Xga99Types.OP_AT, Xga99Types.OP_AST,
             Xga99Types.OP_PLUS, Xga99Types.OP_MINUS, Xga99Types.OP_NOT, Xga99Types.OP_LPAREN, Xga99Types.OP_RPAREN,
             Xga99Types.OP_MISC);
-    public static final TokenSet preprocessor = TokenSet.create(Xga99Types.PREP);  // could add PP_ARG
+    public static final TokenSet preprocessor = TokenSet.create(Xga99Types.PPCMD, Xga99Types.PPDEFM, Xga99Types.PPMAC);
 
 public static final TextAttributesKey INSTRUCTION =
         createTextAttributesKey("XGA99_INSTR", DefaultLanguageHighlighterColors.KEYWORD);
@@ -98,8 +98,7 @@ public static final TextAttributesKey INSTRUCTION =
             return TEXT_KEYS;
         } else if (operators.contains(tokenType)) {
             return OPERATOR_KEYS;
-        } else if (tokenType.equals(Xga99Types.OP_SEP) ||
-                tokenType.equals(Xga99Types.PP_SEP)) {
+        } else if (tokenType.equals(Xga99Types.OP_SEP)) {
             return SEPARATOR_KEYS;
         } else if (tokenType.equals(Xga99Types.COMMENT)) {
             return COMMENT_KEYS;

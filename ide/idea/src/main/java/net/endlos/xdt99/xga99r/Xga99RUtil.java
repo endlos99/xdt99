@@ -89,6 +89,28 @@ public class Xga99RUtil {
         return result;
     }
 
+    // find all macros
+    public static List<Xga99ROpMacrodef> findMacros(Project project, String ident, boolean partial) {
+        List<Xga99ROpMacrodef> result = new ArrayList<>();
+        String normalizedIdent = ident.toUpperCase();
+        Collection<VirtualFile> virtualFiles =
+                FileTypeIndex.getFiles(Xga99RFileType.INSTANCE, GlobalSearchScope.allScope(project));
+        for (VirtualFile virtualFile : virtualFiles) {
+            Xga99RFile file = (Xga99RFile) PsiManager.getInstance(project).findFile(virtualFile);
+            if (file == null)
+                continue;
+            Collection<Xga99ROpMacrodef> macros = PsiTreeUtil.findChildrenOfType(file, Xga99ROpMacrodef.class);
+            for (Xga99ROpMacrodef macro : macros) {
+                String normalizedMacro = macro.getText().toUpperCase();
+                if ((!partial && normalizedIdent.equals(normalizedMacro)) ||
+                        (partial && normalizedMacro.startsWith(normalizedIdent))) {
+                    result.add(macro);
+                }
+            }
+        }
+        return result;
+    }
+
     public static List<Xga99ROpLabel> findLabelUsages(Xga99RLabeldef label) {
         List<Xga99ROpLabel> result = new ArrayList<>();
         Project project = label.getProject();
@@ -102,6 +124,26 @@ public class Xga99RUtil {
             Collection<Xga99ROpLabel> usages = PsiTreeUtil.findChildrenOfType(file, Xga99ROpLabel.class);
             for (Xga99ROpLabel usage : usages) {
                 if (labelText.equalsIgnoreCase(usage.getName()))
+                    result.add(usage);
+            }
+        }
+        return result;
+    }
+
+    // find macro usages for Annotator
+    public static List<Xga99ROpMacro> findMacroUsages(Xga99ROpMacrodef macro) {
+        List<Xga99ROpMacro> result = new ArrayList<>();
+        Project project = macro.getProject();
+        String macroText = macro.getName();
+        Collection<VirtualFile> virtualFiles =
+                FileTypeIndex.getFiles(Xga99RFileType.INSTANCE, GlobalSearchScope.allScope(project));
+        for (VirtualFile virtualFile : virtualFiles) {
+            Xga99RFile file = (Xga99RFile) PsiManager.getInstance(project).findFile(virtualFile);
+            if (file == null)
+                continue;
+            Collection<Xga99ROpMacro> usages = PsiTreeUtil.findChildrenOfType(file, Xga99ROpMacro.class);
+            for (Xga99ROpMacro usage : usages) {
+                if (macroText.equalsIgnoreCase(usage.getName()))
                     result.add(usage);
             }
         }

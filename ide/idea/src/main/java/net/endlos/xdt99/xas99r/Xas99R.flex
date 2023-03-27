@@ -56,9 +56,11 @@ DIR_X = "PSEG" | "PEND" | "CSEG" | "CEND" | "DSEG" | "DEND" | "LOAD" | "SREF"
 DIR_F = "FLOA"
 DIR_R = "REF"
 
-PREPROC = "." [A-Za-z0-9]+
-PP_ARG = [^, \t\r\n]+
-PP_PARM = "#" {DIGIT}+
+PPDEFM = ".DEFM"
+PPCMD = ".IFDEF" | ".IFNDEF" | ".IFEQ" | ".IFNE" | ".IFGT" | ".IFGE" | ".IFLT" | ".IFLE" | ".ELSE" | ".ENDIF" |
+        ".REPT" | ".ENDR" | ".ENDM" | ".PRINT" | ".ERROR"
+PPMAC = "."
+PPPARM = "#" {DIGIT}+
 
 LINE_COMMENT = "*" [^\r\n]*
 PG_START = ";:"
@@ -93,7 +95,7 @@ BLANK = {SPACE} | \t
 WS = {BLANK}+
 CRLF = \n | \r | \r\n
 
-%state MNEMONIC MNEMONICO ARGUMENTS PREPROC PRAGMA TLIT FLIT
+%state MNEMONIC MNEMONICO ARGUMENTS PRAGMA TLIT FLIT PP
 
 %%
 
@@ -147,7 +149,9 @@ CRLF = \n | \r | \r\n
  {DIR_O}               { yybegin(MNEMONICO); return Xas99RTypes.DIR_O; }
  {DIR_X}               { yybegin(MNEMONICO); return Xas99RTypes.DIR_X; }
 
- {PREPROC}             { yybegin(PREPROC); return Xas99RTypes.PREP; }
+ {PPCMD}              { yybegin(ARGUMENTS); return Xas99RTypes.PPCMD; }
+ {PPDEFM}              { yybegin(ARGUMENTS); return Xas99RTypes.PPDEFM; }
+ {PPMAC}              { yybegin(ARGUMENTS); return Xas99RTypes.PPMAC; }
 
 // {IDENT}               { return Xas99RTypes.UNKNOWN; }
  {WS}                  { yybegin(ARGUMENTS); return TokenType.WHITE_SPACE; }
@@ -155,6 +159,10 @@ CRLF = \n | \r | \r\n
 
 <MNEMONICO> {
  {WS}                  { return TokenType.WHITE_SPACE; }
+}
+
+<PP> {
+  {IDENT}              { yybegin(ARGUMENTS); return Xas99RTypes.IDENT; }
 }
 
 <ARGUMENTS> {
@@ -177,13 +185,7 @@ CRLF = \n | \r | \r\n
  {MOD_AUTO}            { return Xas99RTypes.MOD_AUTO; }
  {MOD_LEN}             { return Xas99RTypes.MOD_LEN; }
  {MOD_XBANK}           { return Xas99RTypes.MOD_XBANK; }
- {PP_PARM}             { return Xas99RTypes.PP_PARAM; }
- {SPACES}              { return TokenType.WHITE_SPACE; }
-}
-
-<PREPROC> {
- ","                   { return Xas99RTypes.PP_SEP; }
- {PP_ARG}              { return Xas99RTypes.PP_ARG; }
+ {PPPARM}              { return Xas99RTypes.PP_PARAM; }
  {SPACES}              { return TokenType.WHITE_SPACE; }
 }
 

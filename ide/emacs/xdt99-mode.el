@@ -125,7 +125,7 @@
 
 ; default tab stops, customize using "M-x edit-tabs-stops"
 (defvar asm99-field-positions
-  '(7 12 30 60 61))
+  '(7 12 30 37))
 
 (defun asm99-backspace ()
   "Backspace moves cursor to end of previous field or beginning of current field if blank."

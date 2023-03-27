@@ -12,6 +12,10 @@ import com.intellij.psi.search.FileTypeIndex;
 import com.intellij.psi.search.GlobalSearchScope;
 import com.intellij.psi.util.PsiTreeUtil;
 import net.endlos.xdt99.common.IntWrapper;
+import net.endlos.xdt99.xas99.Xas99FileType;
+import net.endlos.xdt99.xas99.psi.Xas99File;
+import net.endlos.xdt99.xas99.psi.Xas99OpMacro;
+import net.endlos.xdt99.xas99.psi.Xas99OpMacrodef;
 import net.endlos.xdt99.xga99.psi.*;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -89,6 +93,28 @@ public class Xga99Util {
         return result;
     }
 
+    // find all macros
+    public static List<Xga99OpMacrodef> findMacros(Project project, String ident, boolean partial) {
+        List<Xga99OpMacrodef> result = new ArrayList<>();
+        String normalizedIdent = ident.toUpperCase();
+        Collection<VirtualFile> virtualFiles =
+                FileTypeIndex.getFiles(Xga99FileType.INSTANCE, GlobalSearchScope.allScope(project));
+        for (VirtualFile virtualFile : virtualFiles) {
+            Xga99File file = (Xga99File) PsiManager.getInstance(project).findFile(virtualFile);
+            if (file == null)
+                continue;
+            Collection<Xga99OpMacrodef> macros = PsiTreeUtil.findChildrenOfType(file, Xga99OpMacrodef.class);
+            for (Xga99OpMacrodef macro : macros) {
+                String normalizedMacro = macro.getText().toUpperCase();
+                if ((!partial && normalizedIdent.equals(normalizedMacro)) ||
+                        (partial && normalizedMacro.startsWith(normalizedIdent))) {
+                    result.add(macro);
+                }
+            }
+        }
+        return result;
+    }
+
     public static List<Xga99OpLabel> findLabelUsages(Xga99Labeldef label) {
         List<Xga99OpLabel> result = new ArrayList<>();
         Project project = label.getProject();
@@ -102,6 +128,26 @@ public class Xga99Util {
             Collection<Xga99OpLabel> usages = PsiTreeUtil.findChildrenOfType(file, Xga99OpLabel.class);
             for (Xga99OpLabel usage : usages) {
                 if (labelText.equalsIgnoreCase(usage.getName()))
+                    result.add(usage);
+            }
+        }
+        return result;
+    }
+
+    // find macro usages for Annotator
+    public static List<Xga99OpMacro> findMacroUsages(Xga99OpMacrodef macro) {
+        List<Xga99OpMacro> result = new ArrayList<>();
+        Project project = macro.getProject();
+        String macroText = macro.getName();
+        Collection<VirtualFile> virtualFiles =
+                FileTypeIndex.getFiles(Xga99FileType.INSTANCE, GlobalSearchScope.allScope(project));
+        for (VirtualFile virtualFile : virtualFiles) {
+            Xga99File file = (Xga99File) PsiManager.getInstance(project).findFile(virtualFile);
+            if (file == null)
+                continue;
+            Collection<Xga99OpMacro> usages = PsiTreeUtil.findChildrenOfType(file, Xga99OpMacro.class);
+            for (Xga99OpMacro usage : usages) {
+                if (macroText.equalsIgnoreCase(usage.getName()))
                     result.add(usage);
             }
         }

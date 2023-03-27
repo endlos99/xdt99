@@ -94,6 +94,37 @@ public class Xas99Annotator implements Annotator {
                             .range(labelRange).highlightType(ProblemHighlightType.LIKE_UNKNOWN_SYMBOL).create();
                 }
             }
+        } else if (element instanceof Xas99OpMacrodef) {
+            Xas99OpMacrodef macrodef = (Xas99OpMacrodef) element;
+            // duplicate symbols?
+            List<Xas99OpMacrodef> definitions = Xas99Util.findMacros(element.getProject(), macrodef.getName(),
+                    false);
+            if (definitions.size() > 1) {
+                holder.newAnnotation(HighlightSeverity.ERROR, "Duplicate macro")
+                        .range(element.getTextRange()).highlightType(ProblemHighlightType.GENERIC_ERROR).create();
+                return;
+            }
+            // is defined macro used at all?
+            List<Xas99OpMacro> usages = Xas99Util.findMacroUsages(macrodef);
+            if (usages.isEmpty()) {
+                holder.newAnnotation(HighlightSeverity.WARNING, "Unused macro")
+                        .range(element.getTextRange()).highlightType(ProblemHighlightType.LIKE_UNUSED_SYMBOL)
+                        .create();
+            }
+        } else if (element instanceof Xas99OpMacro) {
+            // annotate macro references
+            String macro = element.getText();
+            if (macro == null)
+                return;
+            TextRange macroRange = element.getTextRange();
+            holder.newSilentAnnotation(HighlightSeverity.INFORMATION)
+                    .range(macroRange).textAttributes(Xas99SyntaxHighlighter.PREPROCESSOR).create();
+            // undefined macro?
+            List<Xas99OpMacrodef> macrodefs = Xas99Util.findMacros(element.getProject(), macro, false);
+            if (macrodefs.isEmpty()) {
+                holder.newAnnotation(HighlightSeverity.ERROR, "Undefined macro")
+                        .range(macroRange).highlightType(ProblemHighlightType.LIKE_UNKNOWN_SYMBOL).create();
+            }
         } else if (Xas99CodeStyleSettings.XAS99_STRICT && element instanceof PsiWhiteSpace) {
             // no space after ',' in strict mode
             PsiElement e = element.getPrevSibling();

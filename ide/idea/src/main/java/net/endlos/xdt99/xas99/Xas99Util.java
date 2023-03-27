@@ -64,6 +64,28 @@ public class Xas99Util {
         return findAll(project, normalizedIdent, partial, true, false);
     }
 
+    // find all macros
+    public static List<Xas99OpMacrodef> findMacros(Project project, String ident, boolean partial) {
+        List<Xas99OpMacrodef> result = new ArrayList<>();
+        String normalizedIdent = ident.toUpperCase();
+        Collection<VirtualFile> virtualFiles =
+                FileTypeIndex.getFiles(Xas99FileType.INSTANCE, GlobalSearchScope.allScope(project));
+        for (VirtualFile virtualFile : virtualFiles) {
+            Xas99File file = (Xas99File) PsiManager.getInstance(project).findFile(virtualFile);
+            if (file == null)
+                continue;
+            Collection<Xas99OpMacrodef> macros = PsiTreeUtil.findChildrenOfType(file, Xas99OpMacrodef.class);
+            for (Xas99OpMacrodef macro : macros) {
+                String normalizedMacro = macro.getText().toUpperCase();
+                if ((!partial && normalizedIdent.equals(normalizedMacro)) ||
+                        (partial && normalizedMacro.startsWith(normalizedIdent))) {
+                    result.add(macro);
+                }
+            }
+        }
+        return result;
+    }
+
     // get both labels and aliases
     public static List<Xas99Labeldef> findLabels(Project project) {
         List<Xas99Labeldef> result = new ArrayList<Xas99Labeldef>();
@@ -113,6 +135,26 @@ public class Xas99Util {
             Collection<Xas99OpAlias> usages = PsiTreeUtil.findChildrenOfType(file, Xas99OpAlias.class);
             for (Xas99OpAlias usage : usages) {
                 if (labelText.equalsIgnoreCase(usage.getName()))
+                    result.add(usage);
+            }
+        }
+        return result;
+    }
+
+    // find macro usages for Annotator
+    public static List<Xas99OpMacro> findMacroUsages(Xas99OpMacrodef macro) {
+        List<Xas99OpMacro> result = new ArrayList<>();
+        Project project = macro.getProject();
+        String macroText = macro.getName();
+        Collection<VirtualFile> virtualFiles =
+                FileTypeIndex.getFiles(Xas99FileType.INSTANCE, GlobalSearchScope.allScope(project));
+        for (VirtualFile virtualFile : virtualFiles) {
+            Xas99File file = (Xas99File) PsiManager.getInstance(project).findFile(virtualFile);
+            if (file == null)
+                continue;
+            Collection<Xas99OpMacro> usages = PsiTreeUtil.findChildrenOfType(file, Xas99OpMacro.class);
+            for (Xas99OpMacro usage : usages) {
+                if (macroText.equalsIgnoreCase(usage.getName()))
                     result.add(usage);
             }
         }

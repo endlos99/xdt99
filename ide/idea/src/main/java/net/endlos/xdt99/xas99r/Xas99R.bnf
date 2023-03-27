@@ -82,7 +82,9 @@ instruction ::=
     INSTR_F18A_O
     {pin=1}
 preprocessor ::=
-    PREP (PP_ARG | PP_SEP)*
+    PPCMD args_pp |
+    PPDEFM opMacrodef |
+    PPMAC opMacro args_pp
     {pin=1}
 alias_definition ::=
     DIR_RA args_dir_E
@@ -150,6 +152,8 @@ args_adv_VI ::=
     args_VI
 args_adv_VIII ::=
     args_VIII
+args_pp ::=
+    ((opGA | expr) (OP_SEP (opGA | expr))*)?
 
 // pragma
 pragma ::=
@@ -186,6 +190,15 @@ opAlias ::=
     IDENT
     {methods=[getName setName getNameIdentifier getReference]
      name="alias"}
+opMacrodef ::=
+    IDENT
+    {mixin="net.endlos.xdt99.xas99r.psi.impl.Xas99RNamedElementImpl"
+     implements="net.endlos.xdt99.xas99r.psi.Xas99RNamedElement"
+     methods=[getName setName getNameIdentifier getPresentation]}
+opMacro ::=
+    IDENT
+    {methods=[getName setName getNameIdentifier getReference]
+     name="macro"}
 opFloat ::=
     (OP_PLUS | OP_MINUS)? DIGIT* ("." DIGIT*)?
 

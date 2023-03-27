@@ -6,6 +6,7 @@ import net.endlos.xdt99.xas99.Xas99FileType;
 
 public class Xas99ElementFactory {
 
+    // can be used for macro as well, since we just want the IDENT node
     public static Xas99Labeldef createLabel(Project project, String name) {
         final Xas99File file = createFile(project, name + "\n");
         return (Xas99Labeldef) file.getFirstChild();

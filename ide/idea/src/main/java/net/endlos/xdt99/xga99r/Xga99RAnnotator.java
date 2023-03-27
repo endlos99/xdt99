@@ -8,6 +8,8 @@ import com.intellij.openapi.util.TextRange;
 import com.intellij.psi.PsiElement;
 import net.endlos.xdt99.xga99r.psi.Xga99RLabeldef;
 import net.endlos.xdt99.xga99r.psi.Xga99ROpLabel;
+import net.endlos.xdt99.xga99r.psi.Xga99ROpMacro;
+import net.endlos.xdt99.xga99r.psi.Xga99ROpMacrodef;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.List;
@@ -61,6 +63,37 @@ public class Xga99RAnnotator implements Annotator {
                     holder.newAnnotation(HighlightSeverity.ERROR, "Undefined symbol")
                             .range(labelRange).highlightType(ProblemHighlightType.LIKE_UNKNOWN_SYMBOL).create();
                 }
+            }
+        } else if (element instanceof Xga99ROpMacrodef) {
+            Xga99ROpMacrodef macrodef = (Xga99ROpMacrodef) element;
+            // duplicate symbols?
+            List<Xga99ROpMacrodef> definitions = Xga99RUtil.findMacros(element.getProject(), macrodef.getName(),
+                    false);
+            if (definitions.size() > 1) {
+                holder.newAnnotation(HighlightSeverity.ERROR, "Duplicate macro")
+                        .range(element.getTextRange()).highlightType(ProblemHighlightType.GENERIC_ERROR).create();
+                return;
+            }
+            // is defined macro used at all?
+            List<Xga99ROpMacro> usages = Xga99RUtil.findMacroUsages(macrodef);
+            if (usages.isEmpty()) {
+                holder.newAnnotation(HighlightSeverity.WARNING, "Unused macro")
+                        .range(element.getTextRange()).highlightType(ProblemHighlightType.LIKE_UNUSED_SYMBOL)
+                        .create();
+            }
+        } else if (element instanceof Xga99ROpMacro) {
+            // annotate macro references
+            String macro = element.getText();
+            if (macro == null)
+                return;
+            TextRange macroRange = element.getTextRange();
+            holder.newSilentAnnotation(HighlightSeverity.INFORMATION)
+                    .range(macroRange).textAttributes(Xga99RSyntaxHighlighter.PREPROCESSOR).create();
+            // undefined macro?
+            List<Xga99ROpMacrodef> macrodefs = Xga99RUtil.findMacros(element.getProject(), macro, false);
+            if (macrodefs.isEmpty()) {
+                holder.newAnnotation(HighlightSeverity.ERROR, "Undefined macro")
+                        .range(macroRange).highlightType(ProblemHighlightType.LIKE_UNKNOWN_SYMBOL).create();
             }
         }
     }

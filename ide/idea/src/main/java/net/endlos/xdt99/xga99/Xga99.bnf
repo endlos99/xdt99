@@ -66,7 +66,9 @@ instruction ::=
     INSTR_F_X args_F_X
     {pin=1}
 preprocessor ::=
-    PREP (PP_ARG | PP_SEP)*
+    PPCMD args_pp |
+    PPDEFM opMacrodef |
+    PPMAC opMacro args_pp
     {pin=1}
 unknown_mnem ::=
     UNKNOWN
@@ -99,6 +101,8 @@ args_VIII ::=
 args_IX ::=
     (opGs | opValue) OP_SEP opMs OP_SEP opMd  // MOVE instruction
     {pin="OP_SEP"}
+args_pp ::=
+    ((opGd | expr) (OP_SEP (opGd | expr))*)?
 
 args_F_I ::=
     opValue
@@ -119,16 +123,16 @@ args_F_X::=
 
 // arguments
 private opGd ::=
-    (VADDR | VINDR | OP_AT | OP_AST) OP_MINUS? sexpr opIndex?
+    (VADDR | VINDR | OP_AT | OP_AST) OP_MINUS? sexpr opIndex? | PP_PARAM
     {name="general destination address"}
 private opGs ::=
     opGd | opValue
     {name="general source address"}
 private opMs ::=
-    (GADDR | VADDR | VINDR | OP_AT | OP_AST) OP_MINUS? sexpr opIndex?
+    (GADDR | VADDR | VINDR | OP_AT | OP_AST) OP_MINUS? sexpr opIndex? | PP_PARAM
     {name="MOVE source address"}
 private opMd ::=
-    opMs | PP_PARAM  // PP_PARAM doubles as VREG#
+    opMs | VREG
     {name="MOVE destination address"}
 private opAddress ::=
     // opAddress and opValue are interchangeable
@@ -142,6 +146,15 @@ private opValue ::=
     // opValue and opAddress are interchangeable
     expr
     {name="value"}
+opMacrodef ::=
+    IDENT
+    {mixin="net.endlos.xdt99.xga99.psi.impl.Xga99NamedElementImpl"
+     implements="net.endlos.xdt99.xga99.psi.Xga99NamedElement"
+     methods=[getName setName getNameIdentifier getPresentation]}
+opMacro ::=
+    IDENT
+    {methods=[getName setName getNameIdentifier getReference]
+     name="macro"}
 opFloat ::=
     (OP_PLUS | OP_MINUS)? DIGIT* ("." DIGIT*)?
 opText ::=
@@ -150,7 +163,7 @@ opText ::=
 opFilename ::=
     OP_FQUOTE FNAME OP_FQUOTE
 opLabel ::=
-    IDENT | LOCAL | OP_LC | PP_PARAM
+    IDENT | LOCAL | OP_LC
     {methods=[getName setName getNameIdentifier getReference]
      name="label"}
 
@@ -167,7 +180,7 @@ private xop ::=
     OP_PLUS | OP_MINUS | OP_AST | OP_MISC
     {name="operator"}
 private atom ::=
-    opLabel | INT | OP_QUOTE TEXT? OP_QUOTE
+    opLabel | INT | OP_QUOTE TEXT? OP_QUOTE | PP_PARAM
     {name="value"}
 
 private sexpr ::=

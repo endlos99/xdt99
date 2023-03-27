@@ -6,10 +6,7 @@ import com.intellij.lang.annotation.Annotator;
 import com.intellij.lang.annotation.HighlightSeverity;
 import com.intellij.openapi.util.TextRange;
 import com.intellij.psi.PsiElement;
-import net.endlos.xdt99.xas99r.psi.Xas99RLabeldef;
-import net.endlos.xdt99.xas99r.psi.Xas99ROpAlias;
-import net.endlos.xdt99.xas99r.psi.Xas99ROpLabel;
-import net.endlos.xdt99.xas99r.psi.Xas99ROpRegister;
+import net.endlos.xdt99.xas99r.psi.*;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.List;
@@ -90,6 +87,37 @@ public class Xas99RAnnotator implements Annotator {
                     holder.newAnnotation(HighlightSeverity.ERROR, "Undefined symbol")
                             .range(labelRange).highlightType(ProblemHighlightType.LIKE_UNKNOWN_SYMBOL).create();
                 }
+            }
+        } else if (element instanceof Xas99ROpMacrodef) {
+            Xas99ROpMacrodef macrodef = (Xas99ROpMacrodef) element;
+            // duplicate symbols?
+            List<Xas99ROpMacrodef> definitions = Xas99RUtil.findMacros(element.getProject(), macrodef.getName(),
+                    false);
+            if (definitions.size() > 1) {
+                holder.newAnnotation(HighlightSeverity.ERROR, "Duplicate macro")
+                        .range(element.getTextRange()).highlightType(ProblemHighlightType.GENERIC_ERROR).create();
+                return;
+            }
+            // is defined macro used at all?
+            List<Xas99ROpMacro> usages = Xas99RUtil.findMacroUsages(macrodef);
+            if (usages.isEmpty()) {
+                holder.newAnnotation(HighlightSeverity.WARNING, "Unused macro")
+                        .range(element.getTextRange()).highlightType(ProblemHighlightType.LIKE_UNUSED_SYMBOL)
+                        .create();
+            }
+        } else if (element instanceof Xas99ROpMacro) {
+            // annotate macro references
+            String macro = element.getText();
+            if (macro == null)
+                return;
+            TextRange macroRange = element.getTextRange();
+            holder.newSilentAnnotation(HighlightSeverity.INFORMATION)
+                    .range(macroRange).textAttributes(Xas99RSyntaxHighlighter.PREPROCESSOR).create();
+            // undefined macro?
+            List<Xas99ROpMacrodef> macrodefs = Xas99RUtil.findMacros(element.getProject(), macro, false);
+            if (macrodefs.isEmpty()) {
+                holder.newAnnotation(HighlightSeverity.ERROR, "Undefined macro")
+                        .range(macroRange).highlightType(ProblemHighlightType.LIKE_UNKNOWN_SYMBOL).create();
             }
         }
     }
