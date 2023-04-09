@@ -1574,20 +1574,23 @@ comments after the operand fields must be introduced with a semicolon `;`.
     label  li    r0   ,   2*      max_val  +     1 ; comment
 
 The _extended expression_ syntax supports parentheses `(`, `)`, the modulo
-operator `%`, the exponentiation operator `**`, and binary operators bit-and
-`&`, bit-or `|`, bit-xor `^`, and bit-not `~` as well as binary literals
+operator `%`, the exponentiation operator `**`, binary operators bit-and `&`,
+bit-or `|`, bit-xor `^`, bit-not `~`, logical shift operators `>>`, `<<`,
+unsigned division and modulo operators `//`, `%%` as well as binary literals
 introduced by `:`.
 
     area    equ (xmax + 1) * (ymax + 1)
     addr2   equ addr1 | >A000 & ~>001F
     padding bss size % 8
+    msb     byte word >> 8
+    count   data >f000 // >18
     binval  equ :01011010
 
 Remember that all operators have the _same precedence_, i.e., an expression such
 as `1 + 2 * 3 - 4 & 5` evaluates as `(((1 + 2) * 3) - 4) & 5`.  This may sound
 annoying, but changing the established order of evaluation would break
-compatibility with existing sources.  To adjust the order of evaluation,
-parentheses are used: `1 + (2 * 3) - (4 & 5)`.  To safeguard against accidental
+compatibility with existing sources.  To adjust the order of evaluation, we can
+use parentheses: `1 + (2 * 3) - (4 & 5)`.  To safeguard against accidental
 omission of parentheses, `xas99` warns about arithmetic expressions using
 non-standard evaluation.  These warnings can be disabled with option
 `--quiet-arith`.

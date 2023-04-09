@@ -28,7 +28,7 @@ import zipfile
 from xcommon import CommandProcessor, RFile, Util, Warnings, Console
 
 
-VERSION = '3.6.0'
+VERSION = '3.6.1'
 
 CONFIG = 'XGA99_CONFIG'
 
@@ -1067,7 +1067,7 @@ class Parser:
         """parse complex arithmetical expression"""
         value = Word(0, pass_no=self.symbols.pass_no)
         stack = []
-        terms = ['+'] + [tok.strip() for tok in re.split(r'([-+/%~&|^()]|\*\*?)', expr)]
+        terms = ['+'] + [tok.strip() for tok in re.split(r'([-+~&|^()]|\*\*?|//?|%%?|<<|>>)', expr)]
         self.check_arith_precedence(terms)
         i = 0
         while i < len(terms):
@@ -1100,7 +1100,8 @@ class Parser:
                 if term_val is None:
                     raise AsmError('Invalid expression: ' + term)
                 v = Address.val(term_val)
-            w = Word((-v if negate else v) + corr)
+            v = (-v if negate else v) + corr
+            w = Word(v)
             if op == '+':
                 value.add(w)
             elif op == '-':
@@ -1114,6 +1115,10 @@ class Parser:
                 for j in range(exp):
                     base.mul('*', value)
                 value = base
+            elif op == '//' or op == '%%':
+                value.udiv(op, v)
+            elif op == '<<' or op == '>>':
+                value.shift(op, v)
             else:
                 raise AsmError('Invalid operator: ' + op)
         return value.value
@@ -1718,11 +1723,30 @@ class Word:
                self.abs() % arg.abs() if op == '%' else None)
         self.value = (val if sign > 0 else -val) & 0xffff
 
+    def udiv(self, op, arg):
+        if arg == 0:
+            if self.pass_no == 0:
+                return 0  # temporary value
+            else:
+                raise AsmError('Division by zero')
+        if op == '%%':
+            self.value %= arg
+        else:
+            self.value //= arg
+
     def bit(self, op, arg):
         val = (self.value & arg.value if op == '&' else
                self.value | arg.value if op == '|' else
                self.value ^ arg.value if op == '^' else None)
         self.value = val & 0xffff
+
+    def shift(self, op, arg):
+        if arg < 0:
+            AsmError('Cannot shift by negative values')
+        if op == '>>':
+            self.value >>= arg
+        else:
+            self.value = (self.value << arg) & 0xffff
 
 
 # Console and Listing

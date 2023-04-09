@@ -72,7 +72,7 @@ INVOP   CLR @1(@>9000)   * pass 1 error
 
         ST 1!2,@1        * SHADOWED
         ST 1+,@1         * ERROR
-        ST 1//2,@1       * ERROR
+        ST 1//2,@1
         ST 1+@1,@1       * SHADOWED
         ST ,@1           * ERROR
         ST 1,            * ERROR

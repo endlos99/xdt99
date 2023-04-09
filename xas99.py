@@ -29,7 +29,7 @@ from functools import reduce
 from xcommon import Util, RFile, CommandProcessor, Warnings, Console
 
 
-VERSION = '3.6.0'
+VERSION = '3.6.1'
 
 CONFIG = 'XAS99_CONFIG'
 
@@ -119,7 +119,7 @@ class Word:
     """auxiliary class for word arithmetic"""
 
     def __init__(self, value):
-        self.value = value % 0x10000
+        self.value = value % 0x10000  # always between >0000 and >ffff, but signed
 
     def sign(self):
         return -1 if self.value & 0x8000 else +1
@@ -146,11 +146,27 @@ class Word:
                self.abs() % arg.abs() if op == '%' else None)
         self.value = (val if sign > 0 else -val) % 0x10000
 
+    def udiv(self, op, arg):
+        if arg.value == 0:
+            raise AsmError('Division by zero')
+        if op == '%%':
+            self.value %= arg.value
+        else:
+            self.value //= arg.value
+
     def bit(self, op, arg):
         val = (self.value & arg.value if op == '&' else
                self.value | arg.value if op == '|' else
                self.value ^ arg.value if op == '^' else None)
         self.value = val % 0x10000
+
+    def shift(self, op, arg):
+        if arg < 0:
+            AsmError('Cannot shift by negative values')
+        if op == '>>':
+            self.value >>= arg
+        else:
+            self.value = (self.value << arg) & 0xffff
 
 
 # Opcodes and Directives
@@ -646,16 +662,18 @@ class Directives:
 
     @staticmethod
     def REQU(asm, label, ops):
-        if asm.symbols.pass_no == 1:
-            Directives.check_ops(asm, ops, min_count=1, max_count=1, warning_only=True)
-            if not label:
-                raise AsmError('Missing label')
-            value = asm.parser.register(ops[0])
-            asm.symbols.add_register_alias(label, value)
-        else:
-            value = asm.parser.register(ops[0])
-            asm.symbols.add_register_alias(label, value, nocheck=True)
+        if asm.symbols.pass_no != 1:
+            try:
+                value = asm.symbols.registers[label]
+            except KeyError:
+                value = 0  # error already reported by pass 1
             asm.listing.add(asm.symbols.LC, text1='', text2=value)
+            return
+        Directives.check_ops(asm, ops, min_count=1, max_count=1, warning_only=True)
+        if not label:
+            raise AsmError('Missing label')
+        value = asm.parser.register(ops[0], well_defined=True)
+        asm.symbols.add_register_alias(label, value)
 
     @staticmethod
     def DATA(asm, label, ops):
@@ -1660,7 +1678,7 @@ class Parser:
         value = Word(0)
         stack = []
         reloc_count = 0
-        sep_pattern = r'([-+*/])' if self.strict else r'([-+/%~&|^()]|\*\*?|[BW]#)'
+        sep_pattern = r'([-+*/])' if self.strict else r'([-+~&|^()]|\*\*?|//?|%%?|<<|>>|[BW]#)'
         terms = ['+'] + [tok.strip() for tok in re.split(sep_pattern, expr)]
         self.check_arith_precedence(terms)
         i = 0
@@ -1722,7 +1740,8 @@ class Parser:
                     v = term_val
                     reloc = 0
 
-            w = Word((-v if negate else v) + complement_correction)
+            v = (-v if negate else v) + complement_correction
+            w = Word(v)
             if op == '+':
                 value.add(w)
                 reloc_count += reloc if not negate else -reloc
@@ -1730,23 +1749,29 @@ class Parser:
                 value.sub(w)
                 reloc_count -= reloc if not negate else -reloc
             elif op == '*':
+                if reloc_count > 0:
+                    raise AsmError('Invalid address: ' + expr)
                 value.mul(op, w)
+            elif op in '/%':  # signed
                 if reloc_count > 0:
                     raise AsmError('Invalid address: ' + expr)
-            elif op in '/%':
                 value.div(op, w)
+            elif op == '//' or op == '%%':  # unsigned
                 if reloc_count > 0:
                     raise AsmError('Invalid address: ' + expr)
+                value.udiv(op, w)
             elif op in '&|^':
-                value.bit(op, w)
                 if reloc_count > 0:
                     raise AsmError('Cannot use relocatable address in expression: ' + expr)
-            elif op == '**':
+                value.bit(op, w)
+            elif op == '**':  # exponentiation
                 base = Word(1)
                 exp = w.value
                 for j in range(exp):
                     base.mul('*', value)
                 value = base
+            elif op == '>>' or op == '<<':  # shift
+                value.shift(op, v)
             else:
                 raise AsmError('Invalid operator: ' + op)
         if not 0 <= reloc_count <= (0 if absolute else 1):
@@ -1852,9 +1877,9 @@ class Parser:
         e = self.expression(op, well_defined=True)
         return Address.val(e)
 
-    def register(self, op):
+    def register(self, op, well_defined=False):
         """parse register"""
-        if self.symbols.pass_no == 1:
+        if self.symbols.pass_no == 1 and not well_defined:
             return 1  # don't return 0, as this is invalid for indexes @A(Rx)
         isalias = False
         op = op.strip()
@@ -2394,8 +2419,11 @@ class Pass2Assembler:
             #       and (2) the EQU directive ignores the label for pass 2.
             #       Also, the syntax check for bad label continuation is not required, since output will
             #       be discarded if error in pass 1 occurred.
-            if imline.label and imline.label[-1] == ':' and not imline.mnemonic:
-                continue
+            if imline.label and imline.label[-1] == ':':
+                if not imline.mnemonic:
+                    continue
+                else:
+                    imline.label = imline.label[:-1]
             try:
                 Directives.process(self, imline.label, imline.mnemonic, imline.operands) or \
                   self.opcodes.process(imline.label, imline.mnemonic, imline.operands) or \

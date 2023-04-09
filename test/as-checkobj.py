@@ -4,7 +4,7 @@ import os
 
 from config import Dirs, Disks, Files, XAS99_CONFIG
 from utils import (xas, xdm, error, clear_env, delfile, check_obj_code_eq, check_image_set_eq, check_image_files_eq,
-                   read_stderr, get_source_markers, check_errors, content_len, content_line_array)
+                   read_stderr, get_source_markers, check_errors, content, content_len, content_line_array)
 
 
 # Main test
@@ -117,6 +117,13 @@ def runtest():
     words = ''.join(w[10:15] for w in content_line_array(Files.input)[1:] if w[10:15].strip())
     if words != '**** C820 8300 8C02 0620 0000e16FA 045B ':
         error('ref', 'Incorrect list file words')
+
+    # new operators //, >>, <<
+    source = os.path.join(Dirs.sources, 'asnewop.asm')
+    xas(source, '-b', '-o', Files.output)
+    if content(Files.output) != bytes((0x2f, 0x8d, 0xf1, 0xf8, 0x40, 0x00, 0x11, 0x11, 0x00, 0xcd, 0x12, 0x34, 0x43,
+                                       0x21)):
+        error('new ops', 'Incorrect results for new ops')
 
     # cleanup
     delfile(Dirs.tmp)

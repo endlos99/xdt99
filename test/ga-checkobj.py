@@ -57,6 +57,13 @@ def runtest():
     if content(Files.output) != bytes(range(10)):
         error('bcopy', 'Binary mismatch')
 
+    # new operators //, >>, <<
+    source = os.path.join(Dirs.gplsources, 'ganewop.gpl')
+    xga(source, '-o', Files.output)
+    if content(Files.output) != bytes((0x2f, 0x8d, 0xf1, 0xf8, 0x40, 0x00, 0x11, 0x11, 0x00, 0xcd, 0x12, 0x34, 0x43,
+                                       0x21)):
+        error('new ops', 'Incorrect results for new ops')
+
     # cleanup
     delfile(Dirs.tmp)
 

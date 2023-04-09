@@ -1,3 +1,25 @@
+Changes Version 3.6.1
+=====================
+
+xas99 Cross-Assembler
+---------------------
+
+### xdt99 Extensions
+
+The _extended expression_ syntax supports parentheses `(`, `)`, the modulo
+operator `%`, the exponentiation operator `**`, binary operators bit-and `&`,
+bit-or `|`, bit-xor `^`, bit-not `~`, logical shift operators `>>`, `<<`,
+unsigned division and modulo operators `//`, `%%` as well as binary literals
+introduced by `:`.
+
+    area    equ (xmax + 1) * (ymax + 1)
+    addr2   equ addr1 | >A000 & ~>001F
+    padding bss size % 8
+    msb     byte word >> 8
+    count   data >f000 // >18
+    binval  equ :01011010
+
+
 Changes Version 3.6.0
 =====================
 
