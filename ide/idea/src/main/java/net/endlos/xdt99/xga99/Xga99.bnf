@@ -67,6 +67,7 @@ instruction ::=
     {pin=1}
 preprocessor ::=
     PPCMD args_pp |
+    PPCMD0 |
     PPDEFM opMacrodef |
     PPMAC opMacro args_pp
     {pin=1}

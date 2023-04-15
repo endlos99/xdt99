@@ -1,7 +1,7 @@
 <idea-plugin>
     <id>net.endlos.xdt99.idea</id>
     <name>xdt99 IDEA Editor Support</name>
-    <version>3.6.0</version>
+    <version>3.6.1</version>
     <vendor email="r@ti99.pro" url="https://www.github.com/endlos99">endlos 99</vendor>
     <description><![CDATA[
     TI 99 Cross-Development Tools (xdt99)

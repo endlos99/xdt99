@@ -56,8 +56,8 @@ DIR_F = "FLOA"
 DIR_R = "REF"
 
 PPDEFM = ".DEFM"
-PPCMD = ".IFDEF" | ".IFNDEF" | ".IFEQ" | ".IFNE" | ".IFGT" | ".IFGE" | ".IFLT" | ".IFLE" | ".ELSE" | ".ENDIF" |
-        ".REPT" | ".ENDR" | ".ENDM" | ".PRINT" | ".ERROR"
+PPCMD = ".IFDEF" | ".IFNDEF" | ".IFEQ" | ".IFNE" | ".IFGT" | ".IFGE" | ".IFLT" | ".IFLE" | ".REPT" | ".PRINT" | ".ERROR"
+PPCMD0 = ".ELSE" | ".ENDIF" | ".ENDR" | ".ENDM"
 PPMAC = "."
 PPPARM = "#" {DIGIT}+
 
@@ -148,6 +148,7 @@ CRLF = \n | \r | \r\n
  {DIR_X}              { yybegin(MNEMONICO); return Xas99Types.DIR_X; }
 
  {PPCMD}              { yybegin(ARGUMENTS); return Xas99Types.PPCMD; }
+ {PPCMD0}             { yybegin(MNEMONICO); return Xas99Types.PPCMD0; }
  {PPDEFM}             { yybegin(ARGUMENTS); return Xas99Types.PPDEFM; }
  {PPMAC}              { yybegin(PP); return Xas99Types.PPMAC; }
 

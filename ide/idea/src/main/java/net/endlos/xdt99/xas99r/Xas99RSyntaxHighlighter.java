@@ -34,8 +34,8 @@ public class Xas99RSyntaxHighlighter extends SyntaxHighlighterBase {
     public static final TokenSet operators = TokenSet.create(Xas99RTypes.OP_AT, Xas99RTypes.OP_AST,
             Xas99RTypes.OP_PLUS, Xas99RTypes.OP_MINUS, Xas99RTypes.OP_NOT, Xas99RTypes.OP_LPAREN, Xas99RTypes.OP_RPAREN,
             Xas99RTypes.OP_MISC, Xas99RTypes.MOD_AUTO, Xas99RTypes.MOD_LEN, Xas99RTypes.MOD_XBANK);
-    public static final TokenSet preprocessor = TokenSet.create(Xas99RTypes.PPCMD, Xas99RTypes.PPDEFM,
-            Xas99RTypes.PPMAC);
+    public static final TokenSet preprocessor = TokenSet.create(Xas99RTypes.PPCMD, Xas99RTypes.PPCMD0,
+            Xas99RTypes.PPDEFM, Xas99RTypes.PPMAC);
 
     public static final TextAttributesKey INSTRUCTION =
             createTextAttributesKey("XAS99_INSTR", DefaultLanguageHighlighterColors.KEYWORD);

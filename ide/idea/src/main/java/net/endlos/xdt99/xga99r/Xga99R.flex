@@ -51,8 +51,8 @@ DIR_C = "COPY" | "BCOPY"
 DIR_F = "FLOAT"
 
 PPDEFM = ".DEFM"
-PPCMD = ".IFDEF" | ".IFNDEF" | ".IFEQ" | ".IFNE" | ".IFGT" | ".IFGE" | ".IFLT" | ".IFLE" | ".ELSE" | ".ENDIF" |
-        ".REPT" | ".ENDR" | ".ENDM" | ".PRINT" | ".ERROR"
+PPCMD = ".IFDEF" | ".IFNDEF" | ".IFEQ" | ".IFNE" | ".IFGT" | ".IFGE" | ".IFLT" | ".IFLE" | ".REPT" | ".PRINT" | ".ERROR"
+PPCMD0 = ".ELSE" | ".ENDIF" | ".ENDR" | ".ENDM"
 PPMAC = "."
 PPPARM = "$" {DIGIT}+
 
@@ -118,6 +118,7 @@ VINDR = "V*" | "v*"
  {DIR_F}               { return Xga99RTypes.DIR_F; }
 
  {PPCMD}               { yybegin(ARGUMENTS); return Xga99RTypes.PPCMD; }
+ {PPCMD0}              { yybegin(MNEMONICO); return Xga99RTypes.PPCMD0; }
  {PPDEFM}              { yybegin(ARGUMENTS); return Xga99RTypes.PPDEFM; }
  {PPMAC}               { yybegin(PP); return Xga99RTypes.PPMAC; }
 

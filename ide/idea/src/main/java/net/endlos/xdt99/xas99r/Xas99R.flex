@@ -47,7 +47,6 @@ DIR_EO = "RORG" | "AORG"
 DIR_ES = "DATA" | "BYTE"
 DIR_EV = "SAVE"
 DIR_RA = "REQU"  // register alias
-DIR_R = "REQU"
 DIR_T = "TEXT" | "STRI"
 DIR_S = "TITL" | "IDT"
 DIR_C = "COPY" | "BCOPY"
@@ -57,8 +56,8 @@ DIR_F = "FLOA"
 DIR_R = "REF"
 
 PPDEFM = ".DEFM"
-PPCMD = ".IFDEF" | ".IFNDEF" | ".IFEQ" | ".IFNE" | ".IFGT" | ".IFGE" | ".IFLT" | ".IFLE" | ".ELSE" | ".ENDIF" |
-        ".REPT" | ".ENDR" | ".ENDM" | ".PRINT" | ".ERROR"
+PPCMD = ".IFDEF" | ".IFNDEF" | ".IFEQ" | ".IFNE" | ".IFGT" | ".IFGE" | ".IFLT" | ".IFLE" | ".REPT" | ".PRINT" | ".ERROR"
+PPCMD0 = ".ELSE" | ".ENDIF" | ".ENDR" | ".ENDM"
 PPMAC = "."
 PPPARM = "#" {DIGIT}+
 
@@ -140,7 +139,6 @@ CRLF = \n | \r | \r\n
  {DIR_ES}              { return Xas99RTypes.DIR_ES; }
  {DIR_EV}              { return Xas99RTypes.DIR_EV; }
  {DIR_RA}              { return Xas99RTypes.DIR_RA; }
- {DIR_R}               { return Xas99RTypes.DIR_R; }
  {DIR_T}               { return Xas99RTypes.DIR_T; }
  {DIR_S}               { return Xas99RTypes.DIR_S; }
  {DIR_C}               { return Xas99RTypes.DIR_C; }
@@ -149,9 +147,10 @@ CRLF = \n | \r | \r\n
  {DIR_O}               { yybegin(MNEMONICO); return Xas99RTypes.DIR_O; }
  {DIR_X}               { yybegin(MNEMONICO); return Xas99RTypes.DIR_X; }
 
- {PPCMD}              { yybegin(ARGUMENTS); return Xas99RTypes.PPCMD; }
+ {PPCMD}               { yybegin(ARGUMENTS); return Xas99RTypes.PPCMD; }
+ {PPCMD0}              { yybegin(MNEMONICO); return Xas99RTypes.PPCMD0; }
  {PPDEFM}              { yybegin(ARGUMENTS); return Xas99RTypes.PPDEFM; }
- {PPMAC}              { yybegin(ARGUMENTS); return Xas99RTypes.PPMAC; }
+ {PPMAC}               { yybegin(ARGUMENTS); return Xas99RTypes.PPMAC; }
 
 // {IDENT}               { return Xas99RTypes.UNKNOWN; }
  {WS}                  { yybegin(ARGUMENTS); return TokenType.WHITE_SPACE; }

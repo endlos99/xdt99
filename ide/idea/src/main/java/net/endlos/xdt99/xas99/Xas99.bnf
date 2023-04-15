@@ -1,5 +1,6 @@
 {
     parserClass="net.endlos.xdt99.xas99.parser.Xas99Parser"
+    parserUtilClass="net.endlos.xdt99.xas99.Xas99ParserUtil"
 
     extends="com.intellij.extapi.psi.ASTWrapperPsiElement"
 
@@ -27,7 +28,7 @@ linecomment ::=  // used by folding builder
 
 // label
 private label ::=
-    labeldef OP_COLON?
+    <<registerAlias>> | labeldef OP_COLON?
 labeldef ::=
     IDENT
     {mixin="net.endlos.xdt99.xas99.psi.impl.Xas99NamedElementImpl"
@@ -82,9 +83,10 @@ instruction ::=
     INSTR_F18A_O
     {pin=1}
 preprocessor ::=
-    PPCMD args_pp |
+    PPCMD expr |
+    PPCMD0 |
     PPDEFM opMacrodef |
-    PPMAC opMacro args_pp
+    PPMAC opMacro args_mac
     {pin=1}
 alias_definition ::=
     DIR_RA args_dir_E
@@ -152,8 +154,8 @@ args_adv_VI ::=
     args_VI
 args_adv_VIII ::=
     args_VIII
-args_pp ::=
-    ((opGA | expr) (OP_SEP (opGA | expr))*)?
+args_mac ::=
+    ((macSymbol | opGA | expr) (OP_SEP (macSymbol | opGA | expr))*)?
 
 // pragma
 pragma ::=
@@ -190,6 +192,8 @@ opAlias ::=
     IDENT
     {methods=[getName setName getNameIdentifier getReference]
      name="alias"}
+external macSymbol ::=
+    parseMacroSymbol  // either register alias or label
 opMacrodef ::=
     IDENT
     {mixin="net.endlos.xdt99.xas99.psi.impl.Xas99NamedElementImpl"
