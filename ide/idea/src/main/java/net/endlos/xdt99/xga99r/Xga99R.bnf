@@ -66,10 +66,10 @@ instruction ::=
     INSTR_F_X args_F_X
     {pin=1}
 preprocessor ::=
-    PPCMD args_pp |
+    PPCMD expr (OP_SEP expr)* |
     PPCMD0 |
     PPDEFM opMacrodef |
-    PPMAC opMacro args_pp
+    PPMAC opMacro args_mac
     {pin=1}
 unknown_mnem ::=
     UNKNOWN
@@ -102,7 +102,7 @@ args_VIII ::=
 args_IX ::=
     (opGs | opValue) OP_SEP opMs OP_SEP opMd
     {pin="OP_SEP"}
-args_pp ::=
+args_mac ::=
     ((opGd | expr) (OP_SEP (opGd | expr))*)?
 
 args_F_I ::=

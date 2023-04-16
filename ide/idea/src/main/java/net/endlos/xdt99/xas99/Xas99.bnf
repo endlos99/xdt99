@@ -83,7 +83,7 @@ instruction ::=
     INSTR_F18A_O
     {pin=1}
 preprocessor ::=
-    PPCMD expr |
+    PPCMD expr (OP_SEP expr)* |
     PPCMD0 |
     PPDEFM opMacrodef |
     PPMAC opMacro args_mac
