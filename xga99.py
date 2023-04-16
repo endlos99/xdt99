@@ -2,7 +2,7 @@
 
 # xga99: A GPL cross-assembler
 #
-# Copyright (c) 2015-2022 Ralph Benzinger <r@0x01.de>
+# Copyright (c) 2015-2023 Ralph Benzinger <r@0x01.de>
 #
 # This program is part of the TI 99 Cross-Development Tools (xdt99).
 #
