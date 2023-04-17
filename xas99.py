@@ -388,8 +388,8 @@ class Opcodes:
         'C': (0x8000, 1, op_ga, op_ga, Timing(10, (Timing.OPCODE,), read=True)),
         'CB': (0x9000, 1, op_ga, op_ga, Timing(10, (Timing.OPCODE,), byte=True, read=True)),
         'CI': (0x0280, 8, op_wa, op_imm, Timing(14, (Timing.OPCODE,) * 2 + (Timing.REGISTER,), read=True)),
-        'COC': (0x2000, 3, op_ga, op_wa, Timing(10, (Timing.OPCODE, Timing.REGISTER), read=True)),
-        'CZC': (0x2400, 3, op_ga, op_wa, Timing(10, (Timing.OPCODE, Timing.REGISTER), read=True)),
+        'COC': (0x2000, 3, op_ga, op_wa, Timing(12, (Timing.OPCODE, Timing.REGISTER), read=True)),
+        'CZC': (0x2400, 3, op_ga, op_wa, Timing(12, (Timing.OPCODE, Timing.REGISTER), read=True)),
         # 9. control and cru instructions
         'LDCR': (0x3000, 4, op_ga, op_cnt, Timing(18, (Timing.OPCODE, Timing.REGISTER), read=True)),
         'SBO': (0x1d00, 2, op_cru, None, Timing(12, (Timing.OPCODE, Timing.REGISTER), read=True)),
@@ -413,7 +413,7 @@ class Opcodes:
         # 11. logical instructions
         'ANDI': (0x0240, 8, op_wa, op_imm, Timing(14, (Timing.OPCODE,) * 2 + (Timing.REGISTER_2,))),
         'ORI': (0x0260, 8, op_wa, op_imm, Timing(14, (Timing.OPCODE,) * 2 + (Timing.REGISTER_2,))),
-        'XOR': (0x2800, 3, op_ga, op_wa, Timing(10, (Timing.OPCODE, Timing.REGISTER), read=True)),
+        'XOR': (0x2800, 3, op_ga, op_wa, Timing(12, (Timing.OPCODE, Timing.REGISTER_2), read=True)),
         'INV': (0x0540, 6, op_ga, None, Timing(8, (Timing.OPCODE,))),
         'CLR': (0x04c0, 6, op_ga, None, Timing(8, (Timing.OPCODE,))),
         'SETO': (0x0700, 6, op_ga, None, Timing(8, (Timing.OPCODE,))),
