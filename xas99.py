@@ -29,7 +29,7 @@ from functools import reduce
 from xcommon import Util, RFile, CommandProcessor, Warnings, Console
 
 
-VERSION = '3.6.2'
+VERSION = '3.6.3'
 
 CONFIG = 'XAS99_CONFIG'
 
