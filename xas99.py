@@ -2643,7 +2643,7 @@ class Linker:
         """link object code"""
         segment = Segment(self.symbols, None, reloc=True)  # initial segment
         segments = [segment]
-        LC = 0  # always start at 0, and relocate later if required
+        LC = 0  # pick some initial value, won't have any effect for E/A and xas99 object code anyway
         reloc = new_reloc = True
         addr_change = None  # old LC, new LC, change_idx
         addr_change_chain = False
@@ -2777,16 +2777,17 @@ class Linker:
     def patch_ref(self, segments, addr, symbol):
         """instantiate ref chain with Reference objects"""
         # NOTE: Because 0 denotes the end of the patch chain,
-        #       you cannot have a reference at address 0!
+        #       we cannot have a reference at address 0
+        #       (we issue warnings at assembly time instead)
         while addr:  # neither 0 nor None
             addr = self.patch_addr(segments, addr, symbol)
 
     @staticmethod
     def patch_addr(segments, addr, symbol):
         """replace one addr in ref chain by Reference, return next addr in chain"""
+        vaddr = Address.val(addr)
         for segment in segments:
             try:
-                vaddr = Address.val(addr)
                 if isinstance(segment.code[vaddr], Address):
                     next_addr = Address.val(segment.code[vaddr])
                 else:
@@ -2864,6 +2865,9 @@ class Linker:
                     tags.add(b'C' if entry.reloc else b'B',
                              entry.addr + self.get_offset(entry), addr, segment.reloc)
                 elif isinstance(entry, Reference):
+                    if addr == 0:
+                        self.console.warn("Found reference at address >0, won't be able to resolve when linking",
+                                          nopos=True)
                     prev_LC, prev_reloc = refs.get(entry.name, (0, False))  # addr and reloc for previous ref
                     tags.add(b'C' if prev_reloc else b'B', prev_LC, addr, segment.reloc)
                     refs[entry.name] = (addr, segment.reloc)  # addr and reloc for current ref
@@ -3264,7 +3268,7 @@ class Xas99Console(Console):
 
     def __init__(self, warnings=None, colors=None):
         self.parser = None
-        super().__init__('xas99', VERSION, warnings, colors=colors)
+        super().__init__('xas99', VERSION, warnings=warnings, colors=colors)
 
     def set_parser(self, parser):
         self.parser = parser  # assembler or linker
@@ -3410,7 +3414,7 @@ class Xas99Processor(CommandProcessor):
         self.linker = None
 
     def parse(self):
-        args = argparse.ArgumentParser(description='TMS9900 cross-assembler, v' + VERSION)
+        args = argparse.ArgumentParser(description='TMS9900-family cross-assembler, v' + VERSION)
         args.add_argument('sources', metavar='<source>', nargs='*', help='assembly source code(s)')
         cmd = args.add_mutually_exclusive_group()
         cmd.add_argument('-b', '--binary', action='store_true', dest='bin',
@@ -3435,13 +3439,15 @@ class Xas99Processor(CommandProcessor):
         args.add_argument('-18', '--f18a', action='store_true', dest='use_f18a',
                           help='add F18A-specific instructions')
         args.add_argument('-105', '--99105', action='store_true', dest='use_99000',
-                          help='add TMS99xxx-specific instructions')
+                          help='add TMS99105/110-specific instructions')
         args.add_argument('-s', '--strict', action='store_true', dest='strict',
                           help='strict TI mode; disable xas99 extensions')
         args.add_argument('-r', '--relaxed', action='store_true', dest='relaxed',
                           help='relaxed syntax mode with extra whitespace and explicit comments')
         args.add_argument('-n', '--name', dest='name', metavar='<name>',
                           help='set program name, e.g., for cartridge')
+        args.add_argument('-a', '--base', dest='base', metavar='<addr>',
+                          help='set base address for relocatable code')
         args.add_argument('-R', '--register-symbols', action='store_true', dest='r_prefix',
                           help='add register symbols (TI Assembler option R)')
         args.add_argument('-C', '--compress', action='store_true', dest='compressed',
@@ -3450,6 +3456,10 @@ class Xas99Processor(CommandProcessor):
                           help='generate listing file (TI Assembler option L)')
         args.add_argument('-S', '--symbol-table', action='store_true', dest='symbols',
                           help='add symbol table to listing (TI Assembler option S)')
+        args.add_argument('-I', '--include', dest='inclpath', nargs='+', metavar='<path>',
+                          help='listing of include search paths')
+        args.add_argument('-D', '--define-symbol', dest='defs', nargs='+', metavar='<sym[=val]>',
+                          help='add symbol to symbol table')
         args.add_argument('-E', '--symbol-equs', dest='equs', metavar='<file>',
                           help='put symbols in EQU file')
         args.add_argument('-M', '--minimized-binary', action='store_true', dest='minm',
@@ -3466,12 +3476,6 @@ class Xas99Processor(CommandProcessor):
                           help='quiet, do not show potential incorrect usage of arguments warnings')
         args.add_argument('--quiet-arith', action='store_true', dest='quiet_arith',
                           help='quiet, do not show non-standard arithmetic precedence warnings')
-        args.add_argument('-a', '--base', dest='base', metavar='<addr>',
-                          help='set base address for relocatable code')
-        args.add_argument('-I', '--include', dest='inclpath', nargs='+', metavar='<path>',
-                          help='listing of include search paths')
-        args.add_argument('-D', '--define-symbol', dest='defs', nargs='+', metavar='<sym[=val]>',
-                          help='add symbol to symbol table')
         args.add_argument('--color', action='store', dest='color', choices=['off', 'on'],
                           help='enable or disable color output')
         args.add_argument('-o', '--output', dest='output', metavar='<file>',

@@ -3,7 +3,8 @@
 import os
 
 from config import Dirs, Disks, Files, XAS99_CONFIG
-from utils import xas, xdm, error, clear_env, delfile, check_obj_code_eq, check_binary_files_eq, check_file_empty
+from utils import (xas, xdm, error, clear_env, delfile, check_obj_code_eq, check_binary_files_eq, check_file_empty,
+                   content)
 
 
 # Main test
@@ -230,11 +231,24 @@ def runtest():
         xas(source1, '-l', Files.input, '-o', Files.output, rc=1, stderr=ferr)
 
     # practical example
-    source =  os.path.join(Dirs.sources, 'asstdlib.asm')
+    source = os.path.join(Dirs.sources, 'asstdlib.asm')
     libs = ['vmbw.asm', 'vsbr.asm', 'vwbt.asm']
     with open(Files.error, 'w') as ferr:
         xas(source, *libs, '-R', '-o', Files.output, rc=0, stderr=ferr)
     check_file_empty(Files.error)
+
+    # issue warnings for ref'ed symbol at address >0
+    source1 = os.path.join(Dirs.sources, 'aslnkrz1.asm')
+    source2 = os.path.join(Dirs.sources, 'aslnkrz2.asm')
+    xas(source1, '-R', '-o', Files.input)
+    with open(Files.error, 'w') as ferr:
+        xas(source2, '-R', '-o', Files.reference, '--color', 'off', rc=0, stderr=ferr)
+    if b'reference at address >0' not in content(Files.error):
+        error('ref-zero', 'Missing warning about ref at addr 0')
+
+    xas('-b', '-l', Files.input, Files.reference, '-o', Files.output)
+    if content(Files.output) != bytes((0xaa, 0xaa, 0xbb, 0xbb, 0x00, 0x00, 0x11, 0x11, 0x00, 0x02)):
+        error('ref-zero', 'Surprising ref-zero link result')  # -----^^^^-- should be 0x02
 
     # cleanup
     delfile(Dirs.tmp)
