@@ -233,7 +233,10 @@ class Console:
         self.entries = False
         self.print_version = True  # should version info be printed
         if colors is None:
-            self.colors = platform.system() in ('Linux', 'Darwin')  # no auto color on Windows
+            if os.environ.get('TERM') == 'dumb':  # $TERM=dumb indicates user wants no color
+                self.colors = False
+            else:
+                self.colors = sys.stderr.isatty() and platform.system() in ('Linux', 'Darwin')  # no auto color on Win
         else:
             self.colors = colors == 'on'
 
