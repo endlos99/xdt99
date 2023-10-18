@@ -67,7 +67,7 @@ this manual.
 Tutorial                                                 <a name="tutorial"></a>
 --------
 
-The xdt99 tools are command line tolls that lack a graphical user interface.
+The xdt99 tools are command line tools that lack a graphical user interface.
 While this choice will somewhat steepen the learning curve for some users, the
 command line is ultimately very suited for repetitive tasks, as encountered 
 while developing programs.
