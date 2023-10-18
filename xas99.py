@@ -29,7 +29,7 @@ from functools import reduce
 from xcommon import Util, RFile, CommandProcessor, Warnings, Console
 
 
-VERSION = '3.6.3'
+VERSION = '3.6.4'
 
 CONFIG = 'XAS99_CONFIG'
 
@@ -890,7 +890,7 @@ class Externals:
         self.target = target
         self.references = []
         self.definitions = {}
-        self.builtins = {
+        self.builtins = {  # const
             'SCAN': 0x000e,
             'PAD': 0x8300,
             'GPLWS': 0x83e0,
@@ -1197,7 +1197,7 @@ class Symbols:
         symbol_list = []
         reference_list = []
         for symbol in sorted(self.symbols):
-            if symbol in self.registers or symbol in self.externals.builtins or '%' in symbol or symbol == self.target:
+            if symbol in self.registers or '%' in symbol or symbol == self.target:
                 continue  # skip registers and built-in, local and internal symbols
             addr, _, _ = self.symbols.get(symbol)
             if isinstance(addr, Address):

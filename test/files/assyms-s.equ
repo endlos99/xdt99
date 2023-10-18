@@ -1,4 +1,6 @@
        REF  Z
 S1     EQU  >0001    *     
 S2     EQU  >0018    * REL 
+SCAN   EQU  >000E    *     
 START  EQU  >0000    * REL 
+VDPWA  EQU  >8C02    *     

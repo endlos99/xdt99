@@ -26,7 +26,7 @@ import argparse
 from xcommon import Util, RFile, CommandProcessor, Warnings, Console
 
 
-VERSION = '3.5.2'
+VERSION = '3.6.4'
 
 CONFIG = 'XDA_CONFIG'
 
@@ -36,9 +36,9 @@ CONFIG = 'XDA_CONFIG'
 def xhex(text):
     """return hex string as integer value"""
     try:
-        return None if text is None else int(re.sub(r'^>|^0x', '', text), 16)
+        return text if text is None else int(re.sub(r'^>|^0x', '', text), 16)
     except ValueError:
-        raise XdaError('Invalid hex value: ' + text)
+        raise XdaError('Invalid value: ' + text)
 
 
 # Error handling
@@ -52,37 +52,39 @@ class XdaError(Exception):
 class Symbols(object):
     """symbol table"""
 
+    SYM_NONE = 0  # no symbol
     SYM_LABEL = 1  # used for B, JMP, ...
-    SYM_VALUE = 2  # used for MOV, ADD, ...
+    SYM_ADDR = 2  # used for MOV, ADD, ...
+    SYM_BOTH = 3  # for both
 
     def __init__(self, symfiles=None, console=None):
         self.console = console or Xda99Console()
         # pre-defined symbols
         self.predef_symbols = {
-            0x210c: {'VSBW', Symbols.SYM_LABEL},
-            0x2110: {'VMBW', Symbols.SYM_LABEL},
-            0x2114: {'VSBR', Symbols.SYM_LABEL},
-            0x2118: {'VMBR', Symbols.SYM_LABEL},
-            0x211c: {'VWTR',  Symbols.SYM_LABEL},
-            0x2108: {'KSCAN', Symbols.SYM_LABEL},
-            0x2100: {'GPLLNK', Symbols.SYM_LABEL},
-            0x2104: {'XMLLNK', Symbols.SYM_LABEL},
-            0x2120: {'DSRLNK',  Symbols.SYM_LABEL},
-            0x2124: {'LOADER', Symbols.SYM_LABEL},
-            0x000e: {'SCAN', Symbols.SYM_LABEL},
-            0x8300: {'PAD',  Symbols.SYM_VALUE},
-            0x83e0: {'GPLWS', Symbols.SYM_VALUE},
-            0x8400: {'SOUND', Symbols.SYM_VALUE},
-            0x8800: {'VDPRD', Symbols.SYM_VALUE},
-            0x8802: {'VDPST', Symbols.SYM_VALUE},
-            0x8c00: {'VDPWD', Symbols.SYM_VALUE},
-            0x8c02: {'VDPWA', Symbols.SYM_VALUE},
-            0x9000: {'SPCHRD', Symbols.SYM_VALUE},
-            0x9400: {'SPCHWT', Symbols.SYM_VALUE},
-            0x9800: {'GRMRD', Symbols.SYM_VALUE},
-            0x9802: {'GRMRA', Symbols.SYM_VALUE},
-            0x9c00: {'GRMWD',  Symbols.SYM_VALUE},
-            0x9c02: {'GRMWA', Symbols.SYM_VALUE}
+            0x210c: ('VSBW', Symbols.SYM_LABEL),
+            0x2110: ('VMBW', Symbols.SYM_LABEL),
+            0x2114: ('VSBR', Symbols.SYM_LABEL),
+            0x2118: ('VMBR', Symbols.SYM_LABEL),
+            0x211c: ('VWTR',  Symbols.SYM_LABEL),
+            0x2108: ('KSCAN', Symbols.SYM_LABEL),
+            0x2100: ('GPLLNK', Symbols.SYM_LABEL),
+            0x2104: ('XMLLNK', Symbols.SYM_LABEL),
+            0x2120: ('DSRLNK',  Symbols.SYM_LABEL),
+            0x2124: ('LOADER', Symbols.SYM_LABEL),
+            0x000e: ('SCAN', Symbols.SYM_LABEL),
+            0x8300: ('PAD', Symbols.SYM_ADDR),
+            0x83e0: ('GPLWS', Symbols.SYM_ADDR),
+            0x8400: ('SOUND', Symbols.SYM_ADDR),
+            0x8800: ('VDPRD', Symbols.SYM_ADDR),
+            0x8802: ('VDPST', Symbols.SYM_ADDR),
+            0x8c00: ('VDPWD', Symbols.SYM_ADDR),
+            0x8c02: ('VDPWA', Symbols.SYM_ADDR),
+            0x9000: ('SPCHRD', Symbols.SYM_ADDR),
+            0x9400: ('SPCHWT', Symbols.SYM_ADDR),
+            0x9800: ('GRMRD', Symbols.SYM_ADDR),
+            0x9802: ('GRMRA', Symbols.SYM_ADDR),
+            0x9c00: ('GRMWD', Symbols.SYM_ADDR),
+            0x9c02: ('GRMWA', Symbols.SYM_ADDR)
             }
         self.symbols = {}
         # additional symbols loaded from file(s)
@@ -106,14 +108,14 @@ class Symbols(object):
                 self.console.warn(f'Symbol for >{addr:04X} already defined, overwritten')
             self.symbols[addr] = symbol
 
-    def resolve(self, value, context=SYM_VALUE):
+    def resolve(self, value, context=SYM_ADDR):
         """find symbol name for given value, or return >xx/xxxx value """
         try:
             symbol = self.symbols[value]
         except KeyError:
             try:
                 symbol, symbol_context = self.predef_symbols[value]
-                if context != symbol_context:
+                if context != symbol_context and context != Symbols.SYM_BOTH:
                     raise KeyError
             except KeyError:
                 return f'>{value:04X}'
@@ -146,9 +148,9 @@ class Opcodes(object):
         0x6000: ('S', 1),
         0x7000: ('SB', 1),
         # 7. jump and branch
-        0x0440: ('B', 6),
-        0x0680: ('BL', 6),
-        0x0400: ('BLWP', 6),
+        0x0440: ('B', 13),
+        0x0680: ('BL', 13),
+        0x0400: ('BLWP', 13),
         0x1300: ('JEQ', 2),
         0x1500: ('JGT', 2),
         0x1400: ('JHE', 2),
@@ -238,7 +240,7 @@ class Opcodes(object):
     #           8 bits needed to identify opcode for format III
     opcbitmask = (
         -1, 4, 8, 6, 6, 8, 10, 16, 12, 6,  # regular formats
-        16, 12, 12)  # special formats
+        16, 12, 8, 10)  # special formats
 
     # opcodes that redirect execution
     branches = ('B', 'JMP')
@@ -341,7 +343,7 @@ class Opcodes(object):
             i1, o1 = self.decode_addr(code, idx, 8, w, symbols)
             i2, o2 = self.decode_addr(code, idx, 7, c, symbols)
             return o1, o2
-        # VI. single address instructions
+        # VI. single address instructions (w/o branches)
         elif instr_format == 6:
             ts = (word >> 4) & 0x03
             s = word & 0x0f
@@ -354,15 +356,8 @@ class Opcodes(object):
         elif instr_format == 8:  # two opers
             w = word & 0x0f
             i1, o1 = self.decode_addr(code, idx, 0, w, symbols)
-            i2, o2 = self.decode_addr(code, idx, 9, 0, symbols)
+            i2, o2 = self.decode_addr(code, idx, 9, 0, symbols, context=Symbols.SYM_ADDR)
             return o1, o2
-        elif instr_format == 81:  # one opers reg
-            w = word & 0x0f
-            i1, o1 = self.decode_addr(code, idx, 0, w, symbols)
-            return (o1,)
-        elif instr_format == 82:  # one opers addr
-            i1, o1 = self.decode_addr(code, idx, 2, 0, symbols)
-            return (o1,)
         # IX. extended operations; multiply and divide
         elif instr_format == 9:
             d = (word >> 6) & 0x0f
@@ -373,8 +368,7 @@ class Opcodes(object):
             return o1, o2
         # special cases
         elif instr_format == 10:  # LIMI, LWPI
-            w = word & 0x0f
-            i1, o1 = self.decode_addr(code, idx, 9, 0, symbols)
+            i1, o1 = self.decode_addr(code, idx, 9, 0, symbols, context=Symbols.SYM_ADDR)
             return o1,
         elif instr_format == 11:  # STST, STWP
             w = word & 0x0f
@@ -382,10 +376,15 @@ class Opcodes(object):
         elif instr_format == 12:  # bit operations
             disp = -(~word & 0x00ff) - 1 if word & 0x0080 else word & 0x007f
             return Operand(None, None, 0, str(disp)),
+        elif instr_format == 13:  # branches
+            ts = (word >> 4) & 0x03
+            s = word & 0x0f
+            i1, o1 = self.decode_addr(code, idx, ts, s, symbols, context=Symbols.SYM_LABEL)
+            return o1,
         else:
             raise XdaError('Invalid instruction format ' + str(instr_format))
 
-    def decode_addr(self, code, idx, t, operand, symbols):
+    def decode_addr(self, code, idx, t, operand, symbols, context=Symbols.SYM_NONE):
         """decodes address mode of operand"""
         if t == 0:  # workspace register
             return 0, Operand(None, None, 0, self.regstr + str(operand))
@@ -393,7 +392,7 @@ class Opcodes(object):
             return 0, Operand(None, None, 0, '*' + self.regstr + str(operand))
         elif t == 2:  # symbolic or indexed memory
             addr, word = code[idx].addr, code[idx].word
-            t = '@' + symbols.resolve(word)
+            t = '@' + symbols.resolve(word, context)
             if operand:
                 t += '(' + self.regstr + str(operand) + ')'
             return 1, Operand(addr, word, 1, t, dest=None if operand else word)
@@ -405,7 +404,7 @@ class Opcodes(object):
             return 0, Operand(None, None, 0, self.regstr + str(operand))
         elif t == 9:  # imm values
             addr, word = code[idx].addr, code[idx].word
-            return 1, Operand(addr, word, 1, symbols.resolve(word))
+            return 1, Operand(addr, word, 1, symbols.resolve(word, context=Symbols.SYM_ADDR))
         else:
             raise XdaError('Invalid address format ' + str(t))
 

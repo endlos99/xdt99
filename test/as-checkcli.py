@@ -201,7 +201,8 @@ def runtest():
     xas(source, '-b', '-s', '-R', '-o', Files.reference, '-E', Files.output)
     check_symbols(Files.output,
                   (('Z',),  # references
-                   (('START', '>0000'), ('S1', '>0001'), ('S2', '>0018'))), strict=True)  # expected symbols
+                   (('START', '>0000'), ('S1', '>0001'), ('S2', '>0018'), ('SCAN', '>000E'), ('VDPWA', '>8C02'))),
+                  strict=True)  # expected symbols
 
     reference = r('assyms-s.equ')
     xas(source, '-s', '-R', '-o', Files.reference, '-E', Files.output)
