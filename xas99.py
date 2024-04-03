@@ -2,7 +2,7 @@
 
 # xas99: A TMS9900 cross-assembler
 #
-# Copyright (c) 2015-2023 Ralph Benzinger <r@0x01.de>
+# Copyright (c) 2015-2024 Ralph Benzinger <r@0x01.de>
 #
 # This program is part of the TI 99 Cross-Development Tools (xdt99).
 #
@@ -29,7 +29,7 @@ from functools import reduce
 from xcommon import Util, RFile, CommandProcessor, Warnings, Console
 
 
-VERSION = '3.6.4'
+VERSION = '3.6.5'
 
 CONFIG = 'XAS99_CONFIG'
 
@@ -1646,6 +1646,9 @@ class Parser:
             index = op.rindex('(')
         except ValueError:
             return None, None
+        if index == 0:  # treating @(Rn) is expression @n!
+            self.console.warn('Treating as symbol expression, did you intend register index?',
+                              category=Warnings.BAD_USAGE)
         # if op is an expression, there is an operator before the '('
         i = index - 1
         while i >= 0 and op[i] == ' ':
@@ -1690,7 +1693,10 @@ class Parser:
             if op == ')':
                 v = value.value
                 reloc = reloc_count
-                value, reloc_count, op, negate, complement_correction = stack.pop()
+                try:
+                    value, reloc_count, op, negate, complement_correction = stack.pop()
+                except IndexError:
+                    raise AsmError('Syntax error')
             else:
                 # unary operators
                 while not term and i < len(terms) and terms[i] in '+-~(':
@@ -1799,6 +1805,8 @@ class Parser:
                 violation, i = self.check_arith_precedence(operators, i + 2)
                 if violation:
                     return True, None
+                elif i is None:
+                    return False, None
                 else:
                     possible_sign = False  # no sign after ')'
                     continue
@@ -1903,7 +1911,7 @@ class Parser:
                     if r is None or isinstance(r, Address):
                         raise ValueError  # unknown symbol
         except (TypeError, ValueError):
-            raise AsmError('Invalid register:' + op)
+            raise AsmError('Invalid register: ' + op)
         if self.r_prefix and not isalias and op[0].upper() != 'R' and self.symbols.pass_no > 1:
             self.console.warn(f'Treating {op} as register, did you intend an @address?', category=Warnings.BAD_USAGE)
         if not 0 <= r <= 15:
@@ -3298,7 +3306,7 @@ class Xas99Console(Console):
         """format info and error message"""
         text = 'Error' if error else 'Warning'
         s_filename = filename or '***'
-        s_pass = pass_no if isinstance(pass_no, str) else str(pass_no) or '-'
+        s_pass = pass_no if isinstance(pass_no, str) else str(pass_no) or '*'
         s_lino = f'{lino:04d}' if lino is not None else '****'
         s_line = line or ''
         return f'> {s_filename} <{s_pass}> {s_lino} - {s_line}', f'***** {text:s}: {message}'

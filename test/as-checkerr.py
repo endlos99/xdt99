@@ -274,6 +274,15 @@ def runtest():
     with open(Files.error, 'w') as ferr:
         xas(source, '-o', Files.output, stderr=ferr, rc=1)
 
+    # parser error
+    source = os.path.join(Dirs.sources, 'aserrpar.asm')
+    with open(Files.error, 'w') as ferr:
+        xas(source, '-R', '-o', Files.output, stderr=ferr, rc=1)
+    errs = content_line_array(Files.error)[1:-1:2]
+    lines = set(e[22] for e in errs)
+    if lines != set(str(i) for i in range(1, 9)):
+        error('parser', f'Missing error message: {lines}')
+
     # cleanup
     delfile(Dirs.tmp)
 

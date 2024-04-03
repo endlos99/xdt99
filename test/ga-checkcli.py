@@ -230,6 +230,11 @@ def runtest():
             data[0x4001] != 0x2e):
         error('cart', 'Incorrect cart with GPL header')
 
+    # strict syntax, should not throw errors
+    source = os.path.join(Dirs.gplsources, 'srxb6.gpl')
+    with open(Files.error, 'w') as ferr:
+        xga(source, '-s', '-R', '-o', Files.output, stderr=ferr, rc=0)
+
     # cleanup
     delfile(Dirs.tmp)
 

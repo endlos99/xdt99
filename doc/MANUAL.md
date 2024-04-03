@@ -67,7 +67,7 @@ this manual.
 Tutorial                                                 <a name="tutorial"></a>
 --------
 
-The xdt99 tools are command line tools that lack a graphical user interface.
+The xdt99 tools are command line tolls that lack a graphical user interface.
 While this choice will somewhat steepen the learning curve for some users, the
 command line is ultimately very suited for repetitive tasks, as encountered 
 while developing programs.
@@ -2547,12 +2547,12 @@ manual.
 
 As the Graphics Programming Language was never intended for public release,
 existing tools for assembling GPL source code differ substantially in the syntax
-they use.  `xga99` adopts a combination of the Ryte Data and the RAG GPL
-Assemblers' syntax as its native format.
+they use.  `xga99` supports both the Ryte Data and the RAG assemblers' syntax as
+its native format.
 
 We can choose other syntax styles, however, with the _syntax option_ `-y`.
-Currently, the only extra syntax is the syntax of the TI Image Tool
-disassembler, available with name `mizapf` (named after the creator of the image
+Currently, the only other syntax supported is the syntax of the TI Image Tool
+disassembler, available with `mizapf` (named after the creator of the image
 tool).
 
     $ xga99.py gahello_timt.gpl -y mizapf
@@ -2560,10 +2560,20 @@ tool).
 Note that the original GPL syntax described in TI's _GPL Programmer's Guide_ is
 considered too arcane to be included in `xga99`.
 
-The native `xga99` syntax style is more "modern" in that it supports lower case
+The native `xga99` syntax style is more modern in that it supports lower case
 sources, extended expressions, relaxed labels, local labels, and relaxed use of
-whitespace, including the relaxed syntax mode, similar to `xas99`.  Both
-cross-assemblers also share the same preprocessor.
+whitespace.
+
+To assemble legacy sources written for the Ryte Data or RAG assemblers, we need
+to provide the _strict syntax option_ `-s`, which also disables various `xga99` 
+extensions.  To add the predefined symbols provided by the Ryte Data assembler,
+we can use the _Ryte Data symbols_ option `-R`.
+
+In contrast, the _relaxed syntax mode_ `-r` enables the least
+restrictive syntax, where whitespace can be used freely, but comments must be
+introduced by `;`.
+
+The `xga99` preprocessor is identical to the `xas99` one.
 
 As for `xas99`, warnings and errors are _colored_ by default, which may be
 controlled with the `--color` option.  Frequently used options can be stored in

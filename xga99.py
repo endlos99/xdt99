@@ -2,7 +2,7 @@
 
 # xga99: A GPL cross-assembler
 #
-# Copyright (c) 2015-2023 Ralph Benzinger <r@0x01.de>
+# Copyright (c) 2015-2024 Ralph Benzinger <r@0x01.de>
 #
 # This program is part of the TI 99 Cross-Development Tools (xdt99).
 #
@@ -28,7 +28,7 @@ import zipfile
 from xcommon import CommandProcessor, RFile, Util, Warnings, Console
 
 
-VERSION = '3.6.1'
+VERSION = '3.6.5'
 
 CONFIG = 'XGA99_CONFIG'
 
@@ -419,7 +419,7 @@ class Directives:
 class Symbols:
     """symbol table and line counter"""
 
-    def __init__(self, definitions=None):
+    def __init__(self, definitions=None, ryte_symbols=False):
         self.symbols = {}  # name: (value, used)
         self.symbol_def_location = {}  # symbol definition location (lino, filename)
         self.updated = False  # has at least one value changed?
@@ -453,8 +453,55 @@ class Symbols:
             'VPAB': 0x8356,
             'VSTACK': 0x836e
         }
+        self.ryte_data_defs = {
+            'ACCTON': 0x0034,
+            'ATN': 0x0032,
+            'BADTON': 0x0036,
+            'BITREV': 0x003B,
+            'CFI': 0x0012,
+            'CNS': 0x0014,
+            'COS': 0x002c,
+            'CSN': 0x0010,
+            'DIVZER': 0x0001,
+            'ERRIOV': 0x0003,
+            'ERRLOG': 0x0006,
+            'ERRNIP': 0x0005,
+            'ERRSNN': 0x0002,
+            'ERRSQR': 0x0004,
+            'EXPF': 0x0028,
+            'FADD': 0x0006,
+            'FCOMP': 0x000a,
+            'FDIV': 0x0009,
+            'FMUL': 0x0008,
+            'FSUB': 0x0007,
+            'GETSPACE': 0x0038,
+            'INT': 0x0022,
+            'LINK': 0x0010,
+            'LOCASE': 0x0018,
+            'LOG': 0x002a,
+            'MEMSIZ': 0x8370,
+            'NAMLNK': 0x003d,
+            'PAD': 0x8300,
+            'PWR': 0x0024,
+            'RETURN': 0x0012,
+            'SADD': 0x000b,
+            'SCOMP': 0x000f,
+            'SDIV': 0x000e,
+            'SIN': 0x002e,
+            'SMUL': 0x000d,
+            'SOUND': 0x8400,
+            'SQR': 0x0026,
+            'SSUB': 0x000c,
+            'STCASE': 0x0016,
+            'TAN': 0x0030,
+            'TRIGER': 0x0007,
+            'UPCASE': 0x004a,
+            'WRNOV': 0x0001
+        }
         if definitions:
             self.add_env(definitions)
+        if ryte_symbols:
+            self.definitions.update(self.ryte_data_defs)
 
     def reset(self):
         self.updated = False
@@ -603,6 +650,7 @@ class Syntax:
             (r'^HCHA\b', 'HCHAR'),
             (r'^VCHA\b', 'VCHAR'),
             (r'^SCRO\b', 'BIAS'),
+            (r'^CARR\b', 'CARRY'),
             (r'&([01]+)', r':\1'),
             (r'^IDT\b', 'TITLE'),  # RAG
             (r'^IO\b', 'I/O'),
@@ -824,12 +872,13 @@ class IntmLine:
 class Parser:
     """scanner and parser class"""
 
-    def __init__(self, symbols, console, syntax, path, includes=None, relaxed=False):
+    def __init__(self, symbols, console, syntax, path, includes=None, strict=False, relaxed=False):
         self.symbols = symbols
         self.console = console
         self.syntax = Syntax.get(syntax)
         self.path = self.initial_path = path  # current file path, used for includes
         self.includes = includes or []  # do not include '.'
+        self.strict = strict
         self.relaxed = relaxed
         self.prep = Preprocessor(self)
         self.text_literals = []
@@ -937,7 +986,6 @@ class Parser:
 
     def intermediate_lines(self):
         """return preprocessed source code"""
-        #lino, line, filename, self.parser.path, self.symbols.lidx,
         for imline in self.intermediate_source:
             self.lino = imline.lino
             self.srcline = imline.line
@@ -950,23 +998,42 @@ class Parser:
         """parse single source line"""
         if not line or line[0] == '*':
             return None, None, None, None, False
-        instruction, *line_comment = self.escape(line).split(';', maxsplit=1)
-        comment = line_comment[0] if line_comment else ''
-        label, *remainder = re.split(r'\s+', instruction, maxsplit=1)
-        instrtext = remainder[0] if remainder else ''
-        # convert to native syntax
-        for pat, repl in self.syntax.repls:
-            instrtext = re.sub(pat, repl, instrtext)
-        # analyze instruction
-        mnemonic, *opsremainder = re.split(r'\s+', instrtext, maxsplit=1)
-        opfield = opsremainder[0] if opsremainder else ''
-        # operands
-        if self.relaxed:
-            operands = [op.strip() for op in opfield.split(',')] if opfield else []
-        else:  # opfield may still contain non-delimited comments
-            optext, *inl_comments = re.split(r' {2,}|\t', opfield, maxsplit=1)
-            operands = [op.strip() for op in optext.split(',')] if optext else []
-            comment = ' '.join(inl_comments) + comment
+        if self.strict:
+            if line.lstrip()[:1] == '*':
+                return None, None, None, None, False
+            label, *parts = re.split(r'\s+', self.escape(line))
+            mnem, ops, *cparts = parts + ['', '']
+            if ops == '*':
+                # '*' followed by space is start of comment
+                comment = ''.join([ops, *cparts])
+                instrtext = mnem
+            else:
+                comment = ''.join(cparts)
+                instrtext = (mnem + ' ' + ops) if ops else mnem
+            # convert to native syntax
+            for pat, repl in self.syntax.repls:
+                instrtext = re.sub(pat, repl, instrtext)
+            # analyze instruction
+            mnemonic, *ops = re.split(r'\s+', instrtext)
+            operands = ops[0].split(',') if ops else []
+        else:
+            instruction, *line_comment = self.escape(line).split(';', maxsplit=1)
+            comment = line_comment[0] if line_comment else ''
+            label, *remainder = re.split(r'\s+', instruction, maxsplit=1)
+            instrtext = remainder[0] if remainder else ''
+            # convert to native syntax
+            for pat, repl in self.syntax.repls:
+                instrtext = re.sub(pat, repl, instrtext)
+            # analyze instruction
+            mnemonic, *opsremainder = re.split(r'\s+', instrtext, maxsplit=1)
+            opfield = opsremainder[0] if opsremainder else ''
+            # operands
+            if self.relaxed:
+                operands = [op.strip() for op in opfield.split(',')] if opfield else []
+            else:  # opfield may still contain non-delimited comments
+                optext, *inl_comments = re.split(r' {2,}|\t', opfield, maxsplit=1)
+                operands = [op.strip() for op in optext.split(',')] if optext else []
+                comment = ' '.join(inl_comments) + comment
         return label, mnemonic, operands, comment, True
 
     def escape(self, text):
@@ -1342,20 +1409,21 @@ class Segment:
 class Assembler:
     """generate GPL virtual machine code"""
 
-    def __init__(self, syntax, grom, aorg, target, path, includes=None, definitions=(), relaxed=False, debug=False,
-                 console=None):
+    def __init__(self, syntax, grom, aorg, target, path, includes=None, definitions=(), strict=False, relaxed=False,
+                 ryte_symbols=False, debug=False, console=None):
         self.syntax = syntax
         self.includes = includes
         self.grom = grom
         self.offset = aorg
+        self.strict = strict
         self.relaxed = relaxed
         self.debug_passes = debug
         self.target = target
         self.program = Program()
-        self.symbols = Symbols(definitions)
+        self.symbols = Symbols(definitions, ryte_symbols=ryte_symbols)
         self.console = console or Xga99Console()
-        self.parser = Parser(self.symbols, self.console, syntax=self.syntax, relaxed=relaxed, path=path,
-                             includes=self.includes)
+        self.parser = Parser(self.symbols, self.console, syntax=self.syntax, strict=strict, relaxed=relaxed,
+                             path=path, includes=self.includes)
         self.console.set_parser(self.parser)
         self.listing = Listing()
         self.segment = None
@@ -1498,7 +1566,8 @@ class Assembler:
             self.segment.LC = self.symbols.LC
         for fn, symbols in self.symbols.get_unused_symbols().items():
             symbols_text = ', '.join(symbols)
-            self.console.warn('Unused constants: ' + symbols_text.lower(), filename=fn, nopos=True, force=True)
+            self.console.warn('Unused constants: ' + (symbols_text.upper() if self.strict else symbols_text.lower()),
+                              filename=fn, nopos=True, force=True)
 
     @staticmethod
     def get_target(cart, text):
@@ -1785,8 +1854,8 @@ class Xga99Console(Console):
     def _format(self, message, pass_no, filename, lino, line, error=False):
         """print all console messages to stderr"""
         text = 'Error' if error else 'Warning'
-        s_filename = filename or '---'
-        s_pass = str(pass_no) if pass_no is not None else '-'
+        s_filename = filename or '***'
+        s_pass = str(pass_no) if pass_no is not None else '*'
         s_lino = f'{lino:04d}' if lino is not None else '****'
         s_line = line or ''
         return f'> {s_filename} <{s_pass}> {s_lino} - {s_line}', f'***** {text:s}: {message}'
@@ -1903,6 +1972,8 @@ class Xga99Processor(CommandProcessor):
                          help='create MAME cartridge image with auto GPL header')
         cmd.add_argument('-t', '--text', dest='text', nargs='?', metavar='<format>',
                          help='create text file with binary values')
+        args.add_argument('-s', '--strict', action='store_true', dest='strict',
+                          help='use strict syntax, disable xga99 extensions')
         args.add_argument('-n', '--name', dest='name', metavar='<name>',
                           help='set program name')
         args.add_argument('-B', '--fully-padded', action='store_true', dest='pad',
@@ -1927,6 +1998,8 @@ class Xga99Processor(CommandProcessor):
                           help='add symbol table to listing file')
         args.add_argument('-E', '--symbol-file', dest='equs', metavar='<file>',
                           help='put symbols in EQU file')
+        args.add_argument('-R', '--ryte-data-symbols', action='store_true', dest='rytesyms',
+                          help='add Ryte Data symbols')
         args.add_argument('-q', '--quiet', action='store_true', dest='quiet',
                           help='quiet; do not show warnings')
         args.add_argument('--color', action='store', dest='color', choices=['off', 'on'],
@@ -1966,7 +2039,9 @@ class Xga99Processor(CommandProcessor):
                              path=dirname,
                              includes=includes,
                              definitions=Util.get_opts_list(self.opts.defs),
+                             strict=self.opts.strict,
                              relaxed=self.opts.relaxed,
+                             ryte_symbols=self.opts.rytesyms,
                              debug=self.opts.debug,
                              console=self.console)
         self.asm.assemble(basename)

@@ -1,3 +1,25 @@
+Changes Version 3.6.5
+=====================
+
+xga99 GPL Cross-Assembler
+-------------------------
+
+The native `xga99` syntax style is more modern in that it supports lower case
+sources, extended expressions, relaxed labels, local labels, and relaxed use of
+whitespace.
+
+To assemble legacy sources written for the Ryte Data or RAG assemblers, we need
+to provide the _strict syntax option_ `-s`, which also disables various `xga99` 
+extensions.  To add the predefined symbols provided by the Ryte Data assembler,
+we can use the _Ryte Data symbols_ option `-R`.
+
+In contrast, the _relaxed syntax mode_ `-r` enables the least
+restrictive syntax, where whitespace can be used freely, but comments must be
+introduced by `;`.
+
+The `xga99` preprocessor is identical to the `xas99` one.
+
+
 Changes Version 3.6.1
 =====================
 

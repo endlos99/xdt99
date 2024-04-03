@@ -80,9 +80,9 @@ def runtest():
     source = os.path.join(Dirs.gplsources, 'gauusym.gpl')
     with open(Files.error, 'w') as ferr:
         xga(source, '--color', 'off', '-o', Files.output, stderr=ferr, rc=0)
-    expected = """> gauusym.gpl <-> **** - 
+    expected = """> gauusym.gpl <*> **** - 
  ***** Warning: Unused constants: s1:5
- > gauusymi.gpl <-> **** - 
+ > gauusymi.gpl <*> **** - 
  ***** Warning: Unused constants: si:1
 """
     if content_lines(Files.error, skip=1) != expected:

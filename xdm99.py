@@ -2,7 +2,7 @@
 
 # xdm99: A disk manager for TI disk images
 #
-# Copyright (c) 2015-2023 Ralph Benzinger <xdt99@endlos.net>
+# Copyright (c) 2015-2024 Ralph Benzinger <xdt99@endlos.net>
 #
 # This program is part of the TI 99 Cross-Development Tools (xdt99).
 #
